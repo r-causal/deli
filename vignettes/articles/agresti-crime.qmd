@@ -1,0 +1,321 @@
+---
+title: "Agresti & Finlay (2009): Robust Regression"
+knitr:
+  opts_chunk:
+    collapse: true
+    comment: '#>'
+---
+
+```{r}
+#| label: setup
+library(deli)
+```
+
+This example demonstrates robust regression using data from *Statistical Methods
+for Social Sciences*, 3rd Edition by Alan Agresti and Barbara Finlay. Violent
+crime is modeled as a function of poverty and the percentage of single parents,
+at the US state level. The applied example follows the
+[UCLA tutorial](https://stats.oarc.ucla.edu/r/dae/robust-regression/) with data
+from the 2005 *Statistical Abstract of the United States*, available
+[here](https://users.stat.ufl.edu/~aa/social/data.html).
+
+## Data
+
+The data contain 51 observations (50 US states plus Washington DC). We load
+the data and standardize the crime outcome.
+
+```{r}
+#| label: data
+d <- crime
+d$intercept <- 1
+d$crime_std <- (d$crime - mean(d$crime)) / sd(d$crime)
+
+X <- as.matrix(d[, c("intercept", "poverty", "single")])
+y <- d$crime_std
+```
+
+## Linear Regression
+
+We start by modeling the standardized crime rate as a function of poverty and
+single parent percentage using ordinary least squares. The estimating equation
+for linear regression is
+
+$$
+\sum_{i=1}^{n}
+\begin{bmatrix}
+  (Y_i - \hat{Y}_i) \\
+  (Y_i - \hat{Y}_i) P_i \\
+  (Y_i - \hat{Y}_i) S_i
+\end{bmatrix}
+= 0
+$$
+
+where $Y$ is the crime rate, $P$ is poverty, $S$ the proportion of single
+parents, and $\hat{Y}_i = \theta_0 + \theta_1 P_i + \theta_2 S_i$.
+
+```{r}
+#| label: ols
+estr <- MEstimator(
+  stacked_equations = function(theta) {
+    ee_regression(theta, X = X, y = y, model = "linear")
+  },
+  init = c(0, 0, 0)
+)
+estr <- estimate(estr)
+
+# Save OLS estimates for use as initial values in robust regression
+ols_theta <- unname(estr@theta)
+
+data.frame(
+  Param = c("Intercept", "Poverty", "Single"),
+  Coef = round(estr@theta, 2),
+  LCL = round(confidence_intervals(estr)[, 1], 2),
+  UCL = round(confidence_intervals(estr)[, 2], 2)
+)
+```
+
+## Robust Regression
+
+Robust regression limits the influence of outliers by applying a function $f$
+to the residuals. The resulting estimating equation is
+
+$$
+\sum_{i=1}^{n} f_k(Y_i - X_i^T \theta)\, X_i = 0
+$$
+
+where $f_k$ is the chosen robust loss function with tuning parameter $k$.
+Different choices of $f_k$ impose different constraints on how much any single
+observation can shift the solution.
+
+The redescending losses (Andrew's Sine, Ullah, and Hampel) drive the
+contribution of large residuals to zero. These estimating equations are
+non-convex and can have several roots, so we start each of these fits from
+zero and use the Levenberg-Marquardt solver, matching the reference analysis.
+For this data the point estimates are stable, but the interval estimates for
+Andrew's Sine and Hampel are numerically delicate. Both losses set the score
+to exactly zero beyond a hard cut-off, so the derivative that forms the bread
+matrix is discontinuous at that cut-off. One observation (Washington DC) is a
+pronounced outlier whose Andrew residual lands exactly on the cut-off, where
+that derivative is undefined. Exact automatic differentiation and finite
+differencing resolve the kink on opposite sides, so they return different but
+individually defensible variances. The Andrew and Hampel confidence limits
+should therefore be read as approximate and can shift with the derivative
+method. Ullah is redescending but smooth, with no hard cut-off, so its bread
+derivative is well defined and its interval is stable.
+
+### Huber
+
+The Huber function caps residual contributions at $\pm k$. While $k = 1.345$ is
+commonly recommended, we use $k = 1$ here.
+
+```{r}
+#| label: huber
+estr <- MEstimator(
+  stacked_equations = function(theta) {
+    ee_robust_regression(theta, X = X, y = y, model = "linear",
+                         loss = "huber", k = 1)
+  },
+  init = c(0, 0, 0)
+)
+estr <- estimate(estr)
+
+data.frame(
+  Param = c("Intercept", "Poverty", "Single"),
+  Coef = round(estr@theta, 2),
+  LCL = round(confidence_intervals(estr)[, 1], 2),
+  UCL = round(confidence_intervals(estr)[, 2], 2)
+)
+```
+
+### Fair
+
+Like Huber, the Fair function is monotonic but tapers continuously rather than
+having a sharp hinge point. We set $k = 1$.
+
+```{r}
+#| label: fair
+estr <- MEstimator(
+  stacked_equations = function(theta) {
+    ee_robust_regression(theta, X = X, y = y, model = "linear",
+                         loss = "fair", k = 1)
+  },
+  init = c(0, 0, 0)
+)
+estr <- estimate(estr)
+
+data.frame(
+  Param = c("Intercept", "Poverty", "Single"),
+  Coef = round(estr@theta, 2),
+  LCL = round(confidence_intervals(estr)[, 1], 2),
+  UCL = round(confidence_intervals(estr)[, 2], 2)
+)
+```
+
+### Cauchy
+
+The Cauchy function begins to reduce outlier influence beyond a certain point
+but does not shrink contributions fully to zero. We set $k = 1$.
+
+```{r}
+#| label: cauchy
+# Use OLS estimates as starting values. Redescending loss functions have
+# multiple roots, so c(0,0,0) can converge to a spurious solution.
+estr <- MEstimator(
+  stacked_equations = function(theta) {
+    ee_robust_regression(theta, X = X, y = y, model = "linear",
+                         loss = "cauchy", k = 1)
+  },
+  init = ols_theta
+)
+estr <- estimate(estr)
+
+data.frame(
+  Param = c("Intercept", "Poverty", "Single"),
+  Coef = round(estr@theta, 2),
+  LCL = round(confidence_intervals(estr)[, 1], 2),
+  UCL = round(confidence_intervals(estr)[, 2], 2)
+)
+```
+
+### Andrew's Sine
+
+Andrew's Sine allows the same maximum influence as Huber at $k$ but varies
+smoothly and shrinks outlier contributions to zero at high levels. We set
+$k = 1$.
+
+```{r}
+#| label: andrew
+# The redescending losses are non-convex. Following the reference analysis,
+# we start from zero and use the Levenberg-Marquardt solver ("lm"). Andrew's
+# score is zero beyond a hard cut-off, so its bread derivative is discontinuous
+# there; we take the derivative by exact automatic differentiation to get a
+# deterministic variance at that discontinuity.
+estr <- MEstimator(
+  stacked_equations = function(theta) {
+    ee_robust_regression(theta, X = X, y = y, model = "linear",
+                         loss = "andrew", k = 1)
+  },
+  init = c(0, 0, 0)
+)
+estr <- estimate(estr, solver = "lm", deriv_method = "exact")
+
+data.frame(
+  Param = c("Intercept", "Poverty", "Single"),
+  Coef = round(estr@theta, 2),
+  LCL = round(confidence_intervals(estr)[, 1], 2),
+  UCL = round(confidence_intervals(estr)[, 2], 2)
+)
+```
+
+### Welsch
+
+The Welsch function has a similar shape to Andrew's Sine but differs in
+steepness at the same value of $k$. We set $k = 1$.
+
+```{r}
+#| label: welsch
+estr <- MEstimator(
+  stacked_equations = function(theta) {
+    ee_robust_regression(theta, X = X, y = y, model = "linear",
+                         loss = "welsch", k = 1)
+  },
+  init = c(0, 0, 0)
+)
+estr <- estimate(estr)
+
+data.frame(
+  Param = c("Intercept", "Poverty", "Single"),
+  Coef = round(estr@theta, 2),
+  LCL = round(confidence_intervals(estr)[, 1], 2),
+  UCL = round(confidence_intervals(estr)[, 2], 2)
+)
+```
+
+### Ullah
+
+The Ullah function shares a similar shape to the previous redescending
+functions. We set $k = 1$.
+
+```{r}
+#| label: ullah
+# Start from zero with the Levenberg-Marquardt solver, matching the reference
+# analysis, and take the derivative by exact automatic differentiation.
+estr <- MEstimator(
+  stacked_equations = function(theta) {
+    ee_robust_regression(theta, X = X, y = y, model = "linear",
+                         loss = "ullah", k = 1)
+  },
+  init = c(0, 0, 0)
+)
+estr <- estimate(estr, solver = "lm", deriv_method = "exact")
+
+data.frame(
+  Param = c("Intercept", "Poverty", "Single"),
+  Coef = round(estr@theta, 2),
+  LCL = round(confidence_intervals(estr)[, 1], 2),
+  UCL = round(confidence_intervals(estr)[, 2], 2)
+)
+```
+
+### Tukey's Biweight
+
+Tukey's biweight substantially reduces the influence of outlying observations.
+Small values of $k$ produce large standard errors, so we use $k = 5$.
+
+```{r}
+#| label: tukey
+estr <- MEstimator(
+  stacked_equations = function(theta) {
+    ee_robust_regression(theta, X = X, y = y, model = "linear",
+                         loss = "tukey", k = 5)
+  },
+  init = c(0, 0, 0)
+)
+estr <- estimate(estr)
+
+data.frame(
+  Param = c("Intercept", "Poverty", "Single"),
+  Coef = round(estr@theta, 2),
+  LCL = round(confidence_intervals(estr)[, 1], 2),
+  UCL = round(confidence_intervals(estr)[, 2], 2)
+)
+```
+
+### Hampel
+
+The Hampel function mimics Huber until a set point, then linearly decreases
+contributions to zero. Unlike the other functions, it takes three tuning
+parameters. In R these are passed as `k = c(a, b, c)` where `a` is the first
+hinge, `b` the plateau upper limit, and `c` the zero point.
+
+```{r}
+#| label: hampel
+# Start from zero with the Levenberg-Marquardt solver, matching the reference
+# analysis, and take the derivative by exact automatic differentiation. The
+# tuning constants k = c(1/3, 4/3, 2) correspond to the reference parameters
+# k = 2, lower = 1/3, upper = 4/3.
+estr <- MEstimator(
+  stacked_equations = function(theta) {
+    # k = c(a, b, c) where a < b < c
+    ee_robust_regression(theta, X = X, y = y, model = "linear",
+                         loss = "hampel", k = c(1/3, 4/3, 2))
+  },
+  init = c(0, 0, 0)
+)
+estr <- estimate(estr, solver = "lm", deriv_method = "exact")
+
+data.frame(
+  Param = c("Intercept", "Poverty", "Single"),
+  Coef = round(estr@theta, 2),
+  LCL = round(confidence_intervals(estr)[, 1], 2),
+  UCL = round(confidence_intervals(estr)[, 2], 2)
+)
+```
+
+## References
+
+Agresti A & Finlay B. (2009). *Statistical Methods for the Social Sciences*,
+4th Edition. Pearson.
+
+UCLA Advanced Research Computing. Robust regression.
+<https://stats.oarc.ucla.edu/r/dae/robust-regression/>

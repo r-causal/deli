@@ -1,0 +1,348 @@
+---
+title: "Ash (2022): Cheminformatics Application"
+knitr:
+  opts_chunk:
+    collapse: true
+    comment: '#>'
+---
+
+```{r}
+#| label: setup
+library(deli)
+```
+
+The following is a replication of the applied analysis of Ash & Hughes-Oliver
+(2022), which uses data from Empereur-Mot et al. (2016). The authors discuss
+estimation of the 'hit enrichment curve', which is a function commonly used to
+summarize effectiveness of a virtual drug screening campaign. In the example,
+the authors are focused on estimating the hit enrichment curve for the protein
+regulating gene peroxisome proliferator-activated receptor gamma (PPARg). This
+was done using three different docking methods: Surflex-dock, ICM, and Vina. To
+compare the hit enrichment curves from these different docking methods, the
+authors discuss the use of confidence bands. The original materials for the
+paper can be found
+[HERE](https://github.com/jrash/Enrichment-Inference-Supplemental-Materials).
+
+Here, we will show how `deli` can be used to construct confidence bands
+in the context of hit enrichment curves.
+
+## Loading Data
+
+```{r}
+#| label: load-data
+d <- pparg
+
+# Extracting relevant data for hit enrichment curve estimation
+active <- d$surf_actives   # Outcome variable for hit enrichment
+x_mxz <- d$maxz_scores     # Max Z-score docking
+x_srf <- d$surf_scores     # Surflex-docking
+x_icm <- d$icm_scores      # ICM docking
+```
+
+## Empirical Distribution Function
+
+As in Ash & Hughes-Oliver, we are interested in estimating the hit enrichment
+curve. They define the hit enrichment curve at the point $s$ as the recall curve
+divided by the percent-captured curve. Here, $s$ is a set of scores the
+correspond to the belief that a ligand is active. For a given threshold $s$, the
+estimator of the hit enrichment curve is
+$$ \hat{H}(s) = \frac{\hat{\beta}(s)}{\hat{\rho}(s)} $$
+where
+$$ \hat{\beta}(s) = \frac{\sum_{i=1}^n A_i I(S_i \ge s)}{\sum_{i=1}^n A_i}, $$
+$$ \hat{\rho}(s) = \frac{1}{n} \sum_{i=1}^n I(S_i \ge s), $$
+$A_i$ denotes a 'hit' or the activity value, and $S_i$ denotes the active
+ligand score. To plot the estimated hit enrichment curve, we will plot the
+ordered pairs $(\rho(s), \beta(s))$ for $s$.
+
+The estimating function for these parameters are
+$$ \psi(O_i; \beta(s)) = A_i \left( I(S_i \ge s) - \beta(s) \right) $$
+$$ \psi(O_i; \beta(s)) = I(S_i \ge s) - \rho(s) $$
+respectively. However, we are interested in plotting the complete curve (not
+only one point). To estimate this function, let $s_k \in \{s_1, ..., s_K\}$
+denote the set of unique observed values of $S_i$ where $A_i = 1$ in the data.
+Here, the stacked estimating functions expand to the number $K$. Note the the
+number of estimating functions (and parameters) is now a function of $n$ (via
+$K$). This seemingly subtle change has important implications for inference.
+Specifically, the theory from Stefanski & Boos 2002 is no longer adequate.
+Instead, we need an extension. See Kosorok 2008 for those details.
+
+We will start by estimating the cumulative distribution function for Max
+Z-score docking.
+
+```{r}
+#| label: unique-mxz
+# All unique values for A=1, excluding the first
+unique_mxz <- sort(unique(x_mxz[active == 1]))[-1]
+# Number of unique values, K
+n_unique_mxz <- length(unique_mxz)
+```
+
+### Estimating equations for the EDF
+
+```{r}
+#| label: psi-edf-mxz
+psi_edf <- function(theta) {
+  # Separating parameters into subsets
+  beta <- theta[1:n_unique_mxz]
+  rho <- theta[(n_unique_mxz + 1):(n_unique_mxz * 2)]
+
+  # Indicator matrix: each row is a unique value, each column is an observation
+  indicator_matrix <- outer(unique_mxz, x_mxz, FUN = "<=")
+  indicator_matrix <- indicator_matrix * 1  # Convert logical to integer
+
+  # Recall fractions at all ranks, then scale each observation by its activity
+  ef_hedf <- sweep(indicator_matrix - beta, 2, active, "*")
+
+  # Fraction tests at all ranks
+  ef_fedf <- indicator_matrix - rho
+
+  # Stacking the estimating functions
+  rbind(ef_hedf, ef_fedf)
+}
+```
+
+### Estimation
+
+```{r}
+#| label: estimate-mxz
+# Initial values
+init_vals <- c(
+  seq(0.99, 0.01, length.out = n_unique_mxz),
+  seq(0.99, 0.01, length.out = n_unique_mxz)
+)
+
+# M-Estimation with the Levenberg-Marquardt solver, matching the reference
+# analysis
+estr <- MEstimator(psi_edf, init = init_vals)
+estr <- estimate(estr, solver = "lm")
+```
+
+## Confidence Bands
+
+While we could present confidence intervals in our figure, these can be
+misleading when presenting functions. Confidence intervals claim to cover the
+parameter at the advertised rate. As such, coverage of a *function* will be
+below that level. Therefore, when presenting functions we should instead
+consider presenting confidence bands. Confidence bands modify the critical value
+so that a set of modified confidence intervals have coverage at the advertised
+rate. The most familiar method is the Bonferroni correction. However, the
+Bonferroni correction can be overly conservative (and is not appropriate to
+apply in this setting). Instead, we use the sup-t method as described in the
+referenced paper. See Zivich et al. (2025) for further details.
+
+```{r}
+#| label: cbands-mxz
+# Confidence bands using sup-t method
+cbands <- confidence_bands(estr, method = "supt", seed = 2101101)
+cbands <- cbands[1:n_unique_mxz, ]
+```
+
+To illustrate the difference between the two methods to compute confidence
+regions, we will also compute the confidence intervals here.
+
+```{r}
+#| label: cints-mxz
+# Confidence intervals
+cints <- confidence_intervals(estr)
+cints <- cints[1:n_unique_mxz, ]
+```
+
+### Plotting the hit enrichment curve
+
+Now we will recreate the plot in Figure 5 of Ash & Hughes-Oliver.
+
+```{r}
+#| label: plot-mxz
+# Extract rho values (fraction tested)
+x_vals <- estr@theta[(n_unique_mxz + 1):(n_unique_mxz * 2)]
+# Extract beta values (hit enrichment)
+y_vals <- estr@theta[1:n_unique_mxz]
+
+plot(
+  x_vals, y_vals,
+  type = "s", col = "black",
+  log = "x",
+  xlab = "Fraction Tested",
+  ylab = "Hit Enrichment"
+)
+
+# Confidence intervals (red shading)
+polygon(
+  c(x_vals, rev(x_vals)),
+  c(cints[, 1], rev(cints[, 2])),
+  col = adjustcolor("red", alpha.f = 0.2),
+  border = NA
+)
+
+# Confidence bands (blue shading)
+polygon(
+  c(x_vals, rev(x_vals)),
+  c(cbands[, 1], rev(cbands[, 2])),
+  col = adjustcolor("blue", alpha.f = 0.2),
+  border = NA
+)
+```
+
+The estimated hit enrichment curve is comparable to the one reported in Figure 5
+of the paper. There might be slight differences due to minor differences in
+estimators (we ignore ties) and the sup-t confidence bands rely on a resampling
+process (so there can be Monte-Carlo errors).
+
+Importantly, we see that the confidence intervals are much narrower than the
+confidence bands. This illustrates how the confidence *intervals* can be
+misleading when making inferences for functions. Hence why focusing on the
+confidence *bands* in settings like this is preferred for statistical inference.
+
+Now let's compute and plot the functions for the three methods described in the
+paper and their corresponding confidence bands.
+
+## Comparing Docking Methods
+
+### Storing Max Z-score results
+
+```{r}
+#| label: store-mxz
+# Storing outputs from max Z-scores
+beta_mxz <- estr@theta[1:n_unique_mxz]
+rho_mxz <- estr@theta[(n_unique_mxz + 1):(n_unique_mxz * 2)]
+cb_mxz <- cbands
+```
+
+### Surflex docking
+
+```{r}
+#| label: surflex
+# Computing for Surflex method
+unique_srf <- sort(unique(x_srf[active == 1]))[-1]
+n_unique_srf <- length(unique_srf)
+
+psi_edf_srf <- function(theta) {
+  # Separating parameters into subsets
+  beta <- theta[1:n_unique_srf]
+  rho <- theta[(n_unique_srf + 1):(n_unique_srf * 2)]
+
+  # Indicator matrix
+  indicator_matrix <- outer(unique_srf, x_srf, FUN = "<=") * 1
+
+  # Recall fractions at all ranks, then scale each observation by its activity
+  ef_hedf <- sweep(indicator_matrix - beta, 2, active, "*")
+
+  # Fraction tests at all ranks
+  ef_fedf <- indicator_matrix - rho
+
+  # Stacking the estimating functions
+  rbind(ef_hedf, ef_fedf)
+}
+
+# Estimation
+init_vals <- c(
+  seq(0.99, 0.01, length.out = n_unique_srf),
+  seq(0.99, 0.01, length.out = n_unique_srf)
+)
+estr <- MEstimator(psi_edf_srf, init = init_vals)
+estr <- estimate(estr, solver = "lm")
+
+# Confidence bands computation
+cbands <- confidence_bands(estr, method = "supt", seed = 2101101)
+cbands <- cbands[1:n_unique_srf, ]
+
+# Storing outputs
+beta_srf <- estr@theta[1:n_unique_srf]
+rho_srf <- estr@theta[(n_unique_srf + 1):(n_unique_srf * 2)]
+cb_srf <- cbands
+```
+
+### ICM docking
+
+```{r}
+#| label: icm
+# Computing for ICM method
+unique_icm <- sort(unique(x_icm[active == 1]))[-1]
+n_unique_icm <- length(unique_icm)
+
+psi_edf_icm <- function(theta) {
+  # Separating parameters into subsets
+  beta <- theta[1:n_unique_icm]
+  rho <- theta[(n_unique_icm + 1):(n_unique_icm * 2)]
+
+  # Indicator matrix
+  indicator_matrix <- outer(unique_icm, x_icm, FUN = "<=") * 1
+
+  # Recall fractions at all ranks, then scale each observation by its activity
+  ef_hedf <- sweep(indicator_matrix - beta, 2, active, "*")
+
+  # Fraction tests at all ranks
+  ef_fedf <- indicator_matrix - rho
+
+  # Stacking the estimating functions
+  rbind(ef_hedf, ef_fedf)
+}
+
+# Estimation
+init_vals <- c(
+  seq(0.99, 0.01, length.out = n_unique_icm),
+  seq(0.99, 0.01, length.out = n_unique_icm)
+)
+estr <- MEstimator(psi_edf_icm, init = init_vals)
+estr <- estimate(estr, solver = "lm")
+
+# Confidence bands computation
+cbands <- confidence_bands(estr, method = "supt", seed = 2101101)
+cbands <- cbands[1:n_unique_icm, ]
+
+# Storing outputs
+beta_icm <- estr@theta[1:n_unique_icm]
+rho_icm <- estr@theta[(n_unique_icm + 1):(n_unique_icm * 2)]
+cb_icm <- cbands
+```
+
+### Comparison plot
+
+```{r}
+#| label: comparison-plot
+# Max Z-score (blue)
+plot(
+  rho_mxz, beta_mxz,
+  type = "s", col = "blue",
+  log = "x",
+  xlab = "Fraction Tested",
+  ylab = "Hit Enrichment",
+  ylim = range(c(cb_mxz, cb_srf, cb_icm))
+)
+polygon(
+  c(rho_mxz, rev(rho_mxz)),
+  c(cb_mxz[, 1], rev(cb_mxz[, 2])),
+  col = adjustcolor("blue", alpha.f = 0.2),
+  border = NA
+)
+
+# Surflex (red)
+lines(rho_srf, beta_srf, type = "s", col = "red")
+polygon(
+  c(rho_srf, rev(rho_srf)),
+  c(cb_srf[, 1], rev(cb_srf[, 2])),
+  col = adjustcolor("red", alpha.f = 0.2),
+  border = NA
+)
+
+# ICM (gold)
+lines(rho_icm, beta_icm, type = "s", col = "gold")
+polygon(
+  c(rho_icm, rev(rho_icm)),
+  c(cb_icm[, 1], rev(cb_icm[, 2])),
+  col = adjustcolor("gold", alpha.f = 0.2),
+  border = NA
+)
+```
+
+The plot closely aligns with the complete Figure 5.
+
+## References
+
+Ash JR, & Hughes-Oliver JM. (2022). "Confidence bands and hypothesis tests for hit enrichment curves". *Journal of Cheminformatics*, 14(1), 50.
+
+Empereur-Mot C, Zagury JF, & Montes M. (2016). "Screening explorer--An interactive tool for the analysis of screening results". *Journal of Chemical Information and Modeling*, 56(12), 2281-2286.
+
+Kosorok MR. (2008). Introduction to empirical processes and semiparametric inference. New York, NY: Springer New York.
+
+Zivich PN, Cole SR, Greifer N, Montoya LM, Kosorok MR, & Edwards JK. (2025). "Confidence Regions for Multiple Outcomes, Effect Modifiers, and Other Multiple Comparisons". *arXiv:2510.07076*

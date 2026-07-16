@@ -1,0 +1,447 @@
+---
+title: "Coffman (2021): Mediation Analysis"
+knitr:
+  opts_chunk:
+    collapse: true
+    comment: '#>'
+---
+
+```{r}
+#| label: setup
+library(deli)
+```
+
+For the `twangMediation` package in R, Coffman et al. provided a vignette on
+causal mediation analysis in the context of health disparity research.
+Specifically, the vignette examined possible mediating pathways for substance
+use disparities among sexual minority women. Data for this analysis comes from
+the National Survey of Drug Use and Health (NSDUH) and is available from the R
+package.
+
+Drawing from this vignette, we show how `deli` can be used to conduct causal
+mediation analyses. Note that the provided data consists of more than 40,000
+observations, so fitting these models might take a second.
+
+## Data
+
+In the context of the vignette, interest was in the disparities of adult
+smoking status (`cigmon`) by sexual minority (e.g., lesbian, gay, bisexual;
+`lgb_flag`) as mediated by early smoking initiation (prior to age 15; `cig15`).
+The adjustment set is age (`age`), race (`race`), education (`educ`), income
+(`income`), and employment (`employ`).
+
+```{r}
+#| label: data
+d <- nsduh
+```
+
+## Average Causal Effect
+
+To start, we estimate the average causal effect of sexual minority status on
+adult smoking status using an inverse probability of treatment weighting
+estimator. The weights are defined as
+
+$$ IPTW = \frac{A_i}{\Pr(A_i = 1 \mid W_i)} + \frac{1 - A_i}{1 - \Pr(A_i = 1 \mid W_i)} $$
+
+and then can be used to compute the weighted mean. Here, we use the Hajek
+estimator due to its improved finite-sample performance relative to the
+Horvitz-Thompson estimator.
+
+```{r}
+#| label: ace-data
+# Design matrix with categorical variables
+W_matrix <- model.matrix(
+  ~ factor(age) + factor(race) + factor(educ) + factor(income) + factor(employ),
+  data = d
+)
+
+a <- d$lgb_flag
+y <- d$cigmon
+```
+
+```{r}
+#| label: ace
+psi_ace <- function(theta) {
+  ace <- theta[1]
+  mu1 <- theta[2]
+  mu0 <- theta[3]
+  alpha <- theta[4:length(theta)]
+
+  # Propensity score model
+  ee_ps <- ee_regression(theta = alpha, X = W_matrix, y = a, model = "logistic")
+  ps <- inverse_logit(as.numeric(W_matrix %*% alpha))
+  iptw <- a / ps + (1 - a) / (1 - ps)
+
+  # Hajek estimator for the causal risks
+  ee_r1 <- matrix(iptw * a * (y - mu1), nrow = 1)
+  ee_r0 <- matrix(iptw * (1 - a) * (y - mu0), nrow = 1)
+  ee_ace <- matrix(rep(mu1 - mu0 - ace, length(y)), nrow = 1)
+
+  rbind(ee_ace, ee_r1, ee_r0, ee_ps)
+}
+
+init_vals <- c(0, 0.5, 0.5, rep(0, ncol(W_matrix)))
+estr <- MEstimator(stacked_equations = psi_ace, init = init_vals)
+estr <- estimate(estr)
+ci <- confidence_intervals(estr)
+
+cat("ACE:   ", estr@theta[1], "\n")
+cat("95% CI:", ci[1, ], "\n")
+```
+
+These results suggest a disparity by sexual minority status in adult smoking
+behaviors that is not explained by the adjustment set. These results are
+similar to `twangMediation` but do differ as a result of how the propensity
+scores are being estimated. In the vignette, XGBoost (an ensemble of decision
+trees) is used. Here, a simple parametric model is used instead. It would be
+better practice to specify a more flexible model for the propensity score
+(e.g., interactions).
+
+While it may seem like `twangMediation` has an advantage here, the
+corresponding statistical inference is invalid as XGBoost is not generally
+valid without the use of cross-fitting and doubly robust estimators. See Zivich
+& Breskin (2021) for details on why the `twangMediation` approach is not
+statistically valid. The approach based on parametric models used here with
+`deli` is statistically valid.
+
+## Controlled Direct Effect
+
+The controlled direct effect is one parameter we can consider in mediation
+analysis. Letting $Y(a,m)$ denote the potential outcome under action $a$ and
+mediator $m$, the controlled direct effect is
+
+$$ E[Y(a,m)] - E[Y(a',m)] $$
+
+so we are considering the effect of changing $a$ when $m$ is held at a fixed
+value.
+
+For the controlled direct effect, we need to estimate a pair of weights
+(Coffman & Zhong 2012). First, we estimate the inverse probability of treatment
+weights as before. The second weight needed is the inverse probability of
+mediator weights, defined as the following
+
+$$ IPMW = \frac{M_i}{\Pr(M_i = 1 \mid A_i, W_i)} + \frac{1 - M_i}{1 - \Pr(M_i = 1 \mid A_i, W_i)} $$
+
+which we can jointly estimate all parameters using a stacked extension of the
+previous estimating functions with an additional logistic regression model.
+Here, the same adjustment set is used for both nuisance models. However, it can
+be the case that there are additional confounding variables for mediators.
+These can be dealt with by extending the conditional probability for $IPMW$.
+
+For estimation, we again use the Hajek estimator with the *product* of the two
+weights.
+
+```{r}
+#| label: cde-data
+# W_matrix is defined above (adjustment set only)
+# X_matrix includes treatment in addition to adjustment set
+X_matrix <- model.matrix(
+  ~ lgb_flag + factor(age) + factor(race) + factor(educ) + factor(income) + factor(employ),
+  data = d
+)
+
+a <- d$lgb_flag
+m <- d$cig15
+y <- d$cigmon
+```
+
+```{r}
+#| label: cde
+psi_cde <- function(theta) {
+  ndim_W <- ncol(W_matrix)
+  ace1 <- theta[1]
+  ace0 <- theta[2]
+  mu11 <- theta[3]
+  mu01 <- theta[4]
+  mu10 <- theta[5]
+  mu00 <- theta[6]
+  alpha <- theta[7:(6 + ndim_W)]
+  gamma <- theta[(6 + ndim_W + 1):length(theta)]
+
+  # Propensity score model for A
+  ee_ps <- ee_regression(theta = alpha, X = W_matrix, y = a, model = "logistic")
+  ps <- inverse_logit(as.numeric(W_matrix %*% alpha))
+  iptw <- a / ps + (1 - a) / (1 - ps)
+
+  # Mediation score model for M
+  ee_ms <- ee_regression(theta = gamma, X = X_matrix, y = m, model = "logistic")
+  ms <- inverse_logit(as.numeric(X_matrix %*% gamma))
+  ipmw <- m / ms + (1 - m) / (1 - ms)
+
+  # Hajek estimator for the causal risks
+  ipw <- iptw * ipmw
+  n <- length(y)
+  ee_r11 <- matrix(ipw * a * m * (y - mu11), nrow = 1)
+  ee_r01 <- matrix(ipw * (1 - a) * m * (y - mu01), nrow = 1)
+  ee_r10 <- matrix(ipw * a * (1 - m) * (y - mu10), nrow = 1)
+  ee_r00 <- matrix(ipw * (1 - a) * (1 - m) * (y - mu00), nrow = 1)
+  ee_ace1 <- matrix(rep(mu11 - mu01 - ace1, n), nrow = 1)
+  ee_ace0 <- matrix(rep(mu10 - mu00 - ace0, n), nrow = 1)
+
+  rbind(ee_ace1, ee_ace0, ee_r11, ee_r01, ee_r10, ee_r00, ee_ps, ee_ms)
+}
+
+init_vals <- c(0, 0, 0.5, 0.5, 0.5, 0.5,
+               rep(0, ncol(W_matrix)),
+               rep(0, ncol(X_matrix)))
+estr <- MEstimator(stacked_equations = psi_cde, init = init_vals)
+estr <- estimate(estr)
+ci <- confidence_intervals(estr)
+
+cat("CDE(1):", estr@theta[1], "\n")
+cat("95% CI:", ci[1, ], "\n")
+cat("CDE(0):", estr@theta[2], "\n")
+cat("95% CI:", ci[2, ], "\n")
+```
+
+Note that the `twangMediation` documentation does not list the controlled
+direct effects, so no comparison can be made here. However, these numbers do
+happen to be similar to the *pure* direct effect estimates, which we will
+examine in the next section.
+
+As we have estimated a pair of parameters (two controlled direct effects),
+confidence bands are more appropriate to report here (since they provide
+*simultaneous* coverage for both parameters). sup-t confidence bands can be
+easily computed with the following functionality.
+
+```{r}
+#| label: cde-bands
+cb <- confidence_bands(estr, subset = c(1, 2), seed = 4281014)
+cat("95% CB - CDE(1):", cb[1, ], "\n")
+cat("95% CB - CDE(0):", cb[2, ], "\n")
+```
+
+As shown here, these are slightly wider than the confidence intervals. This is
+to be expected, as we are interested in multiple parameters but still would
+like to have simultaneous coverage. However, the sup-t correction is not overly
+conservative like the Bonferroni correction.
+
+## Pure Direct Effect
+
+The next parameter we could be interested in is the pure direct effect (also
+known as the natural direct effect). Using the potential outcomes from before,
+the pure direct effect is
+
+$$ E[Y(a, M(a'))] -  E[Y(a', M(a'))] $$
+
+where $M(a)$ is the potential mediator under $a$. Note that there is the
+seemingly odd combination of $Y$ under $a$ but the mediator is the one under
+$a'$. Such a pattern does not occur in nature. Identification of the pure
+direct effect thus relies on a 'cross-world' assumption for identification.
+This assumption is what makes these effects 'unnatural' (to me).
+
+For the right quantity, note that $E[Y(a')]$. Thus, that part can be estimated
+using the IPW estimator for the never-act part of the average causal effect
+estimator. For the left quantity, we use 'strategy 3' of Tchetgen Tchetgen &
+Shpitser (2012). The described IPW estimator is
+
+$$ n^{-1} \sum_{i=1}^{n} Y_i \frac{I(A_i = 1)}{\Pr(A=1 \mid W_i)} \times \frac{\Pr(M_i = m \mid A = 0, W_i)}{\Pr(M_i = m \mid A_i, W_i)} $$
+
+where the last probability fractions are the probability of the *observed*
+value of $M$ for that individual.
+
+```{r}
+#| label: pde-data
+# W_matrix, X_matrix defined above
+# Create counterfactual design matrix with lgb_flag set to 0
+d0 <- d
+d0$lgb_flag <- 0
+X0_matrix <- model.matrix(
+  ~ lgb_flag + factor(age) + factor(race) + factor(educ) + factor(income) + factor(employ),
+  data = d0
+)
+
+a <- d$lgb_flag
+m <- d$cig15
+y <- d$cigmon
+```
+
+```{r}
+#| label: pde
+psi_pde <- function(theta) {
+  ndim_W <- ncol(W_matrix)
+  pde <- theta[1]
+  mu1m <- theta[2]
+  mu0 <- theta[3]
+  alpha <- theta[4:(3 + ndim_W)]
+  gamma <- theta[(3 + ndim_W + 1):length(theta)]
+
+  # Propensity score model for A
+  ee_ps <- ee_regression(theta = alpha, X = W_matrix, y = a, model = "logistic")
+  ps <- inverse_logit(as.numeric(W_matrix %*% alpha))
+  iptw <- a / ps + (1 - a) / (1 - ps)
+
+  # Mediation score model for M
+  ee_ms <- ee_regression(theta = gamma, X = X_matrix, y = m, model = "logistic")
+  ms <- inverse_logit(as.numeric(X_matrix %*% gamma))
+  m0s <- inverse_logit(as.numeric(X0_matrix %*% gamma))
+  ipmw <- m * (m0s / ms) + (1 - m) * (1 - m0s) / (1 - ms)
+
+  # Hajek estimator for the causal risks
+  n <- length(y)
+  ee_r1m <- matrix(iptw * a * ipmw * (y - mu1m), nrow = 1)
+  ee_r0 <- matrix(iptw * (1 - a) * (y - mu0), nrow = 1)
+  ee_pde <- matrix(rep(mu1m - mu0 - pde, n), nrow = 1)
+
+  rbind(ee_pde, ee_r1m, ee_r0, ee_ps, ee_ms)
+}
+
+init_vals <- c(0, 0.5, 0.5,
+               rep(0, ncol(W_matrix)),
+               rep(0, ncol(X_matrix)))
+estr <- MEstimator(stacked_equations = psi_pde, init = init_vals)
+estr <- estimate(estr)
+ci <- confidence_intervals(estr)
+
+cat("PDE:   ", estr@theta[1], "\n")
+cat("95% CI:", ci[1, ], "\n")
+```
+
+These results are fairly similar to those provided in `twangMediation` (but the
+results here are not stratified and we are using a different nuisance model).
+
+## Pure Indirect Effect
+
+The pure (natural) indirect effect can be defined as
+
+$$ E[Y(a, M(a))] -  E[Y(a, M(a'))] $$
+
+which again involves a cross-world assumption. Note the second part here is the
+same as the left side of the pure direct effect. This shows how to decompose
+everything. The following code implements the estimator for the pure indirect
+effect.
+
+```{r}
+#| label: pie
+psi_pie <- function(theta) {
+  ndim_W <- ncol(W_matrix)
+  pie <- theta[1]
+  mu1 <- theta[2]
+  mu1m <- theta[3]
+  alpha <- theta[4:(3 + ndim_W)]
+  gamma <- theta[(3 + ndim_W + 1):length(theta)]
+
+  # Propensity score model for A
+  ee_ps <- ee_regression(theta = alpha, X = W_matrix, y = a, model = "logistic")
+  ps <- inverse_logit(as.numeric(W_matrix %*% alpha))
+  iptw <- a / ps + (1 - a) / (1 - ps)
+
+  # Mediation score model for M
+  ee_ms <- ee_regression(theta = gamma, X = X_matrix, y = m, model = "logistic")
+  ms <- inverse_logit(as.numeric(X_matrix %*% gamma))
+  m0s <- inverse_logit(as.numeric(X0_matrix %*% gamma))
+  ipmw <- m * (m0s / ms) + (1 - m) * (1 - m0s) / (1 - ms)
+
+  # Hajek estimator for the causal risks
+  n <- length(y)
+  ee_r1 <- matrix(iptw * a * (y - mu1), nrow = 1)
+  ee_r1m <- matrix(iptw * a * ipmw * (y - mu1m), nrow = 1)
+  ee_pie <- matrix(rep(mu1 - mu1m - pie, n), nrow = 1)
+
+  rbind(ee_pie, ee_r1, ee_r1m, ee_ps, ee_ms)
+}
+
+init_vals <- c(0, 0.5, 0.5,
+               rep(0, ncol(W_matrix)),
+               rep(0, ncol(X_matrix)))
+estr <- MEstimator(stacked_equations = psi_pie, init = init_vals)
+estr <- estimate(estr)
+ci <- confidence_intervals(estr)
+
+cat("PIE:   ", estr@theta[1], "\n")
+cat("95% CI:", ci[1, ], "\n")
+```
+
+That provides the pure indirect effect estimate. This is again similar to
+`twangMediation` and if we add the pure effects together, we get back to the
+average causal effect.
+
+## Pure Effects Altogether
+
+As a final step, we now package the pure direct and indirect effect estimators
+together into a single function. As with the controlled direct effect, interest
+is in a *pair* of parameters, so confidence bands are more appropriate to
+report here.
+
+```{r}
+#| label: full
+psi_full <- function(theta) {
+  ndim_W <- ncol(W_matrix)
+  pde <- theta[1]
+  pie <- theta[2]
+  mu1 <- theta[3]
+  mu0 <- theta[4]
+  mu1m <- theta[5]
+  alpha <- theta[6:(5 + ndim_W)]
+  gamma <- theta[(5 + ndim_W + 1):length(theta)]
+
+  # Propensity score model for A
+  ee_ps <- ee_regression(theta = alpha, X = W_matrix, y = a, model = "logistic")
+  ps <- inverse_logit(as.numeric(W_matrix %*% alpha))
+  iptw <- a / ps + (1 - a) / (1 - ps)
+
+  # Mediation score model for M
+  ee_ms <- ee_regression(theta = gamma, X = X_matrix, y = m, model = "logistic")
+  ms <- inverse_logit(as.numeric(X_matrix %*% gamma))
+  m0s <- inverse_logit(as.numeric(X0_matrix %*% gamma))
+  ipmw <- m * (m0s / ms) + (1 - m) * (1 - m0s) / (1 - ms)
+
+  # Hajek estimator for the causal risks
+  n <- length(y)
+  ee_r1 <- matrix(iptw * a * (y - mu1), nrow = 1)
+  ee_r0 <- matrix(iptw * (1 - a) * (y - mu0), nrow = 1)
+  ee_r1m <- matrix(iptw * a * ipmw * (y - mu1m), nrow = 1)
+  ee_pde <- matrix(rep(mu1m - mu0 - pde, n), nrow = 1)
+  ee_pie <- matrix(rep(mu1 - mu1m - pie, n), nrow = 1)
+
+  rbind(ee_pde, ee_pie, ee_r1, ee_r0, ee_r1m, ee_ps, ee_ms)
+}
+
+init_vals <- c(0, 0, 0.5, 0.5, 0.5,
+               rep(0, ncol(W_matrix)),
+               rep(0, ncol(X_matrix)))
+estr <- MEstimator(stacked_equations = psi_full, init = init_vals)
+estr <- estimate(estr)
+cb <- confidence_bands(estr, subset = c(1, 2), seed = 921453)
+
+cat("PDE:   ", estr@theta[1], "\n")
+cat("95% CB:", cb[1, ], "\n")
+cat("PIE:   ", estr@theta[2], "\n")
+cat("95% CB:", cb[2, ], "\n")
+```
+
+This provides our results collected from before into a single estimating
+function. As a result, we are able to construct sup-t confidence bands for
+appropriate inference on the decomposition of the total effect.
+
+We can also check that our decomposition sums back to the average causal
+effect.
+
+```{r}
+#| label: check-decomposition
+estr@theta[1] + estr@theta[2]
+```
+
+This matches the average causal effect for many of the decimals (we expect some
+minor differences due to floating point precision and the root-finding
+procedure tolerance not being infinite).
+
+This example provides another illustration of how to use `deli` to construct
+custom estimating equations and use them for statistically valid inference.
+
+## References
+
+Coffman, D. L., & Zhong, W. (2012). Assessing mediation using marginal
+structural models in the presence of confounding and moderation. *Psychological
+Methods*, 17(4), 642.
+
+Coffman, D. L., Schuler, M. S., McCaffrey, D. F., Castellano, K. E., Zhou, H.,
+Vegetabile, B., & Griffin, B. A. (2021). A tutorial for conducting causal
+mediation analysis with the twangMediation package.
+
+Tchetgen Tchetgen, E. J., & Shpitser, I. (2012). Semiparametric theory for
+causal mediation analysis: efficiency bounds, multiple robustness, and
+sensitivity analysis. *Annals of Statistics*, 40(3), 1816.
+
+Zivich, P. N., & Breskin, A. (2021). Machine learning for causal inference: on
+the use of cross-fit estimators. *Epidemiology*, 32(3), 393-401.

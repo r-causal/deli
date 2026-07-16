@@ -1,0 +1,367 @@
+---
+title: "Translating from Python delicatessen"
+knitr:
+  opts_chunk:
+    collapse: true
+    comment: '#>'
+---
+
+```{r}
+#| label: setup
+library(deli)
+```
+
+deli is a faithful R port of the Python
+[delicatessen](https://deli.readthedocs.io/) library for M-estimation and the
+empirical sandwich variance estimator. Every capability in delicatessen has a
+counterpart in deli, and the two produce the same numbers when the same settings
+are used. The surface is idiomatic R rather than a line-for-line transcription:
+some functions are renamed to avoid clashing with base R, a few arguments carry
+different names, and a small number of defaults differ. This article maps the
+two libraries onto each other and gives the exact recipes for reproducing a
+Python result in R.
+
+Python users are not expected to paste Python code into R and have it run. The
+goal is functional parity: the same models, the same options, and matching point
+estimates and variances under matched settings.
+
+## How the libraries line up
+
+Both libraries are built on the same idea. You supply a function that returns a
+stacked matrix of estimating-equation contributions, one column per observation
+and one row per parameter. An estimator object solves that system for the point
+estimate and assembles the sandwich variance from the bread (the derivative of
+the estimating functions) and the meat (their outer product).
+
+The central objects correspond directly:
+
+- `delicatessen.MEstimator` becomes the `MEstimator` S7 class in deli, solved
+  with the `estimate()` generic. deli additionally offers `m_estimate()`, a
+  formula and one-step convenience wrapper with no Python equivalent.
+- `delicatessen.GMMEstimator` becomes `GMMEstimator`, with the same
+  `estimate()` generic and an optional `gmm_estimate()` wrapper.
+
+In Python you call methods on the estimator (`m.estimate()`,
+`m.confidence_intervals()`). In deli these are generic functions that take the
+estimator as their first argument (`estimate(m)`, `confidence_intervals(m)`).
+
+## Class and function correspondence
+
+| Python (delicatessen) | R (deli) | Notes |
+|---|---|---|
+| `MEstimator(stacked_equations, init, subset, finite_correction)` | `MEstimator(stacked_equations, init, subset, finite_correction)` | `subset` uses 1-based parameter indices in R (see below). |
+| `m.estimate(solver, maxiter, tolerance, deriv_method, dx, allow_pinv)` | `estimate(m, solver, maxiter, tolerance, deriv_method, dx, allow_pinv)` | Different `solver` and `deriv_method` defaults (see below). |
+| `GMMEstimator(...)` | `GMMEstimator(...)` | R adds a `weight_matrix` property. |
+| `g.estimate(solver='bfgs', ...)` | `estimate(g, solver = "BFGS", ...)` | R accepts any `stats::optim()` method name. |
+| `m.confidence_intervals(alpha)` | `confidence_intervals(m, alpha)` | Both switch to the t-distribution when `finite_correction` is set. |
+| `m.z_scores(null)` | `z_scores(m, null)` | |
+| `m.p_values(null)` | `p_values(m, null)` | |
+| `m.s_values(null)` | `s_values(m, null)` | |
+| `m.influence_functions()` | `influence_functions(m)` | |
+| `m.confidence_bands(subset, alpha, method, n_draws, seed)` | `confidence_bands(m, alpha, method, n_draws, seed)` | Different `n_draws` default (see below). |
+| `m.print_results(...)` | `print(m)` / `summary(m)` | Idiomatic replacement; `summary(m, alpha = ...)` supported. |
+| `compute_sandwich(...)` | `compute_sandwich(...)` | Exported in both. |
+| `delta_method(theta, g, covariance, deriv_method, dx)` | `delta_method(object, transform, covariance, deriv_method, dx)` | `g` renamed `transform`; different `deriv_method` default. |
+| `compute_confidence_bands(...)` | `compute_confidence_bands(...)` | |
+| `logit`, `inverse_logit` | `logit`, `inverse_logit` | |
+| `identity(value)` | `identity_transform(value)` | Renamed to avoid masking base R `identity()`. |
+| `polygamma(n, x)` | `deli_polygamma(n, x)` | Renamed to avoid a namespace clash. |
+| `digamma(z)` | `deli_digamma(z)` | Renamed to avoid masking base R `digamma()`. |
+| `standard_normal_cdf`, `standard_normal_pdf` | `standard_normal_cdf`, `standard_normal_pdf` | |
+| `robust_loss_functions(residual, loss, k, a, b)` | `robust_loss_functions(residuals, loss, k)` | Hampel thresholds passed as `k = c(a, b, c)` (see below). |
+| `aggregate_efuncs(est_funcs, group)` | `aggregate_efuncs(est_funcs, group)` | |
+| `regression_predictions(...)` | `regression_predictions(...)` | Returns a data frame. |
+| `aft_predictions_individual(...)` | `aft_predictions_individual(...)` | |
+| `aft_predictions_function(...)` | `aft_predictions_function(...)` | |
+| `spline(...)` | `deli_spline(...)` | Renamed to avoid masking `stats::spline()`. |
+| `additive_design_matrix(...)` | `additive_design_matrix(...)` | |
+
+The forward-difference and autodiff helpers `approx_differentiation()` and
+`auto_differentiation()` are public in Python. In deli they back the
+`deriv_method` argument of `estimate()`, `compute_sandwich()`, and
+`delta_method()` and are not exported as user-facing functions. Choose the
+derivative method through `deriv_method` rather than calling them directly.
+
+## Estimating-equation correspondence
+
+All 36 pre-built estimating equations in delicatessen are available in deli
+under the same `ee_*` names. Most take identical argument names. The exceptions
+are listed in the final column.
+
+| Python | R | Argument differences |
+|---|---|---|
+| `ee_mean` | `ee_mean` | |
+| `ee_mean_variance` | `ee_mean_variance` | |
+| `ee_mean_robust` | `ee_mean_robust` | Hampel thresholds via `k = c(a, b, c)`. |
+| `ee_mean_geometric` | `ee_mean_geometric` | |
+| `ee_percentile` | `ee_percentile` | |
+| `ee_positive_mean_deviation` | `ee_positive_mean_deviation` | |
+| `ee_regression` | `ee_regression` | |
+| `ee_glm` | `ee_glm` | |
+| `ee_mlogit` | `ee_mlogit` | |
+| `ee_robust_regression` | `ee_robust_regression` | Hampel thresholds via `k = c(a, b, c)`. |
+| `ee_ridge_regression` | `ee_ridge_regression` | |
+| `ee_lasso_regression` | `ee_lasso_regression` | |
+| `ee_dlasso_regression` | `ee_dlasso_regression` | |
+| `ee_elasticnet_regression` | `ee_elasticnet_regression` | |
+| `ee_bridge_regression` | `ee_bridge_regression` | |
+| `ee_beta_regression` | `ee_beta_regression` | |
+| `ee_tobit` | `ee_tobit` | |
+| `ee_additive_regression` | `ee_additive_regression` | |
+| `ee_ipw` | `ee_ipw` | |
+| `ee_ipw_msm` | `ee_ipw_msm` | |
+| `ee_gformula` | `ee_gformula` | |
+| `ee_aipw` | `ee_aipw` | |
+| `ee_gestimation_snmm` | `ee_gestimation_snmm` | |
+| `ee_2sls` | `ee_2sls` | |
+| `ee_iv_causal` | `ee_iv_causal` | |
+| `ee_mean_sensitivity_analysis` | `ee_mean_sensitivity_analysis` | |
+| `ee_survival_model(theta, t, delta, distribution)` | `ee_survival_model(theta, time, event, distribution)` | `t` becomes `time`, `delta` becomes `event`. |
+| `ee_aft(theta, X, t, delta, distribution, weights)` | `ee_aft(theta, X, time, event, distribution, ...)` | `t` becomes `time`, `delta` becomes `event`; R adds `offset`. |
+| `ee_plogit(theta, X, t, delta, S, ...)` | `ee_plogit(theta, X, time, event, S, ...)` | `t` becomes `time`, `delta` becomes `event`; R adds `offset`. |
+| `ee_rogan_gladen` | `ee_rogan_gladen` | |
+| `ee_rogan_gladen_extended` | `ee_rogan_gladen_extended` | |
+| `ee_regression_calibration` | `ee_regression_calibration` | |
+| `ee_emax(theta, dose, response, robust, k)` | `ee_emax(theta, dose, response, loss, k)` | `robust` becomes `loss`. |
+| `ee_emax_ed` | `ee_emax_ed` | |
+| `ee_loglogistic(theta, dose, response, robust, k)` | `ee_loglogistic(theta, dose, response, loss, k)` | `robust` becomes `loss`. |
+| `ee_loglogistic_ed` | `ee_loglogistic_ed` | |
+
+The generalized linear model `ee_glm` carries the full set of Python options,
+including the `hyperparameter` argument, the `tweedie` and `negative_binomial`
+distributions, and the gamma distribution's nuisance shape equation. As in
+Python, the gamma and negative binomial fits append an extra parameter to
+`theta` (the log shape or log dispersion), so the parameter vector is one
+element longer than the number of regression coefficients.
+
+## Argument renames and default differences
+
+This section documents every difference that affects the numbers or the call,
+with the exact recipe for reproducing a default Python run in R. Unless noted,
+each recipe reproduces Python to machine precision.
+
+### Solver default
+
+Python's `MEstimator.estimate()` defaults to `solver='lm'`, the
+Levenberg-Marquardt routine from MINPACK exposed through
+`scipy.optimize.root(method='lm')`. deli defaults to `solver = "rootSolve"`
+([rootSolve::multiroot()]), which requires no additional package and converges
+reliably on the great majority of problems.
+
+deli also provides the identical Levenberg-Marquardt solver under
+`solver = "lm"` (backed by `minpack.lm`, the same MINPACK code Python calls). To
+reproduce a default Python `MEstimator` fit, set the solver explicitly:
+
+```r
+m <- estimate(m, solver = "lm")
+```
+
+The `"lm"` solver is the recommended choice for problems where a Newton-type
+solver stalls, in particular Huber robust regression started far from the
+solution: when every residual is clipped, the bread is identically zero and
+`rootSolve` and `nleqslv` cannot make progress, while the damped
+Levenberg-Marquardt step still converges.
+
+Python's `GMMEstimator.estimate()` defaults to `solver='bfgs'`. deli defaults to
+`solver = "BFGS"` for `GMMEstimator`, so the GMM solver defaults already match;
+deli accepts any `stats::optim()` method name.
+
+### Derivative method default
+
+The bread matrix is the derivative of the estimating functions. Python's
+estimators default to `deriv_method='approx'`, SciPy's `approx_fprime`, a
+forward finite difference. deli defaults to `deriv_method = "capprox"`, a central
+finite difference, which is more accurate for a negligible cost.
+
+Both libraries offer the same delicatessen-implemented finite differences under
+the same names, plus forward-mode automatic differentiation:
+
+| Method | Meaning | Python name | R name |
+|---|---|---|---|
+| SciPy forward difference | `scipy.optimize.approx_fprime` | `"approx"` | none |
+| Forward difference | delicatessen implementation | `"fapprox"` | `"fapprox"` |
+| Backward difference | delicatessen implementation | `"bapprox"` | `"bapprox"` |
+| Central difference | delicatessen implementation | `"capprox"` | `"capprox"` |
+| Automatic differentiation | forward mode | `"exact"` | `"exact"` |
+
+deli does not expose SciPy's `"approx"`. It is a forward difference at the same
+step, so its closest match is deli's `"fapprox"`.
+
+To reproduce a default Python fit, match Python's defaults from R:
+
+```r
+# Reproduce a default Python MEstimator run
+m <- estimate(m, solver = "lm", deriv_method = "fapprox")
+```
+
+Because `"fapprox"` and SciPy's `"approx"` are both forward differences at the
+same step `dx`, they agree to numerical-approximation error rather than
+bit-for-bit. For a linear model the finite difference of a linear function is
+exact, so the two coincide exactly; for nonlinear models expect agreement to the
+finite-difference tolerance.
+
+If instead you control both sides of the comparison and want exact agreement,
+set both libraries to the same delicatessen-implemented method. For example,
+leave deli at its `"capprox"` default and pass `deriv_method='capprox'` in
+Python, with a matched solver. That combination reproduces the sandwich
+components across languages to machine precision.
+
+### `delta_method` transform argument and default
+
+Python's `delta_method(theta, g, covariance, deriv_method='exact', dx)` takes
+the transformation as `g` and differentiates it with automatic differentiation
+by default. deli's `delta_method(object, transform, covariance,
+deriv_method = "capprox", dx)` renames `g` to `transform` and defaults to a
+central finite difference. deli also accepts a fitted estimator as its first
+argument, in which case the covariance is taken from the fit. To reproduce
+Python's default, pass `deriv_method = "exact"`:
+
+```r
+delta_method(m, transform = g, deriv_method = "exact")
+```
+
+### `subset` uses 1-based indices
+
+The `subset` argument selects which parameters to solve for while holding the
+rest at their initial values. Python indexes parameters from zero; R indexes
+from one. A Python `subset=[0, 2]` becomes `subset = c(1, 3)` in R. Add one to
+every Python index.
+
+### `confidence_bands` draw count
+
+The supremum-t confidence bands are computed by simulating from the estimated
+sampling distribution. Python's estimator method uses `n_draws=1e6`; deli uses
+`n_draws = 1e5` at every entry point. The smaller default runs about an order of
+magnitude faster, and the Monte Carlo error it introduces is negligible relative
+to the band width. To reproduce Python's estimator default exactly, set the
+draw count:
+
+```r
+confidence_bands(m, n_draws = 1e6)
+```
+
+Both draw counts target the same population quantile and agree to within Monte
+Carlo error. Note that seeded band values are still not bit-identical across
+languages: `MASS::mvrnorm` and NumPy draw multivariate normals with different
+samplers, an inherent difference in the random-number stream rather than in the
+method.
+
+### Robust loss Hampel thresholds
+
+The Hampel loss has three thresholds. Python passes them as separate arguments:
+`robust_loss_functions(residual, loss='hampel', k=8, a=2, b=4)`, where `a` is the
+inner threshold, `b` the middle, and `k` the outer. deli collects them into a
+single ordered vector `k = c(a, b, c)`:
+
+```r
+robust_loss_functions(residuals, loss = "hampel", k = c(2, 4, 8))
+```
+
+The same convention applies to `ee_mean_robust` and `ee_robust_regression`. For
+the other losses, `k` is a single tuning constant in both libraries.
+
+### Pharmacokinetic loss argument
+
+`ee_emax` and `ee_loglogistic` accept an optional robust loss. Python names the
+argument `robust`; deli names it `loss` for consistency with the other robust
+estimating equations. As in Python, supplying a loss also requires its tuning
+constant `k`.
+
+### Survival time and event arguments
+
+`ee_survival_model`, `ee_aft`, and `ee_plogit` take the observed time and the
+event indicator. Python names them `t` and `delta`; deli names them `time` and
+`event`, which reads more clearly and is consistent across the survival family
+and the `plogit_predict` helper. deli additionally accepts an `offset` on
+`ee_aft` and `ee_plogit`.
+
+### Finite-sample correction and inference
+
+When `finite_correction` is set on the fit (for example `"HC1"`), both libraries
+switch the confidence intervals and p-values from the standard normal to the
+t-distribution with `n_obs - n_params` degrees of freedom. This behavior already
+matches; no recipe is needed.
+
+## Worked example
+
+The following fits the same linear regression in both libraries and shows that
+the R code reproduces the Python numbers exactly. The Python block is shown for
+reference and is not executed here.
+
+The Python fit, using default settings (`solver='lm'`, `deriv_method='approx'`):
+
+```python
+import numpy as np
+from delicatessen import MEstimator
+from delicatessen.estimating_equations import ee_regression
+
+d_x = [1.2, 0.3, 2.1, 1.7, 0.9, 2.5, 1.1, 0.4, 1.9, 2.2]
+d_y = [3.4, 1.1, 5.2, 4.3, 2.6, 6.1, 3.0, 1.4, 4.8, 5.5]
+X = np.asarray([[1, xi] for xi in d_x], dtype=float)
+y = np.asarray(d_y, dtype=float)
+
+def psi(theta):
+    return ee_regression(theta, X=X, y=y, model="linear")
+
+m = MEstimator(psi, init=[0.0, 0.0])
+m.estimate()
+m.theta                    # array([0.525014, 2.248242])
+np.sqrt(np.diag(m.variance))  # array([0.053054, 0.026662])
+m.confidence_intervals()
+# array([[0.421031, 0.628998],
+#        [2.195986, 2.300498]])
+```
+
+The equivalent deli fit, matching Python's default solver and forward-difference
+derivative:
+
+```{r}
+#| label: example-fit
+d <- data.frame(
+  x = c(1.2, 0.3, 2.1, 1.7, 0.9, 2.5, 1.1, 0.4, 1.9, 2.2),
+  y = c(3.4, 1.1, 5.2, 4.3, 2.6, 6.1, 3.0, 1.4, 4.8, 5.5)
+)
+X <- cbind(1, d$x)
+
+psi <- function(theta) {
+  ee_regression(theta, X = X, y = d$y, model = "linear")
+}
+
+m <- MEstimator(psi, init = c(0, 0))
+m <- estimate(m, solver = "lm", deriv_method = "fapprox")
+
+m@theta
+sqrt(diag(m@variance))
+confidence_intervals(m)
+```
+
+The point estimates, standard errors, and confidence intervals match the Python
+output to the printed precision.
+
+deli also offers a formula interface that builds the design matrix and initial
+values for you. It is convenient R sugar with no Python counterpart, and it
+produces the same fit:
+
+```{r}
+#| label: example-formula
+m2 <- m_estimate(
+  y ~ x,
+  data = d,
+  .ee = ee_regression,
+  model = "linear",
+  solver = "lm",
+  deriv_method = "fapprox"
+)
+coef(m2)
+```
+
+## Reproducibility summary
+
+- Point estimates, variances, and interval bounds reproduce Python to machine
+  precision when you match the solver and set both libraries to the same
+  delicatessen-implemented derivative method.
+- Matching Python's default `"approx"` derivative with deli's `"fapprox"` agrees
+  to finite-difference tolerance, and exactly for linear models.
+- Simulation-based confidence bands agree to Monte Carlo error but are not
+  bit-identical, because the two libraries use different multivariate normal
+  samplers.

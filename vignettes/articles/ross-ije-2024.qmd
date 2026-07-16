@@ -1,0 +1,201 @@
+---
+title: "Ross et al. (2024): Introduction to M-estimation"
+knitr:
+  opts_chunk:
+    collapse: true
+    comment: '#>'
+---
+
+```{r}
+#| label: setup
+library(deli)
+```
+
+The following is a replication of the cases described in Ross et al. (2024).
+The original paper provides a tutorial on M-estimation with introductory examples
+in the context of regression, standardization, and measurement error.
+
+## Data
+
+The following data from Table 1 is used for the first two examples.
+
+```{r}
+#| label: data
+# From Table 1
+d <- data.frame(
+  X = c(0, 0, 0, 0, 1, 1, 1, 1),
+  W = c(0, 0, 1, 1, 0, 0, 1, 1),
+  Y = c(0, 1, 0, 1, 0, 1, 0, 1),
+  n = c(496, 74, 113, 25, 85, 15, 15, 3)
+)
+
+# Expand rows by count
+d <- d[rep(seq_len(nrow(d)), d$n), ]
+d$intercept <- 1
+d$n <- NULL
+rownames(d) <- NULL
+```
+
+## Example 1: Logistic Regression
+
+Fit a logistic regression model for $Y$ given $X, W$.
+
+```{r}
+#| label: ex1
+X <- as.matrix(d[, c("intercept", "X", "W")])
+y <- d$Y
+
+estr <- MEstimator(
+  stacked_equations = function(theta) {
+    ee_regression(theta, X = X, y = y, model = "logistic")
+  },
+  init = c(0, 0, 0)
+)
+estr <- estimate(estr)
+
+# Results
+data.frame(
+  Param = c("beta_0", "beta_1", "beta_2"),
+  Coef = round(estr@theta, 2),
+  LCL = round(confidence_intervals(estr)[, 1], 2),
+  UCL = round(confidence_intervals(estr)[, 2], 2)
+)
+```
+
+## Example 2: Marginal risk difference
+
+### G-computation
+
+Using a logistic model, generate predictions to estimate the marginal risk
+difference by $X$ via g-computation.
+
+```{r}
+#| label: ex2a
+X <- as.matrix(d[, c("intercept", "X", "W")])
+y <- d$Y
+
+# Counterfactual design matrices
+X1 <- X0 <- X
+X1[, "X"] <- 1
+X0[, "X"] <- 0
+
+estr <- MEstimator(
+  stacked_equations = function(theta) {
+    beta <- theta[1:3]
+    mu0 <- theta[4]
+    mu1 <- theta[5]
+    delta1 <- theta[6]
+    n <- length(y)
+
+    # Logistic regression for outcome
+    ee_logit <- ee_regression(beta, X = X, y = y, model = "logistic")
+
+    # Predicted risks under each treatment
+    y1_hat <- inverse_logit(as.numeric(X1 %*% beta))
+    y0_hat <- inverse_logit(as.numeric(X0 %*% beta))
+
+    # Estimating equations for causal means and contrast
+    ee_r0 <- matrix(y0_hat - mu0, nrow = 1)
+    ee_r1 <- matrix(y1_hat - mu1, nrow = 1)
+    ee_rd <- matrix(rep((mu1 - mu0) - delta1, n), nrow = 1)
+
+    rbind(ee_logit, ee_r0, ee_r1, ee_rd)
+  },
+  init = c(0, 0, 0, 0.5, 0.5, 0)
+)
+estr <- estimate(estr)
+
+data.frame(
+  Param = c("beta_0", "beta_1", "beta_2", "mu_0", "mu_1", "delta"),
+  Coef = round(estr@theta, 2),
+  LCL = round(confidence_intervals(estr)[, 1], 2),
+  UCL = round(confidence_intervals(estr)[, 2], 2)
+)
+```
+
+### Inverse probability weighting
+
+Now estimate the marginal risk difference using inverse probability weighting.
+
+```{r}
+#| label: ex2b
+a <- d$X
+W <- as.matrix(d[, c("intercept", "W")])
+y <- d$Y
+
+estr <- MEstimator(
+  stacked_equations = function(theta) {
+    alpha <- theta[1:2]
+    mu0 <- theta[3]
+    mu1 <- theta[4]
+    delta1 <- theta[5]
+    n <- length(y)
+
+    # Logistic regression for propensity score
+    ee_logit <- ee_regression(alpha, X = W, y = a, model = "logistic")
+
+    # Propensity score and weights
+    pscore <- inverse_logit(as.numeric(W %*% alpha))
+    wt <- a / pscore + (1 - a) / (1 - pscore)
+
+    # Weighted estimating equations for causal means
+    ee_r1 <- matrix(a * y * wt - mu1, nrow = 1)
+    ee_r0 <- matrix((1 - a) * y * wt - mu0, nrow = 1)
+    ee_rd <- matrix(rep((mu1 - mu0) - delta1, n), nrow = 1)
+
+    rbind(ee_logit, ee_r0, ee_r1, ee_rd)
+  },
+  init = c(0, 0, 0.5, 0.5, 0)
+)
+estr <- estimate(estr)
+
+data.frame(
+  Param = c("alpha_0", "alpha_1", "mu_0", "mu_1", "delta"),
+  Coef = round(estr@theta, 2),
+  LCL = round(confidence_intervals(estr)[, 1], 2),
+  UCL = round(confidence_intervals(estr)[, 2], 2)
+)
+```
+
+## Example 3: Outcome misclassification
+
+Correct for mismeasurement of the outcome variable with the Rogan-Gladen estimator.
+
+```{r}
+#| label: ex3-data
+# Misclassification data
+d3 <- data.frame(
+  R = c(1, 1, 0, 0, 0, 0),
+  Y = c(0, 0, 1, 1, 0, 0),
+  W = c(1, 0, 1, 0, 1, 0),
+  n = c(680, 270, 204, 38, 18, 71)
+)
+
+d3 <- d3[rep(seq_len(nrow(d3)), d3$n), ]
+d3$n <- NULL
+rownames(d3) <- NULL
+```
+
+```{r}
+#| label: ex3
+estr <- MEstimator(
+  stacked_equations = function(theta) {
+    ee_rogan_gladen(theta, y = d3$Y, y_star = d3$W, r = d3$R)
+  },
+  init = c(0.75, 0.75, 0.75, 0.75)
+)
+estr <- estimate(estr)
+
+data.frame(
+  Param = c("Corrected", "Mismeasured", "Sensitivity", "Specificity"),
+  Coef = round(estr@theta, 2),
+  LCL = round(confidence_intervals(estr)[, 1], 2),
+  UCL = round(confidence_intervals(estr)[, 2], 2)
+)
+```
+
+## References
+
+Ross RK, Zivich PN, Stringer JS, & Cole SR. (2024). M-estimation for common
+epidemiological measures: introduction and applied examples. *International
+Journal of Epidemiology*, 53(2), dyae030.

@@ -1,0 +1,250 @@
+---
+title: "Regression Models"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Regression Models}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r}
+library(deli)
+```
+
+## Overview
+
+deli provides estimating equations for a wide range of regression models.
+All regression EEs follow the same pattern: define a `psi` function, create
+an `MEstimator`, and call `estimate()`. The sandwich variance estimator
+automatically provides robust standard errors.
+
+## Linear regression
+
+The most basic regression model uses `ee_regression()` with `model = "linear"`:
+
+```{r}
+set.seed(42)
+n <- 300
+x1 <- rnorm(n)
+x2 <- rbinom(n, 1, 0.5)
+y <- 1 + 2 * x1 - 0.5 * x2 + rnorm(n)
+X <- cbind(1, x1, x2)
+
+psi <- function(theta) {
+  ee_regression(theta, X = X, y = y, model = "linear")
+}
+
+m <- MEstimator(stacked_equations = psi, init = c(0, 0, 0))
+m <- estimate(m)
+summary(m)
+```
+
+## Logistic regression
+
+For binary outcomes, use `model = "logistic"`:
+
+```{r}
+set.seed(42)
+n <- 500
+x <- rnorm(n)
+y <- rbinom(n, 1, inverse_logit(0.5 + x))
+X <- cbind(1, x)
+
+psi <- function(theta) {
+  ee_regression(theta, X = X, y = y, model = "logistic")
+}
+
+m <- MEstimator(stacked_equations = psi, init = c(0, 0))
+m <- estimate(m)
+summary(m)
+```
+
+## Poisson regression
+
+For count data, use `model = "poisson"`:
+
+```{r}
+set.seed(42)
+n <- 500
+x <- rnorm(n)
+y <- rpois(n, lambda = exp(0.5 + 0.3 * x))
+X <- cbind(1, x)
+
+psi <- function(theta) {
+  ee_regression(theta, X = X, y = y, model = "poisson")
+}
+
+m <- MEstimator(stacked_equations = psi, init = c(0, 0))
+m <- estimate(m)
+summary(m)
+```
+
+## GLM: generalized linear models
+
+`ee_glm()` provides a more flexible interface where you specify the
+distribution and link function separately:
+
+```{r}
+set.seed(42)
+n <- 500
+x <- rnorm(n)
+y <- rpois(n, lambda = exp(0.5 + 0.3 * x))
+X <- cbind(1, x)
+
+psi <- function(theta) {
+  ee_glm(theta, X = X, y = y, distribution = "poisson", link = "log")
+}
+
+m <- MEstimator(stacked_equations = psi, init = c(0, 0))
+m <- estimate(m)
+m@theta
+```
+
+Available distributions: `"normal"`, `"binomial"`, `"poisson"`, `"gamma"`,
+`"inverse_gaussian"`. Available links: `"identity"`, `"log"`, `"logit"`,
+`"probit"`, `"cauchy"`, `"cloglog"`, `"sqrt"`, `"inverse"`,
+`"inverse_squared"`.
+
+## Penalized regression
+
+deli supports several penalized regression methods. These add a penalty term
+to the estimating equations.
+
+### Ridge regression
+
+L2 penalty shrinks coefficients toward zero:
+
+```{r}
+set.seed(42)
+n <- 200
+x1 <- rnorm(n)
+x2 <- rnorm(n)
+y <- 1 + 0.5 * x1 + 0.3 * x2 + rnorm(n)
+X <- cbind(1, x1, x2)
+
+psi <- function(theta) {
+  ee_ridge_regression(theta, X = X, y = y, model = "linear",
+                       penalty = 0.5)
+}
+
+m <- MEstimator(stacked_equations = psi, init = c(0, 0, 0))
+m <- estimate(m)
+m@theta
+```
+
+### LASSO regression
+
+L1 penalty produces sparse solutions:
+
+```{r}
+psi <- function(theta) {
+  ee_lasso_regression(theta, X = X, y = y, model = "linear",
+                       penalty = 0.1)
+}
+
+m <- MEstimator(stacked_equations = psi, init = c(0, 0, 0))
+m <- estimate(m)
+m@theta
+```
+
+### Elastic net
+
+Combines L1 and L2 penalties:
+
+```{r}
+psi <- function(theta) {
+  ee_elasticnet_regression(theta, X = X, y = y, model = "linear",
+                            penalty = 0.1, ratio = 0.5)
+}
+
+m <- MEstimator(stacked_equations = psi, init = c(0, 0, 0))
+m <- estimate(m)
+m@theta
+```
+
+## Robust regression
+
+`ee_robust_regression()` replaces the squared loss with a robust loss
+function, providing resistance to outliers:
+
+```{r}
+set.seed(42)
+n <- 200
+x <- rnorm(n)
+y <- 1 + 2 * x + rnorm(n)
+# Add some outliers
+y[1:5] <- y[1:5] + 20
+X <- cbind(1, x)
+
+# Huber loss with k = 1.345
+psi <- function(theta) {
+  ee_robust_regression(theta, X = X, y = y, model = "linear",
+                        loss = "huber", k = 1.345)
+}
+
+m <- MEstimator(stacked_equations = psi, init = c(0, 0))
+m <- estimate(m)
+
+# Compare with OLS (affected by outliers)
+psi_ols <- function(theta) {
+  ee_regression(theta, X = X, y = y, model = "linear")
+}
+m_ols <- MEstimator(stacked_equations = psi_ols, init = c(0, 0))
+m_ols <- estimate(m_ols)
+
+rbind(robust = m@theta, ols = m_ols@theta)
+```
+
+Available loss functions: `"huber"`, `"tukey"`, `"andrew"`, `"hampel"`.
+
+## Weighted regression
+
+All regression EEs support observation weights via the `weights` argument:
+
+```{r}
+set.seed(42)
+n <- 200
+x <- rnorm(n)
+y <- 1 + 2 * x + rnorm(n)
+X <- cbind(1, x)
+w <- runif(n, 0.5, 1.5)
+
+psi <- function(theta) {
+  ee_regression(theta, X = X, y = y, model = "linear", weights = w)
+}
+
+m <- MEstimator(stacked_equations = psi, init = c(0, 0))
+m <- estimate(m)
+m@theta
+```
+
+## Predictions after regression
+
+After fitting any regression model, use `regression_predictions()` for
+predicted values with confidence intervals:
+
+```{r}
+set.seed(42)
+n <- 300
+x <- rnorm(n)
+y <- 1 + 2 * x + rnorm(n)
+X <- cbind(1, x)
+
+psi <- function(theta) {
+  ee_regression(theta, X = X, y = y, model = "linear")
+}
+m <- MEstimator(stacked_equations = psi, init = c(0, 0))
+m <- estimate(m)
+
+# Predict at new covariate values
+x_new <- seq(-2, 2, length.out = 5)
+X_new <- cbind(1, x_new)
+regression_predictions(X_new, m@theta, m@variance)
+```

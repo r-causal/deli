@@ -1,0 +1,189 @@
+---
+title: "Causal Inference"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Causal Inference}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r}
+library(deli)
+```
+
+## Overview
+
+deli provides estimating equations for several causal inference methods.
+A key advantage of the M-estimation framework is that all nuisance model
+parameters (e.g., propensity scores, outcome models) are estimated
+jointly, so the sandwich variance correctly propagates uncertainty from
+all stages.
+
+This vignette demonstrates:
+
+- G-formula (g-computation / standardization)
+- Inverse probability weighting (IPW)
+- Augmented IPW (AIPW / doubly robust)
+
+## Simulated data
+
+We simulate data with a binary treatment `A`, a confounder `W`, and a
+continuous outcome `Y`:
+
+```{r}
+set.seed(42)
+n <- 1000
+W1 <- rnorm(n)
+W2 <- rbinom(n, 1, 0.4)
+A <- rbinom(n, 1, inverse_logit(-0.5 + 0.5 * W1 + 0.3 * W2))
+Y <- 2 + 1.5 * A + W1 - 0.5 * W2 + rnorm(n)
+
+# True ATE = 1.5
+```
+
+## G-formula (g-computation)
+
+The g-formula estimates the average causal effect by fitting an outcome
+model and standardizing (averaging predictions over the covariate
+distribution):
+
+```{r}
+X <- cbind(1, A, W1, W2)      # Observed design matrix
+X1 <- cbind(1, 1, W1, W2)     # Counterfactual: all treated
+X0 <- cbind(1, 0, W1, W2)     # Counterfactual: all untreated
+
+psi <- function(theta) {
+  ee_gformula(theta, y = Y, X = X, X1 = X1, X0 = X0)
+}
+
+# theta: ACE, E[Y(1)], E[Y(0)], beta0, beta1, beta2, beta3
+m <- MEstimator(stacked_equations = psi,
+                 init = c(0, 0, 0, 0, 0, 0, 0))
+m <- estimate(m)
+
+# ACE estimate (true = 1.5)
+m@theta[1]
+
+# With confidence interval
+summary(m)
+```
+
+The first parameter is the average causal effect (ACE).
+
+## Inverse probability weighting (IPW)
+
+IPW reweights the observed data by the inverse of the treatment
+probability (propensity score):
+
+```{r}
+W_ps <- cbind(1, W1, W2)  # Propensity score design matrix
+
+psi <- function(theta) {
+  ee_ipw(theta, y = Y, A = A, W = W_ps)
+}
+
+# theta: ACE, E[Y(1)], E[Y(0)], alpha0, alpha1, alpha2
+m <- MEstimator(stacked_equations = psi,
+                 init = c(0, 0, 0, 0, 0, 0))
+m <- estimate(m)
+
+# ACE
+m@theta[1]
+summary(m)
+```
+
+### Truncating propensity scores
+
+Extreme propensity scores can inflate variance. Use `truncate` to clip
+them:
+
+```{r}
+psi <- function(theta) {
+  ee_ipw(theta, y = Y, A = A, W = W_ps,
+         truncate = c(0.1, 0.9))
+}
+
+m <- MEstimator(stacked_equations = psi,
+                 init = c(0, 0, 0, 0, 0, 0))
+m <- estimate(m)
+m@theta[1]
+```
+
+## Augmented IPW (doubly robust)
+
+AIPW combines outcome modeling and IPW. It is "doubly robust": the
+estimate is consistent if either the outcome model or the propensity
+score model is correctly specified:
+
+```{r}
+X <- cbind(1, A, W1, W2)
+X1 <- cbind(1, 1, W1, W2)
+X0 <- cbind(1, 0, W1, W2)
+W_ps <- cbind(1, W1, W2)
+
+psi <- function(theta) {
+  ee_aipw(theta, y = Y, A = A,
+          W = W_ps,             # Propensity score model
+          X = X, X1 = X1, X0 = X0)  # Outcome model
+}
+
+# theta: ACE, E[Y(1)], E[Y(0)], alpha (3), beta (4)
+m <- MEstimator(stacked_equations = psi,
+                 init = c(0, 0, 0, rep(0, 3), rep(0, 4)))
+m <- estimate(m)
+
+# ACE
+m@theta[1]
+summary(m)
+```
+
+## Comparing methods
+
+```{r}
+cat("True ATE: 1.5\n")
+cat(sprintf("G-formula: %.3f\n", {
+  psi <- function(theta) {
+    ee_gformula(theta, y = Y, X = cbind(1, A, W1, W2),
+                X1 = cbind(1, 1, W1, W2),
+                X0 = cbind(1, 0, W1, W2))
+  }
+  m <- MEstimator(stacked_equations = psi, init = rep(0, 7))
+  m <- estimate(m)
+  m@theta[1]
+}))
+cat(sprintf("IPW:       %.3f\n", {
+  psi <- function(theta) {
+    ee_ipw(theta, y = Y, A = A, W = cbind(1, W1, W2))
+  }
+  m <- MEstimator(stacked_equations = psi, init = rep(0, 6))
+  m <- estimate(m)
+  m@theta[1]
+}))
+cat(sprintf("AIPW:      %.3f\n", {
+  psi <- function(theta) {
+    ee_aipw(theta, y = Y, A = A, W = cbind(1, W1, W2),
+            X = cbind(1, A, W1, W2),
+            X1 = cbind(1, 1, W1, W2),
+            X0 = cbind(1, 0, W1, W2))
+  }
+  m <- MEstimator(stacked_equations = psi, init = rep(0, 10))
+  m <- estimate(m)
+  m@theta[1]
+}))
+```
+
+## Further reading
+
+- `?ee_ipw_msm`: Marginal structural models with IPW
+- `?ee_gestimation_snmm`: G-estimation for structural nested mean models
+- `?ee_iv_causal`: Instrumental variable estimation
+- `?ee_2sls`: Two-stage least squares
+- `?ee_mean_sensitivity_analysis`: Sensitivity analysis for unmeasured
+  confounding

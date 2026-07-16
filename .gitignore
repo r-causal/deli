@@ -1,0 +1,10 @@
+**/.quarto/
+docs/
+vignettes/articles/*.html
+vignettes/articles/*_files/
+.beads/
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+.DS_Store

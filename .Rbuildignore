@@ -1,0 +1,11 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^\.github$
+^data-raw$
+^_pkgdown\.yml$
+^vignettes/\.quarto$
+^vignettes/articles/\.quarto$
+^vignettes/articles/.*_files$
+^vignettes/articles$
+^docs$
+^README\.Rmd$

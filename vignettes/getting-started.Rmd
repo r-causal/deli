@@ -1,0 +1,340 @@
+---
+title: "Getting Started with deli"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting Started with deli}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Overview
+
+deli is an R package for M-estimation and empirical sandwich variance
+estimation. It provides:
+
+1. `m_estimate()`, a one-step fitting function with a formula interface for
+   the pre-built estimating equations
+2. Pre-built estimating equations for common models (means, regression, causal
+   inference, survival analysis, and more)
+3. Automatic sandwich variance estimation
+4. The `MEstimator` and `GMMEstimator` classes, which solve arbitrary
+   user-specified estimating equations
+
+deli is an R port of the Python
+[Delicatessen](https://github.com/pzivich/Delicatessen) library.
+
+## Installation
+
+```{r eval = FALSE}
+# Install from GitHub (development version)
+# pak::pak("malcolmbarrett/deli")
+```
+
+## Fitting your first model
+
+The quickest way to fit a model is `m_estimate()`, which takes a formula, a
+data frame, and a pre-built estimating equation. It constructs the estimator
+and solves it in a single call, much as `lm()` fits a linear model in one
+step. Here is a linear regression on the `mtcars` data:
+
+```{r}
+library(deli)
+
+fit <- m_estimate(
+  mpg ~ wt + hp,
+  data = mtcars,
+  .ee = ee_regression,
+  model = "linear"
+)
+
+coef(fit)
+```
+
+The `.ee` argument names the estimating equation, and any further arguments
+(such as `model = "linear"`) are passed on to it. The formula and data supply
+the response and design matrix, so you do not need to build them by hand.
+
+## Inspecting the fit
+
+Fitted estimators support the standard R accessors. `coef()` returns the point
+estimates, `vcov()` returns the sandwich variance-covariance matrix, and
+`confint()` returns Wald confidence intervals:
+
+```{r}
+vcov(fit)
+
+confint(fit)
+```
+
+`summary()` collects the estimates, standard errors, test statistics, and
+confidence intervals into a single table:
+
+```{r}
+summary(fit)
+```
+
+deli also provides [broom](https://broom.tidymodels.org/) tidiers, so results
+flow into tidyverse pipelines. `tidy()` returns one row per parameter, and
+`glance()` returns a one-row model summary:
+
+```{r}
+generics::tidy(fit, conf.int = TRUE)
+
+generics::glance(fit)
+```
+
+If you prefer deli's own inference helpers, `confidence_intervals()`,
+`z_scores()`, `p_values()`, and `s_values()` each return the corresponding
+quantities directly:
+
+```{r}
+z_scores(fit)
+p_values(fit)
+```
+
+## Other regression models
+
+The pre-built regression equation covers several model families. Switch from
+linear to logistic regression by changing the `model` argument. Here `vs` is a
+binary indicator of engine type:
+
+```{r}
+fit_logistic <- m_estimate(
+  vs ~ mpg + wt,
+  data = mtcars,
+  .ee = ee_regression,
+  model = "logistic"
+)
+
+summary(fit_logistic)
+```
+
+The sandwich variance estimator supplies robust standard errors automatically,
+without any additional arguments. See `?ee_regression` for the full set of
+supported models, including robust, ridge, LASSO, elastic net, beta, and tobit
+regression.
+
+## The estimator objects
+
+`m_estimate()` is a convenience wrapper around the `MEstimator` class. When a
+pre-built estimating equation and the formula interface do not fit your
+problem, for example when you supply a custom estimating equation, you can work
+with the estimator directly. The workflow has two steps:
+
+1. Define a `psi` function that returns the estimating equation contributions
+2. Construct an `MEstimator` and call `estimate()` to solve it
+
+Here is a simple example that estimates a mean:
+
+```{r}
+y <- c(1, 2, 3, 1, 4, 5, 3, 2, 6, 7)
+
+# Define the estimating equation
+psi <- function(theta) {
+  ee_mean(theta, y = y)
+}
+
+# Construct the estimator and solve
+m <- MEstimator(stacked_equations = psi, init = 0)
+m <- estimate(m)
+
+coef(m)
+```
+
+The estimated mean matches `mean(y)`:
+
+```{r}
+mean(y)
+```
+
+The same accessors that worked on the formula fit work here. The point
+estimate and variance are also available on the object as `m@theta` and
+`m@variance`:
+
+```{r}
+m@theta       # Point estimate (the mean)
+m@variance    # Sandwich variance estimate
+```
+
+`m_estimate()` accepts a `psi` function directly as well, which fits the same
+model in one step:
+
+```{r}
+m <- m_estimate(psi, init = 0)
+coef(m)
+```
+
+## Stacking estimating equations
+
+A key strength of M-estimation is the ability to stack estimating equations.
+When you stack equations, the sandwich variance correctly accounts for all
+sources of uncertainty. Here is an example that estimates a mean and variance
+simultaneously:
+
+```{r}
+y <- c(1, 2, 3, 1, 4, 5, 3, 2, 6, 7)
+
+psi <- function(theta) {
+  ee_mean_variance(theta, y = y)
+}
+
+m <- MEstimator(stacked_equations = psi, init = c(0, 0))
+m <- estimate(m)
+m@theta  # c(mean, variance)
+```
+
+For more complex stacking with custom equations, see
+`vignette("custom-estimating-equations")`.
+
+## Causal inference: inverse probability weighting
+
+deli includes estimating equations for causal inference. Because they combine
+several components, they are a natural fit for the estimator objects. Here is
+an example that uses inverse probability weighting (IPW) to estimate an average
+treatment effect:
+
+```{r}
+set.seed(42)
+n <- 500
+w <- rbinom(n, 1, 0.5)                         # Binary confounder
+A <- rbinom(n, 1, inverse_logit(-0.5 + w))      # Treatment depends on w
+Y <- 1 + 2 * A + w + rnorm(n)                   # Outcome
+W <- cbind(1, w)                                 # Propensity score design matrix
+
+psi <- function(theta) {
+  ee_ipw(theta, y = Y, A = A, W = W)
+}
+
+# theta: ACE, E[Y(1)], E[Y(0)], beta0, beta1
+m <- MEstimator(
+  stacked_equations = psi,
+  init = c(0, 0, 0, 0, 0)
+)
+m <- estimate(m)
+
+# ACE (average causal effect) ~ 2
+m@theta[1]
+```
+
+## Predictions
+
+After fitting a model, use `regression_predictions()` for predicted values
+with confidence intervals:
+
+```{r}
+set.seed(42)
+n <- 200
+x <- rnorm(n)
+y <- 1 + 2 * x + rnorm(n)
+X <- cbind(1, x)
+
+psi <- function(theta) {
+  ee_regression(theta, X = X, y = y, model = "linear")
+}
+
+m <- MEstimator(stacked_equations = psi, init = c(0, 0))
+m <- estimate(m)
+
+# Predict at new values
+x_new <- seq(-2, 2, by = 1)
+X_new <- cbind(1, x_new)
+preds <- regression_predictions(X_new, m@theta, m@variance)
+preds
+```
+
+## Clustered data
+
+For clustered or grouped data, use `aggregate_efuncs()` inside your `psi`
+function to get cluster-robust variance estimates:
+
+```{r}
+set.seed(42)
+n <- 200
+n_groups <- 50
+group <- rep(1:n_groups, each = n / n_groups)
+group_effect <- rnorm(n_groups, sd = 2)
+y <- group_effect[group] + rnorm(n)
+
+# Cluster-robust variance
+psi <- function(theta) {
+  ef <- ee_mean(theta, y = y)
+  aggregate_efuncs(ef, group = group)
+}
+
+m <- MEstimator(stacked_equations = psi, init = mean(y))
+m <- estimate(m)
+
+m@theta
+m@variance  # Accounts for within-cluster correlation
+```
+
+## Exact differentiation
+
+The delta method needs the derivative (Jacobian) of a transform, and the
+sandwich variance needs the derivative of the estimating equations. By default
+deli computes these with central finite differences (`deriv_method =
+"capprox"`), which introduces a small step-size approximation. Passing
+`deriv_method = "exact"` switches to forward-mode automatic differentiation,
+which evaluates the derivative in closed form. It returns exact derivatives with
+no step size to tune, and it is the method Python Delicatessen uses internally.
+
+The `delta_method()` function accepts `deriv_method` directly, and the survival
+prediction helpers `survival_predictions()` and `aft_predictions_function()`
+forward it to the delta method. The following fits a logistic model and uses
+exact differentiation to obtain the variance of the fitted probability at a
+covariate pattern:
+
+```{r}
+set.seed(42)
+n <- 500
+x <- rnorm(n)
+pr <- inverse_logit(0.5 + x)
+y <- rbinom(n, 1, pr)
+X <- cbind(1, x)
+
+psi <- function(theta) {
+  ee_regression(theta, X = X, y = y, model = "logistic")
+}
+
+m <- MEstimator(stacked_equations = psi, init = c(0, 0))
+m <- estimate(m)
+
+# Variance of the predicted probability at x = 1, via the delta method.
+# The log-odds at the pattern (intercept = 1, x = 1) is theta[1] + theta[2].
+transform <- function(theta) inverse_logit(theta[1] + theta[2])
+delta_method(m, transform = transform, deriv_method = "exact")
+```
+
+Automatic differentiation works by carrying a derivative alongside each value
+through the computation, so the transform must be built from operations deli
+knows how to differentiate. The supported surface covers the arithmetic
+operators and the elementwise math functions (the `Ops` and `Math` group
+members, including `exp`, `log`, `sqrt`, and the trigonometric functions), the
+matrix product `%*%`, the transpose `t()`, indexing, the logistic transforms
+`inverse_logit()` and `logit()`, and the `lgamma` / `digamma` / `trigamma` /
+`polygamma` family.
+
+One limitation applies to custom code. The reshaping and binding helpers
+`matrix()`, `rbind()`, and `cbind()` differentiate exactly only when they are
+called from within the package. A user-defined transform that calls them from
+the global environment reaches the base R versions, which do not carry
+derivatives, so use `deriv_method = "exact"` only when the transform avoids
+those helpers, and rely on the finite-difference default otherwise.
+
+## Next steps
+- `vignette("custom-estimating-equations")`: Write your own estimating
+  equations and stack them
+- `?m_estimate`: the one-step formula and function interface
+- `?ee_regression`: GLM, robust, ridge, LASSO, elastic net, beta, and tobit
+  regression
+- `?ee_gformula`: G-computation / standardization
+- `?ee_aipw`: Augmented inverse probability weighting
+- `?ee_aft`: Accelerated failure time models
+- `?ee_survival_model`: Parametric survival models

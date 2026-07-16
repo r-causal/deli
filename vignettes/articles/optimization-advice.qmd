@@ -1,0 +1,274 @@
+---
+title: "Optimization advice"
+knitr:
+  opts_chunk:
+    collapse: true
+    comment: '#>'
+---
+
+```{r}
+#| label: setup
+library(deli)
+```
+
+This article offers guidance for when root-finding or minimization is difficult
+for a given set of estimating functions. The flexibility of the generic
+estimating-equation interface comes at a cost: deli does not provide the fastest
+or most specialized routines for any one model, because it aims to solve them all.
+When a fit stalls, diverges, or returns a variance full of `NaN`, the remedies
+below usually help. Each is grounded in how `estimate()` actually behaves.
+
+The controls referenced throughout are the arguments of `estimate()`: `init`
+(carried on the estimator object), `solver`, `maxiter`, `tolerance`,
+`deriv_method`, and `dx`.
+
+## Choose good starting values
+
+Optimization improves when the starting values in `init` are close to the true
+parameter vector. We rarely know those values in advance, so the practical rule
+is to start in a reasonable part of the parameter space. Three properties matter:
+
+1. The starting values are numerically sensible.
+2. They lie inside the range of possible parameter values. A proportion is bound
+   to $[0, 1]$, so an initial value of $-10$ can break the search. A variance is
+   non-negative, so it should not start below zero.
+3. They are as close to the estimate as available information allows.
+
+For most regression coefficients, a starting value of zero is a reasonable
+default in the absence of other information. Some estimating equations are far
+more sensitive to the starting point than a linear model is. Robust regression,
+the tobit model, and accelerated failure time models can stall or diverge when
+started far from the solution, because their estimating functions are flat or
+steep in regions away from the optimum.
+
+`init` is supplied when the estimator is constructed and travels with the object:
+
+```{r}
+#| label: init-example
+data(robust_regress)
+robust_regress$height_c <- robust_regress$height - mean(robust_regress$height)
+
+X <- cbind(1, robust_regress$height_c)
+y <- robust_regress$weight
+
+psi_robust <- function(theta) {
+  ee_robust_regression(theta, X = X, y = y, model = "linear", k = 1.345)
+}
+
+# Seed the intercept at the mean of the outcome and the slope at zero
+m <- MEstimator(psi_robust, init = c(mean(y), 0))
+```
+
+## Seed from a simpler fit
+
+When an estimator stacks several estimating functions, some parameters can be
+estimated on their own, outside the joint solve. Fitting those pieces first and
+passing the results as `init` lets the joint optimization concentrate on the
+parameters that cannot be solved separately. This is especially useful for
+regression models, where dedicated and numerically stable fitting routines exist:
+seeding `init` with the coefficients from `stats::lm()` or `stats::glm()` lets
+deli borrow the strength of those routines.
+
+A lighter version of the same idea does not require solving any coefficients.
+For a regression model, set the intercept to the mean of the outcome (or its
+link-transformed value for a generalized linear model) and leave the remaining
+coefficients at zero. The seed in the previous section does exactly this.
+
+`MEstimator()` and `GMMEstimator()` also accept a `subset` argument, which holds
+some parameters fixed at their initial values and solves only for the rest. When
+an estimator has hundreds of parameters and many can be pinned down outside the
+procedure, restricting the search to the remaining `subset` reduces the problem
+the solver has to face. The indices are one-based in deli.
+
+## Increase the iteration budget
+
+If better starting values are not enough, raise the iteration budget. The
+`maxiter` argument of `estimate()` defaults to `5000`; increasing it lets the
+solver take more steps before giving up.
+
+```{r}
+#| label: maxiter-example
+#| eval: false
+m <- estimate(m, maxiter = 20000)
+```
+
+## Try a different solver
+
+deli offers three built-in solvers for `MEstimator`, selected through the
+`solver` argument of `estimate()`. Each has different operating characteristics,
+and a problem that defeats one may yield to another.
+
+| `solver` | Routine | Method | Notes |
+|---|---|---|---|
+| `"rootSolve"` | [rootSolve::multiroot()] | Newton | Default. No extra package required. |
+| `"nleqslv"` | [nleqslv::nleqslv()] | Newton with line search and trust region | Alternative global strategies. |
+| `"lm"` | [minpack.lm::nls.lm()] | Levenberg-Marquardt | Damped least squares; robust to a singular Jacobian at the start. |
+
+`"rootSolve"` is the default. It applies a Newton method and converges on the
+great majority of well-conditioned square systems without any additional
+package. `"nleqslv"` is an alternative Newton solver with line-search and
+trust-region strategies that can succeed where a plain Newton step overshoots.
+`"lm"` is the damped least-squares Levenberg-Marquardt algorithm from MINPACK,
+the same routine Python delicatessen calls by default; the damping makes it
+tolerant of an ill-conditioned or singular Jacobian near the starting point,
+where the Newton solvers stall.
+
+The robust regression above is a concrete case. Started from the mean-of-outcome
+seed, the Newton default makes almost no progress, because near that point the
+Huber score clips most residuals and the Jacobian is nearly singular. The
+Levenberg-Marquardt solver converges from the same seed.
+
+```{r}
+#| label: solver-comparison
+m_newton <- estimate(MEstimator(psi_robust, init = c(mean(y), 0)),
+                     solver = "rootSolve")
+m_lm <- estimate(MEstimator(psi_robust, init = c(mean(y), 0)),
+                 solver = "lm")
+
+coef(m_newton)
+coef(m_lm)
+```
+
+The Newton fit has barely moved from the seed, while the Levenberg-Marquardt fit
+has reached the robust solution. The next section shows how to tell the two
+outcomes apart without knowing the answer in advance.
+
+For `GMMEstimator`, the solve is a minimization rather than a root-finding
+problem, and `solver` accepts any method name understood by [stats::optim()].
+The default is `"BFGS"`.
+
+A custom solver is also accepted. Pass a function that takes `stacked_equations`
+and `init` arguments and returns the solved parameter vector; some problems have
+a bespoke algorithm that outperforms the general-purpose routines.
+
+## Scale the predictors
+
+When covariates sit on very different numeric scales, the bread matrix (the
+derivative of the estimating functions) becomes ill-conditioned, which slows
+convergence and degrades the numerical stability of the bread inversion that
+produces the variance. Centering and scaling the predictors before fitting keeps
+the bread well-conditioned.
+
+The effect is easy to see in the condition number of the bread, where a larger
+value means a matrix that is closer to singular and harder to invert reliably:
+
+```{r}
+#| label: scaling-example
+set.seed(1)
+n <- 200
+x1 <- rnorm(n, mean = 0, sd = 1)
+x2 <- rnorm(n, mean = 0, sd = 1e4)
+y_sim <- 1 + 0.5 * x1 + 1e-4 * x2 + rnorm(n)
+
+# Raw predictors, on wildly different scales
+X_raw <- cbind(1, x1, x2)
+fit_raw <- estimate(MEstimator(
+  function(theta) ee_regression(theta, X = X_raw, y = y_sim, model = "linear"),
+  init = c(0, 0, 0)
+))
+kappa(fit_raw@bread, exact = TRUE)
+
+# Standardized predictors
+X_scaled <- cbind(1, scale(x1), scale(x2))
+fit_scaled <- estimate(MEstimator(
+  function(theta) ee_regression(theta, X = X_scaled, y = y_sim, model = "linear"),
+  init = c(0, 0, 0)
+))
+kappa(fit_scaled@bread, exact = TRUE)
+```
+
+Standardizing the predictors reduces the condition number by many orders of
+magnitude. The point estimates and their standard errors are on the scaled
+coefficients, so translate them back to the original units afterward if the raw
+scale is the one you want to report.
+
+## Choose a derivative method
+
+The bread is a derivative, and `estimate()` computes it by the method named in
+`deriv_method`.
+
+| `deriv_method` | Meaning |
+|---|---|
+| `"capprox"` | Central finite difference (default). |
+| `"fapprox"` | Forward finite difference. |
+| `"bapprox"` | Backward finite difference. |
+| `"exact"` | Forward-mode automatic differentiation. |
+
+`"capprox"`, the default, is a central finite difference. It is accurate and
+robust, and it is the recommended starting point. `"fapprox"` and `"bapprox"`
+are one-sided differences, useful when the estimating function cannot be
+evaluated on one side of the current parameter value. The `dx` argument sets the
+finite-difference step for all three; it defaults to `1e-9` and is the one tuning
+knob these methods expose.
+
+`"exact"` is forward-mode automatic differentiation. It carries derivatives
+through the computation exactly, so it is the most accurate option and has no
+step size to choose. Exact differentiation now works for every built-in
+estimating equation except the two that are not differentiable, `ee_percentile`
+and `ee_positive_mean_deviation`. It requires that the estimating function be
+built from operations the automatic differentiation supports; the pre-built
+equations satisfy this, and custom equations do as long as they use supported
+operations.
+
+```{r}
+#| label: deriv-example
+m_exact <- estimate(MEstimator(psi_robust, init = c(mean(y), 0)),
+                    solver = "lm", deriv_method = "exact")
+sqrt(diag(vcov(m_exact)))
+```
+
+The derivative method affects only the bread, and therefore the variance; it
+does not change the point estimate.
+
+## Diagnose convergence
+
+`estimate()` does not print a running log, so convergence is confirmed after the
+fit. Three checks cover most cases.
+
+**The estimating functions should be near zero at the solution.** A root of the
+estimating equations makes the estimating functions sum to approximately zero
+across observations. The estimating-function matrix is parameters-by-observations,
+so this sum is the row sums, `rowSums(psi(...))`. Evaluating the stacked equations
+at the fitted parameters and summing across observations reveals a solver that
+stopped short:
+
+```{r}
+#| label: diagnostic-efunc
+# Stalled Newton fit from the solver comparison above
+rowSums(psi_robust(coef(m_newton)))
+
+# Converged Levenberg-Marquardt fit
+rowSums(psi_robust(coef(m_lm)))
+```
+
+The Newton values are far from zero, which flags the stalled fit; the
+Levenberg-Marquardt values are zero to numerical precision.
+
+**The built-in solvers warn when they fail to converge.** The `"lm"` and
+`"nleqslv"` solvers emit a warning with a status code when their convergence test
+is not met. A warning of that kind is a signal to revisit the starting values,
+the scaling, or the solver.
+
+**The variance should be finite and of a reasonable magnitude.** A singular or
+near-singular bread produces a variance full of `NaN`, `Inf`, or implausibly
+large entries. Inspecting the standard errors catches this:
+
+```{r}
+#| label: diagnostic-variance
+sqrt(diag(vcov(m_lm)))
+```
+
+If these are `NaN` or enormous, the bread could not be inverted reliably.
+Scaling the predictors, improving the starting values, or checking the model
+specification for a redundant parameter usually resolves it.
+
+## A word on tolerance
+
+The `tolerance` argument controls how close to a root the solver must get before
+it stops; it defaults to `1e-9`. It is tempting to loosen `tolerance` to force a
+fit to succeed, but this only permits a larger optimization error: the solver
+stops further from the true root of the estimating equation, and the point
+estimate and variance inherit that error. Do not loosen `tolerance` to get a fit
+to converge unless you are certain the looser value is within acceptable error
+for your problem. Better starting values, scaling, or a different solver address
+the cause rather than the symptom.

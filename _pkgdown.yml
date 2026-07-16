@@ -1,0 +1,180 @@
+url: https://r-causal.github.io/deli
+template:
+  bootstrap: 5
+
+articles:
+  - title: Get Started
+    navbar: ~
+    contents:
+      - getting-started
+  - title: Articles
+    navbar: Articles
+    contents:
+      - custom-estimating-equations
+      - causal-inference
+      - regression-models
+      - articles/translating-from-python
+      - articles/optimization-advice
+  - title: "Applied Examples: Essentials"
+    contents:
+      - articles/ross-ije-2024
+      - articles/boos-stefanski-ch7
+      - articles/life-science-examples
+      - articles/cole-aje-2023
+      - articles/clustered-data
+      - articles/gmm-overid
+  - title: "Applied Examples: Regression"
+    contents:
+      - articles/mroz-1987
+      - articles/agresti-crime
+      - articles/generalized-additive-model
+      - articles/sdss-quasar
+  - title: "Applied Examples: Missing Data"
+    contents:
+      - articles/cole-aje-2022
+      - articles/cole-epid-2023
+  - title: "Applied Examples: Survival"
+    contents:
+      - articles/collett-survival
+      - articles/zivich-plogit
+  - title: "Applied Examples: Pharmacokinetics"
+    contents:
+      - articles/bonate-pharmaco
+  - title: "Applied Examples: Causal Inference"
+    contents:
+      - articles/hernan-robins-2023
+      - articles/morris-trials-2022
+      - articles/coffman-2021
+  - title: "Applied Examples: Other"
+    contents:
+      - articles/zivich-cbands
+      - articles/ash-jcheminform-2022
+
+reference:
+  - title: Core
+    desc: Primary estimator classes and estimation interface.
+    contents:
+      - MEstimator
+      - GMMEstimator
+      - estimate
+
+  - title: Inference
+    desc: Tools for inference from fitted estimators.
+    contents:
+      - confidence_intervals
+      - z_scores
+      - p_values
+      - s_values
+      - confidence_bands
+      - delta_method
+      - influence_functions
+      - compute_sandwich
+
+  - title: Basic Estimating Equations
+    desc: Estimating equations for means, variances, and percentiles.
+    contents:
+      - ee_mean
+      - ee_mean_variance
+      - ee_mean_geometric
+      - ee_mean_robust
+      - ee_percentile
+      - ee_positive_mean_deviation
+
+  - title: Regression Estimating Equations
+    desc: Estimating equations for generalized linear models and penalized regression.
+    contents:
+      - ee_regression
+      - ee_glm
+      - ee_robust_regression
+      - ee_ridge_regression
+      - ee_lasso_regression
+      - ee_dlasso_regression
+      - ee_elasticnet_regression
+      - ee_bridge_regression
+      - ee_beta_regression
+      - ee_tobit
+      - ee_mlogit
+      - ee_additive_regression
+
+  - title: Causal Estimating Equations
+    desc: Estimating equations for causal inference.
+    contents:
+      - ee_gformula
+      - ee_ipw
+      - ee_aipw
+      - ee_ipw_msm
+      - ee_gestimation_snmm
+      - ee_iv_causal
+      - ee_2sls
+      - ee_mean_sensitivity_analysis
+
+  - title: Survival Estimating Equations
+    desc: Estimating equations for survival analysis.
+    contents:
+      - ee_aft
+      - ee_plogit
+      - ee_survival_model
+
+  - title: Measurement Estimating Equations
+    desc: Estimating equations for measurement error correction.
+    contents:
+      - ee_rogan_gladen
+      - ee_rogan_gladen_extended
+      - ee_regression_calibration
+
+  - title: Pharmacokinetics Estimating Equations
+    desc: Estimating equations for dose-response models.
+    contents:
+      - ee_emax
+      - ee_emax_ed
+      - ee_loglogistic
+      - ee_loglogistic_ed
+
+  - title: Predictions
+    desc: Prediction helpers for fitted models.
+    contents:
+      - regression_predictions
+      - survival_predictions
+      - aft_predictions_individual
+      - aft_predictions_function
+      - plogit_predict
+      - convert_survival_measures
+
+  - title: Utilities
+    desc: Transformation functions, loss functions, and other helpers.
+    contents:
+      - logit
+      - inverse_logit
+      - identity_transform
+      - standard_normal_cdf
+      - standard_normal_pdf
+      - deli_polygamma
+      - deli_digamma
+      - robust_loss_functions
+      - aggregate_efuncs
+      - deli_spline
+      - additive_design_matrix
+      - compute_confidence_bands
+      - m_estimate
+      - gmm_estimate
+      - deli-generics
+      - deli-tidiers
+
+  - title: Datasets
+    desc: Bundled example datasets.
+    contents:
+      - shaq_free_throws
+      - inderjit
+      - robust_regress
+      - breast_cancer
+      - mroz
+      - crime
+      - collett_bladder
+      - cutler1995
+      - bonate_adverse
+      - lau_wihs
+      - sdss_quasar
+      - nsduh
+      - actg175
+      - pparg
+      - get_tested

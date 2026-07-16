@@ -1,0 +1,383 @@
+---
+title: "Boos & Stefanski (2013): M-Estimation (Estimating Equations)"
+knitr:
+  opts_chunk:
+    collapse: true
+    comment: '#>'
+---
+
+```{r}
+#| label: setup
+library(deli)
+```
+
+Selected examples from Chapter 7 of Boos & Stefanski (2013), *Essential
+Statistical Inference*, demonstrating M-estimation with the empirical sandwich
+variance estimator.
+
+## 7.2.2 Mean and Variance
+
+Simultaneous estimation of the mean and variance using stacked estimating
+equations.
+
+### Data
+
+```{r}
+#| label: data-7.2.2
+set.seed(80950841)
+n <- 200
+y_mv <- rnorm(n, mean = 10, sd = sqrt(2))
+x_mv <- rnorm(n, mean = 5, sd = 1)
+```
+
+### By-hand estimating equations
+
+```{r}
+#| label: mean-var-hand
+# By-hand mean and variance EE
+psi <- function(theta) {
+  rbind(
+    matrix(y_mv - theta[1], nrow = 1),            # EE for the mean
+    matrix((y_mv - theta[1])^2 - theta[2], nrow = 1) # EE for the variance
+  )
+}
+
+estr <- MEstimator(stacked_equations = psi, init = c(0, 0))
+estr <- estimate(estr)
+estr@theta
+confidence_intervals(estr)
+```
+
+### Built-in `ee_mean_variance`
+
+```{r}
+#| label: mean-var-builtin
+psi <- function(theta) {
+  ee_mean_variance(theta, y = y_mv)
+}
+
+estr <- MEstimator(stacked_equations = psi, init = c(0, 0))
+estr <- estimate(estr)
+estr@theta
+confidence_intervals(estr)
+```
+
+## 7.2.3 Ratio Estimator
+
+Estimating the ratio $\theta = E[Y] / E[X]$ via the single estimating equation
+$\psi_i(\theta) = Y_i - \theta X_i$.
+
+### Single-equation version
+
+```{r}
+#| label: ratio-single
+psi <- function(theta) {
+  matrix(y_mv - theta[1] * x_mv, nrow = 1)
+}
+
+estr <- MEstimator(stacked_equations = psi, init = c(1))
+estr <- estimate(estr)
+estr@theta
+confidence_intervals(estr)
+```
+
+### Three-equation version
+
+Stacking mean of $Y$, mean of $X$, and the ratio:
+
+```{r}
+#| label: ratio-three
+psi <- function(theta) {
+  rbind(
+    matrix(y_mv - theta[1], nrow = 1),             # EE for E[Y]
+    matrix(x_mv - theta[2], nrow = 1),             # EE for E[X]
+    matrix(rep(theta[1] - theta[3] * theta[2], n), nrow = 1) # ratio constraint
+  )
+}
+
+estr <- MEstimator(stacked_equations = psi, init = c(10, 5, 2))
+estr <- estimate(estr)
+estr@theta
+confidence_intervals(estr)
+```
+
+## 7.2.4 Delta Method via Stacking
+
+Rather than applying the delta method after estimation, additional rows can be
+stacked to propagate uncertainty through transformations. Here we add
+$\sqrt{\sigma^2}$ and $\log(\sigma^2)$ as additional parameters.
+
+```{r}
+#| label: delta
+psi <- function(theta) {
+  rbind(
+    matrix(y_mv - theta[1], nrow = 1),                      # mean
+    matrix((y_mv - theta[1])^2 - theta[2], nrow = 1),       # variance
+    matrix(rep(theta[3] - sqrt(theta[2]), n), nrow = 1),     # sqrt(var)
+    matrix(rep(theta[4] - log(theta[2]), n), nrow = 1)       # log(var)
+  )
+}
+
+estr <- MEstimator(stacked_equations = psi, init = c(10, 2, 1, 1))
+estr <- estimate(estr)
+estr@theta
+confidence_intervals(estr)
+```
+
+## 7.2.6 Instrumental Variable
+
+Correcting for measurement error using an instrumental variable. Consider the
+model $Y = \alpha + \beta X^* + \epsilon$ where $X^*$ is measured with error as
+$X = X^* + U$. An instrument $W$ satisfies $\text{Cov}(W, \epsilon) = 0$.
+
+### Data
+
+```{r}
+#| label: data-7.2.6
+set.seed(12345)
+n_iv <- 500
+xstar <- rnorm(n_iv, mean = 0, sd = 1)           # true X
+e <- rnorm(n_iv, mean = 0, sd = 1)                # outcome error
+u <- rnorm(n_iv, mean = 0, sd = 0.5)              # measurement error
+w <- xstar + rnorm(n_iv, mean = 0, sd = 0.5)      # instrument
+x_iv <- xstar + u                                  # mismeasured X
+y_iv <- 1 + 0.5 * xstar + e                        # outcome
+```
+
+### IV estimator: two-equation formulation
+
+Using $(1, W)$ as instruments:
+
+```{r}
+#| label: iv-two
+psi <- function(theta) {
+  resid <- y_iv - theta[1] - theta[2] * x_iv
+  rbind(
+    matrix(resid, nrow = 1),           # instrument: constant
+    matrix(resid * w, nrow = 1)        # instrument: W
+  )
+}
+
+estr <- MEstimator(stacked_equations = psi, init = c(0, 0))
+estr <- estimate(estr)
+estr@theta
+confidence_intervals(estr)
+```
+
+### IV estimator: four-equation formulation
+
+Including the mean of $X$ and $W$ to allow further inference:
+
+```{r}
+#| label: iv-four
+psi <- function(theta) {
+  resid <- y_iv - theta[1] - theta[2] * x_iv
+  rbind(
+    matrix(resid, nrow = 1),              # instrument: constant
+    matrix(resid * w, nrow = 1),          # instrument: W
+    matrix(x_iv - theta[3], nrow = 1),    # mean of X
+    matrix(w - theta[4], nrow = 1)        # mean of W
+  )
+}
+
+estr <- MEstimator(stacked_equations = psi, init = c(0, 0, 0, 0))
+estr <- estimate(estr)
+estr@theta
+confidence_intervals(estr)
+```
+
+## 7.4.1 Robust Location (Huber)
+
+The Huber loss function down-weights large residuals using a tuning constant $k$.
+The estimating equation is $\psi_i(\theta) = h_k(Y_i - \theta)$ where $h_k$ is
+the Huber function.
+
+### Data
+
+```{r}
+#| label: data-7.4.1
+set.seed(42)
+y_rob <- rnorm(250)
+```
+
+### By-hand Huber robust mean
+
+```{r}
+#| label: robust-mean-hand
+k <- 3
+
+psi <- function(theta) {
+  resid <- y_rob - theta[1]
+  # Huber loss: clip residuals to [-k, k]
+  clipped <- pmax(pmin(resid, k), -k)
+  matrix(clipped, nrow = 1)
+}
+
+estr <- MEstimator(stacked_equations = psi, init = c(0))
+estr <- estimate(estr)
+estr@theta
+confidence_intervals(estr)
+```
+
+### Built-in `ee_mean_robust`
+
+```{r}
+#| label: robust-mean-builtin
+psi <- function(theta) {
+  ee_mean_robust(theta, y = y_rob, k = 3, loss = "huber")
+}
+
+estr <- MEstimator(stacked_equations = psi, init = c(0))
+estr <- estimate(estr)
+estr@theta
+confidence_intervals(estr)
+```
+
+## 7.5.1 Linear Regression
+
+Linear regression $Y_i = \beta_0 + \beta_1 X_i + \beta_2 Z_i + \epsilon_i$
+with the estimating equation $\psi_i(\beta) = (Y_i - X_i^T \beta) X_i$.
+
+### Data
+
+```{r}
+#| label: data-7.5.1
+set.seed(99)
+n_lm <- 500
+x_lm <- rnorm(n_lm)
+z_lm <- rbinom(n_lm, 1, 0.5)
+y_lm <- 0.5 + 2 * x_lm - z_lm + rnorm(n_lm)
+X_lm <- cbind(1, x_lm, z_lm)
+```
+
+### By-hand linear regression
+
+```{r}
+#| label: lm-hand
+psi <- function(theta) {
+  yhat <- X_lm %*% theta                 # predicted values (n-by-1)
+  resid <- y_lm - yhat                   # residuals (n-by-1)
+  t(X_lm * as.numeric(resid))            # score: p-by-n
+}
+
+estr <- MEstimator(stacked_equations = psi, init = c(0, 0, 0))
+estr <- estimate(estr)
+estr@theta
+confidence_intervals(estr)
+```
+
+### Built-in `ee_regression`
+
+```{r}
+#| label: lm-builtin
+psi <- function(theta) {
+  ee_regression(theta, X = X_lm, y = y_lm, model = "linear")
+}
+
+estr <- MEstimator(stacked_equations = psi, init = c(0, 0, 0))
+estr <- estimate(estr)
+estr@theta
+confidence_intervals(estr)
+```
+
+## 7.5.4 Robust Regression
+
+Huber robust regression with tuning constant $k = 1.345$. The estimating
+equation is $\psi_i(\beta) = h_k(Y_i - X_i^T \beta) X_i$.
+
+### By-hand robust regression
+
+```{r}
+#| label: robust-reg-hand
+k_rr <- 1.345
+
+psi <- function(theta) {
+  yhat <- X_lm %*% theta
+  resid <- y_lm - as.numeric(yhat)
+  # Huber loss applied to residuals
+  clipped <- pmax(pmin(resid, k_rr), -k_rr)
+  t(X_lm * clipped)
+}
+
+estr <- MEstimator(stacked_equations = psi, init = c(0, 0, 0))
+estr <- estimate(estr, solver = "nleqslv")
+estr@theta
+confidence_intervals(estr)
+```
+
+### Built-in `ee_robust_regression`
+
+```{r}
+#| label: robust-reg-builtin
+psi <- function(theta) {
+  ee_robust_regression(theta, X = X_lm, y = y_lm,
+                       model = "linear", k = 1.345, loss = "huber")
+}
+
+estr <- MEstimator(stacked_equations = psi, init = c(0, 0, 0))
+estr <- estimate(estr, solver = "nleqslv")
+estr@theta
+confidence_intervals(estr)
+```
+
+## 7.5.5 Generalized Linear Models
+
+Using `ee_glm` with different distribution/link combinations to estimate common
+epidemiologic effect measures from binary data.
+
+### Data
+
+```{r}
+#| label: data-7.5.5
+set.seed(321)
+n_glm <- 500
+x_glm <- rnorm(n_glm)
+pr <- inverse_logit(-0.5 + x_glm)
+y_glm <- rbinom(n_glm, 1, pr)
+X_glm <- cbind(1, x_glm)
+```
+
+### Logistic regression (odds ratio)
+
+```{r}
+#| label: glm-logit
+psi <- function(theta) {
+  ee_glm(theta, X = X_glm, y = y_glm,
+         distribution = "binomial", link = "logit")
+}
+
+estr <- MEstimator(stacked_equations = psi, init = c(0, 0))
+estr <- estimate(estr)
+estr@theta
+confidence_intervals(estr)
+```
+
+### Log-binomial regression (risk ratio)
+
+```{r}
+#| label: glm-log
+psi <- function(theta) {
+  ee_glm(theta, X = X_glm, y = y_glm,
+         distribution = "binomial", link = "log")
+}
+
+estr <- MEstimator(stacked_equations = psi, init = c(-1, 0))
+estr <- estimate(estr)
+estr@theta
+confidence_intervals(estr)
+```
+
+### Identity-binomial regression (risk difference)
+
+```{r}
+#| label: glm-identity
+psi <- function(theta) {
+  ee_glm(theta, X = X_glm, y = y_glm,
+         distribution = "binomial", link = "identity")
+}
+
+estr <- MEstimator(stacked_equations = psi, init = c(0.3, 0))
+estr <- estimate(estr)
+estr@theta
+confidence_intervals(estr)
+```
