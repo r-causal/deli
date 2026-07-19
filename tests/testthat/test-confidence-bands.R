@@ -110,20 +110,32 @@ test_that("confidence_bands() forwards the default n_draws to the sup-t draw", {
   # With a shared seed, the default path must reproduce an explicit 1e5 call
   # exactly (proving 1e5 is the default and that it is forwarded)...
   default_cb <- confidence_bands(m, seed = 7)
-  explicit_1e5 <- compute_confidence_bands(m@theta, m@variance, seed = 7,
-                                           n_draws = 100000L)
+  explicit_1e5 <- compute_confidence_bands(
+    m@theta,
+    m@variance,
+    seed = 7,
+    n_draws = 100000L
+  )
   expect_equal(default_cb, explicit_1e5)
   # ...and must differ from a 1e6 call, confirming the default is not 1e6.
-  explicit_1e6 <- compute_confidence_bands(m@theta, m@variance, seed = 7,
-                                           n_draws = 1000000L)
+  explicit_1e6 <- compute_confidence_bands(
+    m@theta,
+    m@variance,
+    seed = 7,
+    n_draws = 1000000L
+  )
   expect_false(isTRUE(all.equal(default_cb, explicit_1e6)))
 })
 
 test_that("confidence_bands() forwards an explicit n_draws", {
   m <- make_fitted_mean_variance()
   forwarded <- confidence_bands(m, seed = 11, n_draws = 1000000L)
-  direct <- compute_confidence_bands(m@theta, m@variance, seed = 11,
-                                     n_draws = 1000000L)
+  direct <- compute_confidence_bands(
+    m@theta,
+    m@variance,
+    seed = 11,
+    n_draws = 1000000L
+  )
   expect_equal(forwarded, direct)
 })
 

@@ -11,7 +11,9 @@ make_causal_data_advanced <- function(n = 200, seed = 42) {
   Y <- (1 - A) * Ya0 + A * Ya1
 
   list(
-    Y = Y, A = A, W = W,
+    Y = Y,
+    A = A,
+    W = W,
     # Propensity score design matrix: intercept, W
     Wmat = cbind(1, W),
     # MSM design matrix: intercept, A
@@ -31,8 +33,13 @@ test_that("ee_ipw_msm returns (c+b)-by-n matrix", {
   theta <- rep(0, c_params + b_params)
 
   result <- ee_ipw_msm(
-    theta, y = d$Y, A = d$A, W = d$Wmat, V = d$Vmsm,
-    distribution = "normal", link = "identity"
+    theta,
+    y = d$Y,
+    A = d$A,
+    W = d$Wmat,
+    V = d$Vmsm,
+    distribution = "normal",
+    link = "identity"
   )
 
   expect_true(is.matrix(result))
@@ -47,8 +54,13 @@ test_that("ee_ipw_msm solves via MEstimator with normal/identity", {
 
   psi <- function(theta) {
     ee_ipw_msm(
-      theta, y = d$Y, A = d$A, W = d$Wmat, V = d$Vmsm,
-      distribution = "normal", link = "identity"
+      theta,
+      y = d$Y,
+      A = d$A,
+      W = d$Wmat,
+      V = d$Vmsm,
+      distribution = "normal",
+      link = "identity"
     )
   }
 
@@ -78,8 +90,13 @@ test_that("ee_ipw_msm with binomial/logit distribution works", {
 
   psi <- function(theta) {
     ee_ipw_msm(
-      theta, y = Y, A = A, W = Wmat, V = Vmsm,
-      distribution = "binomial", link = "logit"
+      theta,
+      y = Y,
+      A = A,
+      W = Wmat,
+      V = Vmsm,
+      distribution = "binomial",
+      link = "logit"
     )
   }
 
@@ -97,8 +114,13 @@ test_that("ee_ipw_msm with truncation works", {
 
   psi <- function(theta) {
     ee_ipw_msm(
-      theta, y = d$Y, A = d$A, W = d$Wmat, V = d$Vmsm,
-      distribution = "normal", link = "identity",
+      theta,
+      y = d$Y,
+      A = d$A,
+      W = d$Wmat,
+      V = d$Vmsm,
+      distribution = "normal",
+      link = "identity",
       truncate = c(0.1, 0.9)
     )
   }
@@ -145,8 +167,13 @@ test_that("ee_ipw_msm tweedie stacked EE has ncol(V)+ncol(W) rows at init", {
   # the propensity model contributes ncol(W). This requires the hyperparameter to
   # reach ee_glm; without it tweedie has no variance power and cannot evaluate.
   ee <- ee_ipw_msm(
-    ref$init, y = y, A = A, W = W, V = V,
-    distribution = "tweedie", link = "log",
+    ref$init,
+    y = y,
+    A = A,
+    W = W,
+    V = V,
+    distribution = "tweedie",
+    link = "log",
     hyperparameter = ref$hyperparameter
   )
 
@@ -168,8 +195,13 @@ test_that("ee_ipw_msm tweedie hyperparameter=1.5 matches Python Delicatessen", {
 
   psi <- function(theta) {
     ee_ipw_msm(
-      theta, y = y, A = A, W = W, V = V,
-      distribution = "tweedie", link = "log",
+      theta,
+      y = y,
+      A = A,
+      W = W,
+      V = V,
+      distribution = "tweedie",
+      link = "log",
       hyperparameter = ref$hyperparameter
     )
   }
@@ -199,8 +231,14 @@ test_that("ee_ipw_msm tweedie hyperparameter changes the MSM fit", {
     estimate(MEstimator(
       stacked_equations = function(theta) {
         ee_ipw_msm(
-          theta, y = y, A = A, W = W, V = V,
-          distribution = "tweedie", link = "log", hyperparameter = p
+          theta,
+          y = y,
+          A = A,
+          W = W,
+          V = V,
+          distribution = "tweedie",
+          link = "log",
+          hyperparameter = p
         )
       },
       init = ref15$init
@@ -222,7 +260,8 @@ test_that("ee_ipw_msm tweedie hyperparameter changes the MSM fit", {
   # function.
   ps_idx <- seq.int(n_msm + 1L, length(m15@theta))
   expect_equal(
-    unname(m15@theta)[ps_idx], unname(m18@theta)[ps_idx],
+    unname(m15@theta)[ps_idx],
+    unname(m18@theta)[ps_idx],
     tolerance = 1e-8
   )
 
@@ -248,15 +287,25 @@ test_that("ee_ipw_msm rejects nuisance-parameter outcome families", {
   # init has length ncol(V) + ncol(W), exactly as for a supported family.
   expect_error(
     ee_ipw_msm(
-      ref$init, y = y, A = A, W = W, V = V,
-      distribution = "negative_binomial", link = "log"
+      ref$init,
+      y = y,
+      A = A,
+      W = W,
+      V = V,
+      distribution = "negative_binomial",
+      link = "log"
     ),
     "conformable"
   )
   expect_error(
     ee_ipw_msm(
-      ref$init, y = y, A = A, W = W, V = V,
-      distribution = "gamma", link = "log"
+      ref$init,
+      y = y,
+      A = A,
+      W = W,
+      V = V,
+      distribution = "gamma",
+      link = "log"
     ),
     "conformable"
   )
@@ -266,12 +315,16 @@ test_that("ee_ipw_msm rejects nuisance-parameter outcome families", {
 
 test_that("ee_gestimation_snmm inefficient returns (b+c)-by-n matrix", {
   d <- make_causal_data_advanced()
-  b_params <- ncol(d$Vsmm)   # SMM parameters
-  c_params <- ncol(d$Wmat)   # PS model parameters
+  b_params <- ncol(d$Vsmm) # SMM parameters
+  c_params <- ncol(d$Wmat) # PS model parameters
   theta <- rep(0, b_params + c_params)
 
   result <- ee_gestimation_snmm(
-    theta, y = d$Y, A = d$A, W = d$Wmat, V = d$Vsmm
+    theta,
+    y = d$Y,
+    A = d$A,
+    W = d$Wmat,
+    V = d$Vsmm
   )
 
   expect_true(is.matrix(result))
@@ -281,14 +334,19 @@ test_that("ee_gestimation_snmm inefficient returns (b+c)-by-n matrix", {
 
 test_that("ee_gestimation_snmm efficient returns (b+c+d)-by-n matrix", {
   d <- make_causal_data_advanced()
-  b_params <- ncol(d$Vsmm)   # SMM parameters
-  c_params <- ncol(d$Wmat)   # PS model parameters
-  Xmat <- d$Wmat              # Outcome model design matrix
+  b_params <- ncol(d$Vsmm) # SMM parameters
+  c_params <- ncol(d$Wmat) # PS model parameters
+  Xmat <- d$Wmat # Outcome model design matrix
   d_params <- ncol(Xmat)
   theta <- rep(0, b_params + c_params + d_params)
 
   result <- ee_gestimation_snmm(
-    theta, y = d$Y, A = d$A, W = d$Wmat, V = d$Vsmm, X = Xmat
+    theta,
+    y = d$Y,
+    A = d$A,
+    W = d$Wmat,
+    V = d$Vsmm,
+    X = Xmat
   )
 
   expect_true(is.matrix(result))
@@ -303,7 +361,11 @@ test_that("ee_gestimation_snmm inefficient linear solves via MEstimator", {
 
   psi <- function(theta) {
     ee_gestimation_snmm(
-      theta, y = d$Y, A = d$A, W = d$Wmat, V = d$Vsmm,
+      theta,
+      y = d$Y,
+      A = d$A,
+      W = d$Wmat,
+      V = d$Vsmm,
       model = "linear"
     )
   }
@@ -331,8 +393,13 @@ test_that("ee_gestimation_snmm efficient linear solves via MEstimator", {
 
   psi <- function(theta) {
     ee_gestimation_snmm(
-      theta, y = d$Y, A = d$A, W = d$Wmat, V = d$Vsmm,
-      X = Xmat, model = "linear"
+      theta,
+      y = d$Y,
+      A = d$A,
+      W = d$Wmat,
+      V = d$Vsmm,
+      X = Xmat,
+      model = "linear"
     )
   }
 
@@ -363,7 +430,11 @@ test_that("ee_gestimation_snmm with V having multiple columns works", {
 
   psi <- function(theta) {
     ee_gestimation_snmm(
-      theta, y = Y, A = A, W = Wmat, V = Vsmm,
+      theta,
+      y = Y,
+      A = A,
+      W = Wmat,
+      V = Vsmm,
       model = "linear"
     )
   }
@@ -395,7 +466,11 @@ test_that("ee_gestimation_snmm poisson model works", {
 
   psi <- function(theta) {
     ee_gestimation_snmm(
-      theta, y = Y, A = A, W = Wmat, V = Vsmm,
+      theta,
+      y = Y,
+      A = A,
+      W = Wmat,
+      V = Vsmm,
       model = "poisson"
     )
   }
@@ -419,7 +494,11 @@ test_that("ee_gestimation_snmm errors on unsupported model", {
 
   expect_error(
     ee_gestimation_snmm(
-      theta, y = d$Y, A = d$A, W = d$Wmat, V = d$Vsmm,
+      theta,
+      y = d$Y,
+      A = d$A,
+      W = d$Wmat,
+      V = d$Vsmm,
       model = "logistic"
     ),
     "not supported"
@@ -627,8 +706,12 @@ test_that("ee_mean_sensitivity_analysis returns (1+b)-by-n matrix", {
 
   theta <- c(180, rep(0, ncol(X)))
   result <- ee_mean_sensitivity_analysis(
-    theta, y = ifelse(is.na(Y), 0, Y), delta = M, X = X,
-    q_eval = q_eval, H_function = inverse_logit
+    theta,
+    y = ifelse(is.na(Y), 0, Y),
+    delta = M,
+    X = X,
+    q_eval = q_eval,
+    H_function = inverse_logit
   )
 
   expect_true(is.matrix(result))
@@ -650,8 +733,12 @@ test_that("ee_mean_sensitivity_analysis solves via MEstimator (alpha=0, MAR)", {
     y_filled <- ifelse(is.na(Y), 0, Y)
     q_eval <- rep(0, n)
     ee_mean_sensitivity_analysis(
-      theta, y = y_filled, delta = M, X = X,
-      q_eval = q_eval, H_function = inverse_logit
+      theta,
+      y = y_filled,
+      delta = M,
+      X = X,
+      q_eval = q_eval,
+      H_function = inverse_logit
     )
   }
 
@@ -677,8 +764,12 @@ test_that("ee_mean_sensitivity_analysis with nonzero alpha works", {
     y_filled <- ifelse(is.na(Y), 0, Y)
     q_eval <- -0.01 * y_filled
     ee_mean_sensitivity_analysis(
-      theta, y = y_filled, delta = M, X = X,
-      q_eval = q_eval, H_function = inverse_logit
+      theta,
+      y = y_filled,
+      delta = M,
+      X = X,
+      q_eval = q_eval,
+      H_function = inverse_logit
     )
   }
 
@@ -704,8 +795,12 @@ test_that("ee_mean_sensitivity_analysis sensitivity changes mean estimate", {
   psi0 <- function(theta) {
     q_eval <- rep(0, n)
     ee_mean_sensitivity_analysis(
-      theta, y = y_filled, delta = M, X = X,
-      q_eval = q_eval, H_function = inverse_logit
+      theta,
+      y = y_filled,
+      delta = M,
+      X = X,
+      q_eval = q_eval,
+      H_function = inverse_logit
     )
   }
   m0 <- MEstimator(stacked_equations = psi0, init = c(180, 0, 0))
@@ -715,8 +810,12 @@ test_that("ee_mean_sensitivity_analysis sensitivity changes mean estimate", {
   psi1 <- function(theta) {
     q_eval <- -0.05 * y_filled
     ee_mean_sensitivity_analysis(
-      theta, y = y_filled, delta = M, X = X,
-      q_eval = q_eval, H_function = inverse_logit
+      theta,
+      y = y_filled,
+      delta = M,
+      X = X,
+      q_eval = q_eval,
+      H_function = inverse_logit
     )
   }
   m1 <- MEstimator(stacked_equations = psi1, init = c(180, 0, 0))
@@ -740,8 +839,12 @@ test_that("ee_mean_sensitivity_analysis with a scalar intercept design emits no 
   recycling_warnings <- character()
   result <- withCallingHandlers(
     ee_mean_sensitivity_analysis(
-      c(180, 0), y = y_filled, delta = r, X = 1,
-      q_eval = qy, H_function = inverse_logit
+      c(180, 0),
+      y = y_filled,
+      delta = r,
+      X = 1,
+      q_eval = qy,
+      H_function = inverse_logit
     ),
     warning = function(w) {
       if (grepl("Recycling array", conditionMessage(w))) {
@@ -755,8 +858,12 @@ test_that("ee_mean_sensitivity_analysis with a scalar intercept design emits no 
 
   # A scalar intercept design must agree with an explicit column of ones.
   explicit <- ee_mean_sensitivity_analysis(
-    c(180, 0), y = y_filled, delta = r, X = matrix(1, nrow = n, ncol = 1),
-    q_eval = qy, H_function = inverse_logit
+    c(180, 0),
+    y = y_filled,
+    delta = r,
+    X = matrix(1, nrow = n, ncol = 1),
+    q_eval = qy,
+    H_function = inverse_logit
   )
   expect_equal(result, explicit)
 })
@@ -774,8 +881,12 @@ test_that("ee_mean_sensitivity_analysis with binary outcome works", {
   psi <- function(theta) {
     q_eval <- rep(0, n)
     ee_mean_sensitivity_analysis(
-      theta, y = y_filled, delta = M, X = X,
-      q_eval = q_eval, H_function = inverse_logit
+      theta,
+      y = y_filled,
+      delta = M,
+      X = X,
+      q_eval = q_eval,
+      H_function = inverse_logit
     )
   }
 

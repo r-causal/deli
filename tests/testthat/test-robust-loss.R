@@ -36,11 +36,14 @@ test_that("hampel loss applies three-part redescending function", {
   cc <- 8
   r <- c(-10, -8, -6, -3, -1, 0, 1, 3, 6, 8, 10)
   expected <- ifelse(
-    abs(r) < a, r,
+    abs(r) < a,
+    r,
     ifelse(
-      abs(r) < b, a * sign(r),
+      abs(r) < b,
+      a * sign(r),
       ifelse(
-        abs(r) < cc, a * sign(r) * (cc - abs(r)) / (cc - b),
+        abs(r) < cc,
+        a * sign(r) * (cc - abs(r)) / (cc - b),
         0
       )
     )
@@ -148,9 +151,14 @@ test_that("non-string loss raises an error", {
 test_that("all loss types are odd functions (antisymmetric)", {
   r <- c(0.5, 1.5, 3, 7)
   losses <- list(
-    list("huber", 1.345), list("tukey", 4.685), list("andrew", 1.339),
-    list("fair", 1.4), list("cauchy", 2.385), list("ullah", 1.5),
-    list("welsch", 2.11), list("hampel", c(2, 4, 8))
+    list("huber", 1.345),
+    list("tukey", 4.685),
+    list("andrew", 1.339),
+    list("fair", 1.4),
+    list("cauchy", 2.385),
+    list("ullah", 1.5),
+    list("welsch", 2.11),
+    list("hampel", c(2, 4, 8))
   )
   for (l in losses) {
     pos <- robust_loss_functions(r, loss = l[[1]], k = l[[2]])

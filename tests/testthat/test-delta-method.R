@@ -44,7 +44,8 @@ test_that("delta_method() computes variance for exp(theta) transformation", {
   # By delta method: Var(exp(theta)) = exp(theta)^2 * Var(theta)
   expected_var <- matrix(
     exp(m@theta[1])^2 * m@variance[1, 1],
-    nrow = 1, ncol = 1
+    nrow = 1,
+    ncol = 1
   )
   expect_equal(result, expected_var, tolerance = 1e-4)
 })
@@ -55,7 +56,8 @@ test_that("delta_method() computes variance for log(theta) transformation", {
   # By delta method: Var(log(theta)) = (1/theta)^2 * Var(theta)
   expected_var <- matrix(
     (1 / m@theta[1])^2 * m@variance[1, 1],
-    nrow = 1, ncol = 1
+    nrow = 1,
+    ncol = 1
   )
   expect_equal(result, expected_var, tolerance = 1e-4)
 })
@@ -78,7 +80,6 @@ test_that("delta_method() works for scalar function of multi-parameter model", {
 })
 
 test_that("delta_method() works for subset of parameters", {
-
   m <- make_fitted_mean_variance()
   # Transform that only returns the first parameter
   result <- delta_method(m, transform = function(theta) theta[1])
@@ -120,7 +121,8 @@ test_that("delta_method() with squaring transform matches manual calculation", {
   # Var(theta^2) = (2*theta)^2 * Var(theta)
   expected_var <- matrix(
     (2 * m@theta[1])^2 * m@variance[1, 1],
-    nrow = 1, ncol = 1
+    nrow = 1,
+    ncol = 1
   )
   expect_equal(result, expected_var, tolerance = 1e-4)
 })
@@ -195,7 +197,9 @@ test_that("delta_method() aborts when the transform output is not one-dimensiona
   theta <- c(0.5, -1.2)
   covariance <- diag(2)
   # A transform that returns a genuine 2x2 matrix rather than a vector
-  transform <- function(th) matrix(c(th[1], th[2], th[1], th[2]), nrow = 2, ncol = 2)
+  transform <- function(th) {
+    matrix(c(th[1], th[2], th[1], th[2]), nrow = 2, ncol = 2)
+  }
   expect_error(
     delta_method(theta, transform = transform, covariance = covariance),
     regexp = "one-dimensional"
@@ -244,10 +248,16 @@ test_that("delta_method() exact mode matches analytic and capprox for exp(theta)
   th <- m@theta[1]
   V <- m@variance[1, 1]
 
-  exact <- delta_method(m, transform = function(theta) exp(theta),
-                        deriv_method = "exact")
-  capprox <- delta_method(m, transform = function(theta) exp(theta),
-                          deriv_method = "capprox")
+  exact <- delta_method(
+    m,
+    transform = function(theta) exp(theta),
+    deriv_method = "exact"
+  )
+  capprox <- delta_method(
+    m,
+    transform = function(theta) exp(theta),
+    deriv_method = "capprox"
+  )
   # Var(exp(theta)) = exp(theta)^2 * Var(theta)
   analytic <- matrix(exp(th)^2 * V, nrow = 1, ncol = 1)
 
@@ -262,10 +272,16 @@ test_that("delta_method() exact mode matches analytic for a parameter ratio", {
   th <- m@theta
   V <- m@variance
 
-  exact <- delta_method(m, transform = function(theta) theta[1] / theta[2],
-                        deriv_method = "exact")
-  capprox <- delta_method(m, transform = function(theta) theta[1] / theta[2],
-                          deriv_method = "capprox")
+  exact <- delta_method(
+    m,
+    transform = function(theta) theta[1] / theta[2],
+    deriv_method = "exact"
+  )
+  capprox <- delta_method(
+    m,
+    transform = function(theta) theta[1] / theta[2],
+    deriv_method = "capprox"
+  )
   # G = [1/th2, -th1/th2^2]
   G <- matrix(c(1 / th[2], -th[1] / th[2]^2), nrow = 1)
   analytic <- G %*% V %*% t(G)
@@ -347,25 +363,51 @@ test_that("delta_method() exact mode differentiates a matrix-vector composite", 
   # map X %*% theta, whose Jacobian is exactly X, so the delta-method covariance
   # is X %*% Sigma %*% t(X).
   theta <- c(0.5, -1.2, 0.8)
-  Sigma <- matrix(c(
-    0.04, 0.01, -0.005,
-    0.01, 0.05, 0.002,
-    -0.005, 0.002, 0.03
-  ), nrow = 3, byrow = TRUE)
-  X <- matrix(c(
-    1, 0.5, -0.25,
-    1, -1, 2
-  ), nrow = 2, byrow = TRUE)
+  Sigma <- matrix(
+    c(
+      0.04,
+      0.01,
+      -0.005,
+      0.01,
+      0.05,
+      0.002,
+      -0.005,
+      0.002,
+      0.03
+    ),
+    nrow = 3,
+    byrow = TRUE
+  )
+  X <- matrix(
+    c(
+      1,
+      0.5,
+      -0.25,
+      1,
+      -1,
+      2
+    ),
+    nrow = 2,
+    byrow = TRUE
+  )
 
   transform <- function(th) {
     eta <- X %*% th
     c(eta[1], eta[2])
   }
 
-  exact <- delta_method(theta, transform = transform, covariance = Sigma,
-                        deriv_method = "exact")
-  capprox <- delta_method(theta, transform = transform, covariance = Sigma,
-                          deriv_method = "capprox")
+  exact <- delta_method(
+    theta,
+    transform = transform,
+    covariance = Sigma,
+    deriv_method = "exact"
+  )
+  capprox <- delta_method(
+    theta,
+    transform = transform,
+    covariance = Sigma,
+    deriv_method = "capprox"
+  )
   analytic <- X %*% Sigma %*% t(X)
 
   expect_true(all(diag(exact) > 0))
@@ -378,10 +420,16 @@ test_that("delta_method() exact mode differentiates lgamma", {
   th <- m@theta[1]
   V <- m@variance[1, 1]
 
-  exact <- delta_method(m, transform = function(theta) lgamma(theta[1]),
-                        deriv_method = "exact")
-  capprox <- delta_method(m, transform = function(theta) lgamma(theta[1]),
-                          deriv_method = "capprox")
+  exact <- delta_method(
+    m,
+    transform = function(theta) lgamma(theta[1]),
+    deriv_method = "exact"
+  )
+  capprox <- delta_method(
+    m,
+    transform = function(theta) lgamma(theta[1]),
+    deriv_method = "capprox"
+  )
   # d/dtheta lgamma(theta) = digamma(theta)
   analytic <- matrix(digamma(th)^2 * V, nrow = 1, ncol = 1)
 
@@ -400,10 +448,18 @@ test_that("delta_method() exact mode matches Python exact for a mixed transform"
     c(exp(th[1]), th[1] * th[2], log(th[3]^2 + 1))
   }
 
-  exact <- delta_method(theta, transform = transform, covariance = Sigma,
-                        deriv_method = "exact")
-  capprox <- delta_method(theta, transform = transform, covariance = Sigma,
-                          deriv_method = "capprox")
+  exact <- delta_method(
+    theta,
+    transform = transform,
+    covariance = Sigma,
+    deriv_method = "exact"
+  )
+  capprox <- delta_method(
+    theta,
+    transform = transform,
+    covariance = Sigma,
+    deriv_method = "capprox"
+  )
 
   # Variances are ~1e-2, well above any tolerance floor; must be strictly positive
   expect_true(all(diag(exact) > 1e-4))
@@ -424,10 +480,18 @@ test_that("delta_method() exact mode matches Python exact for inverse_logit(X th
     inverse_logit(eta)
   }
 
-  exact <- delta_method(theta, transform = transform, covariance = Sigma,
-                        deriv_method = "exact")
-  capprox <- delta_method(theta, transform = transform, covariance = Sigma,
-                          deriv_method = "capprox")
+  exact <- delta_method(
+    theta,
+    transform = transform,
+    covariance = Sigma,
+    deriv_method = "exact"
+  )
+  capprox <- delta_method(
+    theta,
+    transform = transform,
+    covariance = Sigma,
+    deriv_method = "capprox"
+  )
 
   # Variances are ~1e-3 and ~1e-4; SE scale ~0.03 and ~0.03, clearly non-zero
   expect_true(all(diag(exact) > 1e-6))

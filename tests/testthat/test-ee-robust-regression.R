@@ -60,7 +60,11 @@ test_that("ee_robust_regression Huber loss pipeline results match full fixture",
 
   # Check asymptotic variance
   ref_avar <- ref$asymptotic_variance
-  expect_equal(unname(diag(m@asymptotic_variance)), diag(ref_avar), tolerance = 1e-5)
+  expect_equal(
+    unname(diag(m@asymptotic_variance)),
+    diag(ref_avar),
+    tolerance = 1e-5
+  )
 
   # Check bread matrix
   ref_bread <- ref$bread

@@ -39,8 +39,11 @@ test_that("estimate() computes correct asymptotic variance for mean EE", {
   m <- MEstimator(stacked_equations = psi, init = c(0))
   m <- estimate(m)
 
-  expect_equal(unname(m@asymptotic_variance[1, 1]), ref$asymptotic_variance[[1]],
-               tolerance = 1e-4)
+  expect_equal(
+    unname(m@asymptotic_variance[1, 1]),
+    ref$asymptotic_variance[[1]],
+    tolerance = 1e-4
+  )
 })
 
 # ---- estimate() for mean+variance EE ----------------------------------------

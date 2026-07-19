@@ -52,9 +52,21 @@ test_that("central, forward, and backward methods agree for smooth functions", {
   f <- function(x) c(sin(x[1]) + x[2]^2, x[1] * x[2])
   theta <- c(1.5, 2.5)
 
-  result_central  <- approx_differentiation(func = f, theta = theta, method = "capprox")
-  result_forward  <- approx_differentiation(func = f, theta = theta, method = "fapprox")
-  result_backward <- approx_differentiation(func = f, theta = theta, method = "bapprox")
+  result_central <- approx_differentiation(
+    func = f,
+    theta = theta,
+    method = "capprox"
+  )
+  result_forward <- approx_differentiation(
+    func = f,
+    theta = theta,
+    method = "fapprox"
+  )
+  result_backward <- approx_differentiation(
+    func = f,
+    theta = theta,
+    method = "bapprox"
+  )
 
   expect_equal(result_central, result_forward, tolerance = 1e-5)
   expect_equal(result_central, result_backward, tolerance = 1e-5)
@@ -68,8 +80,18 @@ test_that("smaller dx gives more accurate results for smooth functions", {
   theta <- 5
   exact <- 10
 
-  result_large <- approx_differentiation(func = f, theta = theta, method = "fapprox", dx = 1e-3)
-  result_small <- approx_differentiation(func = f, theta = theta, method = "fapprox", dx = 1e-9)
+  result_large <- approx_differentiation(
+    func = f,
+    theta = theta,
+    method = "fapprox",
+    dx = 1e-3
+  )
+  result_small <- approx_differentiation(
+    func = f,
+    theta = theta,
+    method = "fapprox",
+    dx = 1e-9
+  )
 
   error_large <- abs(result_large[1, 1] - exact)
   error_small <- abs(result_small[1, 1] - exact)

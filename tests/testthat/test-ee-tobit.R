@@ -5,10 +5,10 @@ test_that("ee_tobit returns correct shape", {
   n <- 50
   X <- cbind(1, rnorm(n))
   y_star <- 0.5 + 0.3 * X[, 2] + rnorm(n)
-  y <- pmax(y_star, -1)  # left censor at -1
+  y <- pmax(y_star, -1) # left censor at -1
 
   b <- ncol(X)
-  theta <- c(rep(0, b), log(1))  # beta + log(sigma)
+  theta <- c(rep(0, b), log(1)) # beta + log(sigma)
 
   result <- ee_tobit(theta, X = X, y = y, lower = -1)
   expect_true(is.matrix(result))

@@ -22,8 +22,15 @@
 #' @returns A p-by-n matrix where p is the number of parameters.
 #'
 #' @export
-ee_aft <- function(theta, X, time, event, distribution,
-                   weights = NULL, offset = NULL) {
+ee_aft <- function(
+  theta,
+  X,
+  time,
+  event,
+  distribution,
+  weights = NULL,
+  offset = NULL
+) {
   X <- as.matrix(X)
   time <- as.numeric(time)
   event <- as.numeric(event)
@@ -59,14 +66,14 @@ ee_aft <- function(theta, X, time, event, distribution,
 
   # Handling different distribution specifications
   if (distribution %in% c("exponential", "weibull")) {
-    df_f <- 1 - exp(z_i)           # f'/f for Weibull/exponential
-    dS_S <- exp(z_i)               # S'/S for Weibull/exponential
+    df_f <- 1 - exp(z_i) # f'/f for Weibull/exponential
+    dS_S <- exp(z_i) # S'/S for Weibull/exponential
   } else if (distribution %in% c("log-logistic", "loglogistic")) {
-    df_f <- 1 - (2 * exp(z_i)) / (1 + exp(z_i))   # f'/f for log-logistic
-    dS_S <- exp(z_i) / (1 + exp(z_i))              # S'/S for log-logistic
+    df_f <- 1 - (2 * exp(z_i)) / (1 + exp(z_i)) # f'/f for log-logistic
+    dS_S <- exp(z_i) / (1 + exp(z_i)) # S'/S for log-logistic
   } else if (distribution %in% c("log-normal", "lognormal")) {
-    df_f <- -z_i                                    # f'/f for log-normal
-    dS_S <- standard_normal_pdf(z_i) / (1 - standard_normal_cdf(z_i))  # S'/S for log-normal
+    df_f <- -z_i # f'/f for log-normal
+    dS_S <- standard_normal_pdf(z_i) / (1 - standard_normal_cdf(z_i)) # S'/S for log-normal
   } else {
     cli::cli_abort(
       c(
@@ -81,8 +88,8 @@ ee_aft <- function(theta, X, time, event, distribution,
   lambda_epsilon <- event * df_f - (1 - event) * dS_S
 
   # Score for regression coefficients: (-1/sigma) * lambda_epsilon * X
-  score_scale <- (-1 / sigma) * lambda_epsilon  # n-length vector
-  ef_beta <- t(X * (w * score_scale))           # b-by-n matrix
+  score_scale <- (-1 / sigma) * lambda_epsilon # n-length vector
+  ef_beta <- t(X * (w * score_scale)) # b-by-n matrix
 
   # Return based on distribution
 
@@ -92,7 +99,7 @@ ee_aft <- function(theta, X, time, event, distribution,
 
   # Score for shape parameter: (-1/sigma) * lambda_epsilon * z_i - event/sigma
   score_shape <- (-1 / sigma) * lambda_epsilon * z_i - event / sigma
-  ef_shape <- matrix(w * score_shape, nrow = 1)  # 1-by-n matrix
+  ef_shape <- matrix(w * score_shape, nrow = 1) # 1-by-n matrix
 
   rbind(ef_beta, ef_shape)
 }
@@ -144,9 +151,11 @@ ee_survival_model <- function(theta, time, event, distribution) {
       (event * log(time)) -
       (lambd * (time^gamma) * log(time))
   } else if (distribution == "gompertz") {
-    exp_gt <- exp(gamma * time)                       # exp(gamma * time)
+    exp_gt <- exp(gamma * time) # exp(gamma * time)
     ef_lambda <- event / lambd - (exp_gt - 1) / gamma
-    ef_gamma <- lambd / (gamma^2) * (exp_gt - 1) +
+    ef_gamma <- lambd /
+      (gamma^2) *
+      (exp_gt - 1) +
       event * time -
       (lambd / gamma) * exp_gt * time
   } else {
@@ -194,13 +203,21 @@ ee_survival_model <- function(theta, time, event, distribution) {
 #' @returns A p-by-n matrix where p = b + K.
 #'
 #' @export
-ee_plogit <- function(theta, X, time, event, S = NULL, unique_times = NULL,
-                      weights = NULL, offset = NULL) {
+ee_plogit <- function(
+  theta,
+  X,
+  time,
+  event,
+  S = NULL,
+  unique_times = NULL,
+  weights = NULL,
+  offset = NULL
+) {
   X <- as.matrix(X)
-  time <- as.numeric(time)    # observed times
-  event <- as.numeric(event)  # event indicator
+  time <- as.numeric(time) # observed times
+  event <- as.numeric(event) # event indicator
   n <- nrow(X)
-  xp <- ncol(X)               # number of covariate parameters
+  xp <- ncol(X) # number of covariate parameters
 
   # Split theta into covariate and time parameters
   beta_x <- theta[seq_len(xp)]
@@ -210,19 +227,19 @@ ee_plogit <- function(theta, X, time, event, S = NULL, unique_times = NULL,
   if (is.null(S)) {
     # Build disjoint indicator matrix from unique event times
     if (is.null(unique_times)) {
-      event_times <- time[event == 1]                  # look up event times
-      unique_times <- sort(unique(event_times))        # extract unique ones
+      event_times <- time[event == 1] # look up event times
+      unique_times <- sort(unique(event_times)) # extract unique ones
     } else {
       unique_times <- as.numeric(unique_times)
     }
     n_time_steps <- length(unique_times)
     # Create disjoint indicator design matrix
     time_design_matrix <- diag(n_time_steps)
-    time_design_matrix[, 1] <- 1                       # first column is intercept
+    time_design_matrix[, 1] <- 1 # first column is intercept
   } else {
     S <- as.matrix(S)
     time_design_matrix <- S
-    unique_times <- seq_len(max(time))                 # 1:max(time)
+    unique_times <- seq_len(max(time)) # 1:max(time)
     n_time_steps <- length(unique_times)
     if (n_time_steps != nrow(time_design_matrix)) {
       cli::cli_abort(
@@ -237,17 +254,18 @@ ee_plogit <- function(theta, X, time, event, S = NULL, unique_times = NULL,
   }
 
   # Log-odds contributions for covariates and time
-  log_odds_w <- pt_as_vector(X %*% beta_x)              # n-length vector
+  log_odds_w <- pt_as_vector(X %*% beta_x) # n-length vector
   if (!is.null(offset)) {
     log_odds_w <- log_odds_w + as.numeric(offset)
   }
-  log_odds_t <- pt_as_vector(time_design_matrix %*% beta_s)  # K-length vector
+  log_odds_t <- pt_as_vector(time_design_matrix %*% beta_s) # K-length vector
 
   # Computing residuals across time intervals
   # log_odds_w_matrix: K-by-n matrix (stacked copies of covariate contributions)
   log_odds_w_matrix <- matrix(
     rep(log_odds_w, each = n_time_steps),
-    nrow = n_time_steps, ncol = n
+    nrow = n_time_steps,
+    ncol = n
   )
 
   # y_obs: K-by-n indicator matrix (event at specific time interval)
@@ -282,7 +300,7 @@ ee_plogit <- function(theta, X, time, event, S = NULL, unique_times = NULL,
         )
       )
     }
-    w_matrix <- t(w)                                   # K-by-n
+    w_matrix <- t(w) # K-by-n
     residual_matrix <- residual_matrix * w_matrix
   } else {
     # 1D weights: broadcast across time intervals
@@ -290,8 +308,8 @@ ee_plogit <- function(theta, X, time, event, S = NULL, unique_times = NULL,
   }
 
   # Score for X: sum residuals across time intervals, then multiply by X
-  y_resid <- colSums(residual_matrix)                  # n-length vector
-  x_score <- t(X * y_resid)                            # b-by-n matrix
+  y_resid <- colSums(residual_matrix) # n-length vector
+  x_score <- t(X * y_resid) # b-by-n matrix
 
   # Score for S (time parameters)
   if (is.null(S)) {

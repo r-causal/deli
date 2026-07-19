@@ -38,7 +38,6 @@ approx_differentiation <- function(func, theta, method = "capprox", dx = 1e-9) {
     f0 <- generate_matrix(lower)
     f1 <- generate_matrix(upper)
     deriv <- t(f1 - f0) / (2 * dx)
-
   } else if (method == "fapprox") {
     # Forward difference: (f(x+dx) - f(x)) / dx
     upper <- sweep(shift, 2, theta, FUN = function(s, th) th + s)
@@ -46,7 +45,6 @@ approx_differentiation <- function(func, theta, method = "capprox", dx = 1e-9) {
     f0 <- matrix(rep(f_eval, each = p), nrow = p)
     f1 <- generate_matrix(upper)
     deriv <- t(f1 - f0) / dx
-
   } else if (method == "bapprox") {
     # Backward difference: (f(x) - f(x-dx)) / dx
     lower <- sweep(shift, 2, theta, FUN = function(s, th) th - s)
@@ -54,7 +52,6 @@ approx_differentiation <- function(func, theta, method = "capprox", dx = 1e-9) {
     f1 <- matrix(rep(f_eval, each = p), nrow = p)
     f0 <- generate_matrix(lower)
     deriv <- t(f1 - f0) / dx
-
   } else {
     cli::cli_abort("The method {.val {method}} is not supported.")
   }

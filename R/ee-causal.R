@@ -19,8 +19,7 @@
 #' @returns A matrix of estimating equation contributions.
 #'
 #' @export
-ee_gformula <- function(theta, y, X, X1, X0 = NULL,
-                        force_continuous = FALSE) {
+ee_gformula <- function(theta, y, X, X1, X0 = NULL, force_continuous = FALSE) {
   X <- as.matrix(X)
   y <- as.numeric(y)
   X1 <- as.matrix(X1)
@@ -108,7 +107,10 @@ ee_ipw <- function(theta, y, A, W, truncate = NULL, weights = NULL) {
 
   # Propensity score model (logistic regression of A on W)
   preds_reg <- ee_regression(
-    theta = beta, X = W, y = A, model = "logistic"
+    theta = beta,
+    X = W,
+    y = A,
+    model = "logistic"
   )
 
   # Estimated propensity scores
@@ -165,8 +167,17 @@ ee_ipw <- function(theta, y, A, W, truncate = NULL, weights = NULL) {
 #' @returns A `(3+b+c)`-by-n matrix of estimating equation contributions.
 #'
 #' @export
-ee_aipw <- function(theta, y, A, W, X, X1, X0, truncate = NULL,
-                    force_continuous = FALSE) {
+ee_aipw <- function(
+  theta,
+  y,
+  A,
+  W,
+  X,
+  X1,
+  X0,
+  truncate = NULL,
+  force_continuous = FALSE
+) {
   y <- as.numeric(y)
   A <- as.numeric(A)
   W <- as.matrix(W)
@@ -186,7 +197,10 @@ ee_aipw <- function(theta, y, A, W, X, X1, X0, truncate = NULL,
 
   # Propensity score model
   pi_model <- ee_regression(
-    theta = alpha, X = W, y = A, model = "logistic"
+    theta = alpha,
+    X = W,
+    y = A,
+    model = "logistic"
   )
   pi_hat <- inverse_logit(pt_as_vector(W %*% alpha))
 
@@ -212,7 +226,8 @@ ee_aipw <- function(theta, y, A, W, X, X1, X0, truncate = NULL,
   # AIPW estimator
   ace <- mu1 - mu0 - mud
   y1_star <- (y * A / pi_hat - ya1 * (A - pi_hat) / pi_hat) - mu1
-  y0_star <- (y * (1 - A) / (1 - pi_hat) + ya0 * (A - pi_hat) / (1 - pi_hat)) - mu0
+  y0_star <- (y * (1 - A) / (1 - pi_hat) + ya0 * (A - pi_hat) / (1 - pi_hat)) -
+    mu0
 
   # Stack: (3+b+c)-by-n
   rbind(
@@ -257,9 +272,18 @@ ee_aipw <- function(theta, y, A, W, X, X1, X0, truncate = NULL,
 #' @returns A `(c+b)`-by-n matrix of estimating equation contributions.
 #'
 #' @export
-ee_ipw_msm <- function(theta, y, A, W, V, distribution, link,
-                       hyperparameter = NULL, truncate = NULL,
-                       weights = NULL) {
+ee_ipw_msm <- function(
+  theta,
+  y,
+  A,
+  W,
+  V,
+  distribution,
+  link,
+  hyperparameter = NULL,
+  truncate = NULL,
+  weights = NULL
+) {
   # Coerce inputs
   W <- as.matrix(W)
   V <- as.matrix(V)
@@ -269,13 +293,16 @@ ee_ipw_msm <- function(theta, y, A, W, V, distribution, link,
 
   # Extract parameters: first c for MSM, remaining b for PS model
   c_params <- ncol(V)
-  alpha <- theta[1:c_params]                  # MSM parameters
+  alpha <- theta[1:c_params] # MSM parameters
   beta <- theta[(c_params + 1):length(theta)] # PS model parameters
 
   # Propensity score model (logistic regression of A on W)
   preds_reg <- ee_regression(
-    theta = beta, X = W, y = A,
-    model = "logistic", weights = NULL
+    theta = beta,
+    X = W,
+    y = A,
+    model = "logistic",
+    weights = NULL
   )
 
   # Estimated propensity scores
@@ -298,10 +325,14 @@ ee_ipw_msm <- function(theta, y, A, W, V, distribution, link,
 
   # Marginal structural model via weighted GLM
   ee_msm <- ee_glm(
-    theta = alpha, X = V, y = y,
-    distribution = distribution, link = link,
+    theta = alpha,
+    X = V,
+    y = y,
+    distribution = distribution,
+    link = link,
     hyperparameter = hyperparameter, # Passed through for tweedie variance power
-    weights = ipw, offset = NULL
+    weights = ipw,
+    offset = NULL
   )
 
   # Stack: (c+b)-by-n
@@ -333,8 +364,16 @@ ee_ipw_msm <- function(theta, y, A, W, V, distribution, link,
 #' @returns A matrix of estimating equation contributions.
 #'
 #' @export
-ee_gestimation_snmm <- function(theta, y, A, W, V, X = NULL,
-                                model = "linear", weights = NULL) {
+ee_gestimation_snmm <- function(
+  theta,
+  y,
+  A,
+  W,
+  V,
+  X = NULL,
+  model = "linear",
+  weights = NULL
+) {
   # Coerce inputs
   y <- as.numeric(y)
   A <- as.numeric(A)
@@ -343,18 +382,18 @@ ee_gestimation_snmm <- function(theta, y, A, W, V, X = NULL,
   n <- length(y)
 
   # Parameter indexing
-  pdiv <- ncol(V)                        # Number of SMM parameters
-  qdiv <- pdiv + ncol(W)                 # End of PS model parameters
+  pdiv <- ncol(V) # Number of SMM parameters
+  qdiv <- pdiv + ncol(W) # End of PS model parameters
 
   # Process weights
   w <- if (is.null(weights)) rep(1, n) else as.numeric(weights)
 
   # Extract parameter subsets
-  phi <- theta[1:pdiv]                   # SMM parameters
-  alpha <- theta[(pdiv + 1):qdiv]        # PS model parameters
+  phi <- theta[1:pdiv] # SMM parameters
+  alpha <- theta[(pdiv + 1):qdiv] # PS model parameters
   if (!is.null(X)) {
     X <- as.matrix(X)
-    beta <- theta[(qdiv + 1):length(theta)]  # Outcome model parameters
+    beta <- theta[(qdiv + 1):length(theta)] # Outcome model parameters
   }
 
   # Compute H(phi) based on model type
@@ -377,21 +416,27 @@ ee_gestimation_snmm <- function(theta, y, A, W, V, X = NULL,
 
   # Propensity score model: E[A | W]
   ee_log <- ee_regression(
-    theta = alpha, X = W, y = A,
-    model = "logistic", weights = weights
+    theta = alpha,
+    X = W,
+    y = A,
+    model = "logistic",
+    weights = weights
   )
   pi_hat <- inverse_logit(pt_as_vector(W %*% alpha))
-  a_resid <- A - pi_hat                  # Residuals for A
+  a_resid <- A - pi_hat # Residuals for A
 
   # Estimating equations for the g-estimator
 
   if (!is.null(X)) {
     # Efficient g-estimator: include outcome model E[H(phi) | W]
     ee_out <- ee_regression(
-      theta = beta, X = X, y = h_phi,
-      model = model, weights = weights
+      theta = beta,
+      X = X,
+      y = h_phi,
+      model = model,
+      weights = weights
     )
-    yhat <- y_transform(pt_as_vector(X %*% beta))  # Predicted H(phi)
+    yhat <- y_transform(pt_as_vector(X %*% beta)) # Predicted H(phi)
   } else {
     # Inefficient g-estimator: no outcome model
     yhat <- 0
@@ -479,38 +524,44 @@ ee_2sls <- function(theta, y, A, Z, W = NULL, weights = NULL) {
 
   # Processing parameter vector
   if (is.null(W)) {
-    id2s <- 1                              # Split point: no exogenous covariates
+    id2s <- 1 # Split point: no exogenous covariates
   } else {
     W <- as.matrix(W)
-    id2s <- 1 + ncol(W)                    # Split point for first/second stage
+    id2s <- 1 + ncol(W) # Split point for first/second stage
   }
-  beta <- theta[1:id2s]                    # Second-stage parameters
+  beta <- theta[1:id2s] # Second-stage parameters
   alpha <- theta[(id2s + 1):length(theta)] # First-stage parameters
 
   # Processing design matrices
   if (!is.null(W)) {
-    dmatrix1 <- cbind(Z, W)                # Stack instruments and exogenous vars
+    dmatrix1 <- cbind(Z, W) # Stack instruments and exogenous vars
   } else {
     dmatrix1 <- Z
   }
-  a_hat <- pt_as_vector(dmatrix1 %*% alpha)  # Predicted values of A
+  a_hat <- pt_as_vector(dmatrix1 %*% alpha) # Predicted values of A
 
   if (!is.null(W)) {
-    dmatrix2 <- cbind(a_hat, W)            # Stack predicted A and exogenous vars
+    dmatrix2 <- cbind(a_hat, W) # Stack predicted A and exogenous vars
   } else {
     dmatrix2 <- matrix(a_hat, ncol = 1)
   }
 
   # First-stage least squares: A ~ Z (+ W)
   ee_stageone <- ee_regression(
-    theta = alpha, X = dmatrix1, y = a,
-    model = "linear", weights = weights
+    theta = alpha,
+    X = dmatrix1,
+    y = a,
+    model = "linear",
+    weights = weights
   )
 
   # Second-stage least squares: Y ~ A_hat (+ W)
   ee_stagetwo <- ee_regression(
-    theta = beta, X = dmatrix2, y = y,
-    model = "linear", weights = weights
+    theta = beta,
+    X = dmatrix2,
+    y = y,
+    model = "linear",
+    weights = weights
   )
 
   # Output: stack second stage on top of first stage
@@ -542,30 +593,35 @@ ee_2sls <- function(theta, y, A, Z, W = NULL, weights = NULL) {
 #' @returns A `(1+b)`-by-n matrix of estimating equation contributions.
 #'
 #' @export
-ee_mean_sensitivity_analysis <- function(theta, y, delta, X, q_eval,
-                                          H_function) {
+ee_mean_sensitivity_analysis <- function(
+  theta,
+  y,
+  delta,
+  X,
+  q_eval,
+  H_function
+) {
   # Coerce inputs
   delta <- as.numeric(delta)
   y <- as.numeric(y)
   X <- as.matrix(X)
   qy <- as.numeric(q_eval)
-  beta <- theta[-1]                         # Nuisance parameters
+  beta <- theta[-1] # Nuisance parameters
 
   n <- length(y)
 
   # Predicted values from design matrix and nuisance coefficients
-  pred_values <- pt_as_vector(X %*% beta)     # Linear predictor
-
+  pred_values <- pt_as_vector(X %*% beta) # Linear predictor
 
   # Solving for the sensitivity analysis mean
-  numerator <- delta * y                     # Numerator for mean EE
+  numerator <- delta * y # Numerator for mean EE
   denominator <- H_function(pred_values + qy) # Denominator for mean EE
   # Set missing Y contributions to zero
   ym_ind <- ifelse(delta == 1, numerator / denominator, 0)
-  ef_mean <- ym_ind - theta[1]               # Sensitivity analysis EE
+  ef_mean <- ym_ind - theta[1] # Sensitivity analysis EE
 
   # Solving for intercept and coefficients of model
-  h_factor <- delta / denominator - 1        # Length-n weighting residual
+  h_factor <- delta / denominator - 1 # Length-n weighting residual
   # A scalar intercept design reaches here as a length-1 array. Multiplying the
   # length-n factor by that array triggers R's array-recycling deprecation
   # warning, so strip its dim to make this scalar-vector arithmetic. Tangent
@@ -577,7 +633,7 @@ ee_mean_sensitivity_analysis <- function(theta, y, delta, X, q_eval,
 
   # Returning stacked estimating equations
   rbind(
-    matrix(ef_mean, nrow = 1),               # theta[1]: sensitivity mean
-    t(ef_H)                                  # theta[2:]: nuisance parameters
+    matrix(ef_mean, nrow = 1), # theta[1]: sensitivity mean
+    t(ef_H) # theta[2:]: nuisance parameters
   )
 }

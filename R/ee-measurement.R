@@ -24,15 +24,16 @@ ee_rogan_gladen <- function(theta, y, y_star, r, weights = NULL) {
   # Replace y with placeholder for main study obs
   y <- ifelse(r == 1, -999, y)
 
-  mu <- theta[1]       # Corrected proportion
-  mu_star <- theta[2]  # Naive proportion
-  sens <- theta[3]     # Sensitivity
-  spec <- theta[4]     # Specificity
+  mu <- theta[1] # Corrected proportion
+  mu_star <- theta[2] # Naive proportion
+  sens <- theta[3] # Sensitivity
+  spec <- theta[4] # Specificity
 
   # Corrected mean: mu*(sens + spec - 1) = mu_star + spec - 1
   ef_corrected <- matrix(
     mu * (sens + spec - 1) - (mu_star + spec - 1),
-    nrow = 1, ncol = n
+    nrow = 1,
+    ncol = n
   )
 
   # Naive mean: E[Y*] among main study (r=1)
@@ -65,8 +66,7 @@ ee_rogan_gladen <- function(theta, y, y_star, r, weights = NULL) {
 #' @returns A `(1+2*p)`-by-n matrix.
 #'
 #' @export
-ee_rogan_gladen_extended <- function(theta, y, y_star, r, X,
-                                      weights = NULL) {
+ee_rogan_gladen_extended <- function(theta, y, y_star, r, X, weights = NULL) {
   y <- as.numeric(y)
   y_star <- as.numeric(y_star)
   r <- as.numeric(r)
@@ -84,15 +84,23 @@ ee_rogan_gladen_extended <- function(theta, y, y_star, r, X,
 
   # Sensitivity model: logistic regression of y_star on X among Y=1, r=0
   ee_sens <- ee_regression(
-    theta = sens_params, X = X, y = y_star, model = "logistic"
-  ) * matrix((1 - r) * y, nrow = p, ncol = n, byrow = TRUE)
+    theta = sens_params,
+    X = X,
+    y = y_star,
+    model = "logistic"
+  ) *
+    matrix((1 - r) * y, nrow = p, ncol = n, byrow = TRUE)
 
   sens_i <- inverse_logit(pt_as_vector(X %*% sens_params))
 
   # Specificity model: logistic regression of (1-y_star) on X among Y=0, r=0
   ee_spec <- ee_regression(
-    theta = spec_params, X = X, y = 1 - y_star, model = "logistic"
-  ) * matrix((1 - r) * (1 - y), nrow = p, ncol = n, byrow = TRUE)
+    theta = spec_params,
+    X = X,
+    y = 1 - y_star,
+    model = "logistic"
+  ) *
+    matrix((1 - r) * (1 - y), nrow = p, ncol = n, byrow = TRUE)
 
   spec_i <- inverse_logit(pt_as_vector(X %*% spec_params))
 
@@ -123,8 +131,15 @@ ee_rogan_gladen_extended <- function(theta, y, y_star, r, X,
 #' @returns A `(2+p)`-by-n matrix.
 #'
 #' @export
-ee_regression_calibration <- function(theta, beta, a, a_star, r,
-                                      X = NULL, weights = NULL) {
+ee_regression_calibration <- function(
+  theta,
+  beta,
+  a,
+  a_star,
+  r,
+  X = NULL,
+  weights = NULL
+) {
   a <- as.numeric(a)
   a_star <- as.numeric(a_star)
   r <- as.numeric(r)
@@ -148,7 +163,8 @@ ee_regression_calibration <- function(theta, beta, a, a_star, r,
   # Corrected coefficient: beta / gamma[1] (a_star coefficient, first column)
   ef_corrected <- matrix(
     beta / gamma[1] - beta_corrected,
-    nrow = 1, ncol = n
+    nrow = 1,
+    ncol = n
   )
 
   # Calibration model: linear model of a ~ a_star (+ X) using validation data

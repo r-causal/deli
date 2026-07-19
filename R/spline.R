@@ -25,8 +25,13 @@
 #'   `length(knots)` for unrestricted or `length(knots) - 1` for restricted.
 #'
 #' @export
-deli_spline <- function(x, knots, power = 3, restricted = TRUE,
-                        normalized = FALSE) {
+deli_spline <- function(
+  x,
+  knots,
+  power = 3,
+  restricted = TRUE,
+  normalized = FALSE
+) {
   # Sort knots and set up output
 
   knots <- sort(as.numeric(unlist(knots)))
@@ -63,9 +68,11 @@ deli_spline <- function(x, knots, power = 3, restricted = TRUE,
 
   if (restricted) {
     for (i in seq_len(n_knots - 1L)) {
-      vals <- ifelse(x > knots[i],
-                     spline_terms[, i] - spline_terms[, n_knots],
-                     0)
+      vals <- ifelse(
+        x > knots[i],
+        spline_terms[, i] - spline_terms[, n_knots],
+        0
+      )
       spline_terms[, i] <- ifelse(is.na(x), NA_real_, vals)
     }
     # Drop the last column for restricted splines
@@ -165,7 +172,9 @@ additive_design_matrix <- function(X, specifications, return_penalty = FALSE) {
 #' @noRd
 process_spline_spec <- function(spec) {
   if (is.null(spec[["knots"]])) {
-    cli::cli_abort("{.val knots} must be specified in the spline specification.")
+    cli::cli_abort(
+      "{.val knots} must be specified in the spline specification."
+    )
   }
 
   # Fill in defaults for missing keys

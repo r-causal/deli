@@ -28,7 +28,11 @@ test_that("ee_additive_regression with no splines matches ee_regression", {
   theta <- c(1, 2)
 
   result_additive <- ee_additive_regression(
-    theta, X, y, specs, model = "linear"
+    theta,
+    X,
+    y,
+    specs,
+    model = "linear"
   )
   result_regression <- ee_regression(theta, X, y, model = "linear")
 
@@ -36,7 +40,6 @@ test_that("ee_additive_regression with no splines matches ee_regression", {
 })
 
 test_that("ee_additive_regression with zero penalty on splines matches bridge", {
-
   set.seed(99)
   n <- 50
   x <- rnorm(n)
@@ -50,12 +53,21 @@ test_that("ee_additive_regression with zero penalty on splines matches bridge", 
   theta <- rep(0, ncol(dm$X))
 
   result_additive <- ee_additive_regression(
-    theta, X, y, specs, model = "linear"
+    theta,
+    X,
+    y,
+    specs,
+    model = "linear"
   )
 
   result_bridge <- ee_bridge_regression(
-    theta, X = dm$X, y = y, model = "linear",
-    penalty = dm$penalty, gamma = 2, center = 0
+    theta,
+    X = dm$X,
+    y = y,
+    model = "linear",
+    penalty = dm$penalty,
+    gamma = 2,
+    center = 0
   )
 
   expect_equal(result_additive, result_bridge)
@@ -152,7 +164,12 @@ test_that("ee_additive_regression with weights works", {
   theta <- rep(0, ncol(dm))
 
   result <- ee_additive_regression(
-    theta, X, y, specs, model = "linear", weights = w
+    theta,
+    X,
+    y,
+    specs,
+    model = "linear",
+    weights = w
   )
 
   expect_equal(nrow(result), length(theta))
@@ -173,7 +190,12 @@ test_that("ee_additive_regression with offset works", {
   theta <- rep(0, ncol(dm))
 
   result <- ee_additive_regression(
-    theta, X, y, specs, model = "linear", offset = offset
+    theta,
+    X,
+    y,
+    specs,
+    model = "linear",
+    offset = offset
   )
 
   expect_equal(nrow(result), length(theta))
@@ -195,10 +217,18 @@ test_that("ee_additive_regression penalty only affects spline terms", {
   theta <- rep(0.5, 4)
 
   result_pen <- ee_additive_regression(
-    theta, X, y, specs_pen, model = "linear"
+    theta,
+    X,
+    y,
+    specs_pen,
+    model = "linear"
   )
   result_no <- ee_additive_regression(
-    theta, X, y, specs_no, model = "linear"
+    theta,
+    X,
+    y,
+    specs_no,
+    model = "linear"
   )
 
   # First two rows (intercept and linear term) should be same

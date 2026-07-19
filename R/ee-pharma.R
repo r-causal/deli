@@ -29,7 +29,9 @@ ee_emax <- function(theta, dose, response, loss = NULL, k = NULL) {
   # Apply robust loss if specified
   if (!is.null(loss)) {
     if (is.null(k)) {
-      cli::cli_abort("{.arg k} must be provided when using a robust {.arg loss}.")
+      cli::cli_abort(
+        "{.arg k} must be provided when using a robust {.arg loss}."
+      )
     }
     resid <- robust_loss_functions(resid, loss = loss, k = k)
   }
@@ -84,10 +86,10 @@ ee_loglogistic <- function(theta, dose, response, loss = NULL, k = NULL) {
   dose <- as.numeric(dose)
   response <- as.numeric(response)
 
-  e0 <- theta[1]      # lower limit
-  emax <- theta[2]     # upper limit
-  e50 <- theta[3]      # ED50
-  steep <- theta[4]    # steepness
+  e0 <- theta[1] # lower limit
+  emax <- theta[2] # upper limit
+  e50 <- theta[3] # ED50
+  steep <- theta[4] # steepness
 
   # Replace zero doses with small value to avoid log(0)
   dose <- ifelse(dose == 0, 1e-9, dose)
@@ -99,7 +101,9 @@ ee_loglogistic <- function(theta, dose, response, loss = NULL, k = NULL) {
   # Apply robust loss if specified
   if (!is.null(loss)) {
     if (is.null(k)) {
-      cli::cli_abort("{.arg k} must be provided when using a robust {.arg loss}.")
+      cli::cli_abort(
+        "{.arg k} must be provided when using a robust {.arg loss}."
+      )
     }
     resid <- robust_loss_functions(resid, loss = loss, k = k)
   }
@@ -135,8 +139,15 @@ ee_loglogistic <- function(theta, dose, response, loss = NULL, k = NULL) {
 #' @returns A 1-by-n matrix.
 #'
 #' @export
-ee_loglogistic_ed <- function(theta, dose, delta, lower, upper,
-                               ed50, steepness) {
+ee_loglogistic_ed <- function(
+  theta,
+  dose,
+  delta,
+  lower,
+  upper,
+  ed50,
+  steepness
+) {
   n <- length(dose)
 
   # Target response level depends on direction

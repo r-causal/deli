@@ -112,8 +112,10 @@ test_that("convert_survival_measures returns correct risk", {
 })
 
 test_that("convert_survival_measures returns correct cumulative hazard", {
-  expect_equal(convert_survival_measures(0.8, 0.01, "cumulative_hazard"),
-               -log(0.8))
+  expect_equal(
+    convert_survival_measures(0.8, 0.01, "cumulative_hazard"),
+    -log(0.8)
+  )
 })
 
 test_that("convert_survival_measures returns correct density", {
@@ -135,12 +137,16 @@ test_that("convert_survival_measures works with vectors", {
 
 test_that("survival_predictions returns correct shape", {
   # Use known Weibull parameters
-  theta <- c(0.5, 1.2)  # lambda, gamma
+  theta <- c(0.5, 1.2) # lambda, gamma
   cov_mat <- diag(2) * 0.01
   times <- c(0.5, 1, 1.5, 2)
 
-  result <- survival_predictions(times, theta, cov_mat,
-                                  distribution = "weibull")
+  result <- survival_predictions(
+    times,
+    theta,
+    cov_mat,
+    distribution = "weibull"
+  )
   expect_true(is.data.frame(result))
   expect_equal(nrow(result), 4)
   expect_named(result, c("time", "predicted", "variance", "lower", "upper"))
@@ -151,9 +157,13 @@ test_that("survival_predictions survival is between 0 and 1", {
   cov_mat <- diag(2) * 0.001
   times <- seq(0.1, 3, by = 0.5)
 
-  result <- survival_predictions(times, theta, cov_mat,
-                                  distribution = "weibull",
-                                  measure = "survival")
+  result <- survival_predictions(
+    times,
+    theta,
+    cov_mat,
+    distribution = "weibull",
+    measure = "survival"
+  )
   expect_true(all(result$predicted >= 0 & result$predicted <= 1))
 })
 
@@ -171,16 +181,24 @@ test_that("survival_predictions with ee_survival_model", {
   delta <- as.numeric(t_event <= t_censor)
 
   psi <- function(theta) {
-    ee_survival_model(theta, time = t_obs, event = delta,
-                       distribution = "weibull")
+    ee_survival_model(
+      theta,
+      time = t_obs,
+      event = delta,
+      distribution = "weibull"
+    )
   }
   m <- MEstimator(stacked_equations = psi, init = c(0.5, 1))
   m <- estimate(m, solver = "nleqslv")
 
   # Predict survival at several time points
   pred_times <- c(0.5, 1, 2)
-  preds <- survival_predictions(pred_times, m@theta, m@variance,
-                                 distribution = "weibull")
+  preds <- survival_predictions(
+    pred_times,
+    m@theta,
+    m@variance,
+    distribution = "weibull"
+  )
 
   expect_equal(nrow(preds), 3)
   expect_true(all(preds$variance > 0))
@@ -251,35 +269,49 @@ test_that("survival_predictions with deriv_method = 'exact' matches Python", {
     alpha <- s$alpha
 
     result <- survival_predictions(
-      times = times, theta = theta, covariance = covariance,
-      distribution = dist, measure = measure, alpha = alpha,
+      times = times,
+      theta = theta,
+      covariance = covariance,
+      distribution = dist,
+      measure = measure,
+      alpha = alpha,
       deriv_method = "exact"
     )
 
     lbl <- paste0(dist, "/", measure, "/alpha=", alpha)
 
     expect_equal(
-      result$time, times,
-      tolerance = 1e-6, label = paste0(lbl, ": time")
+      result$time,
+      times,
+      tolerance = 1e-6,
+      label = paste0(lbl, ": time")
     )
     expect_equal(
-      result$predicted, ref$scenarios$predicted[[i]],
-      tolerance = 1e-6, label = paste0(lbl, ": predicted")
+      result$predicted,
+      ref$scenarios$predicted[[i]],
+      tolerance = 1e-6,
+      label = paste0(lbl, ": predicted")
     )
     # Variance compared on the SE scale to stay in relative mode; see the
     # section header for why direct comparison would be vacuous for the
     # small-variance measures.
     expect_equal(
-      sqrt(result$variance), sqrt(ref$scenarios$variance[[i]]),
-      tolerance = 1e-8, label = paste0(lbl, ": se")
+      sqrt(result$variance),
+      sqrt(ref$scenarios$variance[[i]]),
+      tolerance = 1e-8,
+      label = paste0(lbl, ": se")
     )
     expect_equal(
-      result$lower, ref$scenarios$lower[[i]],
-      tolerance = 1e-8, label = paste0(lbl, ": lower")
+      result$lower,
+      ref$scenarios$lower[[i]],
+      tolerance = 1e-8,
+      label = paste0(lbl, ": lower")
     )
     expect_equal(
-      result$upper, ref$scenarios$upper[[i]],
-      tolerance = 1e-8, label = paste0(lbl, ": upper")
+      result$upper,
+      ref$scenarios$upper[[i]],
+      tolerance = 1e-8,
+      label = paste0(lbl, ": upper")
     )
   }
 })
@@ -304,9 +336,13 @@ test_that("survival_predictions exact-mode variances are positive without clampi
     covariance <- as.matrix(ref$models[[dist]]$covariance)
 
     result <- survival_predictions(
-      times = ref$scenarios$times[[i]], theta = theta,
-      covariance = covariance, distribution = dist,
-      measure = measure, alpha = s$alpha, deriv_method = "exact"
+      times = ref$scenarios$times[[i]],
+      theta = theta,
+      covariance = covariance,
+      distribution = dist,
+      measure = measure,
+      alpha = s$alpha,
+      deriv_method = "exact"
     )
 
     lbl <- paste0(dist, "/", measure, "/alpha=", s$alpha)
@@ -318,8 +354,10 @@ test_that("survival_predictions exact-mode variances are positive without clampi
     # the SE scale confirms the R exact-mode variance equals Python's, so the
     # positivity is genuine rather than a clamp artifact.
     expect_equal(
-      sqrt(result$variance), sqrt(ref$scenarios$variance[[i]]),
-      tolerance = 1e-8, label = paste0(lbl, ": se matches positive Python")
+      sqrt(result$variance),
+      sqrt(ref$scenarios$variance[[i]]),
+      tolerance = 1e-8,
+      label = paste0(lbl, ": se matches positive Python")
     )
   }
 })
@@ -339,27 +377,39 @@ test_that("survival_predictions with deriv_method = 'capprox' matches Python", {
     times <- ref$scenarios$times[[i]]
 
     result <- survival_predictions(
-      times = times, theta = theta, covariance = covariance,
-      distribution = dist, measure = measure, alpha = s$alpha,
+      times = times,
+      theta = theta,
+      covariance = covariance,
+      distribution = dist,
+      measure = measure,
+      alpha = s$alpha,
       deriv_method = "capprox"
     )
 
     lbl <- paste0(dist, "/", measure, "/alpha=", s$alpha)
     expect_equal(
-      result$predicted, ref$scenarios$predicted[[i]],
-      tolerance = 1e-6, label = paste0(lbl, ": predicted")
+      result$predicted,
+      ref$scenarios$predicted[[i]],
+      tolerance = 1e-6,
+      label = paste0(lbl, ": predicted")
     )
     expect_equal(
-      sqrt(result$variance), sqrt(ref$scenarios$variance[[i]]),
-      tolerance = 1e-5, label = paste0(lbl, ": se")
+      sqrt(result$variance),
+      sqrt(ref$scenarios$variance[[i]]),
+      tolerance = 1e-5,
+      label = paste0(lbl, ": se")
     )
     expect_equal(
-      result$lower, ref$scenarios$lower[[i]],
-      tolerance = 1e-5, label = paste0(lbl, ": lower")
+      result$lower,
+      ref$scenarios$lower[[i]],
+      tolerance = 1e-5,
+      label = paste0(lbl, ": lower")
     )
     expect_equal(
-      result$upper, ref$scenarios$upper[[i]],
-      tolerance = 1e-5, label = paste0(lbl, ": upper")
+      result$upper,
+      ref$scenarios$upper[[i]],
+      tolerance = 1e-5,
+      label = paste0(lbl, ": upper")
     )
   }
 })
@@ -375,12 +425,19 @@ test_that("survival_predictions default derivative method reproduces capprox", {
   times <- ref$times
 
   default_call <- survival_predictions(
-    times = times, theta = theta, covariance = covariance,
-    distribution = "weibull", measure = "risk"
+    times = times,
+    theta = theta,
+    covariance = covariance,
+    distribution = "weibull",
+    measure = "risk"
   )
   capprox_call <- survival_predictions(
-    times = times, theta = theta, covariance = covariance,
-    distribution = "weibull", measure = "risk", deriv_method = "capprox"
+    times = times,
+    theta = theta,
+    covariance = covariance,
+    distribution = "weibull",
+    measure = "risk",
+    deriv_method = "capprox"
   )
 
   expect_equal(default_call, capprox_call)
@@ -392,11 +449,15 @@ test_that("aft_predictions_individual returns correct shape", {
   set.seed(42)
   n <- 20
   X <- cbind(1, rnorm(n))
-  theta <- c(1, 0.5, log(1))  # beta0, beta1, log(1/sigma)
+  theta <- c(1, 0.5, log(1)) # beta0, beta1, log(1/sigma)
   times <- c(0.5, 1, 2)
 
-  result <- aft_predictions_individual(X, times, theta,
-                                        distribution = "weibull")
+  result <- aft_predictions_individual(
+    X,
+    times,
+    theta,
+    distribution = "weibull"
+  )
   expect_true(is.data.frame(result))
   expect_equal(nrow(result), n)
   expect_equal(ncol(result), 3)
@@ -409,21 +470,29 @@ test_that("aft_predictions_individual survival is in [0, 1]", {
   theta <- c(2, 0.3, log(1.5))
   times <- c(1, 5, 10)
 
-  result <- aft_predictions_individual(X, times, theta,
-                                        distribution = "weibull",
-                                        measure = "survival")
+  result <- aft_predictions_individual(
+    X,
+    times,
+    theta,
+    distribution = "weibull",
+    measure = "survival"
+  )
   expect_true(all(unlist(result) >= 0))
   expect_true(all(unlist(result) <= 1))
 })
 
 test_that("aft_predictions_individual survival decreases over time", {
-  X <- cbind(1, 0)  # single individual
+  X <- cbind(1, 0) # single individual
   theta <- c(2, 0.3, log(1.5))
   times <- c(1, 5, 10, 20)
 
-  result <- aft_predictions_individual(X, times, theta,
-                                        distribution = "weibull",
-                                        measure = "survival")
+  result <- aft_predictions_individual(
+    X,
+    times,
+    theta,
+    distribution = "weibull",
+    measure = "survival"
+  )
   surv <- as.numeric(result[1, ])
   # Survival should be non-increasing over time
   expect_true(all(diff(surv) <= 0))
@@ -442,16 +511,27 @@ test_that("aft_predictions_individual works with MEstimator", {
   delta <- as.numeric(t_event <= t_censor)
 
   psi <- function(theta) {
-    ee_aft(theta, X = X, time = t_obs, event = delta,
-           distribution = "log-normal")
+    ee_aft(
+      theta,
+      X = X,
+      time = t_obs,
+      event = delta,
+      distribution = "log-normal"
+    )
   }
-  m <- MEstimator(stacked_equations = psi,
-                   init = c(mean(log(t_obs)), 0, log(1 / sd(log(t_obs)))))
+  m <- MEstimator(
+    stacked_equations = psi,
+    init = c(mean(log(t_obs)), 0, log(1 / sd(log(t_obs))))
+  )
   m <- estimate(m, solver = "nleqslv")
 
   pred_times <- c(1, 5, 10)
-  preds <- aft_predictions_individual(X, pred_times, m@theta,
-                                       distribution = "log-normal")
+  preds <- aft_predictions_individual(
+    X,
+    pred_times,
+    m@theta,
+    distribution = "log-normal"
+  )
   expect_equal(nrow(preds), n)
   expect_equal(ncol(preds), 3)
   # All predictions should be valid probabilities
@@ -464,18 +544,20 @@ test_that("aft_predictions_individual supports different distributions", {
   times <- c(1, 5)
 
   # Weibull
-  r1 <- aft_predictions_individual(X, times, theta,
-                                    distribution = "weibull")
+  r1 <- aft_predictions_individual(X, times, theta, distribution = "weibull")
   expect_equal(nrow(r1), 1)
 
   # Log-logistic
-  r2 <- aft_predictions_individual(X, times, theta,
-                                    distribution = "log-logistic")
+  r2 <- aft_predictions_individual(
+    X,
+    times,
+    theta,
+    distribution = "log-logistic"
+  )
   expect_equal(nrow(r2), 1)
 
   # Log-normal
-  r3 <- aft_predictions_individual(X, times, theta,
-                                    distribution = "log-normal")
+  r3 <- aft_predictions_individual(X, times, theta, distribution = "log-normal")
   expect_equal(nrow(r3), 1)
 })
 
@@ -527,19 +609,28 @@ test_that("aft_predictions_function matches Python across distributions and meas
     alpha <- s$alpha
 
     result <- aft_predictions_function(
-      X = X, times = times, theta = theta, covariance = covariance,
-      distribution = dist, measure = measure, alpha = alpha
+      X = X,
+      times = times,
+      theta = theta,
+      covariance = covariance,
+      distribution = dist,
+      measure = measure,
+      alpha = alpha
     )
 
     lbl <- paste0(dist, "/", measure, "/", s$pattern, "/alpha=", alpha)
 
     expect_equal(
-      result$time, times,
-      tolerance = 1e-6, label = paste0(lbl, ": time")
+      result$time,
+      times,
+      tolerance = 1e-6,
+      label = paste0(lbl, ": time")
     )
     expect_equal(
-      result$predicted, ref$scenarios$predicted[[i]],
-      tolerance = 1e-6, label = paste0(lbl, ": predicted")
+      result$predicted,
+      ref$scenarios$predicted[[i]],
+      tolerance = 1e-6,
+      label = paste0(lbl, ": predicted")
     )
     # Compare the variance on the SE (square-root) scale. testthat's
     # expect_equal follows all.equal, which switches to absolute comparison
@@ -549,16 +640,22 @@ test_that("aft_predictions_function matches Python across distributions and meas
     # where a variance of 0 would pass vacuously. The SE vectors have mean
     # magnitude of at least ~1e-4, so every comparison stays relative.
     expect_equal(
-      sqrt(result$variance), sqrt(ref$scenarios$variance[[i]]),
-      tolerance = 1e-5, label = paste0(lbl, ": se")
+      sqrt(result$variance),
+      sqrt(ref$scenarios$variance[[i]]),
+      tolerance = 1e-5,
+      label = paste0(lbl, ": se")
     )
     expect_equal(
-      result$lower, ref$scenarios$lower[[i]],
-      tolerance = 1e-5, label = paste0(lbl, ": lower")
+      result$lower,
+      ref$scenarios$lower[[i]],
+      tolerance = 1e-5,
+      label = paste0(lbl, ": lower")
     )
     expect_equal(
-      result$upper, ref$scenarios$upper[[i]],
-      tolerance = 1e-5, label = paste0(lbl, ": upper")
+      result$upper,
+      ref$scenarios$upper[[i]],
+      tolerance = 1e-5,
+      label = paste0(lbl, ": upper")
     )
   }
 })
@@ -586,28 +683,41 @@ test_that("aft_predictions_function with deriv_method = 'exact' matches Python",
     alpha <- s$alpha
 
     result <- aft_predictions_function(
-      X = X, times = times, theta = theta, covariance = covariance,
-      distribution = dist, measure = measure, alpha = alpha,
+      X = X,
+      times = times,
+      theta = theta,
+      covariance = covariance,
+      distribution = dist,
+      measure = measure,
+      alpha = alpha,
       deriv_method = "exact"
     )
 
     lbl <- paste0(dist, "/", measure, "/", s$pattern, "/alpha=", alpha)
 
     expect_equal(
-      result$predicted, ref$scenarios$predicted[[i]],
-      tolerance = 1e-6, label = paste0(lbl, ": predicted")
+      result$predicted,
+      ref$scenarios$predicted[[i]],
+      tolerance = 1e-6,
+      label = paste0(lbl, ": predicted")
     )
     expect_equal(
-      sqrt(result$variance), sqrt(ref$scenarios$variance[[i]]),
-      tolerance = 1e-8, label = paste0(lbl, ": se")
+      sqrt(result$variance),
+      sqrt(ref$scenarios$variance[[i]]),
+      tolerance = 1e-8,
+      label = paste0(lbl, ": se")
     )
     expect_equal(
-      result$lower, ref$scenarios$lower[[i]],
-      tolerance = 1e-8, label = paste0(lbl, ": lower")
+      result$lower,
+      ref$scenarios$lower[[i]],
+      tolerance = 1e-8,
+      label = paste0(lbl, ": lower")
     )
     expect_equal(
-      result$upper, ref$scenarios$upper[[i]],
-      tolerance = 1e-8, label = paste0(lbl, ": upper")
+      result$upper,
+      ref$scenarios$upper[[i]],
+      tolerance = 1e-8,
+      label = paste0(lbl, ": upper")
     )
     expect_true(
       all(result$variance > 0),
@@ -623,8 +733,12 @@ test_that("aft_predictions_function returns the expected data frame structure", 
   times <- c(50, 100, 150, 200)
 
   result <- aft_predictions_function(
-    X = matrix(c(1, 0), nrow = 1), times = times, theta = theta,
-    covariance = covariance, distribution = "weibull", measure = "survival"
+    X = matrix(c(1, 0), nrow = 1),
+    times = times,
+    theta = theta,
+    covariance = covariance,
+    distribution = "weibull",
+    measure = "survival"
   )
 
   expect_true(is.data.frame(result))
@@ -638,8 +752,11 @@ test_that("aft_predictions_function point-wise CI brackets the prediction", {
   covariance <- as.matrix(ref$models[["log-normal"]]$covariance)
 
   result <- aft_predictions_function(
-    X = matrix(c(1, 1), nrow = 1), times = c(50, 100, 150, 200),
-    theta = theta, covariance = covariance, distribution = "log-normal",
+    X = matrix(c(1, 1), nrow = 1),
+    times = c(50, 100, 150, 200),
+    theta = theta,
+    covariance = covariance,
+    distribution = "log-normal",
     measure = "risk"
   )
 
@@ -653,8 +770,11 @@ test_that("aft_predictions_function widens the interval with a smaller alpha", {
   theta <- ref$models[["weibull"]]$theta
   covariance <- as.matrix(ref$models[["weibull"]]$covariance)
   args <- list(
-    X = matrix(c(1, 0), nrow = 1), times = c(50, 100, 150, 200),
-    theta = theta, covariance = covariance, distribution = "weibull",
+    X = matrix(c(1, 0), nrow = 1),
+    times = c(50, 100, 150, 200),
+    theta = theta,
+    covariance = covariance,
+    distribution = "weibull",
     measure = "risk"
   )
 
@@ -675,7 +795,9 @@ test_that("aft_predictions_function errors on multiple covariate patterns", {
   expect_error(
     aft_predictions_function(
       X = matrix(c(1, 0, 1, 1), nrow = 2, byrow = TRUE),
-      times = c(50, 100), theta = theta, covariance = covariance,
+      times = c(50, 100),
+      theta = theta,
+      covariance = covariance,
       distribution = "weibull"
     ),
     "row|pattern|single"
@@ -689,15 +811,23 @@ test_that("aft_predictions_function errors on invalid alpha", {
 
   expect_error(
     aft_predictions_function(
-      X = matrix(c(1, 0), nrow = 1), times = 50, theta = theta,
-      covariance = covariance, distribution = "weibull", alpha = 0
+      X = matrix(c(1, 0), nrow = 1),
+      times = 50,
+      theta = theta,
+      covariance = covariance,
+      distribution = "weibull",
+      alpha = 0
     ),
     "alpha"
   )
   expect_error(
     aft_predictions_function(
-      X = matrix(c(1, 0), nrow = 1), times = 50, theta = theta,
-      covariance = covariance, distribution = "weibull", alpha = 1
+      X = matrix(c(1, 0), nrow = 1),
+      times = 50,
+      theta = theta,
+      covariance = covariance,
+      distribution = "weibull",
+      alpha = 1
     ),
     "alpha"
   )
@@ -710,12 +840,16 @@ test_that("aft_predictions_function handles a length-one times vector", {
   theta <- ref$models[["weibull"]]$theta
   covariance <- as.matrix(ref$models[["weibull"]]$covariance)
   args <- list(
-    X = matrix(c(1, 0), nrow = 1), theta = theta, covariance = covariance,
-    distribution = "weibull", measure = "risk"
+    X = matrix(c(1, 0), nrow = 1),
+    theta = theta,
+    covariance = covariance,
+    distribution = "weibull",
+    measure = "risk"
   )
 
   many <- do.call(
-    aft_predictions_function, c(args, list(times = c(50, 100, 150, 200)))
+    aft_predictions_function,
+    c(args, list(times = c(50, 100, 150, 200)))
   )
   one <- do.call(aft_predictions_function, c(args, list(times = 100)))
 
@@ -748,7 +882,7 @@ test_that("plogit_predict returns correct shape with default S", {
   m <- MEstimator(stacked_equations = psi, init = inits)
   m <- estimate(m, solver = "nleqslv")
 
- result <- plogit_predict(m@theta, time = y, event = delta, X = X)
+  result <- plogit_predict(m@theta, time = y, event = delta, X = X)
 
   # Should be K-by-n matrix
   expect_true(is.matrix(result))
@@ -831,8 +965,13 @@ test_that("plogit_predict survival decreases over time", {
   m <- MEstimator(stacked_equations = psi, init = inits)
   m <- estimate(m, solver = "nleqslv")
 
-  result <- plogit_predict(m@theta, time = y, event = delta, X = X,
-                            measure = "survival")
+  result <- plogit_predict(
+    m@theta,
+    time = y,
+    event = delta,
+    X = X,
+    measure = "survival"
+  )
 
   # For each individual, survival should be non-increasing
   for (j in seq_len(ncol(result))) {
@@ -860,10 +999,20 @@ test_that("plogit_predict risk equals 1 - survival", {
   m <- MEstimator(stacked_equations = psi, init = inits)
   m <- estimate(m, solver = "nleqslv")
 
-  surv <- plogit_predict(m@theta, time = y, event = delta, X = X,
-                          measure = "survival")
-  risk <- plogit_predict(m@theta, time = y, event = delta, X = X,
-                          measure = "risk")
+  surv <- plogit_predict(
+    m@theta,
+    time = y,
+    event = delta,
+    X = X,
+    measure = "survival"
+  )
+  risk <- plogit_predict(
+    m@theta,
+    time = y,
+    event = delta,
+    X = X,
+    measure = "risk"
+  )
 
   expect_equal(risk, 1 - surv)
 })
@@ -888,10 +1037,20 @@ test_that("plogit_predict cumulative_hazard equals -log(survival)", {
   m <- MEstimator(stacked_equations = psi, init = inits)
   m <- estimate(m, solver = "nleqslv")
 
-  surv <- plogit_predict(m@theta, time = y, event = delta, X = X,
-                          measure = "survival")
-  chaz <- plogit_predict(m@theta, time = y, event = delta, X = X,
-                          measure = "cumulative_hazard")
+  surv <- plogit_predict(
+    m@theta,
+    time = y,
+    event = delta,
+    X = X,
+    measure = "survival"
+  )
+  chaz <- plogit_predict(
+    m@theta,
+    time = y,
+    event = delta,
+    X = X,
+    measure = "cumulative_hazard"
+  )
 
   expect_equal(chaz, -log(surv))
 })
@@ -932,8 +1091,13 @@ test_that("plogit_predict with times_to_predict subsets correctly", {
 
   # Predict at specific time points
   pred_times <- c(1, 3, 5)
-  result <- plogit_predict(m@theta, time = y, event = delta, X = X,
-                            times_to_predict = pred_times)
+  result <- plogit_predict(
+    m@theta,
+    time = y,
+    event = delta,
+    X = X,
+    times_to_predict = pred_times
+  )
 
   expect_true(is.matrix(result))
   expect_equal(nrow(result), 3)
@@ -961,9 +1125,14 @@ test_that("plogit_predict at time 0 returns baseline", {
   m <- estimate(m, solver = "nleqslv")
 
   # At time 0, survival should be 1 for all individuals
-  result <- plogit_predict(m@theta, time = y, event = delta, X = X,
-                            times_to_predict = c(0),
-                            measure = "survival")
+  result <- plogit_predict(
+    m@theta,
+    time = y,
+    event = delta,
+    X = X,
+    times_to_predict = c(0),
+    measure = "survival"
+  )
   expect_equal(as.numeric(result), rep(1, n))
 })
 
@@ -988,8 +1157,13 @@ test_that("plogit_predict errors beyond max observed time", {
   m <- estimate(m, solver = "nleqslv")
 
   expect_error(
-    plogit_predict(m@theta, time = y, event = delta, X = X,
-                    times_to_predict = c(100)),
+    plogit_predict(
+      m@theta,
+      time = y,
+      event = delta,
+      X = X,
+      times_to_predict = c(100)
+    ),
     "maximum observed time"
   )
 })
@@ -1029,8 +1203,14 @@ test_that("plogit_predict works with custom S matrix", {
   m <- MEstimator(stacked_equations = psi, init = inits)
   m <- estimate(m, solver = "nleqslv")
 
-  result <- plogit_predict(m@theta, time = y, event = delta, X = X,
-                            S = S_mat, measure = "survival")
+  result <- plogit_predict(
+    m@theta,
+    time = y,
+    event = delta,
+    X = X,
+    S = S_mat,
+    measure = "survival"
+  )
 
   expect_true(is.matrix(result))
   expect_equal(nrow(result), max_time)
@@ -1059,12 +1239,27 @@ test_that("plogit_predict density equals hazard * survival", {
   m <- MEstimator(stacked_equations = psi, init = inits)
   m <- estimate(m, solver = "nleqslv")
 
-  surv <- plogit_predict(m@theta, time = y, event = delta, X = X,
-                          measure = "survival")
-  haz <- plogit_predict(m@theta, time = y, event = delta, X = X,
-                         measure = "hazard")
-  dens <- plogit_predict(m@theta, time = y, event = delta, X = X,
-                          measure = "density")
+  surv <- plogit_predict(
+    m@theta,
+    time = y,
+    event = delta,
+    X = X,
+    measure = "survival"
+  )
+  haz <- plogit_predict(
+    m@theta,
+    time = y,
+    event = delta,
+    X = X,
+    measure = "hazard"
+  )
+  dens <- plogit_predict(
+    m@theta,
+    time = y,
+    event = delta,
+    X = X,
+    measure = "density"
+  )
 
   expect_equal(dens, haz * surv)
 })
@@ -1099,8 +1294,12 @@ test_that("plogit_predict accepts time/event and matches Python fixture", {
 
   result <- plogit_predict(
     ref$theta,
-    time = ref$t, event = ref$delta, X = X, S = S,
-    times_to_predict = ref$times_to_predict, measure = ref$measure
+    time = ref$t,
+    event = ref$delta,
+    X = X,
+    S = S,
+    times_to_predict = ref$times_to_predict,
+    measure = ref$measure
   )
 
   expect_equal(result, as.matrix(ref$predictions), tolerance = 1e-6)
@@ -1112,9 +1311,15 @@ test_that("plogit_predict rejects the old t/delta argument names", {
   # `t` was the observed time and `delta` the event indicator; after the
   # rename neither name exists.
   expect_error(
-    plogit_predict(ref$theta, t = ref$t, delta = ref$delta, X = ref$X,
-                   S = ref$S, times_to_predict = ref$times_to_predict,
-                   measure = ref$measure)
+    plogit_predict(
+      ref$theta,
+      t = ref$t,
+      delta = ref$delta,
+      X = ref$X,
+      S = ref$S,
+      times_to_predict = ref$times_to_predict,
+      measure = ref$measure
+    )
   )
 })
 
@@ -1137,8 +1342,12 @@ test_that("ee_plogit + plogit_predict with time/event agree end to end", {
 
   result <- plogit_predict(
     m@theta,
-    time = ref$t, event = ref$delta, X = X, S = S,
-    times_to_predict = ref$times_to_predict, measure = ref$measure
+    time = ref$t,
+    event = ref$delta,
+    X = X,
+    S = S,
+    times_to_predict = ref$times_to_predict,
+    measure = ref$measure
   )
 
   expect_equal(result, as.matrix(ref$predictions), tolerance = 1e-4)

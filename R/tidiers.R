@@ -27,8 +27,12 @@ generics_glance <- new_external_generic("generics", "glance", "x")
 
 # ---- tidy --------------------------------------------------------------------
 
-method(generics_tidy, deli_estimator) <- function(x, conf.int = FALSE,
-                                                  conf.level = 0.95, ...) {
+method(generics_tidy, deli_estimator) <- function(
+  x,
+  conf.int = FALSE,
+  conf.level = 0.95,
+  ...
+) {
   tidy_estimator(x, conf.int = conf.int, conf.level = conf.level)
 }
 

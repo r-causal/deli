@@ -102,8 +102,16 @@
 #' m_tw <- MEstimator(stacked_equations = psi_tw, init = c(0, 0, 0))
 #' m_tw <- estimate(m_tw)
 #' m_tw@theta
-ee_glm <- function(theta, X, y, distribution, link,
-                   hyperparameter = NULL, weights = NULL, offset = NULL) {
+ee_glm <- function(
+  theta,
+  X,
+  y,
+  distribution,
+  link,
+  hyperparameter = NULL,
+  weights = NULL,
+  offset = NULL
+) {
   X <- coerce_design(X)
   y <- coerce_outcome(y)
   n <- nrow(X)
@@ -115,8 +123,8 @@ ee_glm <- function(theta, X, y, distribution, link,
   # the final element of theta: the gamma shape or the negative binomial
   # dispersion.
   if (dist %in% c("gamma", "negative_binomial", "nb")) {
-    beta <- theta[-length(theta)]       # Regression coefficients
-    alpha <- exp(theta[length(theta)])  # Extra parameter on the natural scale
+    beta <- theta[-length(theta)] # Regression coefficients
+    alpha <- exp(theta[length(theta)]) # Extra parameter on the natural scale
   } else {
     beta <- theta
     alpha <- NULL
@@ -134,8 +142,12 @@ ee_glm <- function(theta, X, y, distribution, link,
   deriv <- inv$dmu
 
   # Distribution variance
-  v <- distribution_variance(pred_y, distribution, alpha = alpha,
-                             hyperparameter = hyperparameter)
+  v <- distribution_variance(
+    pred_y,
+    distribution,
+    alpha = alpha,
+    hyperparameter = hyperparameter
+  )
 
   # Score: (y - mu) * d(mu)/d(eta) / V(mu) * X
   residuals <- y - pred_y
@@ -145,9 +157,10 @@ ee_glm <- function(theta, X, y, distribution, link,
     # Nuisance estimating equation for the gamma shape parameter. Unlike the
     # negative binomial nuisance row, this one carries the weights to match
     # Python Delicatessen.
-    ee_alpha <- w * ((1 - y / pred_y) +
-                     log(alpha * y / pred_y) -
-                     deli_polygamma(0, alpha))
+    ee_alpha <- w *
+      ((1 - y / pred_y) +
+        log(alpha * y / pred_y) -
+        deli_polygamma(0, alpha))
 
     # Stack the shape nuisance row beneath the beta score rows.
     out <- rbind(ee_beta, ee_alpha)
@@ -162,8 +175,11 @@ ee_glm <- function(theta, X, y, distribution, link,
     p1 <- -alpha^-2 * deli_polygamma(0, y + 1 / alpha)
     p2 <- alpha^-2 * deli_polygamma(0, 1 / alpha)
     p3 <- y / (alpha^2 * pred_y + alpha)
-    p4 <- -(alpha * pred_y / (alpha * pred_y + 1) +
-            log(1 / (alpha * pred_y + 1))) / alpha^2
+    p4 <- -(alpha *
+      pred_y /
+      (alpha * pred_y + 1) +
+      log(1 / (alpha * pred_y + 1))) /
+      alpha^2
     ee_alpha <- p1 + p2 + p3 + p4
 
     # Stack the dispersion nuisance row beneath the beta score rows.
@@ -194,11 +210,21 @@ ee_glm <- function(theta, X, y, distribution, link,
 #' @returns A p-by-n matrix.
 #'
 #' @export
-ee_robust_regression <- function(theta, X, y, model, k, loss = "huber",
-                                 weights = NULL, offset = NULL) {
+ee_robust_regression <- function(
+  theta,
+  X,
+  y,
+  model,
+  k,
+  loss = "huber",
+  weights = NULL,
+  offset = NULL
+) {
   model <- tolower(model)
   if (model != "linear") {
-    cli::cli_abort("Only {.val linear} regression is supported for robust regression.")
+    cli::cli_abort(
+      "Only {.val linear} regression is supported for robust regression."
+    )
   }
 
   X <- coerce_design(X)
@@ -260,8 +286,12 @@ inverse_link <- function(eta, link) {
 
 #' Internal distribution variance function
 #' @noRd
-distribution_variance <- function(mu, distribution, alpha = NULL,
-                                  hyperparameter = NULL) {
+distribution_variance <- function(
+  mu,
+  distribution,
+  alpha = NULL,
+  hyperparameter = NULL
+) {
   dist <- tolower(distribution)
   if (dist %in% c("normal", "gaussian")) {
     rep(1, length(mu))

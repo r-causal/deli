@@ -10,9 +10,7 @@ test_that("ee_rogan_gladen returns 4-by-n matrix", {
   r <- c(rep(0, 40), rep(1, 60))
   y_true <- rbinom(n, 1, 0.4)
   # Imperfect measurement: sens=0.9, spec=0.8
-  y_star <- ifelse(y_true == 1,
-                   rbinom(n, 1, 0.9),
-                   1 - rbinom(n, 1, 0.8))
+  y_star <- ifelse(y_true == 1, rbinom(n, 1, 0.9), 1 - rbinom(n, 1, 0.8))
   # y is only observed in validation (r=0), fill rest with 0
   y <- ifelse(r == 0, y_true, 0)
 
@@ -31,9 +29,11 @@ test_that("ee_rogan_gladen solves via MEstimator", {
   spec_true <- 0.85
 
   y_true <- rbinom(n, 1, true_prev)
-  y_star <- ifelse(y_true == 1,
-                   rbinom(n, 1, sens_true),
-                   1 - rbinom(n, 1, spec_true))
+  y_star <- ifelse(
+    y_true == 1,
+    rbinom(n, 1, sens_true),
+    1 - rbinom(n, 1, spec_true)
+  )
   r <- c(rep(0, 200), rep(1, 300))
   y <- ifelse(r == 0, y_true, 0)
 
@@ -54,7 +54,7 @@ test_that("ee_rogan_gladen with perfect measurement recovers naive mean", {
   set.seed(42)
   n <- 300
   y_true <- rbinom(n, 1, 0.5)
-  y_star <- y_true  # perfect measurement
+  y_star <- y_true # perfect measurement
   r <- c(rep(0, 100), rep(1, 200))
   y <- ifelse(r == 0, y_true, 0)
 
@@ -79,16 +79,19 @@ test_that("ee_rogan_gladen_extended returns correct shape", {
   n <- 100
   r <- c(rep(0, 40), rep(1, 60))
   y_true <- rbinom(n, 1, 0.4)
-  y_star <- ifelse(y_true == 1,
-                   rbinom(n, 1, 0.9),
-                   1 - rbinom(n, 1, 0.8))
+  y_star <- ifelse(y_true == 1, rbinom(n, 1, 0.9), 1 - rbinom(n, 1, 0.8))
   y <- ifelse(r == 0, y_true, 0)
-  X <- cbind(rep(1, n))  # intercept only
+  X <- cbind(rep(1, n)) # intercept only
 
   p <- ncol(X)
   theta <- c(0.4, rep(0, p), rep(0, p))
-  result <- ee_rogan_gladen_extended(theta, y = y, y_star = y_star,
-                                      r = r, X = X)
+  result <- ee_rogan_gladen_extended(
+    theta,
+    y = y,
+    y_star = y_star,
+    r = r,
+    X = X
+  )
   expect_true(is.matrix(result))
   expect_equal(nrow(result), 1 + 2 * p)
   expect_equal(ncol(result), n)
@@ -98,16 +101,13 @@ test_that("ee_rogan_gladen_extended solves via MEstimator", {
   set.seed(123)
   n <- 500
   y_true <- rbinom(n, 1, 0.3)
-  y_star <- ifelse(y_true == 1,
-                   rbinom(n, 1, 0.9),
-                   1 - rbinom(n, 1, 0.85))
+  y_star <- ifelse(y_true == 1, rbinom(n, 1, 0.9), 1 - rbinom(n, 1, 0.85))
   r <- c(rep(0, 200), rep(1, 300))
   y <- ifelse(r == 0, y_true, 0)
   X <- cbind(rep(1, n))
 
   psi <- function(theta) {
-    ee_rogan_gladen_extended(theta, y = y, y_star = y_star,
-                              r = r, X = X)
+    ee_rogan_gladen_extended(theta, y = y, y_star = y_star, r = r, X = X)
   }
 
   m <- MEstimator(stacked_equations = psi, init = c(0.5, 1, 1))
@@ -128,9 +128,14 @@ test_that("ee_regression_calibration returns correct shape", {
   a_star <- ifelse(a_true == 1, rbinom(n, 1, 0.9), rbinom(n, 1, 0.1))
   a <- ifelse(r == 0, a_true, 0)
 
-  theta <- c(1, 0.5, 0.5)  # corrected coef + 2 calibration params
-  result <- ee_regression_calibration(theta, beta = 0.5, a = a,
-                                       a_star = a_star, r = r)
+  theta <- c(1, 0.5, 0.5) # corrected coef + 2 calibration params
+  result <- ee_regression_calibration(
+    theta,
+    beta = 0.5,
+    a = a,
+    a_star = a_star,
+    r = r
+  )
   expect_true(is.matrix(result))
   expect_equal(nrow(result), 3)
   expect_equal(ncol(result), n)
@@ -145,8 +150,7 @@ test_that("ee_regression_calibration solves via MEstimator", {
   a <- ifelse(r == 0, a_true, 0)
 
   psi <- function(theta) {
-    ee_regression_calibration(theta, beta = 0.8, a = a,
-                               a_star = a_star, r = r)
+    ee_regression_calibration(theta, beta = 0.8, a = a, a_star = a_star, r = r)
   }
 
   m <- MEstimator(stacked_equations = psi, init = c(1, 0.1, 0.5))
@@ -229,8 +233,13 @@ test_that("ee_rogan_gladen_extended returns finite rows with NA main-study y", {
   expect_true(any(is.na(y[r == 1])))
   expect_false(any(is.na(y[r == 0])))
 
-  ef <- ee_rogan_gladen_extended(ref$theta, y = y, y_star = y_star,
-                                 r = r, X = X)
+  ef <- ee_rogan_gladen_extended(
+    ref$theta,
+    y = y,
+    y_star = y_star,
+    r = r,
+    X = X
+  )
   expect_true(all(is.finite(ef)))
 })
 
@@ -263,8 +272,13 @@ test_that("ee_rogan_gladen_extended propagates NA outside the masked positions",
   y[r == 1] <- 0
   y[which(r == 0)[1]] <- NA
 
-  ef <- ee_rogan_gladen_extended(ref$theta, y = y, y_star = y_star,
-                                 r = r, X = X)
+  ef <- ee_rogan_gladen_extended(
+    ref$theta,
+    y = y,
+    y_star = y_star,
+    r = r,
+    X = X
+  )
   expect_true(any(!is.finite(ef)))
 })
 
@@ -283,8 +297,13 @@ test_that("ee_regression_calibration returns finite rows with NA main-study a", 
   # theta = [corrected coef, 2 calibration params, 2 naive-model params]
   theta_calib <- ref$theta[1:3]
   beta <- ref$theta[5]
-  ef <- ee_regression_calibration(theta_calib, beta = beta, a = a,
-                                  a_star = a_star, r = r)
+  ef <- ee_regression_calibration(
+    theta_calib,
+    beta = beta,
+    a = a,
+    a_star = a_star,
+    r = r
+  )
   expect_true(all(is.finite(ef)))
 })
 
@@ -305,12 +324,21 @@ test_that("ee_regression_calibration fits and matches Python with NA main-study 
     # Naive logistic (main study only); the naive outcome is masked in the
     # external data before use
     y_safe <- ifelse(r == 0, -999, y)
-    ee_logit <- ee_regression(theta_main, X = X_main, y = y_safe,
-                              model = "logistic")
+    ee_logit <- ee_regression(
+      theta_main,
+      X = X_main,
+      y = y_safe,
+      model = "logistic"
+    )
     ee_logit <- ee_logit * rep(r, each = nrow(ee_logit))
 
-    ee_calib <- ee_regression_calibration(theta_calib, beta = theta_main[2],
-                                          a = a, a_star = a_star, r = r)
+    ee_calib <- ee_regression_calibration(
+      theta_calib,
+      beta = theta_main[2],
+      a = a,
+      a_star = a_star,
+      r = r
+    )
 
     rbind(ee_calib, ee_logit)
   }
@@ -336,7 +364,12 @@ test_that("ee_regression_calibration propagates NA outside the masked positions"
 
   theta_calib <- ref$theta[1:3]
   beta <- ref$theta[5]
-  ef <- ee_regression_calibration(theta_calib, beta = beta, a = a,
-                                  a_star = a_star, r = r)
+  ef <- ee_regression_calibration(
+    theta_calib,
+    beta = beta,
+    a = a,
+    a_star = a_star,
+    r = r
+  )
   expect_true(any(!is.finite(ef)))
 })

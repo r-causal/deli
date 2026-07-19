@@ -64,7 +64,10 @@ test_that("convert_survival_measures errors on invalid measure", {
 # ---- edge cases --------------------------------------------------------------
 test_that("convert_survival_measures handles survival = 1 edge case", {
   expect_equal(convert_survival_measures(1.0, measure = "risk"), 0.0)
-  expect_equal(convert_survival_measures(1.0, measure = "cumulative_hazard"), 0.0)
+  expect_equal(
+    convert_survival_measures(1.0, measure = "cumulative_hazard"),
+    0.0
+  )
 })
 
 test_that("convert_survival_measures handles survival near 0", {

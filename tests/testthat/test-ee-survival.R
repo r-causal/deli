@@ -13,8 +13,13 @@ test_that("ee_aft returns correct shape for weibull", {
   # theta: beta (b elements) + log(1/sigma) (1 element)
   theta <- c(rep(0, b), 0)
 
-  result <- ee_aft(theta, X = X, time = y, event = delta,
-                   distribution = "weibull")
+  result <- ee_aft(
+    theta,
+    X = X,
+    time = y,
+    event = delta,
+    distribution = "weibull"
+  )
   expect_true(is.matrix(result))
   expect_equal(nrow(result), b + 1)
   expect_equal(ncol(result), n)
@@ -32,8 +37,13 @@ test_that("ee_aft returns correct shape for exponential", {
 
   theta <- rep(0, b)
 
-  result <- ee_aft(theta, X = X, time = y, event = delta,
-                   distribution = "exponential")
+  result <- ee_aft(
+    theta,
+    X = X,
+    time = y,
+    event = delta,
+    distribution = "exponential"
+  )
   expect_true(is.matrix(result))
   expect_equal(nrow(result), b)
   expect_equal(ncol(result), n)
@@ -49,8 +59,13 @@ test_that("ee_aft returns correct shape for log-logistic", {
 
   theta <- c(rep(0, b), 0)
 
-  result <- ee_aft(theta, X = X, time = y, event = delta,
-                   distribution = "log-logistic")
+  result <- ee_aft(
+    theta,
+    X = X,
+    time = y,
+    event = delta,
+    distribution = "log-logistic"
+  )
   expect_true(is.matrix(result))
   expect_equal(nrow(result), b + 1)
   expect_equal(ncol(result), n)
@@ -66,8 +81,13 @@ test_that("ee_aft returns correct shape for log-normal", {
 
   theta <- c(rep(0, b), 0)
 
-  result <- ee_aft(theta, X = X, time = y, event = delta,
-                   distribution = "log-normal")
+  result <- ee_aft(
+    theta,
+    X = X,
+    time = y,
+    event = delta,
+    distribution = "log-normal"
+  )
   expect_true(is.matrix(result))
   expect_equal(nrow(result), b + 1)
   expect_equal(ncol(result), n)
@@ -181,8 +201,7 @@ test_that("ee_aft errors on unsupported distribution", {
   delta <- rbinom(10, 1, 0.7)
 
   expect_error(
-    ee_aft(c(0, 0, 0), X = X, time = y, event = delta,
-           distribution = "gamma"),
+    ee_aft(c(0, 0, 0), X = X, time = y, event = delta, distribution = "gamma"),
     "not supported"
   )
 })
@@ -193,8 +212,13 @@ test_that("ee_aft errors on invalid delta values", {
   delta <- c(0, 1, 2, 0, 1, 0, 1, 0, 1, 0)
 
   expect_error(
-    ee_aft(c(0, 0, 0), X = X, time = y, event = delta,
-           distribution = "weibull"),
+    ee_aft(
+      c(0, 0, 0),
+      X = X,
+      time = y,
+      event = delta,
+      distribution = "weibull"
+    ),
     "zero or one"
   )
 })
@@ -209,8 +233,14 @@ test_that("ee_aft supports weights", {
   delta <- rbinom(n, 1, 0.7)
   wts <- runif(n, 0.5, 1.5)
 
-  result <- ee_aft(c(0, 0, 0), X = X, time = y, event = delta,
-                   distribution = "weibull", weights = wts)
+  result <- ee_aft(
+    c(0, 0, 0),
+    X = X,
+    time = y,
+    event = delta,
+    distribution = "weibull",
+    weights = wts
+  )
   expect_true(is.matrix(result))
   expect_equal(nrow(result), 3)
   expect_equal(ncol(result), n)
@@ -224,8 +254,14 @@ test_that("ee_aft supports offset", {
   delta <- rbinom(n, 1, 0.7)
   off <- rep(0.1, n)
 
-  result <- ee_aft(c(0, 0, 0), X = X, time = y, event = delta,
-                   distribution = "weibull", offset = off)
+  result <- ee_aft(
+    c(0, 0, 0),
+    X = X,
+    time = y,
+    event = delta,
+    distribution = "weibull",
+    offset = off
+  )
   expect_true(is.matrix(result))
   expect_equal(nrow(result), 3)
   expect_equal(ncol(result), n)
@@ -367,7 +403,7 @@ test_that("ee_plogit errors on S dimension mismatch", {
   delta <- rbinom(n, 1, 0.6)
 
   # S with wrong number of rows
-  S_bad <- cbind(1, 1:3)  # 3 rows but max(y) = 5
+  S_bad <- cbind(1, 1:3) # 3 rows but max(y) = 5
 
   expect_error(
     ee_plogit(c(0, 0, 0), X = X, time = y, event = delta, S = S_bad),
@@ -403,8 +439,12 @@ test_that("ee_survival_model returns correct shape for weibull", {
   delta <- rbinom(n, 1, 0.7)
 
   theta <- c(0.5, 1.5)
-  result <- ee_survival_model(theta, time = t_obs, event = delta,
-                              distribution = "weibull")
+  result <- ee_survival_model(
+    theta,
+    time = t_obs,
+    event = delta,
+    distribution = "weibull"
+  )
   expect_true(is.matrix(result))
   expect_equal(nrow(result), 2)
   expect_equal(ncol(result), n)
@@ -417,8 +457,12 @@ test_that("ee_survival_model returns correct shape for exponential", {
   delta <- rbinom(n, 1, 0.7)
 
   theta <- c(0.5)
-  result <- ee_survival_model(theta, time = t_obs, event = delta,
-                              distribution = "exponential")
+  result <- ee_survival_model(
+    theta,
+    time = t_obs,
+    event = delta,
+    distribution = "exponential"
+  )
   expect_true(is.matrix(result))
   expect_equal(nrow(result), 1)
   expect_equal(ncol(result), n)
@@ -431,8 +475,12 @@ test_that("ee_survival_model returns correct shape for gompertz", {
   delta <- rbinom(n, 1, 0.7)
 
   theta <- c(0.5, 0.1)
-  result <- ee_survival_model(theta, time = t_obs, event = delta,
-                              distribution = "gompertz")
+  result <- ee_survival_model(
+    theta,
+    time = t_obs,
+    event = delta,
+    distribution = "gompertz"
+  )
   expect_true(is.matrix(result))
   expect_equal(nrow(result), 2)
   expect_equal(ncol(result), n)
@@ -457,8 +505,12 @@ test_that("ee_survival_model weibull solves via MEstimator", {
   delta <- as.numeric(t_true <= censor)
 
   psi <- function(theta) {
-    ee_survival_model(theta, time = t_obs, event = delta,
-                      distribution = "weibull")
+    ee_survival_model(
+      theta,
+      time = t_obs,
+      event = delta,
+      distribution = "weibull"
+    )
   }
 
   m <- MEstimator(stacked_equations = psi, init = c(0.3, 1.0))
@@ -483,8 +535,12 @@ test_that("ee_survival_model exponential solves via MEstimator", {
   delta <- as.numeric(t_true <= censor)
 
   psi <- function(theta) {
-    ee_survival_model(theta, time = t_obs, event = delta,
-                      distribution = "exponential")
+    ee_survival_model(
+      theta,
+      time = t_obs,
+      event = delta,
+      distribution = "exponential"
+    )
   }
 
   m <- MEstimator(stacked_equations = psi, init = c(0.5))
@@ -515,8 +571,12 @@ test_that("ee_survival_model gompertz solves via MEstimator", {
   delta <- as.numeric(t_true <= censor)
 
   psi <- function(theta) {
-    ee_survival_model(theta, time = t_obs, event = delta,
-                      distribution = "gompertz")
+    ee_survival_model(
+      theta,
+      time = t_obs,
+      event = delta,
+      distribution = "gompertz"
+    )
   }
 
   m <- MEstimator(stacked_equations = psi, init = c(0.2, 0.3))
@@ -534,8 +594,12 @@ test_that("ee_survival_model errors on unsupported distribution", {
   delta <- rbinom(10, 1, 0.7)
 
   expect_error(
-    ee_survival_model(c(0.5, 1), time = t_obs, event = delta,
-                      distribution = "gamma"),
+    ee_survival_model(
+      c(0.5, 1),
+      time = t_obs,
+      event = delta,
+      distribution = "gamma"
+    ),
     "not supported"
   )
 })
@@ -545,8 +609,12 @@ test_that("ee_survival_model errors on invalid delta values", {
   delta <- c(0, 1, 2, 0, 1, 0, 1, 0, 1, 0)
 
   expect_error(
-    ee_survival_model(c(0.5, 1), time = t_obs, event = delta,
-                      distribution = "weibull"),
+    ee_survival_model(
+      c(0.5, 1),
+      time = t_obs,
+      event = delta,
+      distribution = "weibull"
+    ),
     "zero or one"
   )
 })
@@ -591,8 +659,12 @@ test_that("ee_survival_model accepts time/event with correct semantics", {
   event <- c(1, 0, 1)
   expected <- matrix(event / lambda - time, nrow = 1)
 
-  result <- ee_survival_model(lambda, time = time, event = event,
-                              distribution = "exponential")
+  result <- ee_survival_model(
+    lambda,
+    time = time,
+    event = event,
+    distribution = "exponential"
+  )
   expect_equal(result, expected)
 })
 
@@ -618,8 +690,13 @@ test_that("ee_aft accepts time/event with correct semantics", {
   lambda_eps <- event * (1 - exp(z)) - (1 - event) * exp(z)
   expected <- t(X * (-1 * lambda_eps))
 
-  result <- ee_aft(beta, X = X, time = time, event = event,
-                   distribution = "exponential")
+  result <- ee_aft(
+    beta,
+    X = X,
+    time = time,
+    event = event,
+    distribution = "exponential"
+  )
   expect_equal(result, expected)
 })
 
@@ -629,8 +706,13 @@ test_that("ee_aft rejects the old y/delta argument names", {
   X <- cbind(1, c(0.5, -0.5, 1, -1))
 
   expect_error(
-    ee_aft(c(0.3, -0.2), X = X, y = time, delta = event,
-           distribution = "exponential"),
+    ee_aft(
+      c(0.3, -0.2),
+      X = X,
+      y = time,
+      delta = event,
+      distribution = "exponential"
+    ),
     "unused argument"
   )
 })
@@ -643,7 +725,7 @@ test_that("ee_plogit accepts time/event with correct semantics", {
   event <- c(1, 1, 0, 1)
   theta <- c(0.2, -0.5, 0.1, 0.3)
 
-  unique_times <- sort(unique(time[event == 1]))   # c(1, 2, 3)
+  unique_times <- sort(unique(time[event == 1])) # c(1, 2, 3)
   k <- length(unique_times)
   time_design <- diag(k)
   time_design[, 1] <- 1
@@ -707,7 +789,7 @@ test_that("ee_plogit + MEstimator with a 2D weight matrix matches Python", {
   ref <- load_fixture("ee_plogit_weight_matrix")
   X <- ref$X
   S <- ref$S
-  W <- ref$weights          # loads as an n-by-K matrix
+  W <- ref$weights # loads as an n-by-K matrix
 
   # Guard the fixture geometry so a silently reshaped matrix cannot pass.
   expect_equal(dim(W), c(ref$n, ref$k))

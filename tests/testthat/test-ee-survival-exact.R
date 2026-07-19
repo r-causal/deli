@@ -36,11 +36,18 @@ test_that("exact and capprox derivatives agree for ee_plogit", {
   psi <- function(theta) {
     ee_plogit(theta, X = ref$X, time = ref$time, event = ref$event)
   }
-  m_exact <- estimate(MEstimator(stacked_equations = psi, init = ref$init),
-                      deriv_method = "exact")
-  m_cap <- estimate(MEstimator(stacked_equations = psi, init = ref$init),
-                    deriv_method = "capprox")
+  m_exact <- estimate(
+    MEstimator(stacked_equations = psi, init = ref$init),
+    deriv_method = "exact"
+  )
+  m_cap <- estimate(
+    MEstimator(stacked_equations = psi, init = ref$init),
+    deriv_method = "capprox"
+  )
   expect_equal(unname(m_exact@bread), unname(m_cap@bread), tolerance = 1e-6)
-  expect_equal(sqrt(diag(m_exact@variance)), sqrt(diag(m_cap@variance)),
-               tolerance = 1e-6)
+  expect_equal(
+    sqrt(diag(m_exact@variance)),
+    sqrt(diag(m_cap@variance)),
+    tolerance = 1e-6
+  )
 })

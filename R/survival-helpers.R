@@ -15,7 +15,9 @@
 convert_survival_measures <- function(survival, hazard = NULL, measure) {
   if (measure == "survival") {
     survival
-  } else if (measure %in% c("risk", "cdf", "cumulative_distribution_function")) {
+  } else if (
+    measure %in% c("risk", "cdf", "cumulative_distribution_function")
+  ) {
     1 - survival
   } else if (measure %in% c("cumulative_hazard", "chazard")) {
     -log(survival)

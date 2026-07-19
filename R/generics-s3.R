@@ -45,7 +45,12 @@ method(stats_vcov, deli_estimator) <- function(object, ...) {
 
 # ---- confint -----------------------------------------------------------------
 
-method(stats_confint, deli_estimator) <- function(object, parm, level = 0.95, ...) {
+method(stats_confint, deli_estimator) <- function(
+  object,
+  parm,
+  level = 0.95,
+  ...
+) {
   check_estimated(object)
   ci <- confidence_intervals(object, alpha = 1 - level)
   if (!missing(parm)) {

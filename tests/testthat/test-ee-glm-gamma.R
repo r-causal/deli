@@ -76,8 +76,14 @@ test_that("ee_glm gamma weights the shape nuisance row like Python", {
   weights <- ref$weights
 
   psi <- function(theta) {
-    ee_glm(theta, X = X, y = y, distribution = "gamma", link = "log",
-           weights = weights)
+    ee_glm(
+      theta,
+      X = X,
+      y = y,
+      distribution = "gamma",
+      link = "log",
+      weights = weights
+    )
   }
 
   m <- MEstimator(stacked_equations = psi, init = init)
@@ -98,12 +104,19 @@ test_that("ee_glm gamma weights the shape nuisance row like Python", {
   y_expanded <- y[idx]
 
   psi_expanded <- function(theta) {
-    ee_glm(theta, X = X_expanded, y = y_expanded,
-           distribution = "gamma", link = "log")
+    ee_glm(
+      theta,
+      X = X_expanded,
+      y = y_expanded,
+      distribution = "gamma",
+      link = "log"
+    )
   }
 
-  m_expanded <- estimate(MEstimator(stacked_equations = psi_expanded,
-                                    init = init))
+  m_expanded <- estimate(MEstimator(
+    stacked_equations = psi_expanded,
+    init = init
+  ))
 
   expect_equal(unname(m@theta), unname(m_expanded@theta), tolerance = 1e-6)
 })

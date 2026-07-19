@@ -43,19 +43,37 @@
 #' m <- MEstimator(stacked_equations = psi, init = c(0))
 #' m <- estimate(m)
 #' m@theta
-estimate <- new_generic("estimate", "object", function(object, solver = NULL,
-                                                        maxiter = 5000, tolerance = 1e-9,
-                                                        deriv_method = "capprox", dx = 1e-9,
-                                                        allow_pinv = TRUE, ...) {
-  S7::S7_dispatch()
-})
+estimate <- new_generic(
+  "estimate",
+  "object",
+  function(
+    object,
+    solver = NULL,
+    maxiter = 5000,
+    tolerance = 1e-9,
+    deriv_method = "capprox",
+    dx = 1e-9,
+    allow_pinv = TRUE,
+    ...
+  ) {
+    S7::S7_dispatch()
+  }
+)
 
-method(estimate, MEstimator) <- function(object, solver = NULL,
-                                         maxiter = 5000, tolerance = 1e-9,
-                                         deriv_method = "capprox", dx = 1e-9,
-                                         allow_pinv = TRUE, ...) {
+method(estimate, MEstimator) <- function(
+  object,
+  solver = NULL,
+  maxiter = 5000,
+  tolerance = 1e-9,
+  deriv_method = "capprox",
+  dx = 1e-9,
+  allow_pinv = TRUE,
+  ...
+) {
   # Default solver for MEstimator is rootSolve
-  if (is.null(solver)) solver <- "rootSolve"
+  if (is.null(solver)) {
+    solver <- "rootSolve"
+  }
   stacked_equations <- object@stacked_equations
   init <- object@init
   subset <- object@subset
@@ -115,7 +133,11 @@ method(estimate, MEstimator) <- function(object, solver = NULL,
   # Solve
   if (is.character(solver)) {
     theta_solved <- solve_equations(
-      summed_ee, inits, solver, maxiter, tolerance,
+      summed_ee,
+      inits,
+      solver,
+      maxiter,
+      tolerance,
       ee_matrix = matrix_ee
     )
   } else if (is.function(solver)) {
@@ -143,10 +165,14 @@ method(estimate, MEstimator) <- function(object, solver = NULL,
   }
 
   # Compute sandwich components
-  bread <- compute_bread(stacked_equations, full_theta, deriv_method, dx) / n_obs
+  bread <- compute_bread(stacked_equations, full_theta, deriv_method, dx) /
+    n_obs
   meat_mat <- compute_meat(evald) / n_obs
   meat_mat <- finite_sample_correction(
-    meat_mat, n_obs, length(full_theta), finite_correction
+    meat_mat,
+    n_obs,
+    length(full_theta),
+    finite_correction
   )
   asymp_var <- build_sandwich(bread, meat_mat, allow_pinv)
 
@@ -182,8 +208,14 @@ method(estimate, MEstimator) <- function(object, solver = NULL,
 #' Internal root-finding dispatcher
 #' @keywords internal
 #' @noRd
-solve_equations <- function(func, init, method, maxiter, tolerance,
-                             ee_matrix = NULL) {
+solve_equations <- function(
+  func,
+  init,
+  method,
+  maxiter,
+  tolerance,
+  ee_matrix = NULL
+) {
   if (method == "rootSolve") {
     # rootSolve's Fortran code prints diagnostic messages to stdout
     # and may emit warnings such as a singular matrix. Suppress both.
@@ -307,12 +339,20 @@ warn_if_not_root <- function(result, ee_matrix) {
 
 #' @rdname estimate
 #' @name estimate
-method(estimate, GMMEstimator) <- function(object, solver = NULL,
-                                            maxiter = 5000, tolerance = 1e-9,
-                                            deriv_method = "capprox", dx = 1e-9,
-                                            allow_pinv = TRUE, ...) {
+method(estimate, GMMEstimator) <- function(
+  object,
+  solver = NULL,
+  maxiter = 5000,
+  tolerance = 1e-9,
+  deriv_method = "capprox",
+  dx = 1e-9,
+  allow_pinv = TRUE,
+  ...
+) {
   # Default solver for GMMEstimator is "BFGS" (optimization-based)
-  if (is.null(solver)) solver <- "BFGS"
+  if (is.null(solver)) {
+    solver <- "BFGS"
+  }
   stacked_equations <- object@stacked_equations
   init <- object@init
   subset <- object@subset
@@ -411,7 +451,8 @@ method(estimate, GMMEstimator) <- function(object, solver = NULL,
           weight_matrix <- tryCatch(
             solve(meat_q),
             error = function(e) {
-              rlang::check_installed("MASS",
+              rlang::check_installed(
+                "MASS",
                 reason = "for pseudo-inverse when the meat matrix is singular."
               )
               MASS::ginv(meat_q)
@@ -461,12 +502,16 @@ method(estimate, GMMEstimator) <- function(object, solver = NULL,
   evald <- stacked_equations(current_theta)
 
   # Bread matrix
-  bread <- compute_bread(stacked_equations, current_theta, deriv_method, dx) / n_obs
+  bread <- compute_bread(stacked_equations, current_theta, deriv_method, dx) /
+    n_obs
 
   # Meat matrix
   meat_mat <- compute_meat(evald) / n_obs
   meat_mat <- finite_sample_correction(
-    meat_mat, n_obs, length(current_theta), finite_correction
+    meat_mat,
+    n_obs,
+    length(current_theta),
+    finite_correction
   )
 
   # Sandwich variance
@@ -479,14 +524,17 @@ method(estimate, GMMEstimator) <- function(object, solver = NULL,
   }
 
   # Apply parameter names
-  param_names <- names(object@init) %||% paste0("theta_", seq_along(current_theta))
+  param_names <- names(object@init) %||%
+    paste0("theta_", seq_along(current_theta))
   names(current_theta) <- param_names
   # Bread and meat may be non-square in the over-identified case
   # (n_eqs x n_params for bread, n_eqs x n_eqs for meat)
   if (nrow(bread) == ncol(bread) && nrow(bread) == length(param_names)) {
     dimnames(bread) <- list(param_names, param_names)
   }
-  if (nrow(meat_mat) == ncol(meat_mat) && nrow(meat_mat) == length(param_names)) {
+  if (
+    nrow(meat_mat) == ncol(meat_mat) && nrow(meat_mat) == length(param_names)
+  ) {
     dimnames(meat_mat) <- list(param_names, param_names)
   }
   if (!is.null(asymp_var)) {
@@ -532,7 +580,9 @@ minimize_gmm <- function(func, init, method, maxiter, tolerance) {
   if (is.function(method)) {
     result <- method(stacked_equations = func, init = init)
     if (is.null(result)) {
-      cli::cli_abort("The custom solver must return the solution to the optimization.")
+      cli::cli_abort(
+        "The custom solver must return the solution to the optimization."
+      )
     }
     return(result)
   }

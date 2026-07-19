@@ -12,12 +12,19 @@
 #'   number of observations and p is the number of parameters.
 #'
 #' @export
-influence_functions <- new_generic("influence_functions", "object", function(object, allow_pinv = TRUE, ...) {
-  S7::S7_dispatch()
-})
+influence_functions <- new_generic(
+  "influence_functions",
+  "object",
+  function(object, allow_pinv = TRUE, ...) {
+    S7::S7_dispatch()
+  }
+)
 
-method(influence_functions, deli_estimator) <- function(object, allow_pinv = TRUE,
-                                                        ...) {
+method(influence_functions, deli_estimator) <- function(
+  object,
+  allow_pinv = TRUE,
+  ...
+) {
   check_estimated(object)
 
   # Evaluate estimating equations at theta-hat
@@ -31,7 +38,8 @@ method(influence_functions, deli_estimator) <- function(object, allow_pinv = TRU
     bread_inv <- tryCatch(
       solve(object@bread),
       error = function(e) {
-        rlang::check_installed("MASS",
+        rlang::check_installed(
+          "MASS",
           reason = "for pseudo-inverse when the bread matrix is singular."
         )
         MASS::ginv(object@bread)

@@ -93,9 +93,15 @@
 # Fit a representative problem with both derivative methods and confirm the
 # exact bread and standard errors match the central-difference reference. The
 # labels carry the family name so a failure identifies the family immediately.
-expect_exact_acceptable <- function(psi, init, family, solver = NULL,
-                                    bread_tol = 1e-6, se_tol = 1e-6,
-                                    check_se = TRUE) {
+expect_exact_acceptable <- function(
+  psi,
+  init,
+  family,
+  solver = NULL,
+  bread_tol = 1e-6,
+  se_tol = 1e-6,
+  check_se = TRUE
+) {
   fit <- function(method) {
     m <- MEstimator(stacked_equations = psi, init = init)
     if (is.null(solver)) {
@@ -112,8 +118,10 @@ expect_exact_acceptable <- function(psi, init, family, solver = NULL,
   # are handled separately.)
   testthat::expect_gt(max(abs(unname(m_exact@bread))), bread_tol)
   testthat::expect_equal(
-    unname(m_exact@bread), unname(m_cap@bread),
-    tolerance = bread_tol, label = paste0(family, ": exact bread vs capprox")
+    unname(m_exact@bread),
+    unname(m_cap@bread),
+    tolerance = bread_tol,
+    label = paste0(family, ": exact bread vs capprox")
   )
 
   if (check_se) {
@@ -123,7 +131,8 @@ expect_exact_acceptable <- function(psi, init, family, solver = NULL,
     # comparison from collapsing to an absolute (and vacuous) one.
     testthat::expect_gt(min(se_e), 1e-3)
     testthat::expect_equal(
-      se_e, se_c,
+      se_e,
+      se_c,
       tolerance = se_tol,
       label = paste0(family, ": exact standard errors vs capprox")
     )
@@ -138,14 +147,19 @@ test_that("exact mode matches capprox for the basic mean families", {
   y <- 0.6 + rnorm(200)
   expect_exact_acceptable(function(t) ee_mean(t, y = y), 0, "ee_mean")
   expect_exact_acceptable(
-    function(t) ee_mean_variance(t, y = y), c(0, 1), "ee_mean_variance"
+    function(t) ee_mean_variance(t, y = y),
+    c(0, 1),
+    "ee_mean_variance"
   )
   expect_exact_acceptable(
     function(t) ee_mean_robust(t, y = y, k = 1.345, loss = "huber"),
-    0.6, "ee_mean_robust"
+    0.6,
+    "ee_mean_robust"
   )
   expect_exact_acceptable(
-    function(t) ee_mean_geometric(t, y = abs(y) + 1), 0.5, "ee_mean_geometric"
+    function(t) ee_mean_geometric(t, y = abs(y) + 1),
+    0.5,
+    "ee_mean_geometric"
   )
 })
 
@@ -168,10 +182,14 @@ test_that("ee_percentile is a non-differentiable exception with a degenerate bre
   )
 
   psi <- function(t) suppressWarnings(ee_percentile(t, y = y, q = 0.5))
-  m_exact <- estimate(MEstimator(stacked_equations = psi, init = median(y)),
-                      deriv_method = "exact")
-  m_cap <- estimate(MEstimator(stacked_equations = psi, init = median(y)),
-                    deriv_method = "capprox")
+  m_exact <- estimate(
+    MEstimator(stacked_equations = psi, init = median(y)),
+    deriv_method = "exact"
+  )
+  m_cap <- estimate(
+    MEstimator(stacked_equations = psi, init = median(y)),
+    deriv_method = "capprox"
+  )
   # The bread is identically zero: the indicator has zero derivative away from
   # the kink, so the sandwich variance is undefined for this estimand.
   expect_equal(unname(m_exact@bread), matrix(0, 1, 1))
@@ -188,10 +206,14 @@ test_that("ee_positive_mean_deviation is a non-differentiable exception with a s
   )
 
   psi <- function(t) suppressWarnings(ee_positive_mean_deviation(t, y = y))
-  m_exact <- estimate(MEstimator(stacked_equations = psi, init = c(1, median(y))),
-                      deriv_method = "exact")
-  m_cap <- estimate(MEstimator(stacked_equations = psi, init = c(1, median(y))),
-                    deriv_method = "capprox")
+  m_exact <- estimate(
+    MEstimator(stacked_equations = psi, init = c(1, median(y))),
+    deriv_method = "exact"
+  )
+  m_cap <- estimate(
+    MEstimator(stacked_equations = psi, init = c(1, median(y))),
+    deriv_method = "capprox"
+  )
   # The median score contributes a row of zeros to the bread (the indicator has
   # zero derivative), so the bread is singular and the sandwich is undefined.
   expect_equal(unname(m_exact@bread)[2, ], c(0, 0))
@@ -215,19 +237,25 @@ test_that("exact mode matches capprox for the regression and glm families", {
 
   expect_exact_acceptable(
     function(t) ee_regression(t, X = X, y = y_lin, model = "linear"),
-    c(0, 0, 0), "ee_regression (linear)"
+    c(0, 0, 0),
+    "ee_regression (linear)"
   )
   expect_exact_acceptable(
     function(t) ee_regression(t, X = X, y = y_bin, model = "logistic"),
-    c(0, 0, 0), "ee_regression (logistic)"
+    c(0, 0, 0),
+    "ee_regression (logistic)"
   )
   expect_exact_acceptable(
     function(t) ee_regression(t, X = X, y = y_pois, model = "poisson"),
-    c(0, 0, 0), "ee_regression (poisson)"
+    c(0, 0, 0),
+    "ee_regression (poisson)"
   )
   expect_exact_acceptable(
-    function(t) ee_glm(t, X = X, y = y_gam, distribution = "gamma", link = "log"),
-    c(0, 0, 0, 0), "ee_glm (gamma log)"
+    function(t) {
+      ee_glm(t, X = X, y = y_gam, distribution = "gamma", link = "log")
+    },
+    c(0, 0, 0, 0),
+    "ee_glm (gamma log)"
   )
   # The identity link requires a strictly positive mean, which the shared design
   # does not guarantee, so gamma identity uses a dedicated positive-mean setup.
@@ -237,26 +265,48 @@ test_that("exact mode matches capprox for the regression and glm families", {
   mu_gi <- 3 + 0.8 * x_gi
   y_gi <- rgamma(n, shape = 5, rate = 5 / mu_gi)
   expect_exact_acceptable(
-    function(t) ee_glm(t, X = X_gi, y = y_gi, distribution = "gamma",
-                       link = "identity"),
-    c(3, 0.8, 0), "ee_glm (gamma identity)"
+    function(t) {
+      ee_glm(t, X = X_gi, y = y_gi, distribution = "gamma", link = "identity")
+    },
+    c(3, 0.8, 0),
+    "ee_glm (gamma identity)"
   )
   expect_exact_acceptable(
-    function(t) ee_glm(t, X = X, y = y_bin, distribution = "binomial",
-                       link = "probit"),
-    c(0, 0, 0), "ee_glm (probit)"
+    function(t) {
+      ee_glm(t, X = X, y = y_bin, distribution = "binomial", link = "probit")
+    },
+    c(0, 0, 0),
+    "ee_glm (probit)"
   )
   # The negative binomial dispersion nuisance parameter has a flat score, so its
   # standard error agrees to 1e-5 rather than 1e-6; the bread agrees to 1e-6.
   expect_exact_acceptable(
-    function(t) ee_glm(t, X = X, y = y_nb, distribution = "negative_binomial",
-                       link = "log"),
-    c(0.6, 1.1, -0.5, log(1 / 3)), "ee_glm (negative binomial)", se_tol = 1e-5
+    function(t) {
+      ee_glm(
+        t,
+        X = X,
+        y = y_nb,
+        distribution = "negative_binomial",
+        link = "log"
+      )
+    },
+    c(0.6, 1.1, -0.5, log(1 / 3)),
+    "ee_glm (negative binomial)",
+    se_tol = 1e-5
   )
   expect_exact_acceptable(
-    function(t) ee_glm(t, X = X, y = y_gam, distribution = "tweedie",
-                       link = "log", hyperparameter = 1.5),
-    c(0, 0, 0), "ee_glm (tweedie)"
+    function(t) {
+      ee_glm(
+        t,
+        X = X,
+        y = y_gam,
+        distribution = "tweedie",
+        link = "log",
+        hyperparameter = 1.5
+      )
+    },
+    c(0, 0, 0),
+    "ee_glm (tweedie)"
   )
 })
 
@@ -269,15 +319,27 @@ test_that("exact mode matches capprox for every robust regression loss", {
   y <- 0.7 + 1.2 * x1 - 0.6 * x2 + rnorm(n, sd = 2)
 
   losses <- list(
-    huber = 1.345, cauchy = 1.345, tukey = 4.685, andrew = 1.339,
+    huber = 1.345,
+    cauchy = 1.345,
+    tukey = 4.685,
+    andrew = 1.339,
     hampel = c(1.5, 3, 6)
   )
   for (loss in names(losses)) {
     # The redescending losses need a starting value near the robust solution.
     expect_exact_acceptable(
-      function(t) ee_robust_regression(t, X = X, y = y, model = "linear",
-                                       k = losses[[loss]], loss = loss),
-      c(0.7, 1.2, -0.6), paste0("ee_robust_regression (", loss, ")")
+      function(t) {
+        ee_robust_regression(
+          t,
+          X = X,
+          y = y,
+          model = "linear",
+          k = losses[[loss]],
+          loss = loss
+        )
+      },
+      c(0.7, 1.2, -0.6),
+      paste0("ee_robust_regression (", loss, ")")
     )
   }
 })
@@ -291,44 +353,97 @@ test_that("exact mode matches capprox for the penalized regression families", {
   y <- 0.6 + 1.1 * x1 - 0.5 * x2 + rnorm(n)
 
   expect_exact_acceptable(
-    function(t) ee_ridge_regression(t, X = X, y = y, model = "linear",
-                                    penalty = c(0, 5, 5)),
-    c(0, 0, 0), "ee_ridge_regression"
+    function(t) {
+      ee_ridge_regression(
+        t,
+        X = X,
+        y = y,
+        model = "linear",
+        penalty = c(0, 5, 5)
+      )
+    },
+    c(0, 0, 0),
+    "ee_ridge_regression"
   )
   expect_exact_acceptable(
-    function(t) ee_bridge_regression(t, X = X, y = y, model = "linear",
-                                     penalty = c(0, 5, 5), gamma = 2),
-    c(0, 0, 0), "ee_bridge_regression (gamma = 2)"
+    function(t) {
+      ee_bridge_regression(
+        t,
+        X = X,
+        y = y,
+        model = "linear",
+        penalty = c(0, 5, 5),
+        gamma = 2
+      )
+    },
+    c(0, 0, 0),
+    "ee_bridge_regression (gamma = 2)"
   )
   expect_exact_acceptable(
-    function(t) suppressWarnings(
-      ee_bridge_regression(t, X = X, y = y, model = "linear",
-                           penalty = c(0, 5, 5), gamma = 1.5)
-    ),
-    c(0.1, 0.1, 0.1), "ee_bridge_regression (gamma = 1.5)"
+    function(t) {
+      suppressWarnings(
+        ee_bridge_regression(
+          t,
+          X = X,
+          y = y,
+          model = "linear",
+          penalty = c(0, 5, 5),
+          gamma = 1.5
+        )
+      )
+    },
+    c(0.1, 0.1, 0.1),
+    "ee_bridge_regression (gamma = 1.5)"
   )
   expect_exact_acceptable(
-    function(t) ee_dlasso_regression(t, X = X, y = y, model = "linear",
-                                     penalty = c(0, 5, 5)),
-    c(0, 0, 0), "ee_dlasso_regression"
+    function(t) {
+      ee_dlasso_regression(
+        t,
+        X = X,
+        y = y,
+        model = "linear",
+        penalty = c(0, 5, 5)
+      )
+    },
+    c(0, 0, 0),
+    "ee_dlasso_regression"
   )
   # The L1 penalties are not differentiable at the kink, so the sandwich is not
   # defined there; a sub-1e-6 bread difference blows up on the standard-error
   # scale. These families therefore compare the bread only, matching the caveat
   # in test-ee-regression-exact.R.
   expect_exact_acceptable(
-    function(t) suppressWarnings(
-      ee_lasso_regression(t, X = X, y = y, model = "linear",
-                          penalty = c(0, 5, 5))
-    ),
-    c(0.1, 0.1, 0.1), "ee_lasso_regression", check_se = FALSE
+    function(t) {
+      suppressWarnings(
+        ee_lasso_regression(
+          t,
+          X = X,
+          y = y,
+          model = "linear",
+          penalty = c(0, 5, 5)
+        )
+      )
+    },
+    c(0.1, 0.1, 0.1),
+    "ee_lasso_regression",
+    check_se = FALSE
   )
   expect_exact_acceptable(
-    function(t) suppressWarnings(
-      ee_elasticnet_regression(t, X = X, y = y, model = "linear",
-                               penalty = c(0, 5, 5), ratio = 0.5)
-    ),
-    c(0.1, 0.1, 0.1), "ee_elasticnet_regression", check_se = FALSE
+    function(t) {
+      suppressWarnings(
+        ee_elasticnet_regression(
+          t,
+          X = X,
+          y = y,
+          model = "linear",
+          penalty = c(0, 5, 5),
+          ratio = 0.5
+        )
+      )
+    },
+    c(0.1, 0.1, 0.1),
+    "ee_elasticnet_regression",
+    check_se = FALSE
   )
 })
 
@@ -345,23 +460,29 @@ test_that("exact mode matches capprox for ee_additive_regression", {
   # rather than 1e-6; the standard errors still agree to 1e-6.
   expect_exact_acceptable(
     function(t) ee_additive_regression(t, X, y, specs, model = "linear"),
-    init, "ee_additive_regression", bread_tol = 1e-5
+    init,
+    "ee_additive_regression",
+    bread_tol = 1e-5
   )
 })
 
 test_that("exact mode matches capprox for mlogit, beta, and tobit", {
   mlo <- load_fixture("ee_mlogit_exact")
   expect_exact_acceptable(
-    function(t) ee_mlogit(t, X = mlo$X, y = mlo$y), mlo$init, "ee_mlogit"
+    function(t) ee_mlogit(t, X = mlo$X, y = mlo$y),
+    mlo$init,
+    "ee_mlogit"
   )
   bet <- load_fixture("ee_beta_regression_exact")
   expect_exact_acceptable(
-    function(t) ee_beta_regression(t, X = bet$X, y = bet$y), bet$init,
+    function(t) ee_beta_regression(t, X = bet$X, y = bet$y),
+    bet$init,
     "ee_beta_regression"
   )
   tob <- load_fixture("ee_tobit_exact")
   expect_exact_acceptable(
-    function(t) ee_tobit(t, X = tob$X, y = tob$y, lower = tob$lower), tob$init,
+    function(t) ee_tobit(t, X = tob$X, y = tob$y, lower = tob$lower),
+    tob$init,
     "ee_tobit"
   )
 })
@@ -371,34 +492,58 @@ test_that("exact mode matches capprox for mlogit, beta, and tobit", {
 test_that("exact mode matches capprox for the fixture-backed causal families", {
   ipw <- load_fixture("ee_ipw_exact")
   expect_exact_acceptable(
-    function(t) ee_ipw(t, y = ipw$y, A = ipw$a, W = ipw$W), ipw$init, "ee_ipw"
+    function(t) ee_ipw(t, y = ipw$y, A = ipw$a, W = ipw$W),
+    ipw$init,
+    "ee_ipw"
   )
   gf <- load_fixture("ee_gformula_exact")
   expect_exact_acceptable(
     function(t) ee_gformula(t, y = gf$y, X = gf$X, X1 = gf$X1, X0 = gf$X0),
-    gf$init, "ee_gformula"
+    gf$init,
+    "ee_gformula"
   )
   aipw <- load_fixture("ee_aipw_exact")
   expect_exact_acceptable(
-    function(t) ee_aipw(t, y = aipw$y, A = aipw$a, W = aipw$W,
-                        X = aipw$X, X1 = aipw$X1, X0 = aipw$X0),
-    aipw$init, "ee_aipw"
+    function(t) {
+      ee_aipw(
+        t,
+        y = aipw$y,
+        A = aipw$a,
+        W = aipw$W,
+        X = aipw$X,
+        X1 = aipw$X1,
+        X0 = aipw$X0
+      )
+    },
+    aipw$init,
+    "ee_aipw"
   )
   ge <- load_fixture("ee_gestimation_exact")
   expect_exact_acceptable(
-    function(t) ee_gestimation_snmm(t, y = ge$y, A = ge$a, W = ge$W, V = ge$V,
-                                    model = ge$model),
-    ge$init, "ee_gestimation_snmm"
+    function(t) {
+      ee_gestimation_snmm(
+        t,
+        y = ge$y,
+        A = ge$a,
+        W = ge$W,
+        V = ge$V,
+        model = ge$model
+      )
+    },
+    ge$init,
+    "ee_gestimation_snmm"
   )
   tsw <- load_fixture("ee_2sls_exact_w")
   expect_exact_acceptable(
     function(t) ee_2sls(t, y = tsw$y, A = tsw$a, Z = tsw$Z, W = tsw$W),
-    tsw$init, "ee_2sls (with W)"
+    tsw$init,
+    "ee_2sls (with W)"
   )
   tsn <- load_fixture("ee_2sls_exact_now")
   expect_exact_acceptable(
     function(t) ee_2sls(t, y = tsn$y, A = tsn$a, Z = tsn$Z),
-    tsn$init, "ee_2sls (without W)"
+    tsn$init,
+    "ee_2sls (without W)"
   )
 })
 
@@ -410,7 +555,9 @@ test_that("exact mode matches capprox for ee_iv_causal", {
   A <- rbinom(n, 1, plogis(-1 + 3 * Z + U))
   Y <- 3 * A - U + rnorm(n, sd = 0.5)
   expect_exact_acceptable(
-    function(t) ee_iv_causal(t, y = Y, A = A, Z = Z), c(0, 0.5), "ee_iv_causal"
+    function(t) ee_iv_causal(t, y = Y, A = A, Z = Z),
+    c(0, 0.5),
+    "ee_iv_causal"
   )
 })
 
@@ -426,12 +573,21 @@ test_that("exact mode matches capprox for ee_mean_sensitivity_analysis", {
   # The outcome enters on a scale of order 100, which inflates the absolute
   # central-difference error, so the comparison uses 1e-4.
   expect_exact_acceptable(
-    function(t) ee_mean_sensitivity_analysis(
-      t, y = y_filled, delta = M, X = X, q_eval = rep(0, n),
-      H_function = inverse_logit
-    ),
-    c(180, 0, 0), "ee_mean_sensitivity_analysis", solver = "nleqslv",
-    bread_tol = 1e-4, se_tol = 1e-4
+    function(t) {
+      ee_mean_sensitivity_analysis(
+        t,
+        y = y_filled,
+        delta = M,
+        X = X,
+        q_eval = rep(0, n),
+        H_function = inverse_logit
+      )
+    },
+    c(180, 0, 0),
+    "ee_mean_sensitivity_analysis",
+    solver = "nleqslv",
+    bread_tol = 1e-4,
+    se_tol = 1e-4
   )
 })
 
@@ -446,20 +602,38 @@ test_that("exact mode matches capprox for the measurement families", {
   y <- ifelse(r == 0, y_true, 0)
   expect_exact_acceptable(
     function(t) ee_rogan_gladen(t, y = y, y_star = y_star, r = r),
-    c(0.3, 0.3, 0.8, 0.8), "ee_rogan_gladen", solver = "nleqslv"
+    c(0.3, 0.3, 0.8, 0.8),
+    "ee_rogan_gladen",
+    solver = "nleqslv"
   )
 
   rg <- load_fixture("ee_rogan_gladen_extended_exact")
   expect_exact_acceptable(
-    function(t) ee_rogan_gladen_extended(t, y = rg$y, y_star = rg$y_star,
-                                         r = rg$r, X = rg$X),
-    rg$init, "ee_rogan_gladen_extended"
+    function(t) {
+      ee_rogan_gladen_extended(
+        t,
+        y = rg$y,
+        y_star = rg$y_star,
+        r = rg$r,
+        X = rg$X
+      )
+    },
+    rg$init,
+    "ee_rogan_gladen_extended"
   )
   rc <- load_fixture("ee_regression_calibration_exact")
   expect_exact_acceptable(
-    function(t) ee_regression_calibration(t, beta = rc$beta, a = rc$a,
-                                          a_star = rc$a_star, r = rc$r),
-    rc$init, "ee_regression_calibration"
+    function(t) {
+      ee_regression_calibration(
+        t,
+        beta = rc$beta,
+        a = rc$a,
+        a_star = rc$a_star,
+        r = rc$r
+      )
+    },
+    rc$init,
+    "ee_regression_calibration"
   )
 })
 
@@ -476,14 +650,20 @@ test_that("exact mode matches capprox for ee_aft across distributions", {
   delta <- as.numeric(y_true <= censor)
 
   expect_exact_acceptable(
-    function(t) ee_aft(t, X = X, time = y, event = delta,
-                       distribution = "exponential"),
-    c(2, 0.5), "ee_aft (exponential)", solver = "nleqslv"
+    function(t) {
+      ee_aft(t, X = X, time = y, event = delta, distribution = "exponential")
+    },
+    c(2, 0.5),
+    "ee_aft (exponential)",
+    solver = "nleqslv"
   )
   expect_exact_acceptable(
-    function(t) ee_aft(t, X = X, time = y, event = delta,
-                       distribution = "weibull"),
-    c(2, 0.5, 0), "ee_aft (weibull)", solver = "nleqslv"
+    function(t) {
+      ee_aft(t, X = X, time = y, event = delta, distribution = "weibull")
+    },
+    c(2, 0.5, 0),
+    "ee_aft (weibull)",
+    solver = "nleqslv"
   )
 
   set.seed(313)
@@ -496,16 +676,33 @@ test_that("exact mode matches capprox for ee_aft across distributions", {
   delta2 <- as.numeric(y2_true <= censor2)
   X2 <- cbind(1, x2)
   expect_exact_acceptable(
-    function(t) ee_aft(t, X = X2, time = y2, event = delta2,
-                       distribution = "log-logistic"),
-    c(2, 0.5, 0.5), "ee_aft (log-logistic)", solver = "nleqslv"
+    function(t) {
+      ee_aft(
+        t,
+        X = X2,
+        time = y2,
+        event = delta2,
+        distribution = "log-logistic"
+      )
+    },
+    c(2, 0.5, 0.5),
+    "ee_aft (log-logistic)",
+    solver = "nleqslv"
   )
 
   aft <- load_fixture("ee_aft_exact_lognormal")
   expect_exact_acceptable(
-    function(t) ee_aft(t, X = aft$X, time = aft$t, event = aft$delta,
-                       distribution = "log-normal"),
-    aft$init, "ee_aft (log-normal)"
+    function(t) {
+      ee_aft(
+        t,
+        X = aft$X,
+        time = aft$t,
+        event = aft$delta,
+        distribution = "log-normal"
+      )
+    },
+    aft$init,
+    "ee_aft (log-normal)"
   )
 })
 
@@ -518,14 +715,30 @@ test_that("exact mode matches capprox for ee_survival_model across distributions
   t_obs <- pmin(t_true, censor)
   delta <- as.numeric(t_true <= censor)
   expect_exact_acceptable(
-    function(t) ee_survival_model(t, time = t_obs, event = delta,
-                                  distribution = "exponential"),
-    0.5, "ee_survival_model (exponential)", solver = "nleqslv"
+    function(t) {
+      ee_survival_model(
+        t,
+        time = t_obs,
+        event = delta,
+        distribution = "exponential"
+      )
+    },
+    0.5,
+    "ee_survival_model (exponential)",
+    solver = "nleqslv"
   )
   expect_exact_acceptable(
-    function(t) ee_survival_model(t, time = t_obs, event = delta,
-                                  distribution = "weibull"),
-    c(0.3, 1.0), "ee_survival_model (weibull)", solver = "nleqslv"
+    function(t) {
+      ee_survival_model(
+        t,
+        time = t_obs,
+        event = delta,
+        distribution = "weibull"
+      )
+    },
+    c(0.3, 1.0),
+    "ee_survival_model (weibull)",
+    solver = "nleqslv"
   )
 
   set.seed(345)
@@ -538,9 +751,17 @@ test_that("exact mode matches capprox for ee_survival_model across distributions
   t2_obs <- pmin(t2_true, censor2)
   delta2 <- as.numeric(t2_true <= censor2)
   expect_exact_acceptable(
-    function(t) ee_survival_model(t, time = t2_obs, event = delta2,
-                                  distribution = "gompertz"),
-    c(0.2, 0.3), "ee_survival_model (gompertz)", solver = "nleqslv"
+    function(t) {
+      ee_survival_model(
+        t,
+        time = t2_obs,
+        event = delta2,
+        distribution = "gompertz"
+      )
+    },
+    c(0.2, 0.3),
+    "ee_survival_model (gompertz)",
+    solver = "nleqslv"
   )
 })
 
@@ -548,7 +769,8 @@ test_that("exact mode matches capprox for ee_plogit", {
   ref <- load_fixture("ee_plogit_exact")
   expect_exact_acceptable(
     function(t) ee_plogit(t, X = ref$X, time = ref$time, event = ref$event),
-    ref$init, "ee_plogit"
+    ref$init,
+    "ee_plogit"
   )
 })
 
@@ -563,8 +785,11 @@ test_that("exact mode matches capprox for the dose-response families", {
   # score, so exact and capprox agree to 1e-5 rather than 1e-6.
   expect_exact_acceptable(
     function(t) ee_emax(t, dose = dose, response = response),
-    c(1, 25, 10), "ee_emax", solver = "nleqslv",
-    bread_tol = 1e-5, se_tol = 1e-5
+    c(1, 25, 10),
+    "ee_emax",
+    solver = "nleqslv",
+    bread_tol = 1e-5,
+    se_tol = 1e-5
   )
 
   set.seed(42)
@@ -574,8 +799,11 @@ test_that("exact mode matches capprox for the dose-response families", {
   respll <- 5 + (25 - 5) / (1 + rholl) + rnorm(nll, sd = 0.5)
   expect_exact_acceptable(
     function(t) ee_loglogistic(t, dose = dosell, response = respll),
-    c(5, 25, 10, 2), "ee_loglogistic", solver = "nleqslv",
-    bread_tol = 1e-5, se_tol = 1e-5
+    c(5, 25, 10, 2),
+    "ee_loglogistic",
+    solver = "nleqslv",
+    bread_tol = 1e-5,
+    se_tol = 1e-5
   )
 })
 
@@ -603,10 +831,18 @@ test_that("exact mode matches capprox for ee_ipw_msm", {
   Vmsm <- cbind(1, A)
   expect_exact_acceptable(
     function(t) {
-      ee_ipw_msm(t, y = Y, A = A, W = Wmat, V = Vmsm,
-                 distribution = "normal", link = "identity")
+      ee_ipw_msm(
+        t,
+        y = Y,
+        A = A,
+        W = Wmat,
+        V = Vmsm,
+        distribution = "normal",
+        link = "identity"
+      )
     },
-    rep(0, 4), "ee_ipw_msm"
+    rep(0, 4),
+    "ee_ipw_msm"
   )
 })
 
@@ -626,8 +862,11 @@ test_that("exact mode matches capprox for the stacked delta-effective-dose equat
         ee_emax_ed(t[4], dose = dose, delta = 0.8, ed50 = t[3])
       )
     },
-    c(1, 25, 10, 40), "ee_emax_ed", solver = "nleqslv",
-    bread_tol = 1e-5, se_tol = 1e-5
+    c(1, 25, 10, 40),
+    "ee_emax_ed",
+    solver = "nleqslv",
+    bread_tol = 1e-5,
+    se_tol = 1e-5
   )
 
   set.seed(42)
@@ -639,11 +878,21 @@ test_that("exact mode matches capprox for the stacked delta-effective-dose equat
     function(t) {
       rbind(
         ee_loglogistic(t[1:4], dose = dosell, response = respll),
-        ee_loglogistic_ed(t[5], dose = dosell, delta = 0.5, lower = t[1],
-                          upper = t[2], ed50 = t[3], steepness = t[4])
+        ee_loglogistic_ed(
+          t[5],
+          dose = dosell,
+          delta = 0.5,
+          lower = t[1],
+          upper = t[2],
+          ed50 = t[3],
+          steepness = t[4]
+        )
       )
     },
-    c(5, 25, 10, 2, 10), "ee_loglogistic_ed", solver = "nleqslv",
-    bread_tol = 1e-5, se_tol = 1e-5
+    c(5, 25, 10, 2, 10),
+    "ee_loglogistic_ed",
+    solver = "nleqslv",
+    bread_tol = 1e-5,
+    se_tol = 1e-5
   )
 })

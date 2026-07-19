@@ -24,11 +24,19 @@
 #' m <- MEstimator(stacked_equations = psi, init = c(0))
 #' m <- estimate(m)
 #' confidence_intervals(m)
-confidence_intervals <- new_generic("confidence_intervals", "object", function(object, alpha = 0.05, ...) {
-  S7::S7_dispatch()
-})
+confidence_intervals <- new_generic(
+  "confidence_intervals",
+  "object",
+  function(object, alpha = 0.05, ...) {
+    S7::S7_dispatch()
+  }
+)
 
-method(confidence_intervals, deli_estimator) <- function(object, alpha = 0.05, ...) {
+method(confidence_intervals, deli_estimator) <- function(
+  object,
+  alpha = 0.05,
+  ...
+) {
   check_estimated(object)
   check_alpha(alpha)
 

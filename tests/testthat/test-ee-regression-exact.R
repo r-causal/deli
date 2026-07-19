@@ -23,7 +23,11 @@ test_that("ee_regression exact mode matches the Python reference", {
     }
     m <- MEstimator(stacked_equations = psi, init = ref$init)
     m <- estimate(m, deriv_method = "exact")
-    expect_python_match(m, paste0("ee_regression_exact_", model), tolerance = 1e-6)
+    expect_python_match(
+      m,
+      paste0("ee_regression_exact_", model),
+      tolerance = 1e-6
+    )
   }
 })
 
@@ -40,8 +44,13 @@ test_that("ee_glm gamma exact mode matches the Python reference", {
 test_that("ee_ridge_regression exact mode matches the Python reference", {
   ref <- load_fixture("ee_ridge_exact")
   psi <- function(theta) {
-    ee_ridge_regression(theta, X = ref$X, y = ref$y, model = "linear",
-                        penalty = ref$penalty)
+    ee_ridge_regression(
+      theta,
+      X = ref$X,
+      y = ref$y,
+      model = "linear",
+      penalty = ref$penalty
+    )
   }
   m <- MEstimator(stacked_equations = psi, init = ref$init)
   m <- estimate(m, deriv_method = "exact")
@@ -51,8 +60,13 @@ test_that("ee_ridge_regression exact mode matches the Python reference", {
 test_that("ee_dlasso_regression exact mode matches the Python reference", {
   ref <- load_fixture("ee_dlasso_exact")
   psi <- function(theta) {
-    ee_dlasso_regression(theta, X = ref$X, y = ref$y, model = "linear",
-                         penalty = ref$penalty)
+    ee_dlasso_regression(
+      theta,
+      X = ref$X,
+      y = ref$y,
+      model = "linear",
+      penalty = ref$penalty
+    )
   }
   m <- MEstimator(stacked_equations = psi, init = ref$init)
   m <- estimate(m, deriv_method = "exact")
@@ -62,8 +76,14 @@ test_that("ee_dlasso_regression exact mode matches the Python reference", {
 test_that("ee_robust_regression cauchy loss exact mode matches the Python reference", {
   ref <- load_fixture("ee_robust_exact_cauchy")
   psi <- function(theta) {
-    ee_robust_regression(theta, X = ref$X, y = ref$y, model = "linear",
-                         k = ref$k, loss = "cauchy")
+    ee_robust_regression(
+      theta,
+      X = ref$X,
+      y = ref$y,
+      model = "linear",
+      k = ref$k,
+      loss = "cauchy"
+    )
   }
   m <- MEstimator(stacked_equations = psi, init = ref$init)
   m <- estimate(m, deriv_method = "exact")
@@ -84,14 +104,21 @@ test_that("ee_robust_regression cauchy loss exact mode matches the Python refere
 # keeping with the caution that the L1 penalties are not differentiable at the
 # kink and the sandwich is not defined there.
 expect_exact_matches_capprox <- function(psi, init, check_se = TRUE) {
-  m_exact <- estimate(MEstimator(stacked_equations = psi, init = init),
-                      deriv_method = "exact")
-  m_cap <- estimate(MEstimator(stacked_equations = psi, init = init),
-                    deriv_method = "capprox")
+  m_exact <- estimate(
+    MEstimator(stacked_equations = psi, init = init),
+    deriv_method = "exact"
+  )
+  m_cap <- estimate(
+    MEstimator(stacked_equations = psi, init = init),
+    deriv_method = "capprox"
+  )
   expect_equal(unname(m_exact@bread), unname(m_cap@bread), tolerance = 1e-6)
   if (check_se) {
-    expect_equal(sqrt(diag(m_exact@variance)), sqrt(diag(m_cap@variance)),
-                 tolerance = 1e-6)
+    expect_equal(
+      sqrt(diag(m_exact@variance)),
+      sqrt(diag(m_cap@variance)),
+      tolerance = 1e-6
+    )
   }
 }
 
@@ -120,35 +147,67 @@ test_that("exact and capprox derivatives agree for the regression families", {
     c(0, 0, 0)
   )
   expect_exact_matches_capprox(
-    function(t) ee_glm(t, X = X, y = y_gam, distribution = "gamma", link = "log"),
+    function(t) {
+      ee_glm(t, X = X, y = y_gam, distribution = "gamma", link = "log")
+    },
     c(0, 0, 0, 0)
   )
   expect_exact_matches_capprox(
-    function(t) ee_ridge_regression(t, X = X, y = y_lin, model = "linear",
-                                    penalty = c(0, 5, 5)),
+    function(t) {
+      ee_ridge_regression(
+        t,
+        X = X,
+        y = y_lin,
+        model = "linear",
+        penalty = c(0, 5, 5)
+      )
+    },
     c(0, 0, 0)
   )
   expect_exact_matches_capprox(
-    function(t) suppressWarnings(
-      ee_lasso_regression(t, X = X, y = y_lin, model = "linear",
-                          penalty = c(0, 5, 5))
-    ),
+    function(t) {
+      suppressWarnings(
+        ee_lasso_regression(
+          t,
+          X = X,
+          y = y_lin,
+          model = "linear",
+          penalty = c(0, 5, 5)
+        )
+      )
+    },
     c(0.1, 0.1, 0.1),
     check_se = FALSE
   )
   expect_exact_matches_capprox(
-    function(t) suppressWarnings(
-      ee_elasticnet_regression(t, X = X, y = y_lin, model = "linear",
-                               penalty = c(0, 5, 5), ratio = 0.5)
-    ),
+    function(t) {
+      suppressWarnings(
+        ee_elasticnet_regression(
+          t,
+          X = X,
+          y = y_lin,
+          model = "linear",
+          penalty = c(0, 5, 5),
+          ratio = 0.5
+        )
+      )
+    },
     c(0.1, 0.1, 0.1),
     check_se = FALSE
   )
   # The cauchy loss redescends, so it needs a starting value near the solution
   # to avoid a degenerate fit that downweights every observation.
   expect_exact_matches_capprox(
-    function(t) ee_robust_regression(t, X = X, y = y_lin, model = "linear",
-                                     k = 1.345, loss = "cauchy"),
+    function(t) {
+      ee_robust_regression(
+        t,
+        X = X,
+        y = y_lin,
+        model = "linear",
+        k = 1.345,
+        loss = "cauchy"
+      )
+    },
     c(0.6, 1.1, -0.5)
   )
 })
@@ -211,8 +270,14 @@ test_that("ee_robust_regression clipping and branching losses match Python", {
   for (loss in c("huber", "tukey", "andrew", "hampel")) {
     ref <- load_fixture(paste0("ee_robust_exact_", loss))
     psi <- function(theta) {
-      ee_robust_regression(theta, X = ref$X, y = ref$y, model = "linear",
-                           k = ref$k, loss = loss)
+      ee_robust_regression(
+        theta,
+        X = ref$X,
+        y = ref$y,
+        model = "linear",
+        k = ref$k,
+        loss = loss
+      )
     }
     m <- MEstimator(stacked_equations = psi, init = ref$init)
     m <- estimate(m, deriv_method = "exact")
@@ -233,23 +298,55 @@ test_that("exact and capprox derivatives agree for clipping and branching losses
   y <- 0.7 + 1.2 * x1 - 0.6 * x2 + rnorm(n, sd = 2)
 
   expect_exact_matches_capprox(
-    function(t) ee_robust_regression(t, X = X, y = y, model = "linear",
-                                     k = 1.345, loss = "huber"),
+    function(t) {
+      ee_robust_regression(
+        t,
+        X = X,
+        y = y,
+        model = "linear",
+        k = 1.345,
+        loss = "huber"
+      )
+    },
     c(0.7, 1.2, -0.6)
   )
   expect_exact_matches_capprox(
-    function(t) ee_robust_regression(t, X = X, y = y, model = "linear",
-                                     k = 4.685, loss = "tukey"),
+    function(t) {
+      ee_robust_regression(
+        t,
+        X = X,
+        y = y,
+        model = "linear",
+        k = 4.685,
+        loss = "tukey"
+      )
+    },
     c(0.7, 1.2, -0.6)
   )
   expect_exact_matches_capprox(
-    function(t) ee_robust_regression(t, X = X, y = y, model = "linear",
-                                     k = 1.339, loss = "andrew"),
+    function(t) {
+      ee_robust_regression(
+        t,
+        X = X,
+        y = y,
+        model = "linear",
+        k = 1.339,
+        loss = "andrew"
+      )
+    },
     c(0.7, 1.2, -0.6)
   )
   expect_exact_matches_capprox(
-    function(t) ee_robust_regression(t, X = X, y = y, model = "linear",
-                                     k = c(1.5, 3, 6), loss = "hampel"),
+    function(t) {
+      ee_robust_regression(
+        t,
+        X = X,
+        y = y,
+        model = "linear",
+        k = c(1.5, 3, 6),
+        loss = "hampel"
+      )
+    },
     c(0.7, 1.2, -0.6)
   )
 })
@@ -277,8 +374,13 @@ test_that("ee_tobit exact mode matches the Python reference", {
 test_that("ee_aft log-normal exact mode matches the Python reference", {
   ref <- load_fixture("ee_aft_exact_lognormal")
   psi <- function(theta) {
-    ee_aft(theta, X = ref$X, time = ref$t, event = ref$delta,
-           distribution = "log-normal")
+    ee_aft(
+      theta,
+      X = ref$X,
+      time = ref$t,
+      event = ref$delta,
+      distribution = "log-normal"
+    )
   }
   m <- MEstimator(stacked_equations = psi, init = ref$init)
   m <- estimate(m, deriv_method = "exact")
@@ -288,8 +390,13 @@ test_that("ee_aft log-normal exact mode matches the Python reference", {
 test_that("ee_glm probit exact mode matches the Python reference", {
   ref <- load_fixture("ee_glm_exact_probit")
   psi <- function(theta) {
-    ee_glm(theta, X = ref$X, y = ref$y, distribution = "binomial",
-           link = "probit")
+    ee_glm(
+      theta,
+      X = ref$X,
+      y = ref$y,
+      distribution = "binomial",
+      link = "probit"
+    )
   }
   m <- MEstimator(stacked_equations = psi, init = ref$init)
   m <- estimate(m, deriv_method = "exact")
@@ -307,14 +414,28 @@ test_that("exact and capprox derivatives agree for the normal CDF and PDF famili
   )
   aft <- load_fixture("ee_aft_exact_lognormal")
   expect_exact_matches_capprox(
-    function(t) ee_aft(t, X = aft$X, time = aft$t, event = aft$delta,
-                       distribution = "log-normal"),
+    function(t) {
+      ee_aft(
+        t,
+        X = aft$X,
+        time = aft$t,
+        event = aft$delta,
+        distribution = "log-normal"
+      )
+    },
     aft$init
   )
   pro <- load_fixture("ee_glm_exact_probit")
   expect_exact_matches_capprox(
-    function(t) ee_glm(t, X = pro$X, y = pro$y, distribution = "binomial",
-                       link = "probit"),
+    function(t) {
+      ee_glm(
+        t,
+        X = pro$X,
+        y = pro$y,
+        distribution = "binomial",
+        link = "probit"
+      )
+    },
     pro$init
   )
 })
