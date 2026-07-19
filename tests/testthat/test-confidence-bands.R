@@ -1,4 +1,4 @@
-# Tests for confidence_bands() (bd-3c0.13, bd-2qe.13)
+# Tests for confidence_bands()
 
 make_fitted_mean <- function() {
   ref <- load_fixture("ee_mean")

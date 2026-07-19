@@ -17,7 +17,9 @@
 #'   each observation.
 #'
 #' @returns A p-by-m matrix, where m is the number of unique groups. Columns
-#'   are ordered by the sorted unique values of `group`.
+#'   are ordered by the sorted unique values of `group`. A factor `group` is
+#'   coerced with `as.vector()` to its character labels before sorting, so its
+#'   columns sort lexically by label rather than by factor-level order.
 #'
 #' @export
 aggregate_efuncs <- function(est_funcs, group) {

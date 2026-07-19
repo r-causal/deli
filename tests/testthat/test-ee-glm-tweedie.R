@@ -1,4 +1,4 @@
-# Tests for ee_glm() with the tweedie distribution (bd-3cdf.3)
+# Tests for ee_glm() with the tweedie distribution
 #
 # The tweedie distribution generalizes the Poisson and gamma GLMs through a
 # fixed (not estimated) power hyperparameter p that sets the variance function

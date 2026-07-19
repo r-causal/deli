@@ -269,7 +269,7 @@ test_that("delta_method() error for an unknown deriv_method lists exact", {
 #
 # Divergence from Python noted here (documented, not changed): the R
 # delta_method default deriv_method is "capprox", whereas Python's default is
-# "exact". Adjudication is tracked elsewhere (bd-gxa4 family); these tests set
+# "exact". Adjudication is tracked elsewhere; these tests set
 # deriv_method = "exact" explicitly and do not depend on the default.
 
 # Helper to create a fitted logistic-regression MEstimator (log-odds coefficients)

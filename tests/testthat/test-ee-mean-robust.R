@@ -1,4 +1,4 @@
-# Tests for ee_mean_robust() (bd-ehv.3)
+# Tests for ee_mean_robust()
 
 test_that("ee_mean_robust with Huber loss matches Python fixture", {
   ref <- load_fixture("ee_mean_robust_huber")

@@ -384,7 +384,7 @@ test_that("ee_ridge_regression weighted exact bread agrees with the central diff
 })
 
 # Input validation (mirrors Python check_penalty_shape and the bridge/dlasso
-# hyperparameter checks). These pin the validation wired in bd-2f1h.4.
+# hyperparameter checks). These pin that validation.
 #
 # Python messages to mirror (delicatessen/errors.py, regression.py):
 #   penalty shape : "The penalty term must be either a single number or the
@@ -681,7 +681,7 @@ test_that("stronger penalty shrinks coefficients more", {
   )
 })
 
-# Weighted-penalty parity (the tracked fix is bd-h37j).
+# Weighted-penalty parity.
 #
 # Python weights the entire penalized estimating equation, penalty included:
 #
@@ -710,7 +710,7 @@ test_that("stronger penalty shrinks coefficients more", {
 #
 # The approximate LASSO and elastic net are not everywhere differentiable and
 # warn on every evaluation; those call sites are wrapped in suppressWarnings so
-# the parity assertions stay uncluttered (established in bd-2f1h.4).
+# the parity assertions stay uncluttered.
 
 test_that("ee_ridge_regression weighted matches Python (penalty inside weight)", {
   ref <- load_fixture("ee_ridge_regression_weighted")

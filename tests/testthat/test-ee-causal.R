@@ -1,4 +1,4 @@
-# Tests for causal inference estimating equations (bd-djs)
+# Tests for causal inference estimating equations
 # ee_gformula, ee_ipw, ee_aipw
 
 # Helper: generate simple confounded data

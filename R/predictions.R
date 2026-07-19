@@ -127,7 +127,7 @@ survival_predictions <- function(
   if (!distribution %in% supported) {
     cli::cli_abort(
       c(
-        "Distribution {.val {distribution}} is not supported.",
+        "The distribution {.val {distribution}} is not supported.",
         "i" = "Use one of: {.val exponential}, {.val weibull}, {.val gompertz}."
       )
     )
@@ -249,7 +249,13 @@ aft_predictions_individual <- function(
       surv <- 1 / (1 + exp(eps))
       haz <- hazard_scaler / (1 + exp(-eps))
     } else {
-      cli::cli_abort("Distribution {.val {distribution}} is not supported.")
+      cli::cli_abort(
+        c(
+          "The distribution {.val {distribution}} is not supported.",
+          "i" = "Use one of: {.val exponential}, {.val weibull},
+                 {.val log-logistic}, {.val log-normal}."
+        )
+      )
     }
 
     results[, j] <- convert_survival_measures(surv, haz, measure)
@@ -406,7 +412,13 @@ aft_predictions_function <- function(
       surv <- 1 / (1 + exp(eps))
       haz <- hazard_scaler / (1 + exp(-eps))
     } else {
-      cli::cli_abort("Distribution {.val {distribution}} is not supported.")
+      cli::cli_abort(
+        c(
+          "The distribution {.val {distribution}} is not supported.",
+          "i" = "Use one of: {.val exponential}, {.val weibull},
+                 {.val log-logistic}, {.val log-normal}."
+        )
+      )
     }
     convert_survival_measures(surv, haz, measure)
   }

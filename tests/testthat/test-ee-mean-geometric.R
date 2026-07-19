@@ -1,4 +1,4 @@
-# Tests for ee_mean_geometric() (bd-ehv.5)
+# Tests for ee_mean_geometric()
 
 test_that("ee_mean_geometric with log_theta=FALSE solves to mean(log(y))", {
   y <- c(1, 2, 3, 4, 5, 6, 7, 8, 9)

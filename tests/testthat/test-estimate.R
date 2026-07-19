@@ -169,7 +169,7 @@ test_that("estimate() rejects a custom solver that returns the wrong shape", {
   expect_error(estimate(m, solver = bad_solver), "numeric vector of length 1")
 })
 
-# ---- estimate(deriv_method = "exact") for built-in EEs (bd-1igf) ------------
+# ---- estimate(deriv_method = "exact") for built-in EEs ----------------------
 #
 # Exact-mode bread for a built-in estimating equation must agree with the
 # central-difference (capprox) bread computed on the same fitted estimator. The
@@ -179,7 +179,7 @@ test_that("estimate() rejects a custom solver that returns the wrong shape", {
 # near machine precision, so the tolerance is bounded by the approximation it is
 # compared against. These EEs flow through the masked matrix()/rbind() surface
 # without stripping tangents (no as.numeric() applied to a theta-carrying value),
-# so they exercise the pt_flatten/bind normalization fixed in bd-1igf.
+# so they exercise the pt_flatten/bind normalization.
 
 test_that("estimate() exact bread matches capprox for ee_mean", {
   ref <- load_fixture("ee_mean")
@@ -221,7 +221,7 @@ test_that("estimate() exact bread matches capprox for ee_mean_variance (rbind pa
 
 test_that("estimate() roxygen example runs under deriv_method = 'exact'", {
   # The shape of estimate()'s own runnable example, which is the ee_mean pattern
-  # matrix(y - theta[1], nrow = 1) that errored under exact mode before bd-1igf.
+  # matrix(y - theta[1], nrow = 1) that previously errored under exact mode.
   psi <- function(theta) {
     y <- c(1, 2, 3, 4, 5)
     matrix(y - theta[1], nrow = 1)

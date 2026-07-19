@@ -1,4 +1,4 @@
-# Tests for ee_glm() with the gamma distribution (bd-3cdf.4)
+# Tests for ee_glm() with the gamma distribution
 # The gamma GLM estimates the regression coefficients plus one additional shape
 # parameter alpha (on the log scale), so theta has length ncol(X) + 1. The
 # reciprocal of alpha is the McCullagh and Nelder GLM dispersion (phi = 1 /

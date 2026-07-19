@@ -244,8 +244,9 @@ test_that("gmm_estimate() default interface works", {
 #
 # These tests pin that forwarding: each wrapper fit equals the equivalent
 # manual estimate() fit carrying the same option, and each option changes the
-# result relative to the fit without it. bd-gxa4.8 adds the subset and
-# finite_correction formals to the wrappers. Until then the wrappers route
+# result relative to the fit without it. Once the subset and
+# finite_correction formals are added to the wrappers this holds; until then
+# the wrappers route
 # these names into ... and on to the estimating equation, which rejects them
 # with an unused-argument error, so the value assertions below error.
 

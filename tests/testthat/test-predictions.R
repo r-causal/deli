@@ -213,7 +213,7 @@ test_that("survival_predictions errors on invalid alpha", {
   )
 })
 
-# survival_predictions exact-derivative tests (bd-1v9o.9) -------------------
+# survival_predictions exact-derivative tests --------------------------------
 #
 # Python's survival_predictions computes the delta-method variance with exact
 # forward-mode automatic differentiation: it calls delta_method, which defaults
@@ -417,8 +417,8 @@ test_that("survival_predictions with deriv_method = 'capprox' matches Python", {
 test_that("survival_predictions default derivative method reproduces capprox", {
   # Pins that the deriv_method default stays "capprox" so existing behavior is
   # unchanged: the no-argument call must equal an explicit deriv_method =
-  # "capprox" call. (The explicit call is the target contract; this test starts
-  # passing once bd-1v9o.10 adds the argument.)
+  # "capprox" call. The explicit call is the target contract that a future
+  # deriv_method argument enables.
   ref <- load_fixture("survival_predictions")
   theta <- ref$models[["weibull"]]$theta
   covariance <- as.matrix(ref$models[["weibull"]]$covariance)
@@ -659,7 +659,7 @@ test_that("aft_predictions_individual supports different distributions", {
   expect_equal(nrow(r3), 1)
 })
 
-# aft_predictions_function tests (bd-9ejm.1) --------------------------------
+# aft_predictions_function tests ---------------------------------------------
 #
 # Function-level AFT predictions with delta-method point-wise confidence
 # intervals, the R port of Python's utilities.aft_predictions_function.
@@ -887,7 +887,7 @@ test_that("aft_predictions_function errors on multiple covariate patterns", {
   theta <- ref$models[["weibull"]]$theta
   covariance <- as.matrix(ref$models[["weibull"]]$covariance)
 
-  # Contract for bd-9ejm.2: reject more than one covariate pattern, and the
+  # Contract: reject more than one covariate pattern, and the
   # message must name the row/pattern constraint (so this does not pass
   # vacuously on an object-not-found error before implementation).
   expect_error(
@@ -1362,7 +1362,7 @@ test_that("plogit_predict density equals hazard * survival", {
   expect_equal(dens, haz * surv)
 })
 
-# ---- consistent time/event argument names (bd-9ejm.4 contract) --------------
+# ---- consistent time/event argument names -----------------------------------
 #
 # See the header in test-ee-survival.R for the full naming contract. These
 # tests enforce that plogit_predict uses

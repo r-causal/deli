@@ -5,7 +5,7 @@
 #     "scipy",
 # ]
 # ///
-"""Generate fixtures for survival_predictions (bd-1v9o.9 / bd-1v9o.10).
+"""Generate fixtures for survival_predictions.
 
 Fits parametric survival models with ee_survival_model on the deterministic
 Collett (2015) breast cancer data (no RNG), then records the function-level

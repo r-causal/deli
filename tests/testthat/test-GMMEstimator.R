@@ -130,7 +130,7 @@ test_that("GMMEstimator weight_matrix is NULL before estimation", {
 # iterations when overid_maxiter is below 1 and never converges early when
 # overid_tolerance is non-positive, matching Python delicatessen, so the
 # validators reject non-numeric, missing, and non-scalar values rather than
-# non-positive ones. The validators these tests target are added in bd-286o.4.
+# non-positive ones.
 
 test_that("GMMEstimator rejects an unsupported finite_correction string", {
   psi <- function(theta) {

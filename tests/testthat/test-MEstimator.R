@@ -165,8 +165,7 @@ test_that("MEstimator n_obs is NULL before estimation", {
 # HC1 string (see finite_sample_correction() in R/sandwich.R). init must contain
 # at least one value. subset must be whole-number parameter indices between 1
 # and the number of parameters (1-based indexing), which is knowable at
-# construction from length(init). The validators these tests target are added in
-# bd-286o.4.
+# construction from length(init).
 
 test_that("MEstimator rejects an unsupported finite_correction string", {
   psi <- function(theta) {

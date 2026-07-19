@@ -1,4 +1,4 @@
-# Tests for ee_glm() with the negative binomial distribution (bd-3cdf.1)
+# Tests for ee_glm() with the negative binomial distribution
 # The negative binomial GLM estimates the regression coefficients plus one
 # additional dispersion parameter (on the log scale), so theta has length
 # ncol(X) + 1. Python appends a polygamma-based nuisance estimating equation

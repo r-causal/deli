@@ -108,7 +108,7 @@ test_that("unknown solver string reports it is not supported", {
 # These tests pin the API surface and numerical behaviour of the
 # Levenberg-Marquardt solver. In Python delicatessen it is the default,
 # reached through scipy.optimize.root(method = "lm"); the deli surface
-# exposes it as solver = "lm". The tracked implementation is bd-rdyz.
+# exposes it as solver = "lm".
 #
 # Fixtures ee_solver_lm_linear and ee_solver_lm_logistic come from Python
 # solver = "lm" (fixtures/generate_solver_lm_fixtures.py). The linear
@@ -245,7 +245,6 @@ test_that("rootSolve warns when the Jacobian is singular at the start", {
 # the call discards, so the maxiter exhaustion must be surfaced separately. The
 # lm and nleqslv branches already warn on their own non-convergence codes.
 test_that("rootSolve warns when the iteration budget is exhausted", {
-  m <- fit_logistic("ee_solver_lm_logistic", solver = "rootSolve")
   ref <- load_fixture("ee_solver_lm_logistic")
   X <- ref$X
   y <- ref$y

@@ -5,7 +5,7 @@
 #     "scipy",
 # ]
 # ///
-"""Generate fixtures for aft_predictions_function (bd-9ejm.1 / bd-9ejm.2).
+"""Generate fixtures for aft_predictions_function.
 
 Fits accelerated failure time models with ee_aft on the deterministic
 Collett (2015) breast cancer data (no RNG), then records function-level

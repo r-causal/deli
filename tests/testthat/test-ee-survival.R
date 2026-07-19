@@ -652,7 +652,7 @@ test_that("ee_survival_model errors on invalid delta values", {
   )
 })
 
-# ---- consistent time/event argument names (bd-9ejm.4 contract) --------------
+# ---- consistent time/event argument names -----------------------------------
 #
 # These tests enforce the naming contract that the survival functions share a
 # single idiomatic pair of argument names, with NO deprecated aliases:
@@ -809,7 +809,7 @@ test_that("ee_plogit + MEstimator with time/event matches Python fixture", {
   expect_python_match(m, "ee_plogit", tolerance = 1e-4)
 })
 
-# ---- ee_plogit time-varying (2D) weight matrix (bd-9ejm.5) -------------------
+# ---- ee_plogit time-varying (2D) weight matrix -------------------------------
 # ee_plogit accepts an n-by-K weight matrix, one column per time interval of S.
 # generate_weights passes the matrix through (validating its row count) and
 # ee_plogit validates the column count (K must equal the number of intervals)

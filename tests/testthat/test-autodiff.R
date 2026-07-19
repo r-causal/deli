@@ -258,7 +258,7 @@ test_that("autodiff gives same variance as approx in MEstimator", {
   expect_equal(m_exact@variance, m_approx@variance, tolerance = 1e-6)
 })
 
-# ---- matrix operations on tangent-carrying values (bd-1v9o.1) ---------------
+# ---- matrix operations on tangent-carrying values ---------------------------
 #
 # Exact forward-mode autodiff must support the matrix operations that every
 # built-in estimating equation relies on: `%*%`, `matrix()`, `rbind()`,
@@ -530,7 +530,7 @@ test_that("M[i, ] returns the whole row rather than the leading scalar", {
   expect_equal(as.vector(col2$tangent), c(9, 10))
 })
 
-# ---- distribution and gamma-family tangent rules (bd-1v9o.3) -----------------
+# ---- distribution and gamma-family tangent rules -----------------------------
 #
 # Exact forward-mode autodiff must carry tangents through the distribution and
 # gamma-family functions that the built-in estimating equations rely on: the
@@ -832,7 +832,7 @@ test_that("autodiff differentiates a logistic score using plogis(X %*% theta)", 
   expect_equal(exact, analytic, tolerance = 1e-8)
 })
 
-# ---- vector-primal Math operations and prod (bd-1v9o.5 / bd-1v9o.6) ----------
+# ---- vector-primal Math operations and prod ---------------------------------
 #
 # Exact forward-mode autodiff must carry tangents through `abs`, `floor`, and
 # `ceiling` when the primal is a vector rather than a scalar, and must support
@@ -871,7 +871,7 @@ test_that("autodiff differentiates a logistic score using plogis(X %*% theta)", 
 # primal pair). The natural multiple-argument form `prod(x[1], x[2], ...)`
 # dispatches to Summary.PrimalTangent and is used instead.
 #
-# Cross-checks follow the bd-1v9o.1/.3 blocks above: capprox at tolerance 1e-5
+# Cross-checks follow the matrix and gamma-family blocks above: capprox at tolerance 1e-5
 # (the central difference carries roughly 1e-6 numerical error at the default
 # step size) and the hand-derived analytic derivative at 1e-8 (exact autodiff
 # reproduces the closed form to near machine precision). Evaluation points for
@@ -1032,7 +1032,7 @@ test_that("floor and ceiling on a PrimalTangentArray follow the integer conventi
   expect_equal(rc$tangent[2, 2], 0)
 })
 
-# ---- floor and ceiling on non-finite primals (bd-10vv) ----------------------
+# ---- floor and ceiling on non-finite primals --------------------------------
 #
 # Only a finite integer primal is a kink where the derivative is undefined and
 # the tangent is NaN. Python's __floor__ and __ceil__ (delicatessen/
@@ -1168,7 +1168,7 @@ test_that("an unsupported unary operator on a tangent array names the operator",
   )
 })
 
-# ---- elementwise Math on tangent arrays (bd-2es7) ----------------------------
+# ---- elementwise Math on tangent arrays --------------------------------------
 #
 # Math.PrimalTangentArray previously wired only `exp`, `cumsum`, `abs`, `floor`,
 # and `ceiling`; every other elementwise math member (`log`, `sqrt`, the
@@ -1379,7 +1379,7 @@ test_that("autodiff differentiates a Poisson-style score using exp(X %*% theta)"
   expect_equal(exact, analytic, tolerance = 1e-8)
 })
 
-# ---- mixed PrimalTangentArray / scalar PrimalTangent Ops (bd-2es7) ------------
+# ---- mixed PrimalTangentArray / scalar PrimalTangent Ops ---------------------
 #
 # Mixing a tangent-carrying vector or matrix with a scalar tangent pair (for
 # example `(X %*% beta) / theta[k]`, the tobit and AFT scale idiom) previously
@@ -1497,7 +1497,7 @@ test_that("scalar / scalar PrimalTangent Ops still return a scalar pair", {
   expect_equal(r$tangent, (1 * 2 - 3 * 0) / 2^2)
 })
 
-# ---- pt_flatten normalization (bd-1igf) -------------------------------------
+# ---- pt_flatten normalization -----------------------------------------------
 #
 # A masked matrix()/rbind()/cbind() applied to a single scalar pair whose primal
 # is a length-n vector must flatten the primal and tangent slots to matching
@@ -1525,7 +1525,7 @@ test_that("pt_flatten recycles a scalar broadcast tangent to the primal length",
 })
 
 test_that("masked matrix() reshapes a scalar pair with a vector primal", {
-  # the direct repro of bd-1igf: matrix() on ee_mean's PrimalTangent result
+  # matrix() on ee_mean's PrimalTangent result
   pt <- primal_tangent(c(1, 2, 3, 4, 5), 0.5)
   m <- matrix(pt, nrow = 1)
   expect_s3_class(m, "PrimalTangentArray")
@@ -1545,7 +1545,7 @@ test_that("masked rbind() binds scalar pairs with vector primals and scalar tang
   expect_equal(m$tangent, rbind(c(-1, -1, -1), c(2, 2, 2)))
 })
 
-# ---- indexing a scalar PrimalTangent (bd-1zea) ------------------------------
+# ---- indexing a scalar PrimalTangent ----------------------------------------
 #
 # A scalar PrimalTangent is a single tangent-carrying value, so it indexes like
 # a length-1 vector: the sole subscript selects the value itself and preserves

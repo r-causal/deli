@@ -42,8 +42,10 @@ primal_tangent_vector <- function(elements) {
   # An out-of-range positive subscript selects a NULL slot rather than erroring
   # (list `[` semantics), which would silently produce a zero-row Jacobian under
   # exact differentiation. Reject it with the same base-style message the scalar
-  # surface uses. Negative and logical indices never yield NULL slots, so the
-  # GLM `theta[-p]` idiom still passes.
+  # surface uses. Negative and in-range logical indices never yield NULL slots,
+  # so the GLM `theta[-p]` idiom still passes. An over-length logical index or an
+  # NA index does select a NULL slot, so those abort here, which is the intended
+  # strict behavior.
   if (any(vapply(selected, is.null, logical(1)))) {
     stop("subscript out of bounds")
   }

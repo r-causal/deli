@@ -203,7 +203,7 @@ test_that("compute_sandwich() matches Python for mean+variance EE", {
 # compute_sandwich is one of the top-level entry points of the package, callable
 # directly by a user who has already solved for theta and wants the sandwich
 # without running MEstimator. The assertions below are of two kinds. The
-# membership check on the deli namespace exports (bd-gxa4.5) gates the export
+# membership check on the deli namespace exports gates the export
 # itself: it holds only once compute_sandwich is exported. The remaining tests
 # pin the user-facing contract the export must satisfy. compute_sandwich returns
 # the asymptotic sandwich variance: the bread and meat are each scaled by n, so
@@ -265,7 +265,7 @@ test_that("compute_sandwich matches Python for a linear regression equation", {
 
   # The finite-difference methods are compared here. The exact-autodiff path for
   # ee_regression is exercised by the mean-variance test above and tracked
-  # separately in bd-3h2h; ee_regression does not yet preserve tangents through
+  # separately; ee_regression does not yet preserve tangents through
   # its matrix operations, so it is left out of this loop.
   for (method in c("capprox", "fapprox", "bapprox")) {
     sandwich <- compute_sandwich(psi, theta = ref$theta, deriv_method = method)

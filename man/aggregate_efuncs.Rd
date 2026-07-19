@@ -17,7 +17,9 @@ each observation.}
 }
 \value{
 A p-by-m matrix, where m is the number of unique groups. Columns
-are ordered by the sorted unique values of \code{group}.
+are ordered by the sorted unique values of \code{group}. A factor \code{group} is
+coerced with \code{as.vector()} to its character labels before sorting, so its
+columns sort lexically by label rather than by factor-level order.
 }
 \description{
 Collapses unit-level estimating function contributions into group-level

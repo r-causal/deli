@@ -48,7 +48,7 @@ test_that("all-zero weights are accepted (no validation on values)", {
   expect_equal(generate_weights(5, w), w)
 })
 
-# ---- 2D weight matrices pass through (bd-9ejm.5) -----------------------------
+# ---- 2D weight matrices pass through -----------------------------------------
 # ee_plogit accepts an n-by-K time-varying weight matrix (one column per time
 # interval). generate_weights passes such a matrix through with its dimensions
 # preserved, validating only the row count (nrow == n) since it alone knows the
@@ -90,7 +90,7 @@ test_that("a weight matrix with the wrong number of rows is rejected", {
   expect_error(generate_weights(n, w_bad), "row")
 })
 
-# ---- tangent-carrying weights pass through (bd-hsv1) -------------------------
+# ---- tangent-carrying weights pass through -----------------------------------
 # Under deriv_method = "exact", ee_ipw_msm forms IPW weights from the propensity
 # model (theta-derived, so tangent-carrying) and passes them as the weights
 # argument to a weighted GLM. generate_weights must preserve the primal-tangent
