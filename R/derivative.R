@@ -53,7 +53,12 @@ approx_differentiation <- function(func, theta, method = "capprox", dx = 1e-9) {
     f0 <- generate_matrix(lower)
     deriv <- t(f1 - f0) / dx
   } else {
-    cli::cli_abort("The method {.val {method}} is not supported.")
+    cli::cli_abort(c(
+      "The method {.val {method}} is not supported.",
+      "i" = "Supported finite-difference options: {.val capprox},
+             {.val fapprox}, {.val bapprox}. For exact automatic
+             differentiation set {.code deriv_method = \"exact\"}."
+    ))
   }
 
   deriv

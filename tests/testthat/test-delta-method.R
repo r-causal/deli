@@ -206,6 +206,47 @@ test_that("delta_method() aborts when the transform output is not one-dimensiona
   )
 })
 
+test_that("numeric delta_method() aborts with a clear message when covariance is missing", {
+  # Without covariance, as.matrix(NULL) previously died with the opaque
+  # "'data' must be of a vector type, was 'NULL'". The abort must name the
+  # argument instead.
+  theta <- c(0.5, -1.2)
+  expect_error(
+    delta_method(theta, transform = function(th) th),
+    regexp = "covariance"
+  )
+})
+
+# deriv_method is case-insensitive --------------------------------------------
+#
+# Python lowercases every deriv_method comparison. delta_method compared
+# case-sensitively, so "Exact" fell through to the finite-difference path and
+# "CAPPROX" raised "not supported". These tests pin case-insensitive acceptance.
+
+test_that("delta_method() accepts an upper-case exact deriv_method", {
+  m <- make_fitted_mean()
+  transform <- function(theta) exp(theta)
+  lower <- delta_method(m, transform = transform, deriv_method = "exact")
+  upper <- delta_method(m, transform = transform, deriv_method = "Exact")
+  expect_equal(upper, lower)
+})
+
+test_that("delta_method() accepts a mixed-case finite-difference deriv_method", {
+  m <- make_fitted_mean()
+  transform <- function(theta) exp(theta)
+  lower <- delta_method(m, transform = transform, deriv_method = "capprox")
+  upper <- delta_method(m, transform = transform, deriv_method = "CApprox")
+  expect_equal(upper, lower)
+})
+
+test_that("delta_method() error for an unknown deriv_method lists exact", {
+  m <- make_fitted_mean()
+  expect_error(
+    delta_method(m, transform = function(theta) theta, deriv_method = "nope"),
+    regexp = "exact"
+  )
+})
+
 # delta_method() exact mode (deriv_method = "exact") --------------------------
 #
 # Exact mode differentiates the transform with forward-mode automatic

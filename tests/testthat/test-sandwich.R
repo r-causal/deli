@@ -278,3 +278,43 @@ test_that("compute_sandwich matches Python for a linear regression equation", {
     )
   }
 })
+
+# deriv_method is case-insensitive --------------------------------------------
+#
+# Python lowercases every deriv_method comparison and accepts any case. deli
+# compared case-sensitively, so "Exact" or "CAPPROX" raised "not supported".
+# These tests pin case-insensitive acceptance and a clear error, listing all
+# supported options, for a genuinely unknown method.
+
+test_that("compute_sandwich() accepts deriv_method in any case", {
+  ref <- load_fixture("sandwich_mean_variance")
+  y <- ref$y
+  psi <- function(theta) ee_mean_variance(theta, y = y)
+
+  lower <- compute_sandwich(psi, theta = ref$theta, deriv_method = "capprox")
+  upper <- compute_sandwich(psi, theta = ref$theta, deriv_method = "CAPPROX")
+  mixed <- compute_sandwich(psi, theta = ref$theta, deriv_method = "CApprox")
+  expect_equal(upper, lower)
+  expect_equal(mixed, lower)
+})
+
+test_that("compute_sandwich() accepts an upper-case exact deriv_method", {
+  ref <- load_fixture("sandwich_mean_variance")
+  y <- ref$y
+  psi <- function(theta) ee_mean_variance(theta, y = y)
+
+  lower <- compute_sandwich(psi, theta = ref$theta, deriv_method = "exact")
+  upper <- compute_sandwich(psi, theta = ref$theta, deriv_method = "Exact")
+  expect_equal(upper, lower)
+})
+
+test_that("compute_sandwich() error for an unknown deriv_method lists exact", {
+  ref <- load_fixture("sandwich_mean_variance")
+  y <- ref$y
+  psi <- function(theta) ee_mean_variance(theta, y = y)
+
+  expect_error(
+    compute_sandwich(psi, theta = ref$theta, deriv_method = "nonsense"),
+    regexp = "exact"
+  )
+})

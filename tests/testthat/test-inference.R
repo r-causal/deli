@@ -8,6 +8,19 @@ make_fitted_mean <- function() {
   estimate(m)
 }
 
+make_fitted_mean_variance <- function() {
+  ref <- load_fixture("ee_mean_variance")
+  y <- ref$y
+  psi <- function(theta) {
+    rbind(
+      y - theta[1],
+      (y - theta[1])^2 - theta[2]
+    )
+  }
+  m <- MEstimator(stacked_equations = psi, init = ref$init)
+  estimate(m)
+}
+
 # confidence_intervals() -------------------------------------------------------
 
 test_that("confidence_intervals() returns a matrix with 2 columns", {
@@ -105,4 +118,47 @@ test_that("s_values() are always non-negative", {
   m <- make_fitted_mean()
   s <- s_values(m, null = 0)
   expect_true(all(s >= 0))
+})
+
+# null length validation ------------------------------------------------------
+#
+# Python raises a broadcast ValueError when null has a length that is neither 1
+# nor the parameter count. R instead recycles: a length-3 null on a 2-parameter
+# fit warns twice about recycling but returns three z-scores, and those flow into
+# p_values and s_values. These tests pin an informative abort for a mismatched
+# null length across all three utilities, and confirm that a scalar null and a
+# per-parameter null still work.
+
+test_that("z_scores() aborts on a null length that is neither 1 nor the parameter count", {
+  m <- make_fitted_mean_variance()
+  expect_error(
+    z_scores(m, null = c(0, 0, 0)),
+    regexp = "null"
+  )
+})
+
+test_that("p_values() aborts on a mismatched null length", {
+  m <- make_fitted_mean_variance()
+  expect_error(
+    p_values(m, null = c(0, 0, 0)),
+    regexp = "null"
+  )
+})
+
+test_that("s_values() aborts on a mismatched null length", {
+  m <- make_fitted_mean_variance()
+  expect_error(
+    s_values(m, null = c(0, 0, 0)),
+    regexp = "null"
+  )
+})
+
+test_that("z_scores() accepts a scalar null and a per-parameter null", {
+  m <- make_fitted_mean_variance()
+  se <- sqrt(diag(m@variance))
+  expect_equal(z_scores(m, null = 0), m@theta / se)
+  expect_equal(
+    z_scores(m, null = c(1, 2)),
+    (m@theta - c(1, 2)) / se
+  )
 })

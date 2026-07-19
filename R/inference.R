@@ -73,6 +73,7 @@ z_scores <- new_generic("z_scores", "object", function(object, null = 0, ...) {
 
 method(z_scores, deli_estimator) <- function(object, null = 0, ...) {
   check_estimated(object)
+  check_null_length(null, length(object@theta))
 
   se <- sqrt(diag(object@variance))
   (object@theta - null) / se
@@ -166,6 +167,18 @@ check_estimated <- function(object) {
       call = NULL
     )
   }
+}
+
+#' @noRd
+check_null_length <- function(null, n_params) {
+  if (length(null) != 1L && length(null) != n_params) {
+    cli::cli_abort(
+      "{.arg null} must be a single value or one value per parameter
+       ({n_params}), not length {length(null)}.",
+      call = NULL
+    )
+  }
+  invisible(NULL)
 }
 
 #' @noRd

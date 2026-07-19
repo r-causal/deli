@@ -20,6 +20,8 @@ compute_bread <- function(
   deriv_method = "capprox",
   dx = 1e-9
 ) {
+  deriv_method <- check_deriv_method(deriv_method)
+
   # Sum the estimating equations across observations
   summed_ee <- function(input_theta) {
     ef <- stacked_equations(input_theta)
@@ -366,6 +368,14 @@ method(confidence_bands, class_numeric) <- function(
   ...
 ) {
   check_alpha(alpha)
+
+  if (!is.null(subset)) {
+    object <- object[subset]
+    if (!is.null(covariance)) {
+      covariance <- as.matrix(covariance)[subset, subset, drop = FALSE]
+    }
+  }
+
   compute_confidence_bands(
     object,
     covariance,
@@ -400,8 +410,29 @@ compute_confidence_bands <- function(
 ) {
   theta <- as.numeric(theta)
   covariance <- as.matrix(covariance)
-  se <- sqrt(diag(covariance))
   k <- length(theta)
+
+  # Validate dimensions and alpha before computing, mirroring Python's
+  # confidence_bands. Without these, a mismatched theta recycles over the
+  # covariance and an out-of-range alpha returns infinite or NaN bands.
+  n_rows <- nrow(covariance)
+  n_cols <- ncol(covariance)
+  if (n_rows != n_cols) {
+    cli::cli_abort(
+      "{.arg covariance} must be a square matrix, but it has {n_rows} row{?s}
+       and {n_cols} column{?s}."
+    )
+  }
+  if (k != n_rows) {
+    cli::cli_abort(
+      "{.arg theta} and {.arg covariance} must share a dimension, but
+       {.arg theta} has length {k} and {.arg covariance} has dimension
+       {n_rows}."
+    )
+  }
+  check_alpha(alpha)
+
+  se <- sqrt(diag(covariance))
 
   method <- tolower(method)
   if (method %in% c("supt", "sup-t")) {
@@ -511,6 +542,17 @@ delta_method_impl <- function(
   deriv_method = "capprox",
   dx = 1e-9
 ) {
+  # Validate covariance presence before any coercion. as.matrix(NULL) otherwise
+  # fails with an opaque "'data' must be of a vector type" error before the
+  # reachable shape checks below.
+  if (is.null(covariance)) {
+    cli::cli_abort(c(
+      "{.arg covariance} is required but was not supplied.",
+      "i" = "Pass the covariance matrix of the parameter estimates when calling
+             {.fn delta_method} on a numeric vector."
+    ))
+  }
+  deriv_method <- check_deriv_method(deriv_method)
   theta <- as.numeric(theta)
   covariance <- as.matrix(covariance)
 

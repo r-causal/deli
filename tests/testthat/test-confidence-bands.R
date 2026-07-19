@@ -172,3 +172,121 @@ test_that("confidence_bands() narrower alpha means wider bands", {
   width_99 <- cb_99[, "upper"] - cb_99[, "lower"]
   expect_true(all(width_99 > width_95))
 })
+
+# compute_confidence_bands() input validation ---------------------------------
+#
+# Python's confidence_bands raises ValueError when the parameter vector and the
+# covariance matrix disagree on dimension, and when alpha is not strictly between
+# 0 and 1. Without these checks, R silently recycles a mismatched theta over the
+# covariance (a length-4 theta on a 2x2 covariance returns four rows of garbage),
+# warns-but-returns recycled values for a length-3 theta, returns (-Inf, Inf)
+# bands at alpha = 0, and returns NaN bands at alpha = -0.5. These tests pin
+# informative aborts so a bad shape or alpha fails loudly.
+
+test_that("compute_confidence_bands() aborts when theta is longer than covariance", {
+  # A length-4 theta over a 2x2 covariance silently recycles to four rows.
+  expect_error(
+    compute_confidence_bands(
+      c(1, 2, 3, 4),
+      diag(2),
+      method = "bonferroni"
+    ),
+    regexp = "dimension"
+  )
+})
+
+test_that("compute_confidence_bands() aborts when theta is shorter than covariance", {
+  expect_error(
+    compute_confidence_bands(
+      c(1, 2, 3),
+      diag(2),
+      method = "bonferroni"
+    ),
+    regexp = "dimension"
+  )
+})
+
+test_that("compute_confidence_bands() aborts on a non-square covariance matrix", {
+  expect_error(
+    compute_confidence_bands(
+      c(1, 2),
+      matrix(seq_len(6), nrow = 2, ncol = 3),
+      method = "bonferroni"
+    ),
+    regexp = "square"
+  )
+})
+
+test_that("compute_confidence_bands() aborts on alpha = 0", {
+  expect_error(
+    compute_confidence_bands(
+      c(1, 2),
+      diag(2),
+      alpha = 0,
+      method = "bonferroni"
+    ),
+    regexp = "between 0 and 1"
+  )
+})
+
+test_that("compute_confidence_bands() aborts on a negative alpha", {
+  expect_error(
+    compute_confidence_bands(
+      c(1, 2),
+      diag(2),
+      alpha = -0.5,
+      method = "bonferroni"
+    ),
+    regexp = "between 0 and 1"
+  )
+})
+
+test_that("compute_confidence_bands() aborts on alpha = 1", {
+  expect_error(
+    compute_confidence_bands(
+      c(1, 2),
+      diag(2),
+      alpha = 1,
+      method = "bonferroni"
+    ),
+    regexp = "between 0 and 1"
+  )
+})
+
+# numeric confidence_bands() subset -------------------------------------------
+#
+# The numeric method accepts subset in its signature but never applies it, so
+# subset = c(1, 2) on a 3-parameter input returns all three rows. The estimator
+# method applies subset correctly. These tests pin the numeric method to the
+# same behavior: subset the parameter vector and covariance before computing.
+
+test_that("numeric confidence_bands() honors the subset argument", {
+  theta <- c(1, 2, 3)
+  covariance <- diag(c(0.1, 0.2, 0.3))
+  cb <- confidence_bands(
+    theta,
+    covariance = covariance,
+    subset = c(1, 2),
+    method = "bonferroni"
+  )
+  expect_equal(nrow(cb), 2)
+  expect_equal(ncol(cb), 2)
+})
+
+test_that("numeric confidence_bands() subset matches bands on the reduced inputs", {
+  theta <- c(1, 2, 3)
+  covariance <- diag(c(0.1, 0.2, 0.3))
+  subset <- c(1, 3)
+  cb <- confidence_bands(
+    theta,
+    covariance = covariance,
+    subset = subset,
+    method = "bonferroni"
+  )
+  reduced <- compute_confidence_bands(
+    theta[subset],
+    covariance[subset, subset, drop = FALSE],
+    method = "bonferroni"
+  )
+  expect_equal(cb, reduced)
+})

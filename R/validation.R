@@ -300,6 +300,38 @@ check_solver_return <- function(theta, n_params) {
   invisible(NULL)
 }
 
+#' Normalize and validate a derivative-method argument
+#'
+#' Lowercases `deriv_method` and validates it against the supported options,
+#' mirroring Python Delicatessen, which lowercases every method comparison and
+#' accepts any case. Returns the normalized value so callers can branch on it
+#' directly.
+#'
+#' @param deriv_method The derivative method supplied by the caller. One of
+#'   `"capprox"`, `"fapprox"`, `"bapprox"`, or `"exact"`, in any case.
+#'
+#' @return The lower-cased method string. Raises an error if the value is not a
+#'   single supported string.
+#' @keywords internal
+check_deriv_method <- function(deriv_method) {
+  if (!is.character(deriv_method) || length(deriv_method) != 1L) {
+    cli::cli_abort(
+      "{.arg deriv_method} must be a single string, not
+       {.obj_type_of {deriv_method}}."
+    )
+  }
+  normalized <- tolower(deriv_method)
+  supported <- c("capprox", "fapprox", "bapprox", "exact")
+  if (!normalized %in% supported) {
+    cli::cli_abort(c(
+      "{.arg deriv_method} value {.val {deriv_method}} is not supported.",
+      "i" = "Supported options: {.val capprox}, {.val fapprox},
+             {.val bapprox}, {.val exact}."
+    ))
+  }
+  normalized
+}
+
 #' Check that an over-identification control is a single number
 #'
 #' Validates that a GMM over-identification control (`overid_maxiter` or
