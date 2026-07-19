@@ -70,7 +70,7 @@ test_that("deli_digamma() at negative integers returns NaN without warning", {
   expect_true(is.nan(result_neg1))
 })
 
-# ---- NA / NaN propagation (bd-2x8.9) ----------------------------------------
+# ---- NA / NaN propagation ----------------------------------------
 #
 # The pole test `z <= 0 & z == trunc(z)` yields NA for a missing input, which
 # poisons both the if() guard and the subscripted assignment: deli_digamma(NA)
@@ -189,7 +189,7 @@ test_that("standard_normal_pdf() values are non-negative", {
   expect_true(all(result >= 0))
 })
 
-# ---- whole-vector inputs under exact autodiff (bd-2x8.8) --------------------
+# ---- whole-vector inputs under exact autodiff --------------------
 #
 # Passing the whole parameter vector (a PrimalTangentVector under exact mode) to
 # deli_polygamma, deli_digamma, standard_normal_cdf, and standard_normal_pdf must

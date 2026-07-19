@@ -18,7 +18,7 @@ test_that("logit() handles edge cases", {
   expect_equal(logit(0.5), 0)
 })
 
-# ---- logit() autodiff compatibility (bd-2x8.15) -----------------------------
+# ---- logit() autodiff compatibility -----------------------------
 #
 # logit() was qlogis(prob), which cannot accept a tangent-carrying argument, so
 # a transform using logit() under deriv_method = "exact" errored with

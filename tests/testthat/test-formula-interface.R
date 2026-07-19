@@ -3,7 +3,7 @@
 # vectors, and auto-init length checking for extra-parameter estimating
 # equations.
 
-# ---- offset() terms (bd-2x8.3) ----------------------------------------------
+# ---- offset() terms ----------------------------------------------
 
 make_offset_data <- function() {
   set.seed(1)
@@ -54,7 +54,7 @@ test_that("m_estimate() rejects an offset supplied twice", {
   )
 })
 
-# ---- factor and character responses (bd-2x8.20) -----------------------------
+# ---- factor and character responses -----------------------------
 
 make_binary_data <- function() {
   set.seed(2)
@@ -96,7 +96,7 @@ test_that("m_estimate() rejects a factor response with more than two levels", {
   )
 })
 
-# ---- NA-filtered alignment of dots vectors (bd-2x8.21) ----------------------
+# ---- NA-filtered alignment of dots vectors ----------------------
 
 test_that("m_estimate() aligns dots vectors with the NA-filtered model frame", {
   set.seed(4)
@@ -142,7 +142,7 @@ test_that("gmm_estimate() aligns dots vectors with the NA-filtered frame", {
   expect_equal(unname(coef(g)), unname(coef(oracle)), tolerance = 1e-6)
 })
 
-# ---- auto-init length for extra-parameter EEs (bd-2x8.32) -------------------
+# ---- auto-init length for extra-parameter EEs -------------------
 
 make_gamma_data <- function() {
   set.seed(6)

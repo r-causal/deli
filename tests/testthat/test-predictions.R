@@ -443,7 +443,7 @@ test_that("survival_predictions default derivative method reproduces capprox", {
   expect_equal(default_call, capprox_call)
 })
 
-# survival_predictions gompertz tests (bd-2x8.5) ---------------------------
+# survival_predictions gompertz tests ---------------------------
 #
 # Python Delicatessen's survival_predictions branches only on "exponential"
 # and otherwise applies the Weibull survival/hazard formulas, so a
@@ -1452,7 +1452,7 @@ test_that("ee_plogit + plogit_predict with time/event agree end to end", {
 })
 
 
-# plogit_predict single-event-time tests (bd-2x8.23) ------------------------
+# plogit_predict single-event-time tests ------------------------
 #
 # With a single unique event time (K = 1) the cumulative-product step
 # apply(1 - y_pred, 2, cumprod) collapses to a bare numeric vector: each

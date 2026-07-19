@@ -398,7 +398,7 @@ test_that("ee_regression_calibration propagates NA outside the masked positions"
   expect_true(!all(is.finite(ef)))
 })
 
-# Weighted extended Rogan-Gladen parity (bd-2x8.4) -----------------------------
+# Weighted extended Rogan-Gladen parity -----------------------------
 #
 # The extended correction fits logistic sensitivity and specificity nuisance
 # models. Those models must receive the observation weights, not just the

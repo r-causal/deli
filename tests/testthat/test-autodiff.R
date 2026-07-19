@@ -1257,7 +1257,7 @@ test_that("autodiff differentiates lgamma over a tangent array X %*% theta", {
   expect_equal(exact, analytic, tolerance = 1e-8)
 })
 
-# ---- log with an explicit base (bd-2x8.1) -----------------------------------
+# ---- log with an explicit base -----------------------------------
 #
 # `log(x, base)` must honor the base under exact autodiff for both the primal and
 # the tangent: the natural-log tangent t / p is scaled by 1 / log(base). Under
@@ -1577,7 +1577,7 @@ test_that("arithmetic on an indexed scalar PrimalTangent preserves the tangent",
   expect_equal(out$tangent, -1)
 })
 
-# ---- non-scalar Ops results index and transpose (bd-2x8.6) -------------------
+# ---- non-scalar Ops results index and transpose -------------------
 #
 # A scalar pair times a data vector or matrix (theta[k] * X, the interaction and
 # scaling idiom) produces a PrimalTangent whose primal and tangent slots are
@@ -1690,7 +1690,7 @@ test_that("a vector-primal PrimalTangent recycles a broadcast tangent when index
   expect_equal(el$tangent, 0.5)
 })
 
-# ---- Summary group methods on whole vectors and arrays (bd-2x8.7) ------------
+# ---- Summary group methods on whole vectors and arrays ------------
 #
 # A Summary reduction (sum, prod, max, min) applied to the whole parameter vector
 # (a PrimalTangentVector) or to a tangent-carrying array (a PrimalTangentArray,
@@ -1780,7 +1780,7 @@ test_that("Summary methods reduce a PrimalTangentArray", {
   expect_equal(mn$tangent, 1)
 })
 
-# ---- tangent-stripping guard in extract_tangent_column (bd-2x8.24) ----
+# ---- tangent-stripping guard in extract_tangent_column ----
 
 test_that("delta_method aborts when the transform strips tangents", {
   # base::rbind has no PrimalTangent method, so it builds a bare list matrix and
@@ -1809,7 +1809,7 @@ test_that("delta_method with a tangent-preserving transform returns the derivati
   expect_equal(result, diag(2))
 })
 
-# ---- plain-list branch in pt_arrays (bd-2x8.25) ----
+# ---- plain-list branch in pt_arrays ----
 
 test_that("masked rbind of a c() pair list keeps tangents under exact mode", {
   # Inside the package namespace, c() on scalar pairs yields a plain list of
@@ -1820,7 +1820,7 @@ test_that("masked rbind of a c() pair list keeps tangents under exact mode", {
   expect_equal(result, diag(c(2, 3)))
 })
 
-# ---- out-of-bounds rejection in [.PrimalTangentVector (bd-2x8.26) ----
+# ---- out-of-bounds rejection in [.PrimalTangentVector ----
 
 test_that("[.PrimalTangentVector rejects an out-of-bounds index", {
   v <- primal_tangent_vector(list(
