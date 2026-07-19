@@ -302,6 +302,53 @@ test_that("ee_dlasso_regression and ee_elasticnet_regression weight the penalty 
   )
 })
 
+test_that("NULL weights and unit weights give identical psi for ridge and dlasso", {
+  set.seed(24)
+  n <- 40
+  X <- cbind(1, rnorm(n), rnorm(n))
+  y <- as.numeric(X %*% c(0.7, -0.3, 0.5)) + rnorm(n)
+  theta <- c(0.2, 0.4, -0.1)
+  penalty <- c(0, 7, 7)
+
+  expect_identical(
+    ee_ridge_regression(
+      theta,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = penalty,
+      weights = NULL
+    ),
+    ee_ridge_regression(
+      theta,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = penalty,
+      weights = rep(1, n)
+    )
+  )
+
+  expect_identical(
+    ee_dlasso_regression(
+      theta,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = penalty,
+      weights = NULL
+    ),
+    ee_dlasso_regression(
+      theta,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = penalty,
+      weights = rep(1, n)
+    )
+  )
+})
+
 test_that("ee_ridge_regression weighted exact bread agrees with the central difference", {
   set.seed(23)
   n <- 120

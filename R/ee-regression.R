@@ -120,8 +120,6 @@ ee_bridge_regression <- function(
   if (!is.null(offset)) {
     check_data_length(offset, n, "offset")
   }
-  w <- generate_weights(n, weights)
-
   eta <- pt_as_vector(X %*% theta)
   if (!is.null(offset)) {
     eta <- eta + as.numeric(offset)
@@ -133,12 +131,21 @@ ee_bridge_regression <- function(
 
   # Length-p penalty recycles down the rows, subtracting from every column
   penalty_terms <- bridge_penalty(theta, n, penalty, gamma, center)
+  psi <- score - penalty_terms
+
+  # With no weights every observation contributes equally, so return the score
+  # directly rather than multiplying by an n-by-p vector of ones. The result is
+  # identical because multiplication by one is exact.
+  if (is.null(weights)) {
+    return(psi)
+  }
 
   # Weight each observation's column so weights scale score and penalty
   # together. rep(w, each = ncol(X)) lays the length-n weights out column by
   # column to match the column-major p-by-n matrix, scaling every observation's
   # column in place rather than routing through two additional transposes.
-  (score - penalty_terms) * rep(w, each = ncol(X))
+  w <- generate_weights(n, weights)
+  psi * rep(w, each = ncol(X))
 }
 
 #' Estimating equation for approximate LASSO regression
@@ -208,8 +215,6 @@ ee_dlasso_regression <- function(
   if (!is.null(offset)) {
     check_data_length(offset, n, "offset")
   }
-  w <- generate_weights(n, weights)
-
   eta <- pt_as_vector(X %*% theta)
   if (!is.null(offset)) {
     eta <- eta + as.numeric(offset)
@@ -221,12 +226,21 @@ ee_dlasso_regression <- function(
 
   # Length-p penalty recycles down the rows, subtracting from every column
   penalty_terms <- dlasso_penalty(theta, n, penalty, s, center)
+  psi <- score - penalty_terms
+
+  # With no weights every observation contributes equally, so return the score
+  # directly rather than multiplying by an n-by-p vector of ones. The result is
+  # identical because multiplication by one is exact.
+  if (is.null(weights)) {
+    return(psi)
+  }
 
   # Weight each observation's column so weights scale score and penalty
   # together. rep(w, each = ncol(X)) lays the length-n weights out column by
   # column to match the column-major p-by-n matrix, scaling every observation's
   # column in place rather than routing through two additional transposes.
-  (score - penalty_terms) * rep(w, each = ncol(X))
+  w <- generate_weights(n, weights)
+  psi * rep(w, each = ncol(X))
 }
 
 #' Estimating equation for elastic net regression
@@ -265,8 +279,6 @@ ee_elasticnet_regression <- function(
   if (!is.null(offset)) {
     check_data_length(offset, n, "offset")
   }
-  w <- generate_weights(n, weights)
-
   eta <- pt_as_vector(X %*% theta)
   if (!is.null(offset)) {
     eta <- eta + as.numeric(offset)
@@ -280,12 +292,21 @@ ee_elasticnet_regression <- function(
   penalty_l1 <- bridge_penalty(theta, n, penalty, gamma = 1 + epsilon, center)
   penalty_l2 <- bridge_penalty(theta, n, penalty, gamma = 2, center)
   penalty_terms <- ratio * penalty_l1 + (1 - ratio) * penalty_l2
+  psi <- score - penalty_terms
+
+  # With no weights every observation contributes equally, so return the score
+  # directly rather than multiplying by an n-by-p vector of ones. The result is
+  # identical because multiplication by one is exact.
+  if (is.null(weights)) {
+    return(psi)
+  }
 
   # Weight each observation's column so weights scale score and penalty
   # together. rep(w, each = ncol(X)) lays the length-n weights out column by
   # column to match the column-major p-by-n matrix, scaling every observation's
   # column in place rather than routing through two additional transposes.
-  (score - penalty_terms) * rep(w, each = ncol(X))
+  w <- generate_weights(n, weights)
+  psi * rep(w, each = ncol(X))
 }
 
 #' Internal bridge penalty calculation
