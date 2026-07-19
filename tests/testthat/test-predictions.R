@@ -443,6 +443,104 @@ test_that("survival_predictions default derivative method reproduces capprox", {
   expect_equal(default_call, capprox_call)
 })
 
+# survival_predictions gompertz tests (bd-2x8.5) ---------------------------
+#
+# Python Delicatessen's survival_predictions branches only on "exponential"
+# and otherwise applies the Weibull survival/hazard formulas, so a
+# distribution = "gompertz" call silently returns Weibull values. deli's
+# ee_survival_model supports Gompertz explicitly, so survival_predictions
+# implements the matching Gompertz measures rather than mirroring that Python
+# deficiency. For the ee_survival_model parameterization the Gompertz survival
+# and hazard are
+#
+#   S(t) = exp(-(lambda / gamma) * (exp(gamma * t) - 1))
+#   h(t) = lambda * exp(gamma * t)
+#
+# The expected measures below are the analytic Gompertz values, not Python
+# Delicatessen output (which is Weibull here); this is a documented divergence.
+
+test_that("survival_predictions computes Gompertz measures, not Weibull", {
+  lambda <- 0.5
+  gamma <- 0.8
+  theta <- c(lambda, gamma)
+  cov_mat <- diag(2) * 0.01
+  times <- c(1, 2)
+
+  gompertz_measure <- function(measure) {
+    surv <- exp(-(lambda / gamma) * (exp(gamma * times) - 1))
+    haz <- lambda * exp(gamma * times)
+    convert_survival_measures(surv, haz, measure)
+  }
+
+  measures <- c("survival", "risk", "cumulative_hazard", "hazard", "density")
+  for (measure in measures) {
+    result <- survival_predictions(
+      times,
+      theta,
+      cov_mat,
+      distribution = "gompertz",
+      measure = measure
+    )
+    expect_equal(
+      result$predicted,
+      gompertz_measure(measure),
+      tolerance = 1e-6,
+      label = paste0("gompertz/", measure, ": predicted")
+    )
+  }
+
+  # The audit REPRO values (survival at t = 1, 2 for lambda = 0.5, gamma = 0.8)
+  # are the Gompertz values, not the Weibull exp(-lambda t^gamma) the old code
+  # returned.
+  surv <- survival_predictions(
+    times,
+    theta,
+    cov_mat,
+    distribution = "gompertz",
+    measure = "survival"
+  )
+  expect_equal(surv$predicted, c(0.4648860, 0.0845303), tolerance = 1e-6)
+  weibull_surv <- exp(-lambda * times^gamma)
+  expect_false(isTRUE(all.equal(surv$predicted, weibull_surv)))
+})
+
+test_that("survival_predictions Gompertz variance is positive under exact autodiff", {
+  # The Gompertz measures must also flow through the delta method, so the
+  # exact-autodiff path has to differentiate the new closed form. A strictly
+  # positive delta-method variance confirms the Jacobian is populated rather
+  # than silently zero.
+  theta <- c(0.5, 0.8)
+  cov_mat <- matrix(c(0.01, 0.001, 0.001, 0.02), nrow = 2)
+  times <- c(0.5, 1, 2)
+
+  result <- survival_predictions(
+    times,
+    theta,
+    cov_mat,
+    distribution = "gompertz",
+    measure = "survival",
+    deriv_method = "exact"
+  )
+  expect_true(all(result$variance > 0))
+  expect_true(all(is.finite(result$variance)))
+})
+
+test_that("survival_predictions rejects an unsupported distribution up front", {
+  # Validation happens after tolower() and before delta_method, so an
+  # unsupported distribution aborts with a message listing the supported set
+  # rather than silently applying Weibull. Matching "gompertz" confirms the
+  # informative supported-distribution list rather than an incidental error.
+  expect_error(
+    survival_predictions(
+      c(1, 2),
+      c(0.5, 1.2),
+      diag(2) * 0.01,
+      distribution = "lognormal"
+    ),
+    "gompertz"
+  )
+})
+
 # aft_predictions_individual tests -----------------------------------------
 
 test_that("aft_predictions_individual returns correct shape", {

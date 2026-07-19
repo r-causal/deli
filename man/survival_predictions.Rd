@@ -24,7 +24,8 @@ survival_predictions(
 \item{covariance}{Numeric covariance matrix from \code{m@variance}.}
 
 \item{distribution}{Character string matching the distribution used in
-\code{ee_survival_model}.}
+\code{ee_survival_model}: \code{"exponential"}, \code{"weibull"}, or \code{"gompertz"}. Any
+other value is an error.}
 
 \item{measure}{Character string: \code{"survival"}, \code{"risk"}, \code{"density"},
 \code{"hazard"}, or \code{"cumulative_hazard"}. Default \code{"survival"}.}
@@ -51,3 +52,17 @@ Computes predicted survival analysis measures and point-wise confidence
 intervals using the delta method. Meant to be used after fitting
 \code{\link[=ee_survival_model]{ee_survival_model()}} with \code{\link[=MEstimator]{MEstimator()}}.
 }
+\section{Gompertz distribution}{
+
+The Gompertz survival and hazard follow the \code{\link[=ee_survival_model]{ee_survival_model()}}
+parameterization,
+
+\deqn{S(t) = \exp\left(-\frac{\lambda}{\gamma}\left(e^{\gamma t} - 1\right)
+  \right), \qquad h(t) = \lambda e^{\gamma t}.}
+
+This is a deliberate divergence from Python Delicatessen, whose
+\code{survival_predictions} branches only on the exponential distribution and
+otherwise applies the Weibull formulas, so a \code{"gompertz"} request there
+silently returns Weibull values.
+}
+

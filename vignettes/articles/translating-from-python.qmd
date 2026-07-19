@@ -275,6 +275,20 @@ event indicator. Python names them `t` and `delta`; deli names them `time` and
 and the `plogit_predict` helper. deli additionally accepts an `offset` on
 `ee_aft` and `ee_plogit`.
 
+### Gompertz survival predictions
+
+Python's `survival_predictions` branches only on the exponential distribution
+and otherwise applies the Weibull survival and hazard formulas, so requesting
+`distribution="gompertz"` there silently returns Weibull values. deli's
+`ee_survival_model` supports the Gompertz distribution, so deli's
+`survival_predictions()` implements the matching Gompertz measures,
+
+$$S(t) = \exp\!\left(-\frac{\lambda}{\gamma}\left(e^{\gamma t} - 1\right)\right),
+\qquad h(t) = \lambda e^{\gamma t},$$
+
+and rejects any distribution outside `"exponential"`, `"weibull"`, and
+`"gompertz"` rather than falling through to the Weibull branch.
+
 ### Finite-sample correction and inference
 
 When `finite_correction` is set on the fit (for example `"HC1"`), both libraries

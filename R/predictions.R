@@ -71,7 +71,8 @@ regression_predictions <- function(
 #'   `ee_survival_model`.
 #' @param covariance Numeric covariance matrix from `m@variance`.
 #' @param distribution Character string matching the distribution used in
-#'   `ee_survival_model`.
+#'   `ee_survival_model`: `"exponential"`, `"weibull"`, or `"gompertz"`. Any
+#'   other value is an error.
 #' @param measure Character string: `"survival"`, `"risk"`, `"density"`,
 #'   `"hazard"`, or `"cumulative_hazard"`. Default `"survival"`.
 #' @param alpha Numeric significance level. Default `0.05`.
@@ -87,6 +88,18 @@ regression_predictions <- function(
 #'
 #' @returns A data frame with columns: `time`, `predicted`, `variance`,
 #'   `lower`, `upper`.
+#'
+#' @section Gompertz distribution:
+#' The Gompertz survival and hazard follow the [ee_survival_model()]
+#' parameterization,
+#'
+#' \deqn{S(t) = \exp\left(-\frac{\lambda}{\gamma}\left(e^{\gamma t} - 1\right)
+#'   \right), \qquad h(t) = \lambda e^{\gamma t}.}
+#'
+#' This is a deliberate divergence from Python Delicatessen, whose
+#' `survival_predictions` branches only on the exponential distribution and
+#' otherwise applies the Weibull formulas, so a `"gompertz"` request there
+#' silently returns Weibull values.
 #'
 #' @export
 survival_predictions <- function(
@@ -108,17 +121,36 @@ survival_predictions <- function(
   theta <- as.numeric(theta)
   covariance <- as.matrix(covariance)
 
-  # Function to compute survival metric for a single time point
+  # Validate the distribution up front so an unsupported choice aborts before
+  # delta_method runs, rather than silently applying the Weibull formulas.
+  supported <- c("exponential", "weibull", "gompertz")
+  if (!distribution %in% supported) {
+    cli::cli_abort(
+      c(
+        "Distribution {.val {distribution}} is not supported.",
+        "i" = "Use one of: {.val exponential}, {.val weibull}, {.val gompertz}."
+      )
+    )
+  }
+
+  # Function to compute survival metric for a single time point. The scalar
+  # arithmetic keeps derivatives attached under exact autodiff, where `th` is a
+  # tangent-carrying pair vector.
   predict_at_time <- function(t_val, th) {
+    lambd <- th[1]
     if (distribution == "exponential") {
-      lambd <- th[1]
       gamma <- 1
     } else {
-      lambd <- th[1]
       gamma <- th[2]
     }
-    surv <- exp(-lambd * t_val^gamma)
-    haz <- lambd * gamma * t_val^(gamma - 1)
+    if (distribution == "gompertz") {
+      # Gompertz parameterization matching ee_survival_model.
+      surv <- exp(-(lambd / gamma) * (exp(gamma * t_val) - 1))
+      haz <- lambd * exp(gamma * t_val)
+    } else {
+      surv <- exp(-lambd * t_val^gamma)
+      haz <- lambd * gamma * t_val^(gamma - 1)
+    }
     convert_survival_measures(surv, haz, measure)
   }
 
