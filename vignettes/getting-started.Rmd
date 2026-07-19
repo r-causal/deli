@@ -325,8 +325,8 @@ the transpose `t()`, indexing, the logistic transforms `inverse_logit()` and
 `logit()`, and these elementwise functions: `exp`, `log`, `sqrt`, the
 trigonometric and hyperbolic families (`sin`, `cos`, `tan`, `asin`, `acos`,
 `atan`, `sinh`, `cosh`, `tanh`, `asinh`, `acosh`, `atanh`), `abs`, `floor`,
-`ceiling`, `sign`, `cumsum`, and the `lgamma` / `digamma` / `trigamma` /
-`polygamma` family. Other `Math` group members (`gamma`, `round`, `signif`,
+`ceiling`, `sign`, `cumsum`, and the `lgamma` / `digamma` / `trigamma`
+family. Other `Math` group members (`gamma`, `round`, `signif`,
 `trunc`, `cumprod`, `cummax`, `cummin`) and the modulo operators (`%%`, `%/%`)
 are not differentiated and error under `deriv_method = "exact"`; use the
 finite-difference default for a transform that needs them.
