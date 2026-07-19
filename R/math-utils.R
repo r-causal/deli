@@ -13,6 +13,13 @@
 #' deli_polygamma(0, 1)
 #' deli_polygamma(1, c(1, 2, 5))
 deli_polygamma <- function(n, x) {
+  # A whole parameter vector arrives as a PrimalTangentVector under exact mode;
+  # normalize it to a tangent array so the array branch below differentiates it
+  # elementwise rather than falling through to the numeric kernel.
+  if (inherits(x, "PrimalTangentVector")) {
+    parts <- pt_arrays(x)
+    x <- primal_tangent_array(parts$primal, parts$tangent)
+  }
   # Dispatch on tangent-carrying inputs before the numeric kernel: the tangent
   # of polygamma(n, x) is polygamma(n + 1, x), matching Python's PrimalTangentPairs
   if (is_pt(x)) {
@@ -41,6 +48,13 @@ deli_polygamma <- function(n, x) {
 #' deli_digamma(1)
 #' deli_digamma(c(0.5, 1, 2))
 deli_digamma <- function(z) {
+  # A whole parameter vector arrives as a PrimalTangentVector under exact mode;
+  # normalize it to a tangent array so the array branch below differentiates it
+  # elementwise rather than falling through to the numeric kernel.
+  if (inherits(z, "PrimalTangentVector")) {
+    parts <- pt_arrays(z)
+    z <- primal_tangent_array(parts$primal, parts$tangent)
+  }
   # Dispatch on tangent-carrying inputs before the as.numeric() coercion below,
   # which would otherwise strip the tangent. The tangent of digamma(z) is
   # trigamma(z), matching Python's PrimalTangentPairs.
@@ -48,7 +62,10 @@ deli_digamma <- function(z) {
     return(primal_tangent(digamma(z$primal), z$tangent * trigamma(z$primal)))
   }
   if (is_pt_array(z)) {
-    return(primal_tangent_array(digamma(z$primal), z$tangent * trigamma(z$primal)))
+    return(primal_tangent_array(
+      digamma(z$primal),
+      z$tangent * trigamma(z$primal)
+    ))
   }
   # Return NaN directly for non-positive integers (poles of digamma)
   # without triggering base R's NaN warning
@@ -76,6 +93,13 @@ deli_digamma <- function(z) {
 #' standard_normal_cdf(0)
 #' standard_normal_cdf(c(-1.96, 0, 1.96))
 standard_normal_cdf <- function(x) {
+  # A whole parameter vector arrives as a PrimalTangentVector under exact mode;
+  # normalize it to a tangent array so the array branch below differentiates it
+  # elementwise rather than falling through to the numeric kernel.
+  if (inherits(x, "PrimalTangentVector")) {
+    parts <- pt_arrays(x)
+    x <- primal_tangent_array(parts$primal, parts$tangent)
+  }
   # Dispatch on tangent-carrying inputs: the tangent of the CDF is the PDF,
   # matching Python's PrimalTangentPairs.normal_cdf
   if (is_pt(x)) {
@@ -101,13 +125,26 @@ standard_normal_cdf <- function(x) {
 #' standard_normal_pdf(0)
 #' standard_normal_pdf(c(-1, 0, 1))
 standard_normal_pdf <- function(x) {
+  # A whole parameter vector arrives as a PrimalTangentVector under exact mode;
+  # normalize it to a tangent array so the array branch below differentiates it
+  # elementwise rather than falling through to the numeric kernel.
+  if (inherits(x, "PrimalTangentVector")) {
+    parts <- pt_arrays(x)
+    x <- primal_tangent_array(parts$primal, parts$tangent)
+  }
   # Dispatch on tangent-carrying inputs: the tangent of the PDF is -x times the
   # PDF, matching Python's PrimalTangentPairs.normal_pdf
   if (is_pt(x)) {
-    return(primal_tangent(dnorm(x$primal), x$tangent * (-x$primal * dnorm(x$primal))))
+    return(primal_tangent(
+      dnorm(x$primal),
+      x$tangent * (-x$primal * dnorm(x$primal))
+    ))
   }
   if (is_pt_array(x)) {
-    return(primal_tangent_array(dnorm(x$primal), x$tangent * (-x$primal * dnorm(x$primal))))
+    return(primal_tangent_array(
+      dnorm(x$primal),
+      x$tangent * (-x$primal * dnorm(x$primal))
+    ))
   }
   dnorm(x)
 }

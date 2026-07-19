@@ -149,3 +149,63 @@ test_that("standard_normal_pdf() values are non-negative", {
   result <- standard_normal_pdf(x_vec)
   expect_true(all(result >= 0))
 })
+
+# ---- whole-vector inputs under exact autodiff (bd-2x8.8) --------------------
+#
+# Passing the whole parameter vector (a PrimalTangentVector under exact mode) to
+# deli_polygamma, deli_digamma, standard_normal_cdf, and standard_normal_pdf must
+# differentiate elementwise. Only is_pt / is_pt_array inputs were handled, so a
+# PrimalTangentVector fell through to the numeric kernel and errored with
+# "Non-numeric argument to mathematical function". The Jacobian is diagonal
+# because each output depends on a single parameter, which discriminates a
+# correct per-element routing from a mix-up. Cross-checks follow the autodiff
+# convention: analytic at 1e-8, capprox at 1e-5.
+
+test_that("standard_normal_cdf() differentiates a whole parameter vector under exact mode", {
+  theta <- c(0.5, 1)
+  f <- function(x) standard_normal_cdf(x)
+
+  exact <- auto_differentiation(theta, f)
+  approx <- approx_differentiation(f, theta, method = "capprox")
+
+  analytic <- diag(dnorm(theta)) # d/dx pnorm(x) = dnorm(x)
+  expect_equal(exact, analytic, tolerance = 1e-8)
+  expect_equal(exact, approx, tolerance = 1e-5)
+})
+
+test_that("standard_normal_pdf() differentiates a whole parameter vector under exact mode", {
+  theta <- c(0.5, 1)
+  f <- function(x) standard_normal_pdf(x)
+
+  exact <- auto_differentiation(theta, f)
+  approx <- approx_differentiation(f, theta, method = "capprox")
+
+  analytic <- diag(-theta * dnorm(theta)) # d/dx dnorm(x) = -x dnorm(x)
+  expect_equal(exact, analytic, tolerance = 1e-8)
+  expect_equal(exact, approx, tolerance = 1e-5)
+})
+
+test_that("deli_digamma() differentiates a whole parameter vector under exact mode", {
+  theta <- c(2.5, 3.1)
+  f <- function(x) deli_digamma(x)
+
+  exact <- auto_differentiation(theta, f)
+  approx <- approx_differentiation(f, theta, method = "capprox")
+
+  analytic <- diag(trigamma(theta)) # d/dx digamma(x) = trigamma(x)
+  expect_equal(exact, analytic, tolerance = 1e-8)
+  expect_equal(exact, approx, tolerance = 1e-5)
+})
+
+test_that("deli_polygamma() differentiates a whole parameter vector under exact mode", {
+  theta <- c(2.5, 3.1)
+  f <- function(x) deli_polygamma(1, x)
+
+  exact <- auto_differentiation(theta, f)
+  approx <- approx_differentiation(f, theta, method = "capprox")
+
+  # d/dx polygamma(1, x) = polygamma(2, x) = psigamma(x, deriv = 2)
+  analytic <- diag(psigamma(theta, deriv = 2))
+  expect_equal(exact, analytic, tolerance = 1e-8)
+  expect_equal(exact, approx, tolerance = 1e-5)
+})
