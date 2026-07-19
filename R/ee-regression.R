@@ -18,6 +18,10 @@ ee_regression <- function(theta, X, y, model, weights = NULL, offset = NULL) {
   X <- coerce_design(X)
   y <- coerce_outcome(y)
   n <- nrow(X)
+  check_data_length(y, n, "y")
+  if (!is.null(offset)) {
+    check_data_length(offset, n, "offset")
+  }
   w <- generate_weights(n, weights)
 
   # Linear predictor
@@ -112,6 +116,10 @@ ee_bridge_regression <- function(
   X <- coerce_design(X)
   y <- coerce_outcome(y)
   n <- nrow(X)
+  check_data_length(y, n, "y")
+  if (!is.null(offset)) {
+    check_data_length(offset, n, "offset")
+  }
   w <- generate_weights(n, weights)
 
   eta <- pt_as_vector(X %*% theta)
@@ -154,6 +162,7 @@ ee_lasso_regression <- function(
   center = 0,
   offset = NULL
 ) {
+  check_epsilon(epsilon)
   ee_bridge_regression(
     theta,
     X = X,
@@ -193,6 +202,10 @@ ee_dlasso_regression <- function(
   X <- coerce_design(X)
   y <- coerce_outcome(y)
   n <- nrow(X)
+  check_data_length(y, n, "y")
+  if (!is.null(offset)) {
+    check_data_length(offset, n, "offset")
+  }
   w <- generate_weights(n, weights)
 
   eta <- pt_as_vector(X %*% theta)
@@ -239,10 +252,15 @@ ee_elasticnet_regression <- function(
   if (ratio < 0 || ratio > 1) {
     cli::cli_abort("The elastic-net {.arg ratio} must be between 0 and 1.")
   }
+  check_epsilon(epsilon)
 
   X <- coerce_design(X)
   y <- coerce_outcome(y)
   n <- nrow(X)
+  check_data_length(y, n, "y")
+  if (!is.null(offset)) {
+    check_data_length(offset, n, "offset")
+  }
   w <- generate_weights(n, weights)
 
   eta <- pt_as_vector(X %*% theta)
@@ -302,7 +320,7 @@ dlasso_penalty <- function(theta, n, penalty, s, center) {
 
   check_penalty_shape(theta, penalty, center)
 
-  if (s < 0) {
+  if (s <= 0) {
     cli::cli_abort(
       "{.arg s} must be greater than zero for the approximate LASSO."
     )
@@ -341,6 +359,15 @@ ee_mlogit <- function(theta, X, y, weights = NULL, offset = NULL) {
   n <- nrow(X)
   b <- ncol(X)
   k <- ncol(y)
+  if (nrow(y) != n) {
+    cli::cli_abort(
+      "{.arg y} must have the same number of rows as {.arg X} ({n}), not
+       {nrow(y)}."
+    )
+  }
+  if (!is.null(offset)) {
+    check_data_length(offset, n, "offset")
+  }
   w <- generate_weights(n, weights)
 
   off <- if (is.null(offset)) rep(0, n) else as.numeric(offset)
@@ -398,6 +425,10 @@ ee_beta_regression <- function(theta, X, y, weights = NULL, offset = NULL) {
   y <- as.numeric(y)
   n <- nrow(X)
   b <- ncol(X)
+  check_data_length(y, n, "y")
+  if (!is.null(offset)) {
+    check_data_length(offset, n, "offset")
+  }
   w <- generate_weights(n, weights)
 
   off <- if (is.null(offset)) rep(0, n) else as.numeric(offset)
@@ -460,6 +491,10 @@ ee_tobit <- function(
   y <- as.numeric(y)
   n <- nrow(X)
   b <- ncol(X)
+  check_data_length(y, n, "y")
+  if (!is.null(offset)) {
+    check_data_length(offset, n, "offset")
+  }
   w <- generate_weights(n, weights)
 
   beta <- theta[seq_len(b)]

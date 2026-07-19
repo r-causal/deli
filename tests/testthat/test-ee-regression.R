@@ -106,3 +106,38 @@ test_that("ee_ridge_regression matches Python Delicatessen", {
   expect_equal(unname(m@theta), ref$theta, tolerance = 1e-3)
   expect_equal(unname(diag(m@variance)), diag(ref_var), tolerance = 1e-3)
 })
+
+# Input validation (batch F) --------------------------------------------------
+
+test_that("ee_regression rejects a y whose length differs from the rows of X", {
+  ref <- load_fixture("ee_regression_linear")
+  X <- ref$X
+  init <- ref$init
+
+  expect_error(
+    ee_regression(
+      init,
+      X = X,
+      y = ref$y[seq_len(nrow(X) / 2)],
+      model = "linear"
+    ),
+    "same length as the data"
+  )
+})
+
+test_that("ee_regression rejects an offset whose length differs from the rows of X", {
+  ref <- load_fixture("ee_regression_linear")
+  X <- ref$X
+  init <- ref$init
+
+  expect_error(
+    ee_regression(
+      init,
+      X = X,
+      y = ref$y,
+      model = "linear",
+      offset = rep(0, nrow(X) / 2)
+    ),
+    "same length as the data"
+  )
+})

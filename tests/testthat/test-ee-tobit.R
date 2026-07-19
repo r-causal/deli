@@ -170,3 +170,31 @@ test_that("ee_tobit supports offset", {
   expect_true(is.matrix(result))
   expect_equal(nrow(result), 3)
 })
+
+# Input validation (batch F) --------------------------------------------------
+
+test_that("ee_tobit rejects a y whose length differs from the rows of X", {
+  set.seed(42)
+  n <- 50
+  X <- cbind(1, rnorm(n))
+  y <- pmax(0.5 + 0.3 * X[, 2] + rnorm(n), -1)
+  theta <- c(rep(0, ncol(X)), log(1))
+
+  expect_error(
+    ee_tobit(theta, X = X, y = y[seq_len(n / 2)], lower = -1),
+    "same length as the data"
+  )
+})
+
+test_that("ee_tobit rejects an offset whose length differs from the rows of X", {
+  set.seed(42)
+  n <- 50
+  X <- cbind(1, rnorm(n))
+  y <- pmax(0.5 + 0.3 * X[, 2] + rnorm(n), -1)
+  theta <- c(rep(0, ncol(X)), log(1))
+
+  expect_error(
+    ee_tobit(theta, X = X, y = y, lower = -1, offset = rep(0, n / 2)),
+    "same length as the data"
+  )
+})

@@ -34,6 +34,58 @@ check_penalty_shape <- function(theta, penalty, center) {
   invisible(NULL)
 }
 
+#' Check that a data vector matches the observation count
+#'
+#' Validates that a data argument (`y`, `offset`, `q_eval`, `delta`, and the
+#' like) has one value per observation, mirroring the broadcast errors Python
+#' Delicatessen raises when an argument length does not match the data. Tangent
+#' containers are measured on the primal, because the response reaching a
+#' regression estimating equation can be a `PrimalTangentArray` whose `length()`
+#' is not the observation count.
+#'
+#' @param x The data argument to validate.
+#' @param n The number of observations the argument must match.
+#' @param arg The argument name, used in the error message.
+#'
+#' @return Invisible `NULL`. Raises an error if the length does not match.
+#' @keywords internal
+check_data_length <- function(x, n, arg) {
+  len <- if (is_tangent_container(x)) {
+    length(pt_arrays(x)$primal)
+  } else {
+    length(x)
+  }
+  if (len != n) {
+    cli::cli_abort(
+      "{.arg {arg}} must have the same length as the data ({n}), not length
+       {len}."
+    )
+  }
+  invisible(NULL)
+}
+
+#' Check that a LASSO approximation epsilon is non-negative
+#'
+#' Validates the `epsilon` argument of the approximate LASSO estimating
+#' equations directly, so a negative value is rejected with a message that names
+#' `epsilon` rather than surfacing the downstream bridge-penalty message phrased
+#' in terms of `gamma`. Mirrors Python Delicatessen, which validates `epsilon`
+#' up front. Zero is permitted and falls through to the bridge penalty's
+#' non-differentiability warning.
+#'
+#' @param epsilon The approximation parameter supplied by the caller.
+#'
+#' @return Invisible `NULL`. Raises an error if `epsilon` is negative.
+#' @keywords internal
+check_epsilon <- function(epsilon) {
+  if (epsilon < 0) {
+    cli::cli_abort(
+      "{.arg epsilon} must be greater than zero for the approximate LASSO."
+    )
+  }
+  invisible(NULL)
+}
+
 #' Check that truncation bounds are in ascending order
 #'
 #' Validates that a length-2 `truncate` vector has its lower bound no

@@ -115,3 +115,36 @@ test_that("ee_beta_regression intercept-only model recovers mean", {
   estimated_mean <- 1 / (1 + exp(-m@theta[1]))
   expect_equal(unname(estimated_mean), mu_true, tolerance = 0.1)
 })
+
+# Input validation (batch F) --------------------------------------------------
+
+test_that("ee_mlogit rejects a y whose rows differ from the rows of X", {
+  n <- 20
+  set.seed(99)
+  X <- cbind(1, rnorm(n))
+  y_cat <- sample(1:3, n, replace = TRUE)
+  y <- cbind(
+    as.integer(y_cat == 1),
+    as.integer(y_cat == 2),
+    as.integer(y_cat == 3)
+  )
+  theta <- rep(0, ncol(X) * (ncol(y) - 1))
+
+  expect_error(
+    ee_mlogit(theta, X = X, y = y[seq_len(n / 2), , drop = FALSE]),
+    "same number of rows|same length as the data"
+  )
+})
+
+test_that("ee_beta_regression rejects a y whose length differs from the rows of X", {
+  set.seed(11)
+  n <- 40
+  X <- cbind(1, rnorm(n))
+  y <- runif(n, 0.1, 0.9)
+  theta <- c(0, 0, 0)
+
+  expect_error(
+    ee_beta_regression(theta, X = X, y = y[seq_len(n / 2)]),
+    "same length as the data"
+  )
+})

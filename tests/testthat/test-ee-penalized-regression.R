@@ -737,3 +737,100 @@ test_that("ee_additive_regression weighted matches Python (delegates to bridge)"
   # matching the unweighted additive fixture test.
   expect_python_match(m, "ee_additive_regression_weighted", tolerance = 1e-4)
 })
+
+# Input validation (batch F) --------------------------------------------------
+
+test_that("ee_bridge_regression rejects a y whose length differs from the rows of X", {
+  ref <- load_fixture("ee_regression_linear")
+  X <- ref$X
+  init <- ref$init
+
+  expect_error(
+    ee_bridge_regression(
+      init,
+      X = X,
+      y = ref$y[seq_len(nrow(X) / 2)],
+      model = "linear",
+      penalty = 1,
+      gamma = 2
+    ),
+    "same length as the data"
+  )
+})
+
+test_that("ee_bridge_regression rejects an offset whose length differs from the rows of X", {
+  ref <- load_fixture("ee_regression_linear")
+  X <- ref$X
+  init <- ref$init
+
+  expect_error(
+    ee_bridge_regression(
+      init,
+      X = X,
+      y = ref$y,
+      model = "linear",
+      penalty = 1,
+      gamma = 2,
+      offset = rep(0, nrow(X) / 2)
+    ),
+    "same length as the data"
+  )
+})
+
+test_that("ee_lasso_regression rejects a negative epsilon with an epsilon-named message", {
+  ref <- load_fixture("ee_regression_linear")
+  X <- ref$X
+  y <- ref$y
+  init <- ref$init
+
+  expect_error(
+    ee_lasso_regression(
+      init,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = 1,
+      epsilon = -0.5
+    ),
+    "epsilon"
+  )
+})
+
+test_that("ee_elasticnet_regression rejects a negative epsilon with an epsilon-named message", {
+  ref <- load_fixture("ee_regression_linear")
+  X <- ref$X
+  y <- ref$y
+  init <- ref$init
+
+  expect_error(
+    ee_elasticnet_regression(
+      init,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = 1,
+      ratio = 0.5,
+      epsilon = -0.5
+    ),
+    "epsilon"
+  )
+})
+
+test_that("ee_dlasso_regression rejects s = 0 to match its documentation", {
+  ref <- load_fixture("ee_regression_linear")
+  X <- ref$X
+  y <- ref$y
+  init <- ref$init
+
+  expect_error(
+    ee_dlasso_regression(
+      init,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = 1,
+      s = 0
+    ),
+    "greater than zero"
+  )
+})

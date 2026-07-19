@@ -105,3 +105,40 @@ test_that("ee_glm poisson/log matches ee_regression poisson", {
   expect_equal(unname(m@theta), ref$theta, tolerance = 1e-3)
   expect_equal(unname(diag(m@variance)), diag(ref$variance), tolerance = 1e-3)
 })
+
+# Input validation (batch F) --------------------------------------------------
+
+test_that("ee_glm rejects a y whose length differs from the rows of X", {
+  ref <- load_fixture("ee_regression_linear")
+  X <- ref$X
+  init <- ref$init
+
+  expect_error(
+    ee_glm(
+      init,
+      X = X,
+      y = ref$y[seq_len(nrow(X) / 2)],
+      distribution = "normal",
+      link = "identity"
+    ),
+    "same length as the data"
+  )
+})
+
+test_that("ee_glm rejects an offset whose length differs from the rows of X", {
+  ref <- load_fixture("ee_regression_linear")
+  X <- ref$X
+  init <- ref$init
+
+  expect_error(
+    ee_glm(
+      init,
+      X = X,
+      y = ref$y,
+      distribution = "normal",
+      link = "identity",
+      offset = rep(0, nrow(X) / 2)
+    ),
+    "same length as the data"
+  )
+})

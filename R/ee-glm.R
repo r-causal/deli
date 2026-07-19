@@ -115,6 +115,10 @@ ee_glm <- function(
   X <- coerce_design(X)
   y <- coerce_outcome(y)
   n <- nrow(X)
+  check_data_length(y, n, "y")
+  if (!is.null(offset)) {
+    check_data_length(offset, n, "offset")
+  }
   w <- generate_weights(n, weights)
 
   dist <- tolower(distribution)
@@ -230,6 +234,10 @@ ee_robust_regression <- function(
   X <- coerce_design(X)
   y <- coerce_outcome(y)
   n <- nrow(X)
+  check_data_length(y, n, "y")
+  if (!is.null(offset)) {
+    check_data_length(offset, n, "offset")
+  }
   w <- generate_weights(n, weights)
 
   # Linear predictor
