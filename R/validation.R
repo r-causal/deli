@@ -311,7 +311,10 @@ check_psi_at_init <- function(vals, init, allow_over_identification = FALSE) {
 #' `"negative_binomial"`, which add a scale or dispersion parameter), so the
 #' automatic `init` is too short and the estimating function fails deep in the
 #' solver with an opaque message. This evaluates the estimating function once at
-#' the automatic `init` and reports the length mismatch before solving.
+#' the automatic `init` and reports the problem before solving: a wrong-shaped
+#' return is described as a length mismatch, while an evaluation error is
+#' surfaced with its own cause chained as the parent, since the failure is not
+#' necessarily a length problem.
 #'
 #' @param psi The estimating-function closure built by the formula interface.
 #' @param init The automatically generated initial parameter vector.
@@ -333,17 +336,38 @@ check_formula_auto_init <- function(
   mismatch <- if (errored) {
     TRUE
   } else {
-    n_eqs <- nrow(as.matrix(vals))
+    # Match check_psi_at_init's treatment of a dimensionless vector: a plain
+    # numeric vector counts as a single estimating equation rather than one per
+    # element (which as.matrix() would imply by making it a one-column matrix).
+    n_eqs <- if (is.null(dim(vals))) 1L else nrow(vals)
     if (allow_over_identification) n_eqs < n_params else n_eqs != n_params
   }
   if (mismatch) {
+    # An error means the estimating function did not even evaluate at the
+    # automatic init, so its cause is unknown; do not assert it is a length
+    # problem. A clean return that simply has the wrong shape is a genuine
+    # length mismatch and is described as such.
+    header <- if (errored) {
+      "Evaluating the estimating function at the automatic zero {.arg init} of
+       length {n_params} (the number of model-matrix columns) failed."
+    } else {
+      "The automatic zero {.arg init} has length {n_params}, the number of
+       model-matrix columns, which does not fit the estimating function."
+    }
+    hint <- if (errored) {
+      "A length mismatch is the most common cause. Estimating equations such as
+       {.fn ee_glm} with {.val gamma} or {.val negative_binomial} append an
+       extra parameter and need an {.arg init} one longer than the
+       coefficients."
+    } else {
+      "Estimating equations such as {.fn ee_glm} with {.val gamma} or
+       {.val negative_binomial} append an extra parameter and need an
+       {.arg init} one longer than the coefficients."
+    }
     cli::cli_abort(
       c(
-        "The automatic zero {.arg init} has length {n_params}, the number of
-         model-matrix columns, which does not fit the estimating function.",
-        "i" = "Estimating equations such as {.fn ee_glm} with {.val gamma} or
-               {.val negative_binomial} append an extra parameter and need an
-               {.arg init} one longer than the coefficients.",
+        header,
+        "i" = hint,
         "i" = "Supply an explicit {.arg init} of the correct length."
       ),
       parent = if (errored) vals else NULL

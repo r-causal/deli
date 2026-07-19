@@ -26,6 +26,9 @@ regression coefficients (for example \code{\link[=ee_glm]{ee_glm()}} with \code{
 \code{"negative_binomial"}, which add a scale or dispersion parameter), so the
 automatic \code{init} is too short and the estimating function fails deep in the
 solver with an opaque message. This evaluates the estimating function once at
-the automatic \code{init} and reports the length mismatch before solving.
+the automatic \code{init} and reports the problem before solving: a wrong-shaped
+return is described as a length mismatch, while an evaluation error is
+surfaced with its own cause chained as the parent, since the failure is not
+necessarily a length problem.
 }
 \keyword{internal}
