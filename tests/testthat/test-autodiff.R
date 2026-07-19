@@ -1125,7 +1125,18 @@ test_that("autodiff differentiates prod of four parameters", {
   expect_equal(exact, analytic, tolerance = 1e-8)
 })
 
-# ---- unsupported-operator messages on tangent arrays (bd-3au5) ---------------
+test_that("log aborts when the base carries a tangent under exact autodiff", {
+  # log(x, base) differentiates with respect to x only; a tangent-carrying base
+  # would need an extra term. Rather than silently return the constant-base
+  # derivative, the exact pass must abort.
+  f <- function(theta) log(theta[1], base = theta[2])
+  expect_error(
+    auto_differentiation(c(5, 2), f),
+    "base"
+  )
+})
+
+# ---- unsupported-operator messages on tangent arrays -------------------------
 #
 # Ops.PrimalTangentArray previously interpolated `{.val {.Generic}}` directly.
 # cli rejects an interpolated expression that begins with a dot, so a user

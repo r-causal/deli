@@ -363,6 +363,16 @@ pt_math_rule <- function(generic, p, t) {
 pt_math_apply <- function(generic, p, t, dots) {
   if (generic == "log" && length(dots) > 0) {
     base <- dots[[1]]
+    # The base is treated as a constant: the tangent scales the natural-log rule
+    # by 1 / log(base) but carries no term for the base itself. A tangent-carrying
+    # base would need that extra term, so rather than silently return the
+    # constant-base derivative, abort. Differentiating with respect to a variable
+    # log base is unsupported.
+    if (is_tangent_container(base)) {
+      stop(
+        "log with a tangent-carrying base is not supported for PrimalTangent"
+      )
+    }
     return(list(primal = log(p, base), tangent = t / (p * log(base))))
   }
   pt_math_rule(generic, p, t)
@@ -982,7 +992,10 @@ pt_where <- function(test, yes, no) {
 #'   because those masked forms are only in
 #'   scope there; a user-defined function that calls them from the global
 #'   environment reaches the base versions, and the differentiation aborts
-#'   rather than returning a silent approximation.
+#'   rather than returning a silent approximation. `log(x, base)` differentiates
+#'   with respect to `x` only; the `base` argument is treated as a constant, and
+#'   a `base` that itself carries a tangent (a value derived from `theta`) is not
+#'   supported and aborts rather than dropping the base's contribution.
 #'
 #' @returns A matrix where element `[i, j]` is the partial derivative of
 #'   the `i`-th output with respect to the `j`-th parameter.

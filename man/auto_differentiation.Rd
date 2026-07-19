@@ -21,7 +21,10 @@ evaluated within the package (such as the built-in estimating equations),
 because those masked forms are only in
 scope there; a user-defined function that calls them from the global
 environment reaches the base versions, and the differentiation aborts
-rather than returning a silent approximation.}
+rather than returning a silent approximation. \code{log(x, base)} differentiates
+with respect to \code{x} only; the \code{base} argument is treated as a constant, and
+a \code{base} that itself carries a tangent (a value derived from \code{theta}) is not
+supported and aborts rather than dropping the base's contribution.}
 }
 \value{
 A matrix where element \verb{[i, j]} is the partial derivative of
