@@ -192,6 +192,150 @@ test_that("ee_elasticnet_regression errors for invalid ratio", {
   )
 })
 
+# Behaviour-preservation pins for the performance refactors -------------------
+#
+# The penalized estimating functions weight the whole equation, penalty
+# included, and recycle a length-p penalty down the rows of a p-by-n matrix.
+# These reconstruct that matrix element by element from the definition, so a
+# refactor of the transpose and weighting structure is caught to machine
+# precision, including the non-unit-weight and offset paths that make the
+# weighting placement observable.
+
+manual_penalized <- function(theta, X, y, penalty_terms, weights, offset) {
+  n <- nrow(X)
+  p <- ncol(X)
+  eta <- as.numeric(X %*% theta) + offset
+  resid <- y - eta # linear model
+  out <- matrix(0, nrow = p, ncol = n)
+  for (i in seq_len(n)) {
+    out[, i] <- (X[i, ] * resid[i] - penalty_terms) * weights[i]
+  }
+  out
+}
+
+bridge_penalty_terms <- function(theta, n, penalty, gamma, center = 0) {
+  penalty <- rep(as.numeric(penalty), length.out = length(theta))
+  center <- rep(as.numeric(center), length.out = length(theta))
+  (penalty / (gamma * n)) *
+    gamma *
+    abs(theta - center)^(gamma - 1) *
+    sign(theta - center)
+}
+
+test_that("ee_bridge_regression matrix matches the element-wise definition with weights and offset", {
+  set.seed(21)
+  n <- 50
+  X <- cbind(1, rnorm(n), rnorm(n))
+  y <- as.numeric(X %*% c(1, -0.5, 0.3)) + rnorm(n)
+  theta <- c(0.4, 0.6, -0.2)
+  penalty <- c(0, 8, 8)
+  gamma <- 2
+  weights <- runif(n, 0.3, 2.5)
+  offset <- rnorm(n, sd = 0.3)
+
+  pt <- bridge_penalty_terms(theta, n, penalty, gamma)
+  expect_equal(
+    ee_bridge_regression(
+      theta,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = penalty,
+      gamma = gamma,
+      weights = weights,
+      offset = offset
+    ),
+    manual_penalized(theta, X, y, pt, weights, offset),
+    tolerance = 1e-12
+  )
+})
+
+test_that("ee_dlasso_regression and ee_elasticnet_regression weight the penalty inside the transpose", {
+  set.seed(22)
+  n <- 45
+  X <- cbind(1, rnorm(n), rnorm(n))
+  y <- as.numeric(X %*% c(0.5, 1, -0.4)) + rnorm(n)
+  theta <- c(0.3, 0.7, -0.1)
+  penalty <- c(0, 6, 6)
+  weights <- runif(n, 0.4, 2)
+  offset <- rnorm(n, sd = 0.25)
+
+  # dLASSO penalty terms (standard-normal smoothing of the L1 penalty)
+  tc <- theta - 0
+  s <- 1e-6
+  pt_dlasso <- (penalty / n) *
+    (2 * pnorm(tc / s) + 2 * (tc / s) * dnorm(tc / s) - 1)
+  expect_equal(
+    ee_dlasso_regression(
+      theta,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = penalty,
+      weights = weights,
+      offset = offset
+    ),
+    manual_penalized(theta, X, y, pt_dlasso, weights, offset),
+    tolerance = 1e-10
+  )
+
+  # elastic net combines an approximate-LASSO bridge (gamma = 1 + epsilon) with a
+  # ridge bridge (gamma = 2) at the given ratio
+  ratio <- 0.5
+  epsilon <- 3e-3
+  pt_en <- ratio *
+    bridge_penalty_terms(theta, n, penalty, 1 + epsilon) +
+    (1 - ratio) * bridge_penalty_terms(theta, n, penalty, 2)
+  expect_equal(
+    suppressWarnings(ee_elasticnet_regression(
+      theta,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = penalty,
+      ratio = ratio,
+      weights = weights,
+      offset = offset
+    )),
+    manual_penalized(theta, X, y, pt_en, weights, offset),
+    tolerance = 1e-10
+  )
+})
+
+test_that("ee_ridge_regression weighted exact bread agrees with the central difference", {
+  set.seed(23)
+  n <- 120
+  X <- cbind(1, rnorm(n), rnorm(n))
+  y <- as.numeric(X %*% c(0.8, -0.6, 0.4)) + rnorm(n)
+  weights <- runif(n, 0.5, 2)
+  penalty <- c(0, 5, 5)
+
+  psi <- function(theta) {
+    ee_ridge_regression(
+      theta,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = penalty,
+      weights = weights
+    )
+  }
+  m_exact <- estimate(
+    MEstimator(stacked_equations = psi, init = c(0, 0, 0)),
+    deriv_method = "exact"
+  )
+  m_cap <- estimate(
+    MEstimator(stacked_equations = psi, init = c(0, 0, 0)),
+    deriv_method = "capprox"
+  )
+  expect_equal(unname(m_exact@bread), unname(m_cap@bread), tolerance = 1e-6)
+  expect_equal(
+    sqrt(diag(m_exact@variance)),
+    sqrt(diag(m_cap@variance)),
+    tolerance = 1e-6
+  )
+})
+
 # Input validation (mirrors Python check_penalty_shape and the bridge/dlasso
 # hyperparameter checks). These pin the validation wired in bd-2f1h.4.
 #

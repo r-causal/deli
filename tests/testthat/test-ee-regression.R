@@ -107,6 +107,98 @@ test_that("ee_ridge_regression matches Python Delicatessen", {
   expect_equal(unname(diag(m@variance)), diag(ref_var), tolerance = 1e-3)
 })
 
+# Behaviour-preservation pins for the performance refactors -------------------
+#
+# These reconstruct the estimating-function matrix element by element from the
+# mathematical definition, independent of the internal transpose and coercion
+# structure, so a refactor that changes how the p-by-n matrix is assembled or
+# how design and outcome arguments are coerced is caught to machine precision.
+
+manual_ee_regression <- function(
+  theta,
+  X,
+  y,
+  model,
+  weights = NULL,
+  offset = NULL
+) {
+  n <- nrow(X)
+  p <- ncol(X)
+  eta <- as.numeric(X %*% theta)
+  if (!is.null(offset)) {
+    eta <- eta + offset
+  }
+  pred <- switch(
+    model,
+    linear = eta,
+    logistic = 1 / (1 + exp(-eta)),
+    poisson = exp(eta)
+  )
+  w <- if (is.null(weights)) rep(1, n) else weights
+  resid <- y - pred
+  out <- matrix(0, nrow = p, ncol = n)
+  for (i in seq_len(n)) {
+    out[, i] <- X[i, ] * w[i] * resid[i]
+  }
+  out
+}
+
+test_that("ee_regression matrix matches the element-wise definition with weights and offset", {
+  set.seed(11)
+  n <- 60
+  X <- cbind(1, rnorm(n), rnorm(n))
+  theta <- c(0.3, -0.5, 0.8)
+  weights <- runif(n, 0.25, 3)
+  offset <- rnorm(n, sd = 0.2)
+
+  for (model in c("linear", "logistic", "poisson")) {
+    y <- switch(
+      model,
+      linear = as.numeric(X %*% theta) + rnorm(n),
+      logistic = rbinom(n, 1, 0.5),
+      poisson = rpois(n, 2)
+    )
+    expect_equal(
+      ee_regression(
+        theta,
+        X = X,
+        y = y,
+        model = model,
+        weights = weights,
+        offset = offset
+      ),
+      manual_ee_regression(
+        theta,
+        X = X,
+        y = y,
+        model = model,
+        weights = weights,
+        offset = offset
+      ),
+      tolerance = 1e-12
+    )
+  }
+})
+
+test_that("ee_regression coerces a data frame design and an integer outcome without changing results", {
+  set.seed(12)
+  n <- 40
+  Xm <- cbind(1, rnorm(n), rnorm(n))
+  theta <- c(0.2, 0.4, -0.1)
+  y_int <- as.integer(rpois(n, 2))
+
+  ref <- ee_regression(theta, X = Xm, y = as.numeric(y_int), model = "poisson")
+
+  # A data-frame design carries column names through as.matrix that a bare
+  # matrix does not, so compare the numeric contributions after unname().
+  Xdf <- as.data.frame(Xm)
+  expect_equal(
+    unname(ee_regression(theta, X = Xdf, y = y_int, model = "poisson")),
+    unname(ref),
+    tolerance = 1e-12
+  )
+})
+
 # Input validation (batch F) --------------------------------------------------
 
 test_that("ee_regression rejects a y whose length differs from the rows of X", {
