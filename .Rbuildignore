@@ -9,3 +9,4 @@
 ^vignettes/articles$
 ^docs$
 ^README\.Rmd$
+^scratch$
