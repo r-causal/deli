@@ -34,7 +34,7 @@ deli is an R port of the Python
 
 ```{r eval = FALSE}
 # Install from GitHub (development version)
-# pak::pak("malcolmbarrett/deli")
+# pak::pak("r-causal/deli")
 ```
 
 ## Fitting your first model
@@ -117,9 +117,12 @@ summary(fit_logistic)
 ```
 
 The sandwich variance estimator supplies robust standard errors automatically,
-without any additional arguments. See `?ee_regression` for the full set of
-supported models, including robust, ridge, LASSO, elastic net, beta, and tobit
-regression.
+without any additional arguments. `ee_regression()` covers linear, logistic,
+and Poisson models. See `?ee_glm` for the wider family of generalized linear
+models, and the dedicated functions `?ee_robust_regression`,
+`?ee_ridge_regression`, `?ee_lasso_regression`, `?ee_elasticnet_regression`,
+`?ee_beta_regression`, and `?ee_tobit` for robust, ridge, LASSO, elastic net,
+beta, and tobit regression.
 
 ## The estimator objects
 
@@ -283,7 +286,9 @@ deli computes these with central finite differences (`deriv_method =
 "capprox"`), which introduces a small step-size approximation. Passing
 `deriv_method = "exact"` switches to forward-mode automatic differentiation,
 which evaluates the derivative in closed form. It returns exact derivatives with
-no step size to tune, and it is the method Python Delicatessen uses internally.
+no step size to tune. In Python Delicatessen exact differentiation is the
+default only for `delta_method`; the estimators and the sandwich variance
+default to a forward finite difference.
 
 The `delta_method()` function accepts `deriv_method` directly, and the survival
 prediction helpers `survival_predictions()` and `aft_predictions_function()`
@@ -315,11 +320,16 @@ delta_method(m, transform = transform, deriv_method = "exact")
 Automatic differentiation works by carrying a derivative alongside each value
 through the computation, so the transform must be built from operations deli
 knows how to differentiate. The supported surface covers the arithmetic
-operators and the elementwise math functions (the `Ops` and `Math` group
-members, including `exp`, `log`, `sqrt`, and the trigonometric functions), the
-matrix product `%*%`, the transpose `t()`, indexing, the logistic transforms
-`inverse_logit()` and `logit()`, and the `lgamma` / `digamma` / `trigamma` /
-`polygamma` family.
+operators (`+`, `-`, `*`, `/`, `^`) and comparisons, the matrix product `%*%`,
+the transpose `t()`, indexing, the logistic transforms `inverse_logit()` and
+`logit()`, and these elementwise functions: `exp`, `log`, `sqrt`, the
+trigonometric and hyperbolic families (`sin`, `cos`, `tan`, `asin`, `acos`,
+`atan`, `sinh`, `cosh`, `tanh`, `asinh`, `acosh`, `atanh`), `abs`, `floor`,
+`ceiling`, `sign`, `cumsum`, and the `lgamma` / `digamma` / `trigamma` /
+`polygamma` family. Other `Math` group members (`gamma`, `round`, `signif`,
+`trunc`, `cumprod`, `cummax`, `cummin`) and the modulo operators (`%%`, `%/%`)
+are not differentiated and error under `deriv_method = "exact"`; use the
+finite-difference default for a transform that needs them.
 
 One limitation applies to custom code. The reshaping and binding helpers
 `matrix()`, `rbind()`, and `cbind()` differentiate exactly only when they are
@@ -332,8 +342,10 @@ those helpers, and rely on the finite-difference default otherwise.
 - `vignette("custom-estimating-equations")`: Write your own estimating
   equations and stack them
 - `?m_estimate`: the one-step formula and function interface
-- `?ee_regression`: GLM, robust, ridge, LASSO, elastic net, beta, and tobit
-  regression
+- `?ee_regression`: linear, logistic, and Poisson regression
+- `?ee_glm`: generalized linear models, plus `?ee_ridge_regression`,
+  `?ee_lasso_regression`, and the other penalized and robust regression
+  functions
 - `?ee_gformula`: G-computation / standardization
 - `?ee_aipw`: Augmented inverse probability weighting
 - `?ee_aft`: Accelerated failure time models

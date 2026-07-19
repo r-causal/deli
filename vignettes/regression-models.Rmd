@@ -108,9 +108,11 @@ m@theta
 ```
 
 Available distributions: `"normal"`, `"binomial"`, `"poisson"`, `"gamma"`,
-`"inverse_gaussian"`. Available links: `"identity"`, `"log"`, `"logit"`,
-`"probit"`, `"cauchy"`, `"cloglog"`, `"sqrt"`, `"inverse"`,
-`"inverse_squared"`.
+`"negative_binomial"`, `"inverse_gaussian"`, and `"tweedie"`.
+`"negative_binomial"` estimates an extra dispersion parameter and `"tweedie"`
+takes a variance-power `hyperparameter`; see `?ee_glm` for the details.
+Available links: `"identity"`, `"log"`, `"logit"`, `"probit"`, `"cauchy"`
+(alias `"cauchit"`), `"loglog"`, `"cloglog"`, `"inverse"`, and `"sqrt"`.
 
 ## Penalized regression
 
