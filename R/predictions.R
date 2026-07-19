@@ -525,8 +525,15 @@ plogit_predict <- function(
   )
   y_pred <- inverse_logit(log_odds_w_matrix + log_odds_t)
 
-  # Cumulative product of (1 - p) gives survival: S(t) = prod(1 - h(t_k))
-  survival_pred <- apply(1 - y_pred, 2, cumprod) # K-by-n matrix
+  # Cumulative product of (1 - p) gives survival: S(t) = prod(1 - h(t_k)).
+  # apply() drops to a bare vector when each column's cumprod has length one
+  # (a single unique event time), so reshape back to K-by-n: a no-op for
+  # K > 1 that restores the matrix contract for K = 1.
+  survival_pred <- matrix(
+    apply(1 - y_pred, 2, cumprod),
+    nrow = n_time_steps,
+    ncol = n
+  )
 
   # Convert to requested measure
   prediction_matrix <- convert_survival_measures(

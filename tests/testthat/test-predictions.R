@@ -1450,3 +1450,70 @@ test_that("ee_plogit + plogit_predict with time/event agree end to end", {
 
   expect_equal(result, as.matrix(ref$predictions), tolerance = 1e-4)
 })
+
+
+# plogit_predict single-event-time tests (bd-2x8.23) ------------------------
+#
+# With a single unique event time (K = 1) the cumulative-product step
+# apply(1 - y_pred, 2, cumprod) collapses to a bare numeric vector: each
+# column's cumprod has length one. plogit_predict then returned that vector
+# (violating the documented "K-by-n matrix" contract), and the
+# times_to_predict subset path crashed on prediction_matrix[idx, ] with
+# "incorrect number of dimensions". Python returns shape (1, n) with the same
+# values. Reshaping the cumulative product back to n_time_steps-by-n restores
+# the matrix contract for K = 1 and is a no-op for K > 1. Both scenarios below
+# construct theta and data directly, so plogit_predict is exercised as the pure
+# prediction function it is, independent of model fitting.
+
+test_that("plogit_predict keeps the K-by-n matrix contract with one event time", {
+  # One unique event time: every event occurs at time 2.
+  x <- c(0, 1, 0, 1, 0)
+  X <- cbind(x)
+  time <- c(2, 2, 3, 2, 4)
+  event <- c(1, 1, 0, 1, 0)
+  n <- length(x)
+  # beta_x (one covariate) followed by beta_s (single time intercept, K = 1).
+  theta <- c(0.4, -1.5)
+
+  # Guard: the scenario really does have a single unique event time.
+  expect_equal(length(sort(unique(time[event == 1]))), 1)
+
+  result <- plogit_predict(theta, time = time, event = event, X = X)
+
+  expect_true(is.matrix(result))
+  expect_equal(nrow(result), 1)
+  expect_equal(ncol(result), n)
+
+  # Values equal the hand-computed single-time survival S = 1 - h, with
+  # h = inverse_logit(x * beta_x + beta_s).
+  h <- inverse_logit(x * theta[1] + theta[2])
+  expect_equal(as.numeric(result), 1 - h, tolerance = 1e-10)
+})
+
+test_that("plogit_predict times_to_predict works with one event time", {
+  x <- c(0, 1, 0, 1, 0)
+  X <- cbind(x)
+  time <- c(2, 2, 3, 2, 4)
+  event <- c(1, 1, 0, 1, 0)
+  n <- length(x)
+  theta <- c(0.4, -1.5)
+
+  # Before the fix this crashed with "incorrect number of dimensions" because
+  # prediction_matrix was a bare vector, so prediction_matrix[idx, ] failed.
+  result <- plogit_predict(
+    theta,
+    time = time,
+    event = event,
+    X = X,
+    times_to_predict = c(0, 2)
+  )
+
+  expect_true(is.matrix(result))
+  expect_equal(nrow(result), 2)
+  expect_equal(ncol(result), n)
+
+  # Time 0 is baseline survival 1; time 2 is the single event time.
+  expect_equal(as.numeric(result[1, ]), rep(1, n), tolerance = 1e-10)
+  h <- inverse_logit(x * theta[1] + theta[2])
+  expect_equal(as.numeric(result[2, ]), 1 - h, tolerance = 1e-10)
+})
