@@ -1616,3 +1616,93 @@ test_that("a vector-primal PrimalTangent recycles a broadcast tangent when index
   expect_equal(el$primal, 30)
   expect_equal(el$tangent, 0.5)
 })
+
+# ---- Summary group methods on whole vectors and arrays (bd-2x8.7) ------------
+#
+# A Summary reduction (sum, prod, max, min) applied to the whole parameter vector
+# (a PrimalTangentVector) or to a tangent-carrying array (a PrimalTangentArray,
+# for example X %*% theta) must differentiate under exact mode. Only the scalar
+# Summary.PrimalTangent method existed, so `sum(theta)` fell through to base sum
+# on a list and errored with "invalid 'type' (list) of argument".
+#
+# Cross-checks follow the established autodiff convention: capprox at tolerance
+# 1e-5 and the hand-derived analytic Jacobian at 1e-8.
+
+test_that("autodiff differentiates sum over the whole parameter vector", {
+  theta <- c(2, 5)
+  f <- function(x) sum(x)
+
+  exact <- auto_differentiation(theta, f)
+  approx <- approx_differentiation(f, theta, method = "capprox")
+
+  # d sum(theta) / d theta_j = 1.
+  expect_equal(exact, matrix(c(1, 1), nrow = 1), tolerance = 1e-8)
+  expect_equal(exact, approx, tolerance = 1e-5)
+})
+
+test_that("autodiff differentiates sum over a scaled parameter vector", {
+  theta <- c(2, 5)
+  f <- function(x) sum(x * c(3, 4))
+
+  exact <- auto_differentiation(theta, f)
+  approx <- approx_differentiation(f, theta, method = "capprox")
+
+  # d sum(theta * c(3, 4)) / d theta_j = c(3, 4)[j].
+  expect_equal(exact, matrix(c(3, 4), nrow = 1), tolerance = 1e-8)
+  expect_equal(exact, approx, tolerance = 1e-5)
+})
+
+test_that("autodiff differentiates sum over a tangent array X %*% theta", {
+  X <- matrix(c(1, 2, 3, 4, 5, 6), nrow = 3) # 3-by-2 constant (data)
+  theta <- c(0.5, -1)
+  f <- function(x) sum(X %*% x)
+
+  exact <- auto_differentiation(theta, f)
+  approx <- approx_differentiation(f, theta, method = "capprox")
+
+  # d sum(X theta) / d theta_j = colSums(X)[j].
+  expect_equal(exact, matrix(colSums(X), nrow = 1), tolerance = 1e-8)
+  expect_equal(exact, approx, tolerance = 1e-5)
+})
+
+test_that("Summary methods reduce a PrimalTangentVector", {
+  ptv <- primal_tangent_vector(list(
+    primal_tangent(2, 1),
+    primal_tangent(5, 1),
+    primal_tangent(3, 1)
+  ))
+
+  s <- sum(ptv)
+  expect_s3_class(s, "PrimalTangent")
+  expect_equal(s$primal, 10)
+  expect_equal(s$tangent, 3)
+
+  p <- prod(ptv)
+  expect_equal(p$primal, 30)
+  expect_equal(p$tangent, 5 * 3 + 2 * 3 + 2 * 5) # prod(x[-i]) summed over i
+
+  mx <- max(ptv)
+  expect_equal(mx$primal, 5)
+  expect_equal(mx$tangent, 1)
+
+  mn <- min(ptv)
+  expect_equal(mn$primal, 2)
+  expect_equal(mn$tangent, 1)
+})
+
+test_that("Summary methods reduce a PrimalTangentArray", {
+  pta <- primal_tangent_array(c(2, 5, 3), c(1, 0, 0))
+
+  s <- sum(pta)
+  expect_s3_class(s, "PrimalTangent")
+  expect_equal(s$primal, 10)
+  expect_equal(s$tangent, 1)
+
+  mx <- max(pta)
+  expect_equal(mx$primal, 5)
+  expect_equal(mx$tangent, 0)
+
+  mn <- min(pta)
+  expect_equal(mn$primal, 2)
+  expect_equal(mn$tangent, 1)
+})

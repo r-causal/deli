@@ -354,106 +354,81 @@ Math.PrimalTangent <- function(x, ...) {
   primal_tangent(rule$primal, rule$tangent)
 }
 
-# ---- Summary group generic (sum, prod, etc.) --------------------------------
+# ---- Summary group generic (sum, prod, max, min) ----------------------------
+
+# Collect every argument of a Summary call into parallel primal/tangent vectors.
+# A tangent-carrying argument (a scalar pair, a PrimalTangentVector, or a
+# PrimalTangentArray) contributes its flattened primal and tangent, with a
+# scalar broadcast tangent recycled to the primal length; a numeric constant
+# contributes a zero tangent. Flattening every container to the same
+# representation lets sum, prod, max, and min share one implementation across all
+# three tangent surfaces.
+#' @noRd
+pt_summary_parts <- function(args) {
+  all_p <- numeric(0)
+  all_t <- numeric(0)
+  for (a in args) {
+    if (is_tangent_container(a)) {
+      parts <- pt_flatten(a)
+      all_p <- c(all_p, parts$primal)
+      all_t <- c(all_t, parts$tangent)
+    } else {
+      all_p <- c(all_p, a)
+      all_t <- c(all_t, rep(0, length(a)))
+    }
+  }
+  list(primal = all_p, tangent = all_t)
+}
+
+# Apply a Summary member to the pooled primal/tangent vectors of its arguments.
+# Every reduction returns a scalar pair: sum follows the linear rule, prod the
+# product rule, and max and min carry the primal and tangent of the selected
+# element.
+#' @noRd
+pt_summary <- function(generic, args, na.rm) {
+  parts <- pt_summary_parts(args)
+  ap <- parts$primal
+  at <- parts$tangent
+  switch(
+    generic,
+    "sum" = primal_tangent(sum(ap, na.rm = na.rm), sum(at, na.rm = na.rm)),
+    "prod" = {
+      # prod(ap[-i]) is the product with the i-th factor left out
+      partials <- vapply(
+        seq_along(ap),
+        function(i) prod(ap[-i]) * at[i],
+        numeric(1)
+      )
+      primal_tangent(prod(ap), sum(partials))
+    },
+    "max" = {
+      idx <- which.max(ap)
+      primal_tangent(ap[idx], at[idx])
+    },
+    "min" = {
+      idx <- which.min(ap)
+      primal_tangent(ap[idx], at[idx])
+    },
+    stop("Summary function ", generic, " not supported for PrimalTangent")
+  )
+}
 
 #' @export
 Summary.PrimalTangent <- function(..., na.rm = FALSE) {
-  args <- list(...)
-  switch(
-    .Generic,
-    "sum" = {
-      total_p <- 0
-      total_t <- 0
-      for (a in args) {
-        if (is_pt(a)) {
-          ap <- a$primal
-          at <- a$tangent
-          # Replicate tangent to match primal length if needed
-          # (happens when scalar tangent is broadcast over vector primal)
-          if (length(at) < length(ap)) {
-            at <- rep_len(at, length(ap))
-          }
-          total_p <- total_p + sum(ap, na.rm = na.rm)
-          total_t <- total_t + sum(at, na.rm = na.rm)
-        } else {
-          total_p <- total_p + sum(a, na.rm = na.rm)
-        }
-      }
-      primal_tangent(total_p, total_t)
-    },
-    "prod" = {
-      # Gather every argument's primal and tangent into parallel vectors, with a
-      # constant contributing a zero tangent. The product rule gives the tangent
-      # d prod(x) / dx_i = prod(x[-i]), so the total tangent sums prod(all but i)
-      # weighted by each argument's tangent.
-      all_p <- numeric(0)
-      all_t <- numeric(0)
-      for (a in args) {
-        if (is_pt(a)) {
-          ap <- a$primal
-          at <- a$tangent
-          if (length(at) < length(ap)) {
-            at <- rep_len(at, length(ap))
-          }
-          all_p <- c(all_p, ap)
-          all_t <- c(all_t, at)
-        } else {
-          all_p <- c(all_p, a)
-          all_t <- c(all_t, rep(0, length(a)))
-        }
-      }
-      total_p <- prod(all_p)
-      # prod(all_p[-i]) is the product with the i-th factor left out
-      partials <- vapply(
-        seq_along(all_p),
-        function(i) prod(all_p[-i]) * all_t[i],
-        numeric(1)
-      )
-      primal_tangent(total_p, sum(partials))
-    },
-    "max" = {
-      all_p <- numeric(0)
-      all_t <- numeric(0)
-      for (a in args) {
-        if (is_pt(a)) {
-          ap <- a$primal
-          at <- a$tangent
-          if (length(at) < length(ap)) {
-            at <- rep_len(at, length(ap))
-          }
-          all_p <- c(all_p, ap)
-          all_t <- c(all_t, at)
-        } else {
-          all_p <- c(all_p, a)
-          all_t <- c(all_t, rep(0, length(a)))
-        }
-      }
-      idx <- which.max(all_p)
-      primal_tangent(all_p[idx], all_t[idx])
-    },
-    "min" = {
-      all_p <- numeric(0)
-      all_t <- numeric(0)
-      for (a in args) {
-        if (is_pt(a)) {
-          ap <- a$primal
-          at <- a$tangent
-          if (length(at) < length(ap)) {
-            at <- rep_len(at, length(ap))
-          }
-          all_p <- c(all_p, ap)
-          all_t <- c(all_t, at)
-        } else {
-          all_p <- c(all_p, a)
-          all_t <- c(all_t, rep(0, length(a)))
-        }
-      }
-      idx <- which.min(all_p)
-      primal_tangent(all_p[idx], all_t[idx])
-    },
-    stop("Summary function ", .Generic, " not supported for PrimalTangent")
-  )
+  pt_summary(.Generic, list(...), na.rm)
 }
+
+# The same function object as `Summary.PrimalTangent`. A Summary reduction on the
+# whole parameter vector (`sum(theta)`) or on a tangent-carrying array
+# (`sum(X %*% theta)`) must differentiate too, and `pt_summary` already flattens
+# every container to a common representation, so one implementation serves all
+# three surfaces. `.Generic` is bound at dispatch time, so sharing the object
+# still resolves sum, prod, max, and min correctly.
+#' @export
+Summary.PrimalTangentArray <- Summary.PrimalTangent
+
+#' @export
+Summary.PrimalTangentVector <- Summary.PrimalTangent
 
 # ---- Boolean coercion (for if/else) -----------------------------------------
 
