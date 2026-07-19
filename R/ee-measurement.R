@@ -87,7 +87,8 @@ ee_rogan_gladen_extended <- function(theta, y, y_star, r, X, weights = NULL) {
     theta = sens_params,
     X = X,
     y = y_star,
-    model = "logistic"
+    model = "logistic",
+    weights = weights
   ) *
     matrix((1 - r) * y, nrow = p, ncol = n, byrow = TRUE)
 
@@ -98,7 +99,8 @@ ee_rogan_gladen_extended <- function(theta, y, y_star, r, X, weights = NULL) {
     theta = spec_params,
     X = X,
     y = 1 - y_star,
-    model = "logistic"
+    model = "logistic",
+    weights = weights
   ) *
     matrix((1 - r) * (1 - y), nrow = p, ncol = n, byrow = TRUE)
 
