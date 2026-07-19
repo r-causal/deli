@@ -233,3 +233,22 @@ test_that("ee_regression rejects an offset whose length differs from the rows of
     "same length as the data"
   )
 })
+
+test_that("ee_regression returns an unnamed score for both matrix and data-frame X", {
+  set.seed(1)
+  n <- 20
+  df <- data.frame(int = 1, x1 = rnorm(n), x2 = rnorm(n))
+  y <- rnorm(n)
+  theta <- c(0.1, 0.2, 0.3)
+
+  out_df <- ee_regression(theta, X = df, y = y, model = "linear")
+  out_mat <- ee_regression(
+    theta,
+    X = unname(as.matrix(df)),
+    y = y,
+    model = "linear"
+  )
+
+  expect_null(dimnames(out_df))
+  expect_identical(out_df, out_mat)
+})

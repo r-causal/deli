@@ -588,14 +588,23 @@ coerce_design <- function(X) {
   # coerce_design runs on every solver and Jacobian evaluation. A matrix is
   # never a tangent container (those are classed lists with no dim attribute),
   # so returning it directly skips both the tangent check and the as.matrix
-  # redispatch, each of which would hand back the same object.
+  # redispatch, each of which would hand back the same object. Dimnames are
+  # dropped so the returned score matrix is unnamed regardless of whether the
+  # caller passed a plain matrix, a named matrix, or a data frame; the Python
+  # reference operates on unnamed arrays, and the score dimnames otherwise leak
+  # a data frame's column names into the estimating-function output.
   if (is.matrix(X)) {
+    if (!is.null(dimnames(X))) {
+      dimnames(X) <- NULL
+    }
     return(X)
   }
   if (is_tangent_container(X)) {
     return(X)
   }
-  as.matrix(X)
+  X <- as.matrix(X)
+  dimnames(X) <- NULL
+  X
 }
 
 # Coerce a regression outcome argument, preserving tangents when the response is
