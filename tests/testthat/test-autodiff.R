@@ -1779,3 +1779,69 @@ test_that("Summary methods reduce a PrimalTangentArray", {
   expect_equal(mn$primal, 2)
   expect_equal(mn$tangent, 1)
 })
+
+# ---- tangent-stripping guard in extract_tangent_column (bd-2x8.24) ----
+
+test_that("delta_method aborts when the transform strips tangents", {
+  # base::rbind has no PrimalTangent method, so it builds a bare list matrix and
+  # discards the tangents. This is the resolution any installed-package user gets
+  # for a bare rbind() call from the global environment. The exact pass must
+  # abort rather than return a silent all-zero Jacobian.
+  strip <- function(theta) base::rbind(theta[1], theta[2])
+  expect_error(
+    delta_method(
+      c(1, 2),
+      transform = strip,
+      covariance = diag(2),
+      deriv_method = "exact"
+    )
+  )
+})
+
+test_that("delta_method with a tangent-preserving transform returns the derivative", {
+  keep <- function(theta) c(theta[1], theta[2])
+  result <- delta_method(
+    c(1, 2),
+    transform = keep,
+    covariance = diag(2),
+    deriv_method = "exact"
+  )
+  expect_equal(result, diag(2))
+})
+
+# ---- plain-list branch in pt_arrays (bd-2x8.25) ----
+
+test_that("masked rbind of a c() pair list keeps tangents under exact mode", {
+  # Inside the package namespace, c() on scalar pairs yields a plain list of
+  # pairs; the masked rbind must route that through pt_flatten so the tangents
+  # survive rather than collapsing to zero.
+  f <- function(theta) rbind(c(2 * theta[1], 3 * theta[2]))
+  result <- auto_differentiation(c(1, 1), f)
+  expect_equal(result, diag(c(2, 3)))
+})
+
+# ---- out-of-bounds rejection in [.PrimalTangentVector (bd-2x8.26) ----
+
+test_that("[.PrimalTangentVector rejects an out-of-bounds index", {
+  v <- primal_tangent_vector(list(
+    primal_tangent(1, 1),
+    primal_tangent(2, 0)
+  ))
+  expect_error(v[3], "subscript out of bounds")
+})
+
+test_that("[.PrimalTangentVector still allows a negative index", {
+  v <- primal_tangent_vector(list(
+    primal_tangent(1, 1),
+    primal_tangent(2, 0),
+    primal_tangent(3, 0)
+  ))
+  dropped <- v[-3]
+  expect_s3_class(dropped, "PrimalTangentVector")
+  expect_equal(length(dropped), 2)
+})
+
+test_that("auto_differentiation aborts on an out-of-bounds parameter index", {
+  f <- function(theta) theta[3]
+  expect_error(auto_differentiation(c(1, 2), f), "subscript out of bounds")
+})
