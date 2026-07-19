@@ -16,7 +16,8 @@
 #' @param group A vector of length n identifying the group (cluster) for
 #'   each observation.
 #'
-#' @returns A p-by-m matrix, where m is the number of unique groups.
+#' @returns A p-by-m matrix, where m is the number of unique groups. Columns
+#'   are ordered by the sorted unique values of `group`.
 #'
 #' @export
 aggregate_efuncs <- function(est_funcs, group) {
@@ -46,14 +47,16 @@ aggregate_efuncs <- function(est_funcs, group) {
     )
   }
 
-  # Map groups to compact integer indices
-  unique_groups <- unique(group)
+  # Map groups to compact integer indices. Sort the unique groups so that the
+  # aggregated columns come back in sorted unique-group order, matching the
+  # Python reference (which relies on np.unique).
+  unique_groups <- sort(unique(group))
   m <- length(unique_groups)
   group_idx <- match(group, unique_groups)
 
   # Aggregate by summing within groups using rowsum on transposed matrix
   # t(est_funcs) is n-by-p, rowsum sums rows by group -> m-by-p
-  aggregated <- rowsum(t(est_funcs), group_idx, reorder = FALSE)
+  aggregated <- rowsum(t(est_funcs), group_idx, reorder = TRUE)
 
   # Return as p-by-m matrix (strip names from rowsum)
   unname(t(aggregated))

@@ -95,6 +95,55 @@ test_that("aggregate_efuncs 1-D input matches its explicit 1-row matrix form", {
   expect_equal(as.numeric(from_vector), c(9, 4, 6))
 })
 
+test_that("aggregate_efuncs returns groups in sorted order", {
+  # Python (delicatessen) uses np.unique on the group vector, which sorts the
+  # unique groups. Columns must come back in sorted unique-group order
+  # regardless of the order groups first appear in the input.
+  ef <- matrix(c(1, 2, 3, 4, 5, 6), nrow = 1)
+  group <- c(2, 2, 3, 3, 1, 1)
+
+  result <- aggregate_efuncs(ef, group)
+
+  # Columns follow sorted groups 1, 2, 3, not first-appearance order 2, 3, 1.
+  # Group 1: 5 + 6 = 11; group 2: 1 + 2 = 3; group 3: 3 + 4 = 7.
+  expect_equal(dim(result), c(1L, 3L))
+  expect_equal(as.numeric(result), c(11, 3, 7))
+})
+
+test_that("aggregate_efuncs sorts groups with multiple parameters", {
+  # Two parameters observed across six units, groups out of order. Each
+  # parameter's columns must be reordered to sorted group order together.
+  ef <- matrix(
+    c(
+      1,
+      2,
+      3,
+      4,
+      5,
+      6, # param 1
+      10,
+      20,
+      30,
+      40,
+      50,
+      60 # param 2
+    ),
+    nrow = 2,
+    byrow = TRUE
+  )
+  group <- c(3, 3, 1, 1, 2, 2)
+
+  result <- aggregate_efuncs(ef, group)
+
+  # Sorted groups 1, 2, 3.
+  # Group 1: cols 3,4 -> param1 3+4=7, param2 30+40=70
+  # Group 2: cols 5,6 -> param1 5+6=11, param2 50+60=110
+  # Group 3: cols 1,2 -> param1 1+2=3, param2 10+20=30
+  expect_equal(dim(result), c(2L, 3L))
+  expect_equal(result[1, ], c(7, 11, 3))
+  expect_equal(result[2, ], c(70, 110, 30))
+})
+
 test_that("aggregate_efuncs errors on dimension mismatch", {
   ef <- matrix(1:6, nrow = 2)
   group <- c(1, 2) # length 2, but ef has 3 columns

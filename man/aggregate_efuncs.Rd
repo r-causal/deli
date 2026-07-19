@@ -16,7 +16,8 @@ observations, matching a 1-by-n matrix.}
 each observation.}
 }
 \value{
-A p-by-m matrix, where m is the number of unique groups.
+A p-by-m matrix, where m is the number of unique groups. Columns
+are ordered by the sorted unique values of \code{group}.
 }
 \description{
 Collapses unit-level estimating function contributions into group-level
