@@ -495,6 +495,13 @@ pt_arrays <- function(x) {
   if (is_pt(x)) {
     return(list(primal = x$primal, tangent = x$tangent))
   }
+  if (is.list(x)) {
+    # A plain list of scalar pairs (produced by `c()` on PrimalTangent objects).
+    # pt_flatten already collapses this shape into parallel numeric vectors, so
+    # a masked binder of such a list keeps its tangents instead of hitting the
+    # numeric-constant fallback below and zeroing them.
+    return(pt_flatten(x))
+  }
   # Numeric constant: zero tangent, matching the constant's shape
   zero <- x
   zero[] <- 0
