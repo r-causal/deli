@@ -161,6 +161,15 @@ check_estimator_subset <- function(subset, n_params) {
        {n_params}."
     )
   }
+  # Duplicated indices make the subsetted estimating system rank-deficient, so
+  # the solver returns the starting values as if they were estimates.
+  if (anyDuplicated(subset)) {
+    duplicates <- unique(subset[duplicated(subset)])
+    cli::cli_abort(c(
+      "{.arg subset} must not contain duplicated parameter indices.",
+      "i" = "Duplicated: {.val {duplicates}}."
+    ))
+  }
   invisible(NULL)
 }
 

@@ -288,3 +288,17 @@ test_that("MEstimator accepts a valid in-range subset", {
     MEstimator(stacked_equations = psi, init = c(0, 1), subset = c(1L, 2L))
   )
 })
+
+test_that("MEstimator rejects a subset with duplicated indices", {
+  # Duplicated indices make the subsetted system rank-deficient, so the solver
+  # returns the starting values as if they were estimates. Reject them at
+  # construction, naming the duplicates.
+  psi <- function(theta) {
+    y <- c(1, 2, 3)
+    rbind(y - theta[1], (y - theta[1])^2 - theta[2])
+  }
+  expect_error(
+    MEstimator(stacked_equations = psi, init = c(0, 1), subset = c(1L, 1L)),
+    "duplicated"
+  )
+})

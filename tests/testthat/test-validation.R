@@ -36,6 +36,27 @@ test_that("check_estimated rejects an estimator that has not been fitted", {
   expect_error(check_estimated(m), "before calling")
 })
 
+# check_estimator_subset --------------------------------------------------
+
+test_that("check_estimator_subset accepts NULL and valid indices", {
+  expect_no_error(check_estimator_subset(NULL, 3))
+  expect_no_error(check_estimator_subset(c(1L, 3L), 3))
+  expect_no_error(check_estimator_subset(2L, 3))
+})
+
+test_that("check_estimator_subset rejects out-of-range and non-whole indices", {
+  expect_error(check_estimator_subset(5L, 3), "between 1 and 3")
+  expect_error(check_estimator_subset(0L, 3), "between 1 and 3")
+  expect_error(check_estimator_subset(1.5, 3), "between 1 and 3")
+})
+
+test_that("check_estimator_subset rejects duplicated indices and names them", {
+  expect_error(check_estimator_subset(c(1L, 1L), 3), "duplicated")
+  expect_error(check_estimator_subset(c(2L, 3L, 2L), 3), "duplicated")
+  # The offending index is reported.
+  expect_error(check_estimator_subset(c(2L, 2L), 3), "2")
+})
+
 # check_penalty_shape -----------------------------------------------------
 
 test_that("check_penalty_shape accepts scalar penalty and center", {

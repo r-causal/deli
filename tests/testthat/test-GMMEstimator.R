@@ -255,6 +255,17 @@ test_that("GMMEstimator accepts a valid in-range subset", {
   )
 })
 
+test_that("GMMEstimator rejects a subset with duplicated indices", {
+  psi <- function(theta) {
+    y <- c(1, 2, 3)
+    rbind(y - theta[1], (y - theta[1])^2 - theta[2])
+  }
+  expect_error(
+    GMMEstimator(stacked_equations = psi, init = c(0, 1), subset = c(2L, 2L)),
+    "duplicated"
+  )
+})
+
 test_that("GMMEstimator rejects a non-numeric overid_maxiter", {
   psi <- function(theta) {
     matrix(c(1, 2, 3) - theta[1], nrow = 1)
