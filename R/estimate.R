@@ -227,11 +227,26 @@ solve_equations <- function(
         atol = tolerance
       )
     })))
-    # rootSolve::multiroot reports success even when it makes no progress: at a
-    # singular Jacobian it returns the starting values with a non-zero score
-    # and no warning. Inspect the score at the returned root and warn when the
-    # equations are not solved there, matching the lm and nleqslv branches.
-    if (!is.null(ee_matrix)) {
+    # rootSolve::multiroot reports success even when it does not reach a root,
+    # and the suppression above discards its own "steady-state not reached"
+    # warning. Two distinct failure modes are surfaced here, matching the lm and
+    # nleqslv branches. First, an exhausted iteration budget: multiroot stops at
+    # a partially-solved point where the per-equation contributions still cancel
+    # well, so the cancellation heuristic below cannot see it; the iteration
+    # count reaching maxiter is the reliable signal.
+    score_floor <- 1e-4
+    if (result$iter >= maxiter && result$estim.precis > score_floor) {
+      cli::cli_warn(c(
+        "!" = "rootSolve did not converge within {maxiter} iteration{?s}.",
+        "i" = "The estimating functions are not solved at the returned values
+               (achieved precision {.val {signif(result$estim.precis, 3)}}).",
+        "i" = "Results may be unreliable. Consider increasing {.arg maxiter} or
+               using the {.val lm} solver."
+      ))
+    } else if (!is.null(ee_matrix)) {
+      # Second, a singular Jacobian at the starting values: multiroot returns
+      # those values unchanged with a non-zero score. Inspect the score at the
+      # returned root and warn when the equations are not solved there.
       warn_if_not_root(result, ee_matrix)
     }
     return(result$root)

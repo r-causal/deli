@@ -238,6 +238,30 @@ test_that("rootSolve warns when the Jacobian is singular at the start", {
   expect_equal(unname(m@theta), rep(0, 10))
 })
 
+# A capped iteration budget is a distinct non-convergence mode: rootSolve stops
+# at a partially-solved point where the per-equation contributions still cancel
+# well, so the singular-Jacobian cancellation heuristic stays quiet. rootSolve
+# itself emits a "steady-state not reached" warning that the suppression around
+# the call discards, so the maxiter exhaustion must be surfaced separately. The
+# lm and nleqslv branches already warn on their own non-convergence codes.
+test_that("rootSolve warns when the iteration budget is exhausted", {
+  m <- fit_logistic("ee_solver_lm_logistic", solver = "rootSolve")
+  ref <- load_fixture("ee_solver_lm_logistic")
+  X <- ref$X
+  y <- ref$y
+  inverse_logit <- function(x) 1 / (1 + exp(-x))
+  psi <- function(theta) {
+    residuals <- y - inverse_logit(X %*% theta)
+    t(X * as.numeric(residuals))
+  }
+  fit <- MEstimator(stacked_equations = psi, init = ref$init)
+
+  expect_warning(
+    estimate(fit, maxiter = 2),
+    "did not converge"
+  )
+})
+
 test_that("a well-conditioned rootSolve fit does not warn", {
   m <- fit_linear("ee_solver_lm_linear", solver = "rootSolve")
   expect_no_warning(fit_linear("ee_solver_lm_linear", solver = "rootSolve"))
