@@ -18,6 +18,27 @@ test_that("logit() handles edge cases", {
   expect_equal(logit(0.5), 0)
 })
 
+# ---- logit() autodiff compatibility (bd-2x8.15) -----------------------------
+#
+# logit() was qlogis(prob), which cannot accept a tangent-carrying argument, so
+# a transform using logit() under deriv_method = "exact" errored with
+# "Non-numeric argument to mathematical function" (inverse_logit already worked).
+# Writing logit() as log(prob / (1 - prob)) lets the autodiff Math and Ops rules
+# carry tangents, with identical numerics for numeric input. The derivative of
+# log(p / (1 - p)) is 1 / (p (1 - p)).
+
+test_that("logit() differentiates under exact autodiff", {
+  x0 <- 0.3
+  f <- function(x) logit(x[1])
+
+  exact <- auto_differentiation(x0, f)
+  approx <- approx_differentiation(f, x0, method = "capprox")
+
+  analytic <- 1 / (x0 * (1 - x0))
+  expect_equal(exact[1, 1], analytic, tolerance = 1e-8)
+  expect_equal(exact[1, 1], approx[1, 1], tolerance = 1e-5)
+})
+
 # ---- inverse_logit() --------------------------------------------------------
 
 test_that("inverse_logit() matches plogis() for various log-odds", {

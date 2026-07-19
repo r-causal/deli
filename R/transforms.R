@@ -11,7 +11,11 @@
 #' logit(0.5)
 #' logit(c(0.1, 0.5, 0.9))
 logit <- function(prob) {
-  qlogis(prob)
+  # Written as log(prob / (1 - prob)) rather than qlogis() so the arithmetic and
+  # Math group generics carry tangents through automatically under exact-mode
+  # autodiff, mirroring inverse_logit() and the Python implementation. Numerics
+  # are identical to qlogis() for numeric input.
+  log(prob / (1 - prob))
 }
 
 #' Inverse logistic transformation

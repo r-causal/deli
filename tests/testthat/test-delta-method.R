@@ -294,6 +294,34 @@ test_that("delta_method() exact mode differentiates inverse_logit of a logistic 
   expect_equal(exact, capprox, tolerance = 1e-5)
 })
 
+test_that("delta_method() exact mode differentiates a logit transform", {
+  # logit() must work under exact mode like inverse_logit(); its derivative is
+  # 1 / (p (1 - p)). The diagonal covariance keeps the analytic reference simple.
+  theta <- c(0.3, 0.6)
+  Sigma <- diag(c(0.01, 0.02))
+  transform <- function(th) c(logit(th[1]), logit(th[2]))
+
+  exact <- delta_method(
+    theta,
+    transform = transform,
+    covariance = Sigma,
+    deriv_method = "exact"
+  )
+  capprox <- delta_method(
+    theta,
+    transform = transform,
+    covariance = Sigma,
+    deriv_method = "capprox"
+  )
+
+  g <- 1 / (theta * (1 - theta))
+  analytic <- diag(g^2 * diag(Sigma))
+
+  expect_true(all(diag(exact) > 0))
+  expect_equal(exact, analytic, tolerance = 1e-8)
+  expect_equal(exact, capprox, tolerance = 1e-5)
+})
+
 test_that("delta_method() exact mode builds a full Jacobian for a vector transform", {
   m <- make_fitted_mean_variance()
   th <- m@theta
