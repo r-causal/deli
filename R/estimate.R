@@ -211,6 +211,11 @@ method(estimate, MEstimator) <- function(
   object
 }
 
+# Score magnitude below which a rootSolve return is treated as solved. Both the
+# iteration-budget check in solve_equations and the singular-Jacobian check in
+# warn_if_not_root compare against this floor, so it lives in one place.
+score_floor <- 1e-4
+
 #' Internal root-finding dispatcher
 #' @keywords internal
 #' @noRd
@@ -240,8 +245,14 @@ solve_equations <- function(
     # a partially-solved point where the per-equation contributions still cancel
     # well, so the cancellation heuristic below cannot see it; the iteration
     # count reaching maxiter is the reliable signal.
-    score_floor <- 1e-4
-    if (result$iter >= maxiter && result$estim.precis > score_floor) {
+    # isTRUE collapses a non-finite estim.precis (NaN or NA) to FALSE so the
+    # comparison cannot leave an NA that would crash the if().
+    budget_exhausted <- isTRUE(
+      result$iter >= maxiter &&
+        is.finite(result$estim.precis) &&
+        result$estim.precis > score_floor
+    )
+    if (budget_exhausted) {
       cli::cli_warn(c(
         "!" = "rootSolve did not converge within {maxiter} iteration{?s}.",
         "i" = "The estimating functions are not solved at the returned values
@@ -335,7 +346,6 @@ warn_if_not_root <- function(result, ee_matrix) {
   score <- result$f.root
   # Numerically negligible scores are always treated as solved, so equations
   # driven to zero (where the cancellation fraction is meaningless) never warn.
-  score_floor <- 1e-4
   if (max(abs(score)) <= score_floor) {
     return(invisible(NULL))
   }
