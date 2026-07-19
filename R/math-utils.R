@@ -67,15 +67,20 @@ deli_digamma <- function(z) {
       z$tangent * trigamma(z$primal)
     ))
   }
-  # Return NaN directly for non-positive integers (poles of digamma)
-  # without triggering base R's NaN warning
+  # Return NaN directly for non-positive integers (poles of digamma) without
+  # triggering base R's NaN warning. A missing input must not reach the pole
+  # test: `NA <= 0` is NA, which would poison both the logical index and the
+  # subscripted assignment. Guard the poles against NA/NaN, propagate the missing
+  # values unchanged (preserving the NA vs NaN distinction, matching
+  # base::digamma), and evaluate digamma only on the finite non-pole entries.
   z <- as.numeric(z)
   out <- numeric(length(z))
-  poles <- z <= 0 & z == trunc(z)
+  na_z <- is.na(z)
+  poles <- !na_z & z <= 0 & z == trunc(z)
   out[poles] <- NaN
-  if (any(!poles)) {
-    out[!poles] <- digamma(z[!poles])
-  }
+  out[na_z] <- z[na_z]
+  finite_regular <- !poles & !na_z
+  out[finite_regular] <- digamma(z[finite_regular])
   out
 }
 

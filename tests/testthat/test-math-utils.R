@@ -70,6 +70,45 @@ test_that("deli_digamma() at negative integers returns NaN without warning", {
   expect_true(is.nan(result_neg1))
 })
 
+# ---- NA / NaN propagation (bd-2x8.9) ----------------------------------------
+#
+# The pole test `z <= 0 & z == trunc(z)` yields NA for a missing input, which
+# poisons both the if() guard and the subscripted assignment: deli_digamma(NA)
+# and deli_digamma(NaN) crash, and a vector with a NaN entry crashes with "NAs
+# are not allowed in subscripted assignments". base::digamma and scipy both
+# propagate NA/NaN, so deli_digamma must too, preserving the NA vs NaN
+# distinction and keeping the documented NaN at the poles.
+
+test_that("deli_digamma() propagates a scalar NA or NaN without error", {
+  expect_no_error(r_na <- deli_digamma(NA_real_))
+  expect_true(is.na(r_na))
+  expect_false(is.nan(r_na))
+
+  expect_no_error(r_nan <- deli_digamma(NaN))
+  expect_true(is.nan(r_nan))
+})
+
+test_that("deli_digamma() propagates NA and NaN elementwise in a vector", {
+  expect_no_error(r <- deli_digamma(c(1, NaN, 2)))
+  expect_equal(r[1], digamma(1))
+  expect_true(is.nan(r[2]))
+  expect_equal(r[3], digamma(2))
+
+  r2 <- deli_digamma(c(1, NA, 2))
+  expect_equal(r2[1], digamma(1))
+  expect_true(is.na(r2[2]))
+  expect_false(is.nan(r2[2]))
+  expect_equal(r2[3], digamma(2))
+})
+
+test_that("deli_digamma() keeps NaN at the poles alongside missing input", {
+  r <- deli_digamma(c(NaN, 0, -2, 2.5))
+  expect_true(is.nan(r[1])) # NaN input propagates
+  expect_true(is.nan(r[2])) # pole at 0
+  expect_true(is.nan(r[3])) # pole at -2
+  expect_equal(r[4], digamma(2.5)) # regular value
+})
+
 # ---- standard_normal_cdf() --------------------------------------------------
 
 test_that("standard_normal_cdf() matches pnorm() for various values", {

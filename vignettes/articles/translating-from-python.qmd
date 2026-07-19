@@ -66,7 +66,7 @@ estimator as their first argument (`estimate(m)`, `confidence_intervals(m)`).
 | `logit`, `inverse_logit` | `logit`, `inverse_logit` | |
 | `identity(value)` | `identity_transform(value)` | Renamed to avoid masking base R `identity()`. |
 | `polygamma(n, x)` | `deli_polygamma(n, x)` | Renamed to avoid a namespace clash. |
-| `digamma(z)` | `deli_digamma(z)` | Renamed to avoid masking base R `digamma()`. |
+| `digamma(z)` | `deli_digamma(z)` | Renamed to avoid masking base R `digamma()`. At the poles (non-positive integers) `deli_digamma()` returns `NaN`, matching base R `digamma()`; SciPy returns `-Inf`. `NA` and `NaN` inputs propagate unchanged. |
 | `standard_normal_cdf`, `standard_normal_pdf` | `standard_normal_cdf`, `standard_normal_pdf` | |
 | `robust_loss_functions(residual, loss, k, a, b)` | `robust_loss_functions(residuals, loss, k)` | Hampel thresholds passed as `k = c(a, b, c)` (see below). |
 | `aggregate_efuncs(est_funcs, group)` | `aggregate_efuncs(est_funcs, group)` | |
