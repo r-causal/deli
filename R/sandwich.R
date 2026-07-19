@@ -337,7 +337,6 @@ method(confidence_bands, deli_estimator) <- function(
   ...
 ) {
   check_estimated(object)
-  check_alpha(alpha)
 
   if (!is.null(subset)) {
     theta <- object@theta[subset]
@@ -367,8 +366,6 @@ method(confidence_bands, class_numeric) <- function(
   covariance = NULL,
   ...
 ) {
-  check_alpha(alpha)
-
   if (!is.null(subset)) {
     object <- object[subset]
     if (!is.null(covariance)) {
