@@ -1857,6 +1857,44 @@ test_that("Summary methods honor na.rm for prod, max, and min", {
   expect_equal(s$tangent, 2)
 })
 
+test_that("max and min on an all-NA container under na.rm return the base sentinel", {
+  # With every primal element NA and na.rm = TRUE, na.rm drops the whole primal
+  # to length zero. Base R reduces max(numeric(0)) to -Inf and min(numeric(0)) to
+  # +Inf, each with a warning; the tangent surface must match that value and
+  # wording. The sentinel is a constant, so its derivative is zero.
+  pta <- primal_tangent_array(c(NA, NA), c(1, 1))
+
+  expect_warning(
+    mx <- max(pta, na.rm = TRUE),
+    "no non-missing arguments to max; returning -Inf",
+    fixed = TRUE
+  )
+  expect_equal(mx$primal, -Inf)
+  expect_equal(mx$tangent, 0)
+
+  expect_warning(
+    mn <- min(pta, na.rm = TRUE),
+    "no non-missing arguments to min; returning Inf",
+    fixed = TRUE
+  )
+  expect_equal(mn$primal, Inf)
+  expect_equal(mn$tangent, 0)
+})
+
+test_that("sum and prod on an all-NA container under na.rm return the empty reductions", {
+  # An empty primal has well-defined sum (0) and product (1) via the base
+  # reductions, each with a zero tangent and no warning.
+  pta <- primal_tangent_array(c(NA, NA), c(1, 1))
+
+  s <- sum(pta, na.rm = TRUE)
+  expect_equal(s$primal, 0)
+  expect_equal(s$tangent, 0)
+
+  p <- prod(pta, na.rm = TRUE)
+  expect_equal(p$primal, 1)
+  expect_equal(p$tangent, 0)
+})
+
 # ---- tangent-stripping guard in extract_tangent_column ----
 
 test_that("delta_method aborts when the transform strips tangents", {

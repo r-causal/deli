@@ -458,10 +458,30 @@ pt_summary <- function(generic, args, na.rm) {
       primal_tangent(prod(ap), sum(partials))
     },
     "max" = {
+      # An all-NA primal reduced under na.rm leaves nothing to select. Base R
+      # returns -Inf with a warning; the constant sentinel carries a zero
+      # tangent. Keep base's exact wording so callers matching on it see no
+      # change.
+      if (length(ap) == 0L) {
+        cli::cli_warn(
+          "no non-missing arguments to max; returning -Inf",
+          call = NULL
+        )
+        return(primal_tangent(-Inf, 0))
+      }
       idx <- which.max(ap)
       primal_tangent(ap[idx], at[idx])
     },
     "min" = {
+      # The mirror of max: an empty primal reduces to +Inf with base's warning
+      # and a zero tangent.
+      if (length(ap) == 0L) {
+        cli::cli_warn(
+          "no non-missing arguments to min; returning Inf",
+          call = NULL
+        )
+        return(primal_tangent(Inf, 0))
+      }
       idx <- which.min(ap)
       primal_tangent(ap[idx], at[idx])
     },
