@@ -36,7 +36,7 @@ To begin, we will simply model the survival times using parametric models withou
 ### Exponential
 
 The exponential model is a one parameter model that assumes the hazard is constant. It is the simplest of the survival models. This model is parameterized as
-$$ h(t) = \lambda t $$
+$$ h(t) = \lambda $$
 The following code can be used to fit the exponential model.
 
 ```{r}

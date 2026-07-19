@@ -12,7 +12,7 @@ library(deli)
 ```
 
 This example demonstrates robust regression using data from *Statistical Methods
-for Social Sciences*, 3rd Edition by Alan Agresti and Barbara Finlay. Violent
+for the Social Sciences*, 4th Edition by Alan Agresti and Barbara Finlay. Violent
 crime is modeled as a function of poverty and the percentage of single parents,
 at the US state level. The applied example follows the
 [UCLA tutorial](https://stats.oarc.ucla.edu/r/dae/robust-regression/) with data

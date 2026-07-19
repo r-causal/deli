@@ -256,10 +256,10 @@ across software.
 
 `deli` operates by a root-finding procedure. Essentially, we are looking for
 the values of $\hat{\theta}$ that lead to the estimating equations all being
-approximately zero. Specifically, we use the Levenberg-Marquardt algorithm in
-these examples. A root-finding procedure is used because it simplifies building
-stacked estimating equations. However, this comes at the cost of speed and
-robustness of other approaches.
+approximately zero. Specifically, these examples use `deli`'s default solver,
+the Newton-type `multiroot()` routine from the rootSolve package. A root-finding
+procedure is used because it simplifies building stacked estimating equations.
+However, this comes at the cost of speed and robustness of other approaches.
 
 Other regression software tends to proceed under a different approach.
 Generally, most software aims to maximize the log-likelihood. However, most

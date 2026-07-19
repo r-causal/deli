@@ -34,7 +34,7 @@ d <- as.data.frame(nlme::MathAchieve)
 
 # Prepare columns
 d$intercept <- 1
-d$female <- ifelse(d$Sex == "Female", 0, 1)
+d$female <- ifelse(d$Sex == "Female", 1, 0)
 d$cses <- d$SES - d$MEANSES
 
 # Extract arrays for the estimating equations

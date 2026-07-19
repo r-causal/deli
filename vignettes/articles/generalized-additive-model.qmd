@@ -78,7 +78,8 @@ strength of the penalty. Stronger penalties move the model closer to the fit
 of a linear model.
 
 For the intercept term, we do not want any splines. For times, we specify
-12 knots and a penalty of 2000. This penalty prevents the GAM from being too
+11 knots and a penalty of 2000, which together with the intercept and linear
+term give 12 parameters. This penalty prevents the GAM from being too
 "wiggly".
 
 ```{r}

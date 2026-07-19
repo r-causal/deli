@@ -274,7 +274,7 @@ cd4_grid <- cd4c_grid * sd(d$cd4_0wk) + mean(d$cd4_0wk)
 # Create spline terms for prediction grid
 cd4_knots <- quantile(d$cd4c_0wk, probs = c(0.05, 0.35, 0.65, 0.95))
 cd4_splines <- deli_spline(cd4c_grid, knots = cd4_knots, power = 2,
-                            restricted = FALSE)
+                            restricted = TRUE)
 
 # Build prediction data frame
 dp <- data.frame(
