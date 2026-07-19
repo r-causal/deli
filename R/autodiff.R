@@ -39,6 +39,14 @@ primal_tangent_vector <- function(elements) {
   # a nuisance parameter) selects several elements, so the single-index shortcut
   # cannot rely on `[[`.
   selected <- x$elements[i]
+  # An out-of-range positive subscript selects a NULL slot rather than erroring
+  # (list `[` semantics), which would silently produce a zero-row Jacobian under
+  # exact differentiation. Reject it with the same base-style message the scalar
+  # surface uses. Negative and logical indices never yield NULL slots, so the
+  # GLM `theta[-p]` idiom still passes.
+  if (any(vapply(selected, is.null, logical(1)))) {
+    stop("subscript out of bounds")
+  }
   if (length(selected) == 1) {
     return(selected[[1]])
   }
