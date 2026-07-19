@@ -414,9 +414,19 @@ pt_summary <- function(generic, args, na.rm) {
   parts <- pt_summary_parts(args)
   ap <- parts$primal
   at <- parts$tangent
+  # Honor na.rm for every reduction, not only sum. Base Summary decides which
+  # elements to drop from the primal, so the same positions are dropped from the
+  # tangent to keep the two slots aligned. Dropping by primal NA also fixes sum,
+  # where the previous independent sum(at, na.rm) could keep a tangent whose
+  # primal had been removed.
+  if (na.rm) {
+    keep <- !is.na(ap)
+    ap <- ap[keep]
+    at <- at[keep]
+  }
   switch(
     generic,
-    "sum" = primal_tangent(sum(ap, na.rm = na.rm), sum(at, na.rm = na.rm)),
+    "sum" = primal_tangent(sum(ap), sum(at)),
     "prod" = {
       # prod(ap[-i]) is the product with the i-th factor left out
       partials <- vapply(

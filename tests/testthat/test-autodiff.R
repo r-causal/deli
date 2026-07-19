@@ -1780,6 +1780,30 @@ test_that("Summary methods reduce a PrimalTangentArray", {
   expect_equal(mn$tangent, 1)
 })
 
+test_that("Summary methods honor na.rm for prod, max, and min", {
+  # A tangent container holding an NA primal element. With na.rm = TRUE the NA
+  # element is dropped from both the primal and the tangent, matching base
+  # Summary semantics on the primal while keeping the tangent aligned.
+  pta <- primal_tangent_array(c(2, NA, 3), c(1, 9, 1))
+
+  p <- prod(pta, na.rm = TRUE)
+  expect_equal(p$primal, 6) # prod(c(2, 3))
+  expect_equal(p$tangent, 3 * 1 + 2 * 1) # sum of prod(x[-i]) * t_i over kept i
+
+  mx <- max(pta, na.rm = TRUE)
+  expect_equal(mx$primal, 3)
+  expect_equal(mx$tangent, 1)
+
+  mn <- min(pta, na.rm = TRUE)
+  expect_equal(mn$primal, 2)
+  expect_equal(mn$tangent, 1)
+
+  # sum stays consistent: the NA element is dropped from both slots.
+  s <- sum(pta, na.rm = TRUE)
+  expect_equal(s$primal, 5)
+  expect_equal(s$tangent, 2)
+})
+
 # ---- tangent-stripping guard in extract_tangent_column ----
 
 test_that("delta_method aborts when the transform strips tangents", {
