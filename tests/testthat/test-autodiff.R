@@ -1257,6 +1257,79 @@ test_that("autodiff differentiates lgamma over a tangent array X %*% theta", {
   expect_equal(exact, analytic, tolerance = 1e-8)
 })
 
+# ---- log with an explicit base (bd-2x8.1) -----------------------------------
+#
+# `log(x, base)` must honor the base under exact autodiff for both the primal and
+# the tangent: the natural-log tangent t / p is scaled by 1 / log(base). Under
+# the bug the base was dropped and log10(x) differentiated as the natural log
+# (0.5 instead of 1 / (2 log(10)) = 0.2171472 at x = 2). All three tangent
+# surfaces are exercised (scalar pair, whole vector, tangent array).
+
+test_that("autodiff differentiates log(x, base) honoring the base", {
+  x0 <- 2
+  f <- function(x) log(x[1], base = 10)
+
+  exact <- auto_differentiation(x0, f)
+  approx <- approx_differentiation(f, x0, method = "capprox")
+
+  analytic <- 1 / (x0 * log(10)) # 0.2171472
+  expect_equal(exact[1, 1], analytic, tolerance = 1e-8)
+  expect_equal(exact[1, 1], approx[1, 1], tolerance = 1e-5)
+})
+
+test_that("autodiff forwards the base through the whole-vector log method", {
+  # The exact repro: log(x, base = 10) on a PrimalTangentVector must forward the
+  # base through Math.PrimalTangentVector rather than dropping it.
+  x0 <- 2
+  f <- function(x) log(x, base = 10)
+
+  exact <- auto_differentiation(x0, f)
+  approx <- approx_differentiation(f, x0, method = "capprox")
+
+  expect_equal(exact[1, 1], 1 / (x0 * log(10)), tolerance = 1e-8)
+  expect_equal(exact[1, 1], approx[1, 1], tolerance = 1e-5)
+})
+
+test_that("autodiff differentiates log(X %*% theta, base) honoring the base", {
+  X <- cbind(1, c(0.2, 0.4, 0.6)) # constant design matrix (data)
+  theta <- c(1.5, 0.8) # eta positive
+
+  f <- function(th) {
+    eta <- X %*% th
+    l <- log(eta, base = 10)
+    c(l[1], l[2], l[3])
+  }
+
+  exact <- auto_differentiation(theta, f)
+  approx <- approx_differentiation(f, theta, method = "capprox")
+
+  eta <- as.numeric(X %*% theta)
+  analytic <- X / (eta * log(10))
+  expect_equal(exact, analytic, tolerance = 1e-8)
+  expect_equal(exact, approx, tolerance = 1e-5)
+})
+
+test_that("log with a base is a direct guard on scalar and array pairs", {
+  pt <- primal_tangent(4, 1)
+  r <- log(pt, base = 2)
+  expect_s3_class(r, "PrimalTangent")
+  expect_equal(r$primal, log(4, 2))
+  expect_equal(r$tangent, 1 / (4 * log(2)))
+
+  pta <- primal_tangent_array(c(2, 8), c(1, 1))
+  ra <- log(pta, 10) # positional base
+  expect_s3_class(ra, "PrimalTangentArray")
+  expect_equal(ra$primal, log(c(2, 8), 10))
+  expect_equal(ra$tangent, c(1, 1) / (c(2, 8) * log(10)))
+})
+
+test_that("log without a base still differentiates as the natural log", {
+  pt <- primal_tangent(3, 1)
+  r <- log(pt)
+  expect_equal(r$primal, log(3))
+  expect_equal(r$tangent, 1 / 3)
+})
+
 test_that("Math on a tangent array reuses the scalar rule (log direct guard)", {
   # Direct guard: log on a 2-by-2 tangent matrix applies t / p elementwise and
   # keeps the array shape, matching the scalar rule element for element.

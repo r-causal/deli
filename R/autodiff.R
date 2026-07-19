@@ -133,12 +133,14 @@ t.PrimalTangent <- function(x) {
 # A PrimalTangentVector is a list of independent scalar pairs, so an elementwise
 # Math member applies per element. Collapsing to parallel primal/tangent vectors
 # and re-dispatching the same generic on the array representation reuses the
-# vectorized array rules and preserves each element's own tangent.
+# vectorized array rules and preserves each element's own tangent. The extra
+# arguments are forwarded so that `log(x, base)` keeps its base rather than
+# dropping it on the way to the array method.
 #' @export
 Math.PrimalTangentVector <- function(x, ...) {
   parts <- pt_arrays(x)
   arr <- primal_tangent_array(parts$primal, parts$tangent)
-  get(.Generic)(arr)
+  get(.Generic)(arr, ...)
 }
 
 # ---- c() method for combining PrimalTangent objects -------------------------
@@ -343,11 +345,26 @@ pt_math_rule <- function(generic, p, t) {
   )
 }
 
+# Resolve a Math group member to its primal/tangent rule, honoring the optional
+# base that R threads through `...` for `log(x, base)`. Every other member is
+# elementwise and delegates to `pt_math_rule`; `log` with a supplied base needs
+# its own rule because the natural-log tangent `t / p` must be scaled by
+# `1 / log(base)` (the primal likewise uses the base). Without this, `log(x, 10)`
+# silently differentiates as the natural log, dropping the base entirely.
+#' @noRd
+pt_math_apply <- function(generic, p, t, dots) {
+  if (generic == "log" && length(dots) > 0) {
+    base <- dots[[1]]
+    return(list(primal = log(p, base), tangent = t / (p * log(base))))
+  }
+  pt_math_rule(generic, p, t)
+}
+
 # ---- Math group generic (exp, log, sqrt, trig, abs, etc.) -------------------
 
 #' @export
 Math.PrimalTangent <- function(x, ...) {
-  rule <- pt_math_rule(.Generic, x$primal, x$tangent)
+  rule <- pt_math_apply(.Generic, x$primal, x$tangent, list(...))
   if (is.null(rule)) {
     stop("Math function ", .Generic, " not supported for PrimalTangent")
   }
@@ -730,7 +747,7 @@ Ops.PrimalTangentVector <- Ops.PrimalTangent
 # rendered cli message.
 #' @export
 Math.PrimalTangentArray <- function(x, ...) {
-  rule <- pt_math_rule(.Generic, x$primal, x$tangent)
+  rule <- pt_math_apply(.Generic, x$primal, x$tangent, list(...))
   if (is.null(rule)) {
     # Bind to a local first: cli rejects an interpolated expression that begins
     # with a dot, so `{.Generic}` cannot be interpolated directly.
