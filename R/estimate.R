@@ -446,6 +446,11 @@ method(estimate, GMMEstimator) <- function(
 
         # Update weight matrix: Q = inverse of meat matrix
         evald_q <- stacked_equations(current_theta)
+        if (is.null(dim(evald_q))) {
+          # Reshape a vector-return psi to 1-by-n so the meat cross-product is
+          # 1-by-1, mirroring the MEstimator path.
+          evald_q <- matrix(evald_q, nrow = 1)
+        }
         meat_q <- compute_meat(evald_q) / n_obs
         if (allow_pinv) {
           weight_matrix <- tryCatch(
@@ -500,6 +505,11 @@ method(estimate, GMMEstimator) <- function(
 
   # STEP 2: Compute sandwich variance
   evald <- stacked_equations(current_theta)
+  if (is.null(dim(evald))) {
+    # Reshape a vector-return psi to 1-by-n so the meat cross-product is
+    # 1-by-1, mirroring the MEstimator path.
+    evald <- matrix(evald, nrow = 1)
+  }
 
   # Bread matrix
   bread <- compute_bread(stacked_equations, current_theta, deriv_method, dx) /

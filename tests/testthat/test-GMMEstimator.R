@@ -444,6 +444,32 @@ test_that("estimate() returns a GMMEstimator object", {
   expect_s3_class(result, "deli::GMMEstimator")
 })
 
+# ---- Vector-return psi (single parameter) ------------------------------------
+#
+# A psi returning a plain vector (no dim attribute) is the valid single-parameter
+# form and already works in MEstimator, which reshapes it to a 1-by-n matrix
+# before forming the meat. The GMM path must apply the same reshape so the meat
+# cross-product is 1-by-1 rather than n-by-n.
+
+test_that("GMMEstimator handles a vector-return psi like MEstimator", {
+  y <- c(1, 2, 3, 4, 5, 6)
+  psi <- function(theta) y - theta[1]
+
+  g <- GMMEstimator(stacked_equations = psi, init = c(0))
+  g <- estimate(g)
+
+  m <- MEstimator(stacked_equations = psi, init = c(0))
+  m <- estimate(m)
+
+  expect_equal(unname(g@theta), mean(y), tolerance = 1e-5)
+  expect_equal(unname(g@theta), unname(m@theta), tolerance = 1e-5)
+  expect_equal(
+    unname(g@variance[1, 1]),
+    unname(m@variance[1, 1]),
+    tolerance = 1e-5
+  )
+})
+
 # ---- Over-identified estimation ----------------------------------------------
 
 test_that("GMMEstimator handles over-identified equations", {
