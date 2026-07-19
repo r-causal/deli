@@ -186,7 +186,7 @@ test_that("estimate() roxygen example runs under deriv_method = 'exact'", {
   }
   m <- MEstimator(stacked_equations = psi, init = c(0))
 
-  expect_no_error(m <- estimate(m, deriv_method = "exact"))
+  m <- expect_no_error(estimate(m, deriv_method = "exact"))
   expect_equal(unname(m@theta), 3)
   # bread of the summed mean EE is 1 (d/dtheta of -sum(y - theta) is n; /n = 1)
   expect_equal(unname(m@bread), matrix(1))

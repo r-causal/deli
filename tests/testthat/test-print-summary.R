@@ -89,7 +89,9 @@ test_that("print() fitted GMMEstimator", {
 
 test_that("print() returns object invisibly", {
   m <- make_fitted_mean()
-  out <- capture.output(result <- print(m))
+  out <- capture.output({
+    result <- print(m)
+  })
   expect_identical(result, m)
 })
 

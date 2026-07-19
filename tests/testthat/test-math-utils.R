@@ -64,9 +64,9 @@ test_that("deli_digamma() handles large values", {
 test_that("deli_digamma() at negative integers returns NaN without warning", {
   # digamma is undefined at non-positive integers; deli_digamma handles
   # this gracefully by returning NaN without triggering a warning
-  expect_no_warning(result0 <- deli_digamma(0))
+  result0 <- expect_no_warning(deli_digamma(0))
   expect_true(is.nan(result0))
-  expect_no_warning(result_neg1 <- deli_digamma(-1))
+  result_neg1 <- expect_no_warning(deli_digamma(-1))
   expect_true(is.nan(result_neg1))
 })
 
@@ -80,16 +80,16 @@ test_that("deli_digamma() at negative integers returns NaN without warning", {
 # distinction and keeping the documented NaN at the poles.
 
 test_that("deli_digamma() propagates a scalar NA or NaN without error", {
-  expect_no_error(r_na <- deli_digamma(NA_real_))
+  r_na <- expect_no_error(deli_digamma(NA_real_))
   expect_true(is.na(r_na))
   expect_false(is.nan(r_na))
 
-  expect_no_error(r_nan <- deli_digamma(NaN))
+  r_nan <- expect_no_error(deli_digamma(NaN))
   expect_true(is.nan(r_nan))
 })
 
 test_that("deli_digamma() propagates NA and NaN elementwise in a vector", {
-  expect_no_error(r <- deli_digamma(c(1, NaN, 2)))
+  r <- expect_no_error(deli_digamma(c(1, NaN, 2)))
   expect_equal(r[1], digamma(1))
   expect_true(is.nan(r[2]))
   expect_equal(r[3], digamma(2))

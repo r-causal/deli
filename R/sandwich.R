@@ -58,7 +58,7 @@ compute_bread <- function(
     )
   }
 
-  if (any(is.na(bread_matrix))) {
+  if (anyNA(bread_matrix)) {
     warning(
       "The bread matrix contains NA values, so it cannot be inverted. ",
       "The variance will not be calculated.",
@@ -101,7 +101,7 @@ compute_meat <- function(evaluations) {
 build_sandwich <- function(bread, meat, allow_pinv = TRUE) {
   # If bread contains NA, return NULL
 
-  if (any(is.na(bread))) {
+  if (anyNA(bread)) {
     return(NULL)
   }
 

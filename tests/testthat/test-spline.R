@@ -241,7 +241,7 @@ test_that("additive_design_matrix with NULL specifications returns X", {
 
 test_that("process_spline_spec fills defaults", {
   spec <- list(knots = c(1, 2, 3))
-  processed <- deli:::process_spline_spec(spec)
+  processed <- process_spline_spec(spec)
 
   expect_equal(processed$natural, TRUE)
   expect_equal(processed$power, 3)
@@ -251,14 +251,14 @@ test_that("process_spline_spec fills defaults", {
 
 test_that("process_spline_spec errors when knots missing", {
   expect_error(
-    deli:::process_spline_spec(list(penalty = 5)),
+    process_spline_spec(list(penalty = 5)),
     "knots"
   )
 })
 
 test_that("process_spline_spec warns on unexpected keys", {
   expect_warning(
-    deli:::process_spline_spec(list(knots = c(1), foo = "bar")),
+    process_spline_spec(list(knots = c(1), foo = "bar")),
     "foo"
   )
 })

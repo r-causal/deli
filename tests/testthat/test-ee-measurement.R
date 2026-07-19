@@ -180,8 +180,8 @@ test_that("ee_rogan_gladen returns finite rows with NA main-study y", {
   r <- ref$r
 
   # The gold-standard y is NA exactly in the main study (r == 1)
-  expect_true(any(is.na(y[r == 1])))
-  expect_false(any(is.na(y[r == 0])))
+  expect_true(anyNA(y[r == 1]))
+  expect_false(anyNA(y[r == 0]))
 
   ef <- ee_rogan_gladen(ref$theta, y = y, y_star = y_star, r = r)
   expect_true(all(is.finite(ef)))
@@ -218,7 +218,7 @@ test_that("ee_rogan_gladen propagates NA outside the masked positions", {
   y[which(r == 0)[1]] <- NA
 
   ef <- ee_rogan_gladen(ref$theta, y = y, y_star = y_star, r = r)
-  expect_true(any(!is.finite(ef)))
+  expect_true(!all(is.finite(ef)))
 })
 
 # ee_rogan_gladen_extended ----
@@ -230,8 +230,8 @@ test_that("ee_rogan_gladen_extended returns finite rows with NA main-study y", {
   r <- ref$r
   X <- ref$X
 
-  expect_true(any(is.na(y[r == 1])))
-  expect_false(any(is.na(y[r == 0])))
+  expect_true(anyNA(y[r == 1]))
+  expect_false(anyNA(y[r == 0]))
 
   ef <- ee_rogan_gladen_extended(
     ref$theta,
@@ -279,7 +279,7 @@ test_that("ee_rogan_gladen_extended propagates NA outside the masked positions",
     r = r,
     X = X
   )
-  expect_true(any(!is.finite(ef)))
+  expect_true(!all(is.finite(ef)))
 })
 
 # ee_regression_calibration ----
@@ -291,8 +291,8 @@ test_that("ee_regression_calibration returns finite rows with NA main-study a", 
   r <- ref$r
 
   # The gold-standard a is NA exactly in the main study (r == 1)
-  expect_true(any(is.na(a[r == 1])))
-  expect_false(any(is.na(a[r == 0])))
+  expect_true(anyNA(a[r == 1]))
+  expect_false(anyNA(a[r == 0]))
 
   # theta = [corrected coef, 2 calibration params, 2 naive-model params]
   theta_calib <- ref$theta[1:3]
@@ -371,5 +371,5 @@ test_that("ee_regression_calibration propagates NA outside the masked positions"
     a_star = a_star,
     r = r
   )
-  expect_true(any(!is.finite(ef)))
+  expect_true(!all(is.finite(ef)))
 })

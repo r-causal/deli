@@ -219,14 +219,14 @@ solve_equations <- function(
   if (method == "rootSolve") {
     # rootSolve's Fortran code prints diagnostic messages to stdout
     # and may emit warnings such as a singular matrix. Suppress both.
-    suppressWarnings(invisible(capture.output(
+    suppressWarnings(invisible(capture.output({
       result <- rootSolve::multiroot(
         f = func,
         start = init,
         maxiter = maxiter,
         atol = tolerance
       )
-    )))
+    })))
     # rootSolve::multiroot reports success even when it makes no progress: at a
     # singular Jacobian it returns the starting values with a non-zero score
     # and no warning. Inspect the score at the returned root and warn when the
