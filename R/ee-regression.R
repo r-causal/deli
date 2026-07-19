@@ -135,8 +135,10 @@ ee_bridge_regression <- function(
   penalty_terms <- bridge_penalty(theta, n, penalty, gamma, center)
 
   # Weight each observation's column so weights scale score and penalty
-  # together; transpose so the length-n weights recycle down the observations
-  t(t(score - penalty_terms) * w)
+  # together. rep(w, each = ncol(X)) lays the length-n weights out column by
+  # column to match the column-major p-by-n matrix, scaling every observation's
+  # column in place rather than routing through two additional transposes.
+  (score - penalty_terms) * rep(w, each = ncol(X))
 }
 
 #' Estimating equation for approximate LASSO regression
@@ -221,8 +223,10 @@ ee_dlasso_regression <- function(
   penalty_terms <- dlasso_penalty(theta, n, penalty, s, center)
 
   # Weight each observation's column so weights scale score and penalty
-  # together; transpose so the length-n weights recycle down the observations
-  t(t(score - penalty_terms) * w)
+  # together. rep(w, each = ncol(X)) lays the length-n weights out column by
+  # column to match the column-major p-by-n matrix, scaling every observation's
+  # column in place rather than routing through two additional transposes.
+  (score - penalty_terms) * rep(w, each = ncol(X))
 }
 
 #' Estimating equation for elastic net regression
@@ -278,8 +282,10 @@ ee_elasticnet_regression <- function(
   penalty_terms <- ratio * penalty_l1 + (1 - ratio) * penalty_l2
 
   # Weight each observation's column so weights scale score and penalty
-  # together; transpose so the length-n weights recycle down the observations
-  t(t(score - penalty_terms) * w)
+  # together. rep(w, each = ncol(X)) lays the length-n weights out column by
+  # column to match the column-major p-by-n matrix, scaling every observation's
+  # column in place rather than routing through two additional transposes.
+  (score - penalty_terms) * rep(w, each = ncol(X))
 }
 
 #' Internal bridge penalty calculation
