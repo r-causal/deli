@@ -376,7 +376,7 @@ test_that("ee_lasso_regression matches Python Delicatessen", {
   }
 
   m <- MEstimator(stacked_equations = psi, init = ref$init)
-  m <- estimate(m)
+  m <- suppressWarnings(estimate(m))
 
   expect_python_match(m, "ee_lasso_regression", tolerance = 1e-5)
 })
@@ -419,7 +419,7 @@ test_that("ee_elasticnet_regression matches Python Delicatessen", {
   }
 
   m <- MEstimator(stacked_equations = psi, init = ref$init)
-  m <- estimate(m)
+  m <- suppressWarnings(estimate(m))
 
   expect_python_match(m, "ee_elasticnet_regression", tolerance = 1e-5)
 })

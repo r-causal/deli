@@ -44,13 +44,13 @@ test_that("ee_lasso_regression returns correct shape", {
   y <- ref$y
   init <- ref$init
 
-  result <- ee_lasso_regression(
+  result <- suppressWarnings(ee_lasso_regression(
     init,
     X = X,
     y = y,
     model = "linear",
     penalty = 0.5
-  )
+  ))
   expect_true(is.matrix(result))
   expect_equal(nrow(result), ncol(X))
   expect_equal(ncol(result), nrow(X))
@@ -65,7 +65,10 @@ test_that("ee_lasso_regression solves via MEstimator", {
   psi <- function(theta) {
     ee_lasso_regression(theta, X = X, y = y, model = "linear", penalty = 0.5)
   }
-  m <- estimate(MEstimator(stacked_equations = psi, init = init))
+  m <- suppressWarnings(estimate(MEstimator(
+    stacked_equations = psi,
+    init = init
+  )))
   expect_true(all(is.finite(m@theta)))
   expect_true(all(diag(m@variance) > 0))
 })
@@ -83,7 +86,9 @@ test_that("ee_lasso_regression with zero penalty matches unpenalized", {
     ee_regression(theta, X = X, y = y, model = "linear")
   }
 
-  m_lasso <- estimate(MEstimator(stacked_equations = psi_lasso, init = init))
+  m_lasso <- suppressWarnings(
+    estimate(MEstimator(stacked_equations = psi_lasso, init = init))
+  )
   m_linear <- estimate(MEstimator(stacked_equations = psi_linear, init = init))
 
   expect_equal(m_lasso@theta, m_linear@theta, tolerance = 1e-4)
@@ -125,14 +130,14 @@ test_that("ee_elasticnet_regression returns correct shape", {
   y <- ref$y
   init <- ref$init
 
-  result <- ee_elasticnet_regression(
+  result <- suppressWarnings(ee_elasticnet_regression(
     init,
     X = X,
     y = y,
     model = "linear",
     penalty = 0.5,
     ratio = 0.5
-  )
+  ))
   expect_true(is.matrix(result))
   expect_equal(nrow(result), ncol(X))
 })
@@ -164,7 +169,9 @@ test_that("ee_elasticnet_regression with ratio=0 matches ridge", {
     )
   }
 
-  m_en <- estimate(MEstimator(stacked_equations = psi_en, init = init))
+  m_en <- suppressWarnings(
+    estimate(MEstimator(stacked_equations = psi_en, init = init))
+  )
   m_ridge <- estimate(MEstimator(stacked_equations = psi_ridge, init = init))
 
   expect_equal(m_en@theta, m_ridge@theta, tolerance = 1e-4)
@@ -470,8 +477,12 @@ test_that("stronger penalty shrinks coefficients more", {
     ee_lasso_regression(theta, X = X, y = y, model = "linear", penalty = 10)
   }
 
-  m_low <- estimate(MEstimator(stacked_equations = psi_low, init = init))
-  m_high <- estimate(MEstimator(stacked_equations = psi_high, init = init))
+  m_low <- suppressWarnings(
+    estimate(MEstimator(stacked_equations = psi_low, init = init))
+  )
+  m_high <- suppressWarnings(
+    estimate(MEstimator(stacked_equations = psi_high, init = init))
+  )
 
   # Higher penalty should shrink coefficients more (smaller L2 norm)
   expect_true(
