@@ -32,7 +32,7 @@ deli is an R port of the Python
 
 ## Installation
 
-```{r eval = FALSE}
+```{r eval=FALSE}
 # Install from GitHub (development version)
 # pak::pak("r-causal/deli")
 ```

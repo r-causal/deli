@@ -22,7 +22,7 @@ import sys
 
 import numpy as np
 
-sys.path.insert(0, "/Users/malcolmbarrett/core/active/reference/Delicatessen")
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..'))
 
 from delicatessen import MEstimator
 from delicatessen.estimating_equations import ee_rogan_gladen_extended
