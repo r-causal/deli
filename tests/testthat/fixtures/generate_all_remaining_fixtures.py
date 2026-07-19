@@ -303,11 +303,11 @@ def generate_2sls_fixture():
 def generate_mean_sensitivity_analysis_fixture():
     """Generate fixture for ee_mean_sensitivity_analysis.
 
-    SKIPPED: This function requires a callable H_function argument which
-    cannot be serialized to JSON for use in R fixtures. The R implementation
-    would need to independently define this function, making a direct
-    comparison fixture less useful. Additionally, this EE involves missing
-    data patterns that add complexity.
+    The H_function argument is a callable and cannot be serialized to JSON, so
+    it is recorded by name ('inverse_logit') in the fixture and re-supplied on
+    the R side when the fixture is consumed (see test-python-fixtures.R). The
+    remaining data, including the missing-data indicator, is serialized as
+    usual.
     """
     print('Generating ee_mean_sensitivity_analysis fixture...')
 
