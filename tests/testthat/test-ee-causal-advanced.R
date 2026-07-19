@@ -898,3 +898,84 @@ test_that("ee_mean_sensitivity_analysis with binary outcome works", {
   expect_true(m@theta[1] > 0 && m@theta[1] < 1)
   expect_true(all(diag(m@variance) > 0))
 })
+
+# Input validation (batch F) --------------------------------------------------
+
+test_that("ee_iv_causal rejects weights of the wrong length", {
+  set.seed(3)
+  n <- 40
+  Z <- rbinom(n, 1, 0.5)
+  A <- rbinom(n, 1, 0.3 + 0.4 * Z)
+  Y <- rnorm(n, mean = 1 + 0.5 * A)
+
+  expect_error(
+    ee_iv_causal(
+      c(0.5, 0.5),
+      y = Y,
+      A = A,
+      Z = Z,
+      weights = rep(1, n / 2)
+    ),
+    "same length as the data"
+  )
+})
+
+test_that("ee_ipw_msm rejects weights of the wrong length", {
+  d <- make_causal_data_advanced(n = 40)
+  c_params <- ncol(d$Vmsm)
+  b_params <- ncol(d$Wmat)
+  theta <- rep(0, c_params + b_params)
+
+  expect_error(
+    ee_ipw_msm(
+      theta,
+      y = d$Y,
+      A = d$A,
+      W = d$Wmat,
+      V = d$Vmsm,
+      distribution = "normal",
+      link = "identity",
+      weights = rep(1, d$n / 2)
+    ),
+    "same length as the data"
+  )
+})
+
+test_that("ee_mean_sensitivity_analysis rejects a short q_eval", {
+  ref <- load_fixture("ee_mean_sensitivity_analysis")
+  y <- ref$y
+  delta <- ref$delta
+  X <- ref$X
+  half <- seq_len(length(y) / 2)
+
+  expect_error(
+    ee_mean_sensitivity_analysis(
+      ref$init,
+      y = y,
+      delta = delta,
+      X = X,
+      q_eval = ref$q_eval[half],
+      H_function = inverse_logit
+    ),
+    "same length as the data"
+  )
+})
+
+test_that("ee_mean_sensitivity_analysis rejects a short delta", {
+  ref <- load_fixture("ee_mean_sensitivity_analysis")
+  y <- ref$y
+  X <- ref$X
+  half <- seq_len(length(y) / 2)
+
+  expect_error(
+    ee_mean_sensitivity_analysis(
+      ref$init,
+      y = y,
+      delta = ref$delta[half],
+      X = X,
+      q_eval = ref$q_eval,
+      H_function = inverse_logit
+    ),
+    "same length as the data"
+  )
+})

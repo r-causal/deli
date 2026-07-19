@@ -323,3 +323,99 @@ test_that("gformula, ipw, and aipw estimate ATEs in same direction", {
 
   expect_true(all(is.finite(ates)))
 })
+
+# Input validation (batch F) --------------------------------------------------
+
+test_that("ee_ipw rejects weights of the wrong length", {
+  d <- make_causal_data(n = 40)
+  b <- ncol(d$Wmat)
+  theta <- rep(0.1, 3 + b)
+
+  expect_error(
+    ee_ipw(
+      theta,
+      y = d$Y,
+      A = d$A,
+      W = d$Wmat,
+      weights = rep(1, d$n / 2)
+    ),
+    "same length as the data"
+  )
+})
+
+test_that("ee_aipw rejects an X1 whose dimensions differ from X", {
+  d <- make_causal_data(n = 40)
+  b <- ncol(d$Wmat)
+  cc <- ncol(d$X)
+  theta <- rep(0.1, 3 + b + cc)
+  half <- seq_len(d$n / 2)
+
+  expect_error(
+    ee_aipw(
+      theta,
+      y = d$Y,
+      A = d$A,
+      W = d$Wmat,
+      X = d$X,
+      X1 = d$X1[half, , drop = FALSE],
+      X0 = d$X0
+    ),
+    "dimensions of"
+  )
+})
+
+test_that("ee_aipw rejects an X0 whose dimensions differ from X", {
+  d <- make_causal_data(n = 40)
+  b <- ncol(d$Wmat)
+  cc <- ncol(d$X)
+  theta <- rep(0.1, 3 + b + cc)
+  half <- seq_len(d$n / 2)
+
+  expect_error(
+    ee_aipw(
+      theta,
+      y = d$Y,
+      A = d$A,
+      W = d$Wmat,
+      X = d$X,
+      X1 = d$X1,
+      X0 = d$X0[half, , drop = FALSE]
+    ),
+    "dimensions of"
+  )
+})
+
+test_that("ee_gformula rejects an X1 whose dimensions differ from X", {
+  d <- make_causal_data(n = 40)
+  p <- ncol(d$X)
+  theta <- rep(0, 1 + p)
+  half <- seq_len(d$n / 2)
+
+  expect_error(
+    ee_gformula(
+      theta,
+      y = d$Y,
+      X = d$X,
+      X1 = d$X1[half, , drop = FALSE]
+    ),
+    "dimensions of"
+  )
+})
+
+test_that("ee_gformula rejects an X0 whose dimensions differ from X", {
+  d <- make_causal_data(n = 40)
+  p <- ncol(d$X)
+  theta <- rep(0, 3 + p)
+  half <- seq_len(d$n / 2)
+
+  expect_error(
+    ee_gformula(
+      theta,
+      y = d$Y,
+      X = d$X,
+      X1 = d$X1,
+      X0 = d$X0[half, , drop = FALSE]
+    ),
+    "dimensions of"
+  )
+})

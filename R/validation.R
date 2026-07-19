@@ -64,6 +64,29 @@ check_data_length <- function(x, n, arg) {
   invisible(NULL)
 }
 
+#' Check that two design matrices have identical dimensions
+#'
+#' Validates that a counterfactual or plan design matrix has the same dimensions
+#' as the observed design matrix, mirroring the explicit shape checks Python
+#' Delicatessen performs in the causal estimating equations before any
+#' arithmetic can silently recycle.
+#'
+#' @param x The reference design matrix.
+#' @param y The design matrix to compare against `x`.
+#' @param x_arg The reference argument name, used in the error message.
+#' @param y_arg The compared argument name, used in the error message.
+#'
+#' @return Invisible `NULL`. Raises an error if the dimensions differ.
+#' @keywords internal
+check_design_dims_match <- function(x, y, x_arg, y_arg) {
+  if (!identical(dim(x), dim(y))) {
+    cli::cli_abort(
+      "The dimensions of {.arg {x_arg}} and {.arg {y_arg}} must be the same."
+    )
+  }
+  invisible(NULL)
+}
+
 #' Check that a LASSO approximation epsilon is non-negative
 #'
 #' Validates the `epsilon` argument of the approximate LASSO estimating

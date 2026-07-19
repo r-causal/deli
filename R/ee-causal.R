@@ -25,8 +25,13 @@ ee_gformula <- function(theta, y, X, X1, X0 = NULL, force_continuous = FALSE) {
   X1 <- as.matrix(X1)
   n <- nrow(X)
 
+  # Reject misaligned plan designs with a clear message rather than the opaque
+  # error the downstream rbind would raise, matching Python's up-front checks.
+  check_design_dims_match(X, X1, "X", "X1")
+
   if (!is.null(X0)) {
     X0 <- as.matrix(X0)
+    check_design_dims_match(X, X0, "X", "X0")
   }
 
   # Determine model type based on outcome
@@ -123,7 +128,7 @@ ee_ipw <- function(theta, y, A, W, truncate = NULL, weights = NULL) {
   }
 
   # External weights
-  w <- if (is.null(weights)) rep(1, n) else as.numeric(weights)
+  w <- generate_weights(n, weights)
 
   # Y(a=1): weighted outcome among treated
 
@@ -185,6 +190,11 @@ ee_aipw <- function(
   X1 <- as.matrix(X1)
   X0 <- as.matrix(X0)
   n <- length(y)
+
+  # Misaligned counterfactual designs would otherwise recycle silently into the
+  # potential-outcome rows, so reject them up front as Python does.
+  check_design_dims_match(X, X1, "X", "X1")
+  check_design_dims_match(X, X0, "X", "X0")
 
   b <- ncol(W)
 
@@ -320,7 +330,7 @@ ee_ipw_msm <- function(
 
   # Apply external weights if provided
   if (!is.null(weights)) {
-    ipw <- ipw * as.numeric(weights)
+    ipw <- ipw * generate_weights(n, weights)
   }
 
   # Marginal structural model via weighted GLM
@@ -386,7 +396,7 @@ ee_gestimation_snmm <- function(
   qdiv <- pdiv + ncol(W) # End of PS model parameters
 
   # Process weights
-  w <- if (is.null(weights)) rep(1, n) else as.numeric(weights)
+  w <- generate_weights(n, weights)
 
   # Extract parameter subsets
   phi <- theta[1:pdiv] # SMM parameters
@@ -479,7 +489,7 @@ ee_iv_causal <- function(theta, y, A, Z, weights = NULL) {
   n <- length(y)
 
   # Process weights
-  w <- if (is.null(weights)) rep(1, n) else as.numeric(weights)
+  w <- generate_weights(n, weights)
 
   # Usual IV estimating equations
   # theta[1] = causal effect (beta)
@@ -609,6 +619,12 @@ ee_mean_sensitivity_analysis <- function(
   beta <- theta[-1] # Nuisance parameters
 
   n <- length(y)
+
+  # q_eval and delta are per-observation data, never tangent containers, so a
+  # short vector would recycle into the mean and nuisance rows. Reject it as
+  # Python's broadcast check does.
+  check_data_length(qy, n, "q_eval")
+  check_data_length(delta, n, "delta")
 
   # Predicted values from design matrix and nuisance coefficients
   pred_values <- pt_as_vector(X %*% beta) # Linear predictor
