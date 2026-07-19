@@ -7,7 +7,10 @@
 #'
 #' @param stacked_equations A formula or a function. When a formula, `data` and
 #'   `.ee` must also be provided. When a function, it should take a numeric
-#'   vector `theta` and return a p-by-n matrix.
+#'   vector `theta` and return a p-by-n matrix. A two-level factor or character
+#'   response is converted to a 0/1 indicator against its first level; an
+#'   `offset()` term in the formula is passed to `.ee` through its `offset`
+#'   argument.
 #' @param data A data frame (required when `stacked_equations` is a formula).
 #' @param .ee An estimating equation function that accepts `theta`, `X`, and
 #'   the response as its third argument, plus optionally additional arguments
@@ -16,7 +19,10 @@
 #'   argument (`y` for [ee_regression] or [ee_glm], `time` for [ee_aft]).
 #' @param ... Additional arguments passed to `.ee`. When using the formula
 #'   interface, these are evaluated with tidy evaluation in the context of
-#'   `data`, so column names can be used directly (e.g., `event = status`).
+#'   `data`, so column names can be used directly (e.g., `event = status`). If
+#'   the model frame drops rows for missing data, any such argument that spans
+#'   the full data is subset to the same rows so it stays aligned with the
+#'   design matrix and response.
 #' @param init Numeric vector of initial parameter values. When `NULL`
 #'   (default) and using the formula interface, a zero vector with names from
 #'   the model matrix columns is generated automatically.
@@ -80,31 +86,17 @@ m_estimate.formula <- function(
   dx = 1e-9,
   allow_pinv = TRUE
 ) {
-  formula <- stacked_equations
-
-  # Build model frame and extract X, y
-  mf <- stats::model.frame(formula, data = data)
-  y <- stats::model.response(mf)
-  X <- stats::model.matrix(formula, data = mf)
-
-  # Evaluate ... with tidy evaluation in data context
-  dots <- rlang::enquos(...)
-  ee_args <- lapply(dots, function(q) rlang::eval_tidy(q, data = data))
-
-  # Auto-generate init from model matrix if not provided
-  if (is.null(init)) {
-    init <- stats::setNames(rep(0, ncol(X)), colnames(X))
-  }
-
-  # Create the stacked_equations closure. The response is passed positionally
-  # so it fills the first argument not named theta or X (`y`, `time`, ...).
-  psi <- function(theta) {
-    do.call(.ee, c(list(theta = theta, X = X), list(y), ee_args))
-  }
+  prep <- prepare_formula_psi(
+    stacked_equations,
+    data = data,
+    .ee = .ee,
+    dots = rlang::enquos(...),
+    init = init
+  )
 
   obj <- MEstimator(
-    stacked_equations = psi,
-    init = init,
+    stacked_equations = prep$psi,
+    init = prep$init,
     subset = subset,
     finite_correction = finite_correction
   )
@@ -196,31 +188,18 @@ gmm_estimate.formula <- function(
   overid_maxiter = 10L,
   overid_tolerance = 1e-9
 ) {
-  formula <- stacked_equations
-
-  # Build model frame and extract X, y
-  mf <- stats::model.frame(formula, data = data)
-  y <- stats::model.response(mf)
-  X <- stats::model.matrix(formula, data = mf)
-
-  # Evaluate ... with tidy evaluation in data context
-  dots <- rlang::enquos(...)
-  ee_args <- lapply(dots, function(q) rlang::eval_tidy(q, data = data))
-
-  # Auto-generate init from model matrix if not provided
-  if (is.null(init)) {
-    init <- stats::setNames(rep(0, ncol(X)), colnames(X))
-  }
-
-  # Create the stacked_equations closure. The response is passed positionally
-  # so it fills the first argument not named theta or X (`y`, `time`, ...).
-  psi <- function(theta) {
-    do.call(.ee, c(list(theta = theta, X = X), list(y), ee_args))
-  }
+  prep <- prepare_formula_psi(
+    stacked_equations,
+    data = data,
+    .ee = .ee,
+    dots = rlang::enquos(...),
+    init = init,
+    allow_over_identification = TRUE
+  )
 
   obj <- GMMEstimator(
-    stacked_equations = psi,
-    init = init,
+    stacked_equations = prep$psi,
+    init = prep$init,
     subset = subset,
     finite_correction = finite_correction,
     overid_maxiter = overid_maxiter,
@@ -271,4 +250,129 @@ gmm_estimate.default <- function(
     dx = dx,
     allow_pinv = allow_pinv
   )
+}
+
+#' Build the estimating-function closure for the formula interface
+#'
+#' Shared by [m_estimate.formula()] and [gmm_estimate.formula()]. Constructs the
+#' model frame, coerces the response for the regression contract, aligns
+#' dots-supplied arguments with the NA-filtered model frame, honors an
+#' `offset()` term, auto-generates `init` when absent, and returns the closure
+#' plus the resolved `init`.
+#'
+#' @param formula The model formula.
+#' @param data The data frame.
+#' @param .ee The estimating-equation function.
+#' @param dots A list of quosures captured from `...`.
+#' @param init The user-supplied `init`, or `NULL` to auto-generate it.
+#' @param allow_over_identification Logical, passed to the auto-init check.
+#'
+#' @return A list with `psi` (the closure) and `init` (the resolved vector).
+#' @noRd
+prepare_formula_psi <- function(
+  formula,
+  data,
+  .ee,
+  dots,
+  init,
+  allow_over_identification = FALSE
+) {
+  mf <- stats::model.frame(formula, data = data)
+  y <- coerce_formula_response(stats::model.response(mf))
+  X <- stats::model.matrix(formula, data = mf)
+
+  # Evaluate ... with tidy evaluation in data context.
+  ee_args <- lapply(dots, function(q) rlang::eval_tidy(q, data = data))
+
+  # model.frame() may drop rows with missing data. Any dots-supplied argument
+  # evaluated against the original data still spans every row, so drop the same
+  # rows to keep it aligned with X and y.
+  omit <- attr(mf, "na.action")
+  if (!is.null(omit)) {
+    ee_args <- lapply(ee_args, align_omitted_rows, omit = omit, n = nrow(data))
+  }
+
+  # An offset() term reaches the estimating equation through its offset
+  # argument; model.matrix() drops the term from the design.
+  formula_offset <- stats::model.offset(mf)
+  if (!is.null(formula_offset)) {
+    if ("offset" %in% names(ee_args)) {
+      cli::cli_abort(c(
+        "An offset was supplied both in the formula and through {.arg ...}.",
+        "i" = "Provide the offset in only one place."
+      ))
+    }
+    ee_args$offset <- formula_offset
+  }
+
+  init_auto <- is.null(init)
+  if (init_auto) {
+    init <- stats::setNames(rep(0, ncol(X)), colnames(X))
+  }
+
+  # The response is passed positionally so it fills the first argument not named
+  # theta or X (`y`, `time`, ...).
+  psi <- function(theta) {
+    do.call(.ee, c(list(theta = theta, X = X), list(y), ee_args))
+  }
+
+  if (init_auto) {
+    check_formula_auto_init(psi, init, allow_over_identification)
+  }
+
+  list(psi = psi, init = init)
+}
+
+#' Coerce a formula response for the regression contract
+#'
+#' Character responses become factors, and two-level factors become a 0/1
+#' indicator against the first level (the GLM contract). Responses with a
+#' different number of levels are rejected, since the formula interface has no
+#' way to encode them.
+#'
+#' @param y The response extracted with [stats::model.response()].
+#'
+#' @return A numeric or logical response vector.
+#' @noRd
+coerce_formula_response <- function(y) {
+  if (is.character(y)) {
+    y <- factor(y)
+  }
+  if (is.factor(y)) {
+    if (nlevels(y) != 2L) {
+      cli::cli_abort(c(
+        "The formula interface requires a numeric, logical, or two-level
+         factor response.",
+        "i" = "The response has {nlevels(y)} level{?s}.",
+        "i" = "Multinomial models ({.fn ee_mlogit}) take an indicator-matrix
+               response through the function interface."
+      ))
+    }
+    y <- as.numeric(y != levels(y)[1])
+  }
+  y
+}
+
+#' Drop NA-omitted rows from a dots-supplied argument
+#'
+#' Removes the rows recorded in a model frame's `na.action` attribute from any
+#' argument that still spans the original data, leaving arguments of other
+#' lengths untouched for downstream validation to catch.
+#'
+#' @param a A dots-supplied argument (vector or matrix).
+#' @param omit The `na.action` attribute of the model frame.
+#' @param n The number of rows in the original data.
+#'
+#' @return The argument with omitted rows removed when it spanned the data.
+#' @noRd
+align_omitted_rows <- function(a, omit, n) {
+  if (NROW(a) != n) {
+    return(a)
+  }
+  drop <- as.integer(omit)
+  if (is.null(dim(a))) {
+    a[-drop]
+  } else {
+    a[-drop, , drop = FALSE]
+  }
 }

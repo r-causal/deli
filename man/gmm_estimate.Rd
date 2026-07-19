@@ -45,11 +45,17 @@ gmm_estimate(stacked_equations, ...)
 \arguments{
 \item{stacked_equations}{A formula or a function. When a formula, \code{data} and
 \code{.ee} must also be provided. When a function, it should take a numeric
-vector \code{theta} and return a p-by-n matrix.}
+vector \code{theta} and return a p-by-n matrix. A two-level factor or character
+response is converted to a 0/1 indicator against its first level; an
+\code{offset()} term in the formula is passed to \code{.ee} through its \code{offset}
+argument.}
 
 \item{...}{Additional arguments passed to \code{.ee}. When using the formula
 interface, these are evaluated with tidy evaluation in the context of
-\code{data}, so column names can be used directly (e.g., \code{event = status}).}
+\code{data}, so column names can be used directly (e.g., \code{event = status}). If
+the model frame drops rows for missing data, any such argument that spans
+the full data is subset to the same rows so it stays aligned with the
+design matrix and response.}
 
 \item{data}{A data frame (required when \code{stacked_equations} is a formula).}
 

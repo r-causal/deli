@@ -229,6 +229,55 @@ check_psi_at_init <- function(vals, init, allow_over_identification = FALSE) {
   invisible(NULL)
 }
 
+#' Check an auto-generated formula-interface init against the estimating function
+#'
+#' The formula interface builds `init` as a zero vector with one entry per
+#' model-matrix column. Some estimating equations append parameters beyond the
+#' regression coefficients (for example [ee_glm()] with `"gamma"` or
+#' `"negative_binomial"`, which add a scale or dispersion parameter), so the
+#' automatic `init` is too short and the estimating function fails deep in the
+#' solver with an opaque message. This evaluates the estimating function once at
+#' the automatic `init` and reports the length mismatch before solving.
+#'
+#' @param psi The estimating-function closure built by the formula interface.
+#' @param init The automatically generated initial parameter vector.
+#' @param allow_over_identification Logical. When `TRUE` (the GMM case), the
+#'   estimating function may return more equations than parameters, so only a
+#'   shortfall is rejected. Default `FALSE`.
+#'
+#' @return Invisible `NULL`. Raises an error if the automatic `init` does not fit
+#'   the estimating function.
+#' @keywords internal
+check_formula_auto_init <- function(
+  psi,
+  init,
+  allow_over_identification = FALSE
+) {
+  vals <- tryCatch(psi(init), error = function(cnd) cnd)
+  errored <- rlang::is_condition(vals)
+  n_params <- length(init)
+  mismatch <- if (errored) {
+    TRUE
+  } else {
+    n_eqs <- nrow(as.matrix(vals))
+    if (allow_over_identification) n_eqs < n_params else n_eqs != n_params
+  }
+  if (mismatch) {
+    cli::cli_abort(
+      c(
+        "The automatic zero {.arg init} has length {n_params}, the number of
+         model-matrix columns, which does not fit the estimating function.",
+        "i" = "Estimating equations such as {.fn ee_glm} with {.val gamma} or
+               {.val negative_binomial} append an extra parameter and need an
+               {.arg init} one longer than the coefficients.",
+        "i" = "Supply an explicit {.arg init} of the correct length."
+      ),
+      parent = if (errored) vals else NULL
+    )
+  }
+  invisible(NULL)
+}
+
 #' Check the return of a custom solver
 #'
 #' Validates that a user-supplied solver returned a numeric vector of the
