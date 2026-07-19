@@ -184,9 +184,9 @@ ee_survival_model <- function(theta, time, event, distribution) {
 #' logistic regression with discrete-time survival data. This implementation
 #' does not require creation of a long data set.
 #'
-#' @param theta Numeric vector of length `b + K`, where `b` is the number
-#'   of covariate columns in `X` and `K` is the number of time parameters
-#'   determined by the time design matrix.
+#' @param theta Numeric vector of length `b + p_s`, where `b` is the number
+#'   of covariate columns in `X`. When `S` is supplied, `p_s` is `ncol(S)`;
+#'   when `S = NULL`, `p_s` is `K`, the number of unique event times.
 #' @param X Numeric n-by-b design matrix for baseline covariates.
 #' @param time Numeric vector of n observed (possibly censored) times.
 #' @param event Numeric vector of n event indicators (1 = event, 0 = censored).
@@ -200,7 +200,7 @@ ee_survival_model <- function(theta, time, event, distribution) {
 #'   number of unit-time intervals). Default `NULL`.
 #' @param offset Optional numeric vector of n offsets. Default `NULL`.
 #'
-#' @returns A p-by-n matrix where p = b + K.
+#' @returns A `(b + p_s)`-by-n matrix.
 #'
 #' @export
 ee_plogit <- function(

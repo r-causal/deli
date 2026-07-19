@@ -118,8 +118,10 @@ ee_rogan_gladen_extended <- function(theta, y, y_star, r, X, weights = NULL) {
 #' Corrects for measurement error in a binary predictor using external
 #' validation data. Scales the naive coefficient by the calibration factor.
 #'
-#' @param theta Numeric vector of length `2 + p`: corrected coefficient,
-#'   then `p` calibration model parameters.
+#' @param theta Numeric vector: the corrected coefficient first, then the
+#'   calibration coefficients for the design `cbind(a_star, X)` (the `a_star`
+#'   coefficient first). Length `2 + ncol(X)` when `X` is supplied, or length
+#'   `3` when `X = NULL` (an intercept-only calibration model).
 #' @param beta Numeric scalar. External estimate of the coefficient for the
 #'   mismeasured predictor on the outcome.
 #' @param a Numeric vector of gold-standard action measurements (validation
@@ -130,7 +132,8 @@ ee_rogan_gladen_extended <- function(theta, y, y_star, r, X, weights = NULL) {
 #'   uses intercept only.
 #' @param weights Optional numeric vector of n weights. Default `NULL`.
 #'
-#' @returns A `(2+p)`-by-n matrix.
+#' @returns A `length(theta)`-by-n matrix (`2 + ncol(X)` rows, or `3` rows
+#'   when `X = NULL`).
 #'
 #' @export
 ee_regression_calibration <- function(

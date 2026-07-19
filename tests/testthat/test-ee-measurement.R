@@ -141,6 +141,30 @@ test_that("ee_regression_calibration returns correct shape", {
   expect_equal(ncol(result), n)
 })
 
+test_that("ee_regression_calibration returns 2 + ncol(X) rows with a calibration X", {
+  set.seed(43)
+  n <- 100
+  r <- c(rep(0, 40), rep(1, 60))
+  a_true <- rbinom(n, 1, 0.5)
+  a_star <- ifelse(a_true == 1, rbinom(n, 1, 0.9), rbinom(n, 1, 0.1))
+  a <- ifelse(r == 0, a_true, 0)
+  X <- cbind(1, rnorm(n))
+
+  # corrected coefficient, then the calibration coefficients for
+  # cbind(a_star, X): 1 + ncol(X) of them, so length 2 + ncol(X).
+  theta <- rep(0, 2 + ncol(X))
+  result <- ee_regression_calibration(
+    theta,
+    beta = 0.5,
+    a = a,
+    a_star = a_star,
+    r = r,
+    X = X
+  )
+  expect_equal(nrow(result), 2 + ncol(X))
+  expect_equal(ncol(result), n)
+})
+
 test_that("ee_regression_calibration solves via MEstimator", {
   set.seed(789)
   n <- 500

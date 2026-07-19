@@ -5,7 +5,7 @@
 \alias{collett_bladder}
 \title{Collett bladder cancer recurrence data}
 \format{
-A data frame with 85 rows and 6 columns:
+A data frame with 86 rows and 6 columns:
 \describe{
 \item{patient}{Patient ID}
 \item{time}{Follow-up time}

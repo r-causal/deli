@@ -312,6 +312,39 @@ test_that("ee_plogit returns correct shape with custom S", {
   expect_equal(ncol(result), n)
 })
 
+test_that("ee_plogit theta length and row count follow ncol(S), not nrow(S)", {
+  set.seed(7)
+  n <- 60
+  X <- cbind(rnorm(n), rnorm(n))
+  y <- sample(1:6, n, replace = TRUE)
+  delta <- rbinom(n, 1, 0.6)
+
+  b <- ncol(X)
+  # A deliberately non-square time design: 6 rows (one per unit-time interval),
+  # 3 columns (intercept, linear, quadratic time).
+  t_steps <- seq_len(max(y))
+  S_mat <- cbind(1, t_steps, t_steps^2)
+  expect_false(nrow(S_mat) == ncol(S_mat))
+
+  # theta has length b + ncol(S), and the psi has that many rows.
+  theta <- rep(0, b + ncol(S_mat))
+  result <- ee_plogit(theta, X = X, time = y, event = delta, S = S_mat)
+  expect_equal(nrow(result), b + ncol(S_mat))
+  expect_equal(ncol(result), n)
+
+  # A theta sized to the number of rows of S (the doc-implied b + K) is not
+  # conformable with S %*% beta_s and must error rather than silently run.
+  expect_error(
+    ee_plogit(
+      rep(0, b + nrow(S_mat)),
+      X = X,
+      time = y,
+      event = delta,
+      S = S_mat
+    )
+  )
+})
+
 # ---- ee_plogit solve tests ----
 
 test_that("ee_plogit solves with disjoint indicators via MEstimator", {

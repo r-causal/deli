@@ -133,6 +133,19 @@ test_that("spline with single knot and normalized works", {
   expect_equal(result[2, 1], 1)
 })
 
+test_that("single-knot normalization divides by knot^power", {
+  # With a single knot the range of knots is zero, so the normalization
+  # divisor is knots^power (here 2^2 = 4) rather than the range.
+  result <- deli_spline(
+    c(1, 3, 5),
+    knots = 2,
+    power = 2,
+    restricted = FALSE,
+    normalized = TRUE
+  )
+  expect_equal(result[, 1], c(0, 0.25, 2.25))
+})
+
 test_that("spline handles NA values", {
   x <- c(1, NA, 3)
   knots <- c(2)

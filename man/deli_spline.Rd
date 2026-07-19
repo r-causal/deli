@@ -17,8 +17,10 @@ min and max of \code{x}.}
 \item{restricted}{Logical. If \code{TRUE} (default), generate restricted
 (natural) splines. If \code{FALSE}, generate unrestricted splines.}
 
-\item{normalized}{Logical. If \code{TRUE}, divide spline terms by the range
-of knots raised to \code{power}. Default \code{FALSE}.}
+\item{normalized}{Logical. If \code{TRUE}, divide spline terms by the range of
+knots (largest minus smallest) raised to \code{power}. With a single knot the
+range is zero, so the divisor is that knot raised to \code{power} instead.
+Default \code{FALSE}.}
 }
 \value{
 A matrix with \code{length(x)} rows. Number of columns is

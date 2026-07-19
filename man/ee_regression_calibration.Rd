@@ -7,8 +7,10 @@
 ee_regression_calibration(theta, beta, a, a_star, r, X = NULL, weights = NULL)
 }
 \arguments{
-\item{theta}{Numeric vector of length \code{2 + p}: corrected coefficient,
-then \code{p} calibration model parameters.}
+\item{theta}{Numeric vector: the corrected coefficient first, then the
+calibration coefficients for the design \code{cbind(a_star, X)} (the \code{a_star}
+coefficient first). Length \code{2 + ncol(X)} when \code{X} is supplied, or length
+\code{3} when \code{X = NULL} (an intercept-only calibration model).}
 
 \item{beta}{Numeric scalar. External estimate of the coefficient for the
 mismeasured predictor on the outcome.}
@@ -26,7 +28,8 @@ uses intercept only.}
 \item{weights}{Optional numeric vector of n weights. Default \code{NULL}.}
 }
 \value{
-A \code{(2+p)}-by-n matrix.
+A \code{length(theta)}-by-n matrix (\code{2 + ncol(X)} rows, or \code{3} rows
+when \code{X = NULL}).
 }
 \description{
 Corrects for measurement error in a binary predictor using external

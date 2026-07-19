@@ -16,9 +16,9 @@ ee_plogit(
 )
 }
 \arguments{
-\item{theta}{Numeric vector of length \code{b + K}, where \code{b} is the number
-of covariate columns in \code{X} and \code{K} is the number of time parameters
-determined by the time design matrix.}
+\item{theta}{Numeric vector of length \code{b + p_s}, where \code{b} is the number
+of covariate columns in \code{X}. When \code{S} is supplied, \code{p_s} is \code{ncol(S)};
+when \code{S = NULL}, \code{p_s} is \code{K}, the number of unique event times.}
 
 \item{X}{Numeric n-by-b design matrix for baseline covariates.}
 
@@ -40,7 +40,7 @@ number of unit-time intervals). Default \code{NULL}.}
 \item{offset}{Optional numeric vector of n offsets. Default \code{NULL}.}
 }
 \value{
-A p-by-n matrix where p = b + K.
+A \code{(b + p_s)}-by-n matrix.
 }
 \description{
 Returns a p-by-n matrix of estimating equation contributions for pooled

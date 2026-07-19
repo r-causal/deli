@@ -262,17 +262,17 @@ test_that("check_survival_data_valid rejects delta with invalid values even when
 test_that("check_survival_data_valid rejects non-positive times", {
   expect_error(
     check_survival_data_valid(delta = c(0, 1, 1), time = c(0, 2, 3)),
-    "times.*non-negative"
+    "times.*positive"
   )
   expect_error(
     check_survival_data_valid(delta = c(0, 1, 1), time = c(-1, 2, 3)),
-    "times.*non-negative"
+    "times.*positive"
   )
 })
 
 test_that("check_survival_data_valid rejects non-positive times even when NAs present", {
   expect_error(
     check_survival_data_valid(delta = c(0, 1, 1), time = c(NA, -1, 3)),
-    "times.*non-negative"
+    "times.*positive"
   )
 })

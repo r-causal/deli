@@ -152,8 +152,7 @@ check_survival_data_valid <- function(delta, time) {
   time_no_na <- time[!is.na(time)]
   if (!all(time_no_na > 0)) {
     cli::cli_abort(
-      "All non-missing observed times must be non-negative for survival
-       models."
+      "All non-missing observed times must be positive for survival models."
     )
   }
 

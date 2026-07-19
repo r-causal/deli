@@ -18,8 +18,10 @@
 #' @param power Numeric power for the spline terms. Default `3` (cubic).
 #' @param restricted Logical. If `TRUE` (default), generate restricted
 #'   (natural) splines. If `FALSE`, generate unrestricted splines.
-#' @param normalized Logical. If `TRUE`, divide spline terms by the range
-#'   of knots raised to `power`. Default `FALSE`.
+#' @param normalized Logical. If `TRUE`, divide spline terms by the range of
+#'   knots (largest minus smallest) raised to `power`. With a single knot the
+#'   range is zero, so the divisor is that knot raised to `power` instead.
+#'   Default `FALSE`.
 #'
 #' @returns A matrix with `length(x)` rows. Number of columns is
 #'   `length(knots)` for unrestricted or `length(knots) - 1` for restricted.

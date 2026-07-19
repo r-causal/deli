@@ -97,7 +97,7 @@
 #' Bladder cancer recurrence data from Collett (2015), used to demonstrate
 #' pooled logistic regression for survival analysis.
 #'
-#' @format A data frame with 85 rows and 6 columns:
+#' @format A data frame with 86 rows and 6 columns:
 #' \describe{
 #'   \item{patient}{Patient ID}
 #'   \item{time}{Follow-up time}
