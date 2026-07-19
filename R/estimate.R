@@ -79,6 +79,11 @@ method(estimate, MEstimator) <- function(
   subset <- object@subset
   finite_correction <- object@finite_correction
 
+  # Validate the estimating-function return at the initial values before
+  # handing off to the solver, so a malformed return produces an informative
+  # error instead of an opaque failure inside the solver.
+  check_psi_at_init(stacked_equations(init), init)
+
   # Build the summed EE function for root-finding
   summed_ee <- function(theta) {
     # If subset, expand theta into full parameter vector
@@ -142,6 +147,7 @@ method(estimate, MEstimator) <- function(
     )
   } else if (is.function(solver)) {
     theta_solved <- solver(stacked_equations = summed_ee, init = inits)
+    check_solver_return(theta_solved, length(inits))
   } else {
     cli::cli_abort("{.arg solver} must be a string or function.")
   }
@@ -373,8 +379,10 @@ method(estimate, GMMEstimator) <- function(
   subset <- object@subset
   finite_correction <- object@finite_correction
 
-  # Evaluate stacked equations at init to determine dimensions
+  # Evaluate stacked equations at init to determine dimensions, validating the
+  # return before it reaches the objective and the sandwich components.
   vals_at_init <- stacked_equations(init)
+  check_psi_at_init(vals_at_init, init, allow_over_identification = TRUE)
   if (is.null(dim(vals_at_init))) {
     # 1D case: single estimating equation
     n_eqs <- 1L
@@ -604,11 +612,7 @@ minimize_gmm <- function(func, init, method, maxiter, tolerance) {
 
   if (is.function(method)) {
     result <- method(stacked_equations = func, init = init)
-    if (is.null(result)) {
-      cli::cli_abort(
-        "The custom solver must return the solution to the optimization."
-      )
-    }
+    check_solver_return(result, length(init))
     return(result)
   }
 

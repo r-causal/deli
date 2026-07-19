@@ -127,6 +127,48 @@ test_that("estimate() returns an MEstimator object", {
   expect_s3_class(result, "deli::MEstimator")
 })
 
+# ---- estimate() validates psi(init) before solving --------------------------
+#
+# Malformed psi/init combinations previously failed deep inside the solver with
+# opaque rootSolve internals, or silently returned the initial values. estimate()
+# now evaluates the estimating functions once at the starting values and aborts
+# with an informative message.
+
+test_that("estimate() rejects a psi/init dimension mismatch", {
+  y <- c(1, 2, 3, 4, 5)
+  psi <- function(theta) matrix(y - theta[1], nrow = 1)
+  m <- MEstimator(stacked_equations = psi, init = c(0, 0))
+  expect_error(estimate(m), "1 estimating equation.*2 parameter")
+})
+
+test_that("estimate() rejects a psi that is non-finite at init", {
+  y <- c(1, 2, 3, 4, 5)
+  psi <- function(theta) matrix(y * NaN - theta[1], nrow = 1)
+  m <- MEstimator(stacked_equations = psi, init = c(0))
+  expect_error(estimate(m), "non-finite")
+})
+
+test_that("estimate() rejects a psi that returns NULL", {
+  psi <- function(theta) NULL
+  m <- MEstimator(stacked_equations = psi, init = c(0))
+  expect_error(estimate(m), "NULL")
+})
+
+test_that("estimate() rejects non-finite data at init under the lm solver", {
+  # Previously the lm solver silently returned theta = init with NULL variance.
+  psi <- function(theta) matrix(c(1, 2, NA) - theta[1], nrow = 1)
+  m <- MEstimator(stacked_equations = psi, init = c(0))
+  expect_error(estimate(m, solver = "lm"), "non-finite")
+})
+
+test_that("estimate() rejects a custom solver that returns the wrong shape", {
+  y <- c(1, 2, 3, 4, 5)
+  psi <- function(theta) matrix(y - theta[1], nrow = 1)
+  m <- MEstimator(stacked_equations = psi, init = c(0))
+  bad_solver <- function(stacked_equations, init) c(1, 2, 3)
+  expect_error(estimate(m, solver = bad_solver), "numeric vector of length 1")
+})
+
 # ---- estimate(deriv_method = "exact") for built-in EEs (bd-1igf) ------------
 #
 # Exact-mode bread for a built-in estimating equation must agree with the

@@ -57,6 +57,74 @@ test_that("check_estimator_subset rejects duplicated indices and names them", {
   expect_error(check_estimator_subset(c(2L, 2L), 3), "2")
 })
 
+# check_psi_at_init -------------------------------------------------------
+
+test_that("check_psi_at_init accepts a well-formed return", {
+  expect_no_error(check_psi_at_init(matrix(1:5, nrow = 1), init = c(0)))
+  expect_no_error(check_psi_at_init(
+    rbind(1:3, 4:6),
+    init = c(0, 0)
+  ))
+  # A plain vector is the single-parameter form.
+  expect_no_error(check_psi_at_init(1:5, init = c(0)))
+})
+
+test_that("check_psi_at_init rejects a NULL return", {
+  expect_error(check_psi_at_init(NULL, init = c(0)), "NULL")
+})
+
+test_that("check_psi_at_init rejects a non-numeric return", {
+  expect_error(
+    check_psi_at_init(matrix("a", nrow = 1), init = c(0)),
+    "numeric"
+  )
+})
+
+test_that("check_psi_at_init rejects non-finite values at init", {
+  expect_error(
+    check_psi_at_init(matrix(c(1, NaN, 3), nrow = 1), init = c(0)),
+    "non-finite"
+  )
+  expect_error(
+    check_psi_at_init(matrix(c(1, NA, 3), nrow = 1), init = c(0)),
+    "non-finite"
+  )
+  expect_error(
+    check_psi_at_init(matrix(c(1, Inf, 3), nrow = 1), init = c(0)),
+    "non-finite"
+  )
+})
+
+test_that("check_psi_at_init rejects a dimension mismatch for M-estimation", {
+  expect_error(
+    check_psi_at_init(matrix(1:5, nrow = 1), init = c(0, 0)),
+    "1 estimating equation.*2 parameter"
+  )
+})
+
+test_that("check_psi_at_init skips the dimension check when over-identified", {
+  # GMM allows more estimating equations than parameters.
+  expect_no_error(
+    check_psi_at_init(
+      rbind(1:5, 6:10),
+      init = c(0),
+      allow_over_identification = TRUE
+    )
+  )
+})
+
+# check_solver_return -----------------------------------------------------
+
+test_that("check_solver_return accepts a numeric vector of the right length", {
+  expect_no_error(check_solver_return(c(1, 2), 2))
+})
+
+test_that("check_solver_return rejects NULL, non-numeric, and wrong length", {
+  expect_error(check_solver_return(NULL, 2), "numeric vector of length 2")
+  expect_error(check_solver_return("a", 2), "numeric vector of length 2")
+  expect_error(check_solver_return(c(1, 2, 3), 2), "numeric vector of length 2")
+})
+
 # check_penalty_shape -----------------------------------------------------
 
 test_that("check_penalty_shape accepts scalar penalty and center", {

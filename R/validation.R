@@ -173,6 +173,84 @@ check_estimator_subset <- function(subset, n_params) {
   invisible(NULL)
 }
 
+#' Check the estimating-function return at the initial values
+#'
+#' Evaluates the value of `stacked_equations(init)` and rejects returns that
+#' would otherwise fail deep inside the solver with an unhelpful message: a
+#' `NULL` or non-numeric return, a non-finite value at the starting values, or
+#' (for M-estimation) a number of estimating equations that does not match the
+#' number of parameters. This mirrors the up-front validation Python
+#' Delicatessen performs before solving.
+#'
+#' @param vals The value of `stacked_equations(init)`, evaluated once by the
+#'   caller.
+#' @param init The initial parameter vector.
+#' @param allow_over_identification Logical. When `TRUE`, the number of
+#'   estimating equations may exceed the number of parameters (the GMM case) and
+#'   the dimension check is skipped. Default `FALSE`.
+#'
+#' @return Invisible `NULL`. Raises an error if the return is invalid.
+#' @keywords internal
+check_psi_at_init <- function(vals, init, allow_over_identification = FALSE) {
+  if (is.null(vals)) {
+    cli::cli_abort(c(
+      "{.arg stacked_equations} returned {.val NULL} at the initial values.",
+      "i" = "It must return a numeric vector or matrix of estimating-function
+             contributions."
+    ))
+  }
+  if (!is.numeric(vals)) {
+    cli::cli_abort(
+      "{.arg stacked_equations} must return a numeric vector or matrix at the
+       initial values, not {.obj_type_of {vals}}."
+    )
+  }
+  if (!all(is.finite(vals))) {
+    cli::cli_abort(c(
+      "{.arg stacked_equations} returned non-finite values at the initial
+       values.",
+      "i" = "This often means {.arg init} produces a divide-by-zero, a
+             logarithm or square root of a non-positive number, or another
+             undefined value in the estimating equations."
+    ))
+  }
+  if (!allow_over_identification) {
+    n_eqs <- if (is.null(dim(vals))) 1L else nrow(vals)
+    n_params <- length(init)
+    if (n_eqs != n_params) {
+      cli::cli_abort(c(
+        "{.arg stacked_equations} returned {n_eqs} estimating equation{?s} at
+         the initial values, but {.arg init} has {n_params} parameter{?s}.",
+        "i" = "M-estimation requires one estimating equation per parameter (a
+               {n_params}-by-n matrix)."
+      ))
+    }
+  }
+  invisible(NULL)
+}
+
+#' Check the return of a custom solver
+#'
+#' Validates that a user-supplied solver returned a numeric vector of the
+#' expected length, so a malformed return produces an informative error rather
+#' than an opaque failure while assembling the sandwich components.
+#'
+#' @param theta The value returned by the custom solver.
+#' @param n_params The expected number of solved parameters.
+#'
+#' @return Invisible `NULL`. Raises an error if the return is invalid.
+#' @keywords internal
+check_solver_return <- function(theta, n_params) {
+  if (is.null(theta) || !is.numeric(theta) || length(theta) != n_params) {
+    cli::cli_abort(c(
+      "The custom {.arg solver} must return a numeric vector of length
+       {n_params}.",
+      "i" = "It returned {.obj_type_of {theta}} of length {length(theta)}."
+    ))
+  }
+  invisible(NULL)
+}
+
 #' Check that an over-identification control is a single number
 #'
 #' Validates that a GMM over-identification control (`overid_maxiter` or
