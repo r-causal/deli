@@ -1168,6 +1168,48 @@ test_that("an unsupported unary operator on a tangent array names the operator",
   )
 })
 
+# ---- unsupported members on scalar pairs name the class ----------------------
+#
+# The scalar surfaces (`Ops.PrimalTangent`, `Math.PrimalTangent`, and the
+# Summary reducer) route an unwired member to a cli abort that reports the
+# PrimalTangent class rather than the array wording. These pin that rendering.
+
+test_that("an unsupported binary operator on a scalar pair names the operator", {
+  x <- primal_tangent(2, 1)
+  expect_error(
+    x %% x,
+    'Operator "%%" is not supported for a <PrimalTangent>.',
+    fixed = TRUE
+  )
+})
+
+test_that("an unsupported unary operator on a scalar pair names the operator", {
+  x <- primal_tangent(2, 1)
+  expect_error(
+    !x,
+    'Unary "!" is not supported for a <PrimalTangent>.',
+    fixed = TRUE
+  )
+})
+
+test_that("an unsupported Math member on a scalar pair names the function", {
+  x <- primal_tangent(2, 1)
+  expect_error(
+    gamma(x),
+    'Math function "gamma" is not supported for a <PrimalTangent>.',
+    fixed = TRUE
+  )
+})
+
+test_that("an unsupported Summary member on a scalar pair names the function", {
+  x <- primal_tangent(2, 1)
+  expect_error(
+    range(x),
+    'Summary function "range" is not supported for a <PrimalTangent>.',
+    fixed = TRUE
+  )
+})
+
 # ---- elementwise Math on tangent arrays --------------------------------------
 #
 # Math.PrimalTangentArray previously wired only `exp`, `cumsum`, `abs`, `floor`,

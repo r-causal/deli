@@ -47,7 +47,7 @@ primal_tangent_vector <- function(elements) {
   # NA index does select a NULL slot, so those abort here, which is the intended
   # strict behavior.
   if (any(vapply(selected, is.null, logical(1)))) {
-    stop("subscript out of bounds")
+    cli::cli_abort("subscript out of bounds", call = NULL)
   }
   if (length(selected) == 1) {
     return(selected[[1]])
@@ -84,7 +84,7 @@ length.PrimalTangentVector <- function(x) length(x$elements)
 #' @noRd
 pt_scalar_subscript <- function(x, i) {
   if (length(i) != 1L || is.na(i) || i != 1) {
-    stop("subscript out of bounds")
+    cli::cli_abort("subscript out of bounds", call = NULL)
   }
   x
 }
@@ -174,10 +174,10 @@ pt_ops_is_array <- function(e1, e2) {
 }
 
 # Raise the abort for an Ops member that carries no tangent rule. The message
-# and rendering differ by result shape: a tangent array uses cli and names the
-# operator with a local (cli rejects an interpolated expression that begins with
-# a dot, so `{.Generic}` cannot be interpolated directly), while a scalar pair
-# uses the plain `stop()` form.
+# names the operator through a local (cli rejects an interpolated expression that
+# begins with a dot, so `{.Generic}` cannot be interpolated directly) and the
+# wording differs by result shape: a tangent array reports "tangent arrays"
+# while a scalar pair reports the {.cls PrimalTangent} class.
 #' @noRd
 pt_ops_unsupported <- function(generic, array_result, unary) {
   fname <- generic
@@ -192,9 +192,13 @@ pt_ops_unsupported <- function(generic, array_result, unary) {
       )
     }
   } else if (unary) {
-    stop("Unary operator ", fname, " not supported for PrimalTangent")
+    cli::cli_abort(
+      "Unary {.val {fname}} is not supported for a {.cls PrimalTangent}."
+    )
   } else {
-    stop("Operator ", fname, " not supported for PrimalTangent")
+    cli::cli_abort(
+      "Operator {.val {fname}} is not supported for a {.cls PrimalTangent}."
+    )
   }
 }
 
@@ -371,8 +375,8 @@ pt_math_apply <- function(generic, p, t, dots) {
     # constant-base derivative, abort. Differentiating with respect to a variable
     # log base is unsupported.
     if (is_tangent_container(base)) {
-      stop(
-        "log with a tangent-carrying base is not supported for PrimalTangent"
+      cli::cli_abort(
+        "{.fn log} with a tangent-carrying base is not supported."
       )
     }
     return(list(primal = log(p, base), tangent = t / (p * log(base))))
@@ -386,7 +390,12 @@ pt_math_apply <- function(generic, p, t, dots) {
 Math.PrimalTangent <- function(x, ...) {
   rule <- pt_math_apply(.Generic, x$primal, x$tangent, list(...))
   if (is.null(rule)) {
-    stop("Math function ", .Generic, " not supported for PrimalTangent")
+    # Bind to a local first: cli rejects an interpolated expression that begins
+    # with a dot, so `{.Generic}` cannot be interpolated directly.
+    fname <- .Generic
+    cli::cli_abort(
+      "Math function {.val {fname}} is not supported for a {.cls PrimalTangent}."
+    )
   }
   primal_tangent(rule$primal, rule$tangent)
 }
@@ -456,7 +465,9 @@ pt_summary <- function(generic, args, na.rm) {
       idx <- which.min(ap)
       primal_tangent(ap[idx], at[idx])
     },
-    stop("Summary function ", generic, " not supported for PrimalTangent")
+    cli::cli_abort(
+      "Summary function {.val {generic}} is not supported for a {.cls PrimalTangent}."
+    )
   )
 }
 
