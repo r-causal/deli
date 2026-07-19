@@ -584,6 +584,14 @@ pt_as_vector <- function(x) {
 # downstream matrix product, residual, and score keep their tangents.
 #' @noRd
 coerce_design <- function(X) {
+  # A plain numeric matrix is the common case on a numeric-mode fit, where
+  # coerce_design runs on every solver and Jacobian evaluation. A matrix is
+  # never a tangent container (those are classed lists with no dim attribute),
+  # so returning it directly skips both the tangent check and the as.matrix
+  # redispatch, each of which would hand back the same object.
+  if (is.matrix(X)) {
+    return(X)
+  }
   if (is_tangent_container(X)) {
     return(X)
   }
@@ -598,6 +606,14 @@ coerce_design <- function(X) {
 # PrimalTangentArray vector so the residual keeps its tangent.
 #' @noRd
 coerce_outcome <- function(y) {
+  # A plain, attribute-free double vector is the common numeric-mode outcome and
+  # needs no coercion: as.numeric() would return it unchanged. Skipping the
+  # tangent check and the redispatch avoids repeating that work on every
+  # evaluation. A tangent-carrying response still flattens to a
+  # PrimalTangentArray; any other numeric type still routes through as.numeric().
+  if (is.double(y) && is.null(attributes(y))) {
+    return(y)
+  }
   if (is_tangent_container(y)) {
     return(pt_as_vector(y))
   }
