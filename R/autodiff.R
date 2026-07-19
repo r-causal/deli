@@ -931,8 +931,8 @@ pt_where <- function(test, yes, no) {
 #'   evaluated within the package (such as the built-in estimating equations),
 #'   because those masked forms are only in
 #'   scope there; a user-defined function that calls them from the global
-#'   environment reaches the base versions and errors on a tangent-carrying
-#'   argument rather than returning a silent approximation.
+#'   environment reaches the base versions, and the differentiation aborts
+#'   rather than returning a silent approximation.
 #'
 #' @returns A matrix where element `[i, j]` is the partial derivative of
 #'   the `i`-th output with respect to the `j`-th parameter.
@@ -980,6 +980,23 @@ extract_tangent_column <- function(result) {
     ))
   }
   if (is.list(result)) {
+    # A list result normally comes from c.PrimalTangent and holds at least one
+    # tangent-carrying pair. A list (or list matrix) with no PrimalTangent
+    # elements instead signals that a base reshaping helper such as rbind() or
+    # cbind() was reached from outside the package namespace and stripped the
+    # tangents. Aborting keeps the documented safety property rather than
+    # returning a silent all-zero column.
+    if (!any(vapply(result, is_pt, logical(1)))) {
+      cli::cli_abort(
+        c(
+          "Automatic differentiation received a result that carries no tangents.",
+          "i" = "A reshaping or binding function such as {.fn rbind} or
+                 {.fn cbind} was likely reached from outside the package
+                 namespace, which strips the derivative information.",
+          "i" = "Combine tangent-carrying values with {.fn c} instead."
+        )
+      )
+    }
     # Multiple outputs from c.PrimalTangent
     return(vapply(
       result,

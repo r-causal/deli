@@ -20,8 +20,8 @@ reshaping, binding, and reduction operations \code{matrix()}, \code{rbind()},
 evaluated within the package (such as the built-in estimating equations),
 because those masked forms are only in
 scope there; a user-defined function that calls them from the global
-environment reaches the base versions and errors on a tangent-carrying
-argument rather than returning a silent approximation.}
+environment reaches the base versions, and the differentiation aborts
+rather than returning a silent approximation.}
 }
 \value{
 A matrix where element \verb{[i, j]} is the partial derivative of
