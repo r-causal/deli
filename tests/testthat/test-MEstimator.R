@@ -44,7 +44,11 @@ test_that("MEstimator subset is sorted", {
     y <- c(1, 2, 3)
     rbind(y - theta[1], (y - theta[1])^2 - theta[2], y * theta[3])
   }
-  m <- MEstimator(stacked_equations = psi, init = c(0, 1, 1), subset = c(3L, 1L))
+  m <- MEstimator(
+    stacked_equations = psi,
+    init = c(0, 1, 1),
+    subset = c(3L, 1L)
+  )
   expect_equal(m@subset, c(1L, 3L))
 })
 
@@ -62,7 +66,11 @@ test_that("MEstimator accepts finite_correction parameter", {
     y <- c(1, 2, 3)
     matrix(y - theta[1], nrow = 1)
   }
-  m <- MEstimator(stacked_equations = psi, init = c(0), finite_correction = "HC1")
+  m <- MEstimator(
+    stacked_equations = psi,
+    init = c(0),
+    finite_correction = "HC1"
+  )
   expect_equal(m@finite_correction, "HC1")
 })
 
@@ -168,7 +176,8 @@ test_that("MEstimator rejects an unsupported finite_correction string", {
   # option.
   expect_error(
     MEstimator(
-      stacked_equations = psi, init = c(0),
+      stacked_equations = psi,
+      init = c(0),
       finite_correction = "nonsense"
     ),
     "HC1"
@@ -181,7 +190,8 @@ test_that("MEstimator rejects a non-character finite_correction", {
   }
   expect_error(
     MEstimator(
-      stacked_equations = psi, init = c(0),
+      stacked_equations = psi,
+      init = c(0),
       finite_correction = 5
     ),
     "HC1"

@@ -10,8 +10,12 @@ test_that("shaq_free_throws is a data.frame with correct structure", {
 test_that("shaq_free_throws values are non-negative integers", {
   expect_true(all(shaq_free_throws$ft_success >= 0))
   expect_true(all(shaq_free_throws$ft_attempt >= 0))
-  expect_true(all(shaq_free_throws$ft_success == as.integer(shaq_free_throws$ft_success)))
-  expect_true(all(shaq_free_throws$ft_attempt == as.integer(shaq_free_throws$ft_attempt)))
+  expect_true(all(
+    shaq_free_throws$ft_success == as.integer(shaq_free_throws$ft_success)
+  ))
+  expect_true(all(
+    shaq_free_throws$ft_attempt == as.integer(shaq_free_throws$ft_attempt)
+  ))
 })
 
 test_that("shaq_free_throws made <= attempts for every row", {
@@ -47,7 +51,6 @@ test_that("inderjit first and last rows match Python source", {
 # ---- robust_regress ----------------------------------------------------------
 
 test_that("robust_regress is a data.frame with correct structure", {
-
   expect_s3_class(robust_regress, "data.frame")
   expect_equal(nrow(robust_regress), 15)
   expect_equal(ncol(robust_regress), 3)
@@ -57,7 +60,7 @@ test_that("robust_regress is a data.frame with correct structure", {
 test_that("robust_regress values match Python source", {
   # First row
 
-expect_equal(robust_regress$height[1], 168.519)
+  expect_equal(robust_regress$height[1], 168.519)
   expect_equal(robust_regress$weight_no_outlier[1], 67.634)
 
   # Row 9 has the outlier: weight = 62.043 + 3, weight_no_outlier = 62.043
@@ -91,7 +94,9 @@ test_that("sdss_quasar retains the full SDSS 3rd Data Release table", {
   expect_s3_class(sdss_quasar, "data.frame")
   expect_equal(nrow(sdss_quasar), 46420)
   expect_equal(ncol(sdss_quasar), 23)
-  expect_true(all(c("z", "u_mag", "g_mag", "r_mag", "i_mag") %in% names(sdss_quasar)))
+  expect_true(all(
+    c("z", "u_mag", "g_mag", "r_mag", "i_mag") %in% names(sdss_quasar)
+  ))
 })
 
 test_that("sdss_quasar first row values are preserved", {
@@ -106,7 +111,9 @@ test_that("nsduh retains the full survey", {
   expect_s3_class(nsduh, "data.frame")
   expect_equal(nrow(nsduh), 40293)
   expect_equal(ncol(nsduh), 14)
-  expect_true(all(c("cigmon", "lgb_flag", "cig15", "age", "race") %in% names(nsduh)))
+  expect_true(all(
+    c("cigmon", "lgb_flag", "cig15", "age", "race") %in% names(nsduh)
+  ))
 })
 
 test_that("nsduh first row values are preserved", {

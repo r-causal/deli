@@ -8,19 +8,34 @@ test_that("ee_bridge_regression with gamma=2 matches ee_ridge_regression", {
   penalty <- ref$penalty
 
   psi_bridge <- function(theta) {
-    ee_bridge_regression(theta, X = X, y = y, model = "linear",
-                         penalty = penalty, gamma = 2)
+    ee_bridge_regression(
+      theta,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = penalty,
+      gamma = 2
+    )
   }
   psi_ridge <- function(theta) {
-    ee_ridge_regression(theta, X = X, y = y, model = "linear",
-                        penalty = penalty)
+    ee_ridge_regression(
+      theta,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = penalty
+    )
   }
 
   m_bridge <- estimate(MEstimator(stacked_equations = psi_bridge, init = init))
   m_ridge <- estimate(MEstimator(stacked_equations = psi_ridge, init = init))
 
   expect_equal(m_bridge@theta, m_ridge@theta, tolerance = 1e-6)
-  expect_equal(diag(m_bridge@variance), diag(m_ridge@variance), tolerance = 1e-6)
+  expect_equal(
+    diag(m_bridge@variance),
+    diag(m_ridge@variance),
+    tolerance = 1e-6
+  )
 })
 
 test_that("ee_lasso_regression returns correct shape", {
@@ -29,8 +44,13 @@ test_that("ee_lasso_regression returns correct shape", {
   y <- ref$y
   init <- ref$init
 
-  result <- ee_lasso_regression(init, X = X, y = y, model = "linear",
-                                penalty = 0.5)
+  result <- ee_lasso_regression(
+    init,
+    X = X,
+    y = y,
+    model = "linear",
+    penalty = 0.5
+  )
   expect_true(is.matrix(result))
   expect_equal(nrow(result), ncol(X))
   expect_equal(ncol(result), nrow(X))
@@ -75,8 +95,13 @@ test_that("ee_dlasso_regression returns correct shape", {
   y <- ref$y
   init <- ref$init
 
-  result <- ee_dlasso_regression(init, X = X, y = y, model = "linear",
-                                  penalty = 0.5)
+  result <- ee_dlasso_regression(
+    init,
+    X = X,
+    y = y,
+    model = "linear",
+    penalty = 0.5
+  )
   expect_true(is.matrix(result))
   expect_equal(nrow(result), ncol(X))
 })
@@ -100,8 +125,14 @@ test_that("ee_elasticnet_regression returns correct shape", {
   y <- ref$y
   init <- ref$init
 
-  result <- ee_elasticnet_regression(init, X = X, y = y, model = "linear",
-                                      penalty = 0.5, ratio = 0.5)
+  result <- ee_elasticnet_regression(
+    init,
+    X = X,
+    y = y,
+    model = "linear",
+    penalty = 0.5,
+    ratio = 0.5
+  )
   expect_true(is.matrix(result))
   expect_equal(nrow(result), ncol(X))
 })
@@ -114,12 +145,23 @@ test_that("ee_elasticnet_regression with ratio=0 matches ridge", {
   penalty <- ref$penalty
 
   psi_en <- function(theta) {
-    ee_elasticnet_regression(theta, X = X, y = y, model = "linear",
-                             penalty = penalty, ratio = 0)
+    ee_elasticnet_regression(
+      theta,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = penalty,
+      ratio = 0
+    )
   }
   psi_ridge <- function(theta) {
-    ee_ridge_regression(theta, X = X, y = y, model = "linear",
-                        penalty = penalty)
+    ee_ridge_regression(
+      theta,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = penalty
+    )
   }
 
   m_en <- estimate(MEstimator(stacked_equations = psi_en, init = init))
@@ -131,8 +173,14 @@ test_that("ee_elasticnet_regression with ratio=0 matches ridge", {
 test_that("ee_elasticnet_regression errors for invalid ratio", {
   ref <- load_fixture("ee_regression_linear")
   expect_error(
-    ee_elasticnet_regression(ref$init, X = ref$X, y = ref$y,
-                             model = "linear", penalty = 0.5, ratio = 1.5),
+    ee_elasticnet_regression(
+      ref$init,
+      X = ref$X,
+      y = ref$y,
+      model = "linear",
+      penalty = 0.5,
+      ratio = 1.5
+    ),
     "ratio"
   )
 })
@@ -169,22 +217,32 @@ test_that("ee_ridge_regression validates penalty and center shape", {
 
   # Penalty neither scalar nor length(theta)
   expect_error(
-    ee_ridge_regression(init, X = X, y = y, model = "linear",
-                        penalty = c(1, 1, 1)),
+    ee_ridge_regression(
+      init,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = c(1, 1, 1)
+    ),
     "single number or the same"
   )
 
   # Negative penalty
   expect_error(
-    ee_ridge_regression(init, X = X, y = y, model = "linear",
-                        penalty = -1),
+    ee_ridge_regression(init, X = X, y = y, model = "linear", penalty = -1),
     "non-negative"
   )
 
   # Center neither scalar nor length(theta); penalty kept valid
   expect_error(
-    ee_ridge_regression(init, X = X, y = y, model = "linear",
-                        penalty = 1, center = c(0, 0, 0)),
+    ee_ridge_regression(
+      init,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = 1,
+      center = c(0, 0, 0)
+    ),
     "center"
   )
 })
@@ -196,21 +254,40 @@ test_that("ee_bridge_regression validates penalty and center shape", {
   init <- ref$init
 
   expect_error(
-    ee_bridge_regression(init, X = X, y = y, model = "linear",
-                         penalty = c(1, 1, 1), gamma = 2),
+    ee_bridge_regression(
+      init,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = c(1, 1, 1),
+      gamma = 2
+    ),
     "single number or the same"
   )
 
   # Element-wise non-negativity: one entry negative
   expect_error(
-    ee_bridge_regression(init, X = X, y = y, model = "linear",
-                         penalty = c(0.5, -1), gamma = 2),
+    ee_bridge_regression(
+      init,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = c(0.5, -1),
+      gamma = 2
+    ),
     "non-negative"
   )
 
   expect_error(
-    ee_bridge_regression(init, X = X, y = y, model = "linear",
-                         penalty = 1, gamma = 2, center = c(0, 0, 0)),
+    ee_bridge_regression(
+      init,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = 1,
+      gamma = 2,
+      center = c(0, 0, 0)
+    ),
     "center"
   )
 })
@@ -222,8 +299,14 @@ test_that("ee_bridge_regression errors for gamma below 1", {
   init <- ref$init
 
   expect_error(
-    ee_bridge_regression(init, X = X, y = y, model = "linear",
-                         penalty = 1, gamma = 0.5),
+    ee_bridge_regression(
+      init,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = 1,
+      gamma = 0.5
+    ),
     "gamma"
   )
 })
@@ -235,8 +318,14 @@ test_that("ee_bridge_regression warns for gamma in [1, 2)", {
   init <- ref$init
 
   expect_warning(
-    ee_bridge_regression(init, X = X, y = y, model = "linear",
-                         penalty = 1, gamma = 1.5),
+    ee_bridge_regression(
+      init,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = 1,
+      gamma = 1.5
+    ),
     "differentiable"
   )
 })
@@ -249,8 +338,14 @@ test_that("ee_bridge_regression does not warn for gamma >= 2", {
 
   # gamma = 2 (ridge) is differentiable; no non-differentiability warning
   expect_no_warning(
-    ee_bridge_regression(init, X = X, y = y, model = "linear",
-                         penalty = 1, gamma = 2)
+    ee_bridge_regression(
+      init,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = 1,
+      gamma = 2
+    )
   )
 })
 
@@ -261,14 +356,18 @@ test_that("ee_lasso_regression validates penalty shape and sign", {
   init <- ref$init
 
   expect_error(
-    ee_lasso_regression(init, X = X, y = y, model = "linear",
-                        penalty = c(1, 1, 1)),
+    ee_lasso_regression(
+      init,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = c(1, 1, 1)
+    ),
     "single number or the same"
   )
 
   expect_error(
-    ee_lasso_regression(init, X = X, y = y, model = "linear",
-                        penalty = -1),
+    ee_lasso_regression(init, X = X, y = y, model = "linear", penalty = -1),
     "non-negative"
   )
 })
@@ -280,20 +379,30 @@ test_that("ee_dlasso_regression validates penalty and center shape", {
   init <- ref$init
 
   expect_error(
-    ee_dlasso_regression(init, X = X, y = y, model = "linear",
-                         penalty = c(1, 1, 1)),
+    ee_dlasso_regression(
+      init,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = c(1, 1, 1)
+    ),
     "single number or the same"
   )
 
   expect_error(
-    ee_dlasso_regression(init, X = X, y = y, model = "linear",
-                         penalty = -1),
+    ee_dlasso_regression(init, X = X, y = y, model = "linear", penalty = -1),
     "non-negative"
   )
 
   expect_error(
-    ee_dlasso_regression(init, X = X, y = y, model = "linear",
-                         penalty = 1, center = c(0, 0, 0)),
+    ee_dlasso_regression(
+      init,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = 1,
+      center = c(0, 0, 0)
+    ),
     "center"
   )
 })
@@ -305,8 +414,14 @@ test_that("ee_dlasso_regression errors for s below zero", {
   init <- ref$init
 
   expect_error(
-    ee_dlasso_regression(init, X = X, y = y, model = "linear",
-                         penalty = 1, s = -1),
+    ee_dlasso_regression(
+      init,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = 1,
+      s = -1
+    ),
     "greater than zero"
   )
 })
@@ -318,14 +433,26 @@ test_that("ee_elasticnet_regression validates penalty shape and sign", {
   init <- ref$init
 
   expect_error(
-    ee_elasticnet_regression(init, X = X, y = y, model = "linear",
-                             penalty = c(1, 1, 1), ratio = 0.5),
+    ee_elasticnet_regression(
+      init,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = c(1, 1, 1),
+      ratio = 0.5
+    ),
     "single number or the same"
   )
 
   expect_error(
-    ee_elasticnet_regression(init, X = X, y = y, model = "linear",
-                             penalty = -1, ratio = 0.5),
+    ee_elasticnet_regression(
+      init,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = -1,
+      ratio = 0.5
+    ),
     "non-negative"
   )
 })
@@ -392,13 +519,25 @@ test_that("ee_ridge_regression weighted matches Python (penalty inside weight)",
 
   # Raw estimating-function row sums at init pin the weighted-penalty form
   # directly, without a solve.
-  ee <- ee_ridge_regression(init, X = X, y = y, model = "linear",
-                            penalty = ref$penalty, weights = w)
+  ee <- ee_ridge_regression(
+    init,
+    X = X,
+    y = y,
+    model = "linear",
+    penalty = ref$penalty,
+    weights = w
+  )
   expect_equal(unname(rowSums(ee)), ref$ee_sum_at_init, tolerance = 1e-6)
 
   psi <- function(theta) {
-    ee_ridge_regression(theta, X = X, y = y, model = "linear",
-                        penalty = ref$penalty, weights = w)
+    ee_ridge_regression(
+      theta,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = ref$penalty,
+      weights = w
+    )
   }
   m <- estimate(MEstimator(stacked_equations = psi, init = init))
   expect_python_match(m, "ee_ridge_regression_weighted", tolerance = 1e-5)
@@ -411,14 +550,27 @@ test_that("ee_bridge_regression weighted matches Python (penalty inside weight)"
   w <- ref$weights
   init <- ref$init
 
-  ee <- ee_bridge_regression(init, X = X, y = y, model = "linear",
-                             penalty = ref$penalty, gamma = ref$gamma,
-                             weights = w)
+  ee <- ee_bridge_regression(
+    init,
+    X = X,
+    y = y,
+    model = "linear",
+    penalty = ref$penalty,
+    gamma = ref$gamma,
+    weights = w
+  )
   expect_equal(unname(rowSums(ee)), ref$ee_sum_at_init, tolerance = 1e-6)
 
   psi <- function(theta) {
-    ee_bridge_regression(theta, X = X, y = y, model = "linear",
-                         penalty = ref$penalty, gamma = ref$gamma, weights = w)
+    ee_bridge_regression(
+      theta,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = ref$penalty,
+      gamma = ref$gamma,
+      weights = w
+    )
   }
   m <- estimate(MEstimator(stacked_equations = psi, init = init))
   expect_python_match(m, "ee_bridge_regression_weighted", tolerance = 1e-5)
@@ -432,14 +584,26 @@ test_that("ee_lasso_regression weighted matches Python (penalty inside weight)",
   init <- ref$init
 
   ee <- suppressWarnings(
-    ee_lasso_regression(init, X = X, y = y, model = "linear",
-                        penalty = ref$penalty, weights = w)
+    ee_lasso_regression(
+      init,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = ref$penalty,
+      weights = w
+    )
   )
   expect_equal(unname(rowSums(ee)), ref$ee_sum_at_init, tolerance = 1e-6)
 
   psi <- function(theta) {
-    ee_lasso_regression(theta, X = X, y = y, model = "linear",
-                        penalty = ref$penalty, weights = w)
+    ee_lasso_regression(
+      theta,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = ref$penalty,
+      weights = w
+    )
   }
   m <- suppressWarnings(
     estimate(MEstimator(stacked_equations = psi, init = init))
@@ -454,13 +618,25 @@ test_that("ee_dlasso_regression weighted matches Python (penalty inside weight)"
   w <- ref$weights
   init <- ref$init
 
-  ee <- ee_dlasso_regression(init, X = X, y = y, model = "linear",
-                             penalty = ref$penalty, weights = w)
+  ee <- ee_dlasso_regression(
+    init,
+    X = X,
+    y = y,
+    model = "linear",
+    penalty = ref$penalty,
+    weights = w
+  )
   expect_equal(unname(rowSums(ee)), ref$ee_sum_at_init, tolerance = 1e-6)
 
   psi <- function(theta) {
-    ee_dlasso_regression(theta, X = X, y = y, model = "linear",
-                         penalty = ref$penalty, weights = w)
+    ee_dlasso_regression(
+      theta,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = ref$penalty,
+      weights = w
+    )
   }
   m <- estimate(MEstimator(stacked_equations = psi, init = init))
   expect_python_match(m, "ee_dlasso_regression_weighted", tolerance = 1e-5)
@@ -474,16 +650,28 @@ test_that("ee_elasticnet_regression weighted matches Python (penalty inside weig
   init <- ref$init
 
   ee <- suppressWarnings(
-    ee_elasticnet_regression(init, X = X, y = y, model = "linear",
-                             penalty = ref$penalty, ratio = ref$ratio,
-                             weights = w)
+    ee_elasticnet_regression(
+      init,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = ref$penalty,
+      ratio = ref$ratio,
+      weights = w
+    )
   )
   expect_equal(unname(rowSums(ee)), ref$ee_sum_at_init, tolerance = 1e-6)
 
   psi <- function(theta) {
-    ee_elasticnet_regression(theta, X = X, y = y, model = "linear",
-                             penalty = ref$penalty, ratio = ref$ratio,
-                             weights = w)
+    ee_elasticnet_regression(
+      theta,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = ref$penalty,
+      ratio = ref$ratio,
+      weights = w
+    )
   }
   m <- suppressWarnings(
     estimate(MEstimator(stacked_equations = psi, init = init))
@@ -511,13 +699,25 @@ test_that("ee_additive_regression weighted matches Python (delegates to bridge)"
     )
   )
 
-  ee <- ee_additive_regression(init, X = X, y = y, specifications = specs,
-                               model = "linear", weights = w)
+  ee <- ee_additive_regression(
+    init,
+    X = X,
+    y = y,
+    specifications = specs,
+    model = "linear",
+    weights = w
+  )
   expect_equal(unname(rowSums(ee)), ref$ee_sum_at_init, tolerance = 1e-6)
 
   psi <- function(theta) {
-    ee_additive_regression(theta, X = X, y = y, specifications = specs,
-                           model = "linear", weights = w)
+    ee_additive_regression(
+      theta,
+      X = X,
+      y = y,
+      specifications = specs,
+      model = "linear",
+      weights = w
+    )
   }
   m <- estimate(MEstimator(stacked_equations = psi, init = init))
   # The penalized-spline design yields an ill-conditioned bread whose numerical

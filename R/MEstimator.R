@@ -27,8 +27,12 @@
 MEstimator <- new_class(
   "MEstimator",
   parent = deli_estimator,
-  constructor = function(stacked_equations, init, subset = NULL,
-                         finite_correction = NULL) {
+  constructor = function(
+    stacked_equations,
+    init,
+    subset = NULL,
+    finite_correction = NULL
+  ) {
     check_estimator_init(init)
     check_finite_correction(finite_correction)
     check_estimator_subset(subset, length(init))

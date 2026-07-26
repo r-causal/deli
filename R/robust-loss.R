@@ -28,29 +28,18 @@ robust_loss_functions <- function(residuals, loss, k) {
   if (loss_l == "huber") {
     # Clip residuals to [-k, k]
     pmin(pmax(residuals, -k), k)
-
   } else if (loss_l == "tukey") {
-    ifelse(abs(residuals) <= k,
-           residuals * (1 - (residuals / k)^2)^2,
-           0)
-
+    ifelse(abs(residuals) <= k, residuals * (1 - (residuals / k)^2)^2, 0)
   } else if (loss_l == "andrew") {
-    ifelse(abs(residuals) <= k * pi,
-           sin(residuals / k),
-           0)
-
+    ifelse(abs(residuals) <= k * pi, sin(residuals / k), 0)
   } else if (loss_l == "fair") {
     residuals / (1 + abs(residuals) / k)
-
   } else if (loss_l == "cauchy") {
     residuals / (1 + (residuals / k)^2)
-
   } else if (loss_l == "ullah") {
     residuals * (1 + (residuals / k)^4)^(-2)
-
   } else if (loss_l == "welsch") {
     residuals * exp(-residuals^2 / (2 * k^2))
-
   } else if (loss_l == "hampel") {
     if (length(k) != 3) {
       cli::cli_abort(
@@ -91,7 +80,6 @@ robust_loss_functions <- function(residuals, loss, k) {
         )
       )
     )
-
   } else {
     cli::cli_abort("The loss function {.val {loss}} is not available.")
   }

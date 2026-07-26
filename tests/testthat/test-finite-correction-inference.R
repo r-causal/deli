@@ -223,7 +223,11 @@ test_that("GMM t-distribution P-values differ from the normal-approximation P-va
   # The t reference gives larger tail probabilities than the normal, so a
   # normal fallback would fail this comparison.
   expect_true(all(p_t > p_normal))
-  expect_false(isTRUE(all.equal(unname(p_t), unname(p_normal), tolerance = 1e-6)))
+  expect_false(isTRUE(all.equal(
+    unname(p_t),
+    unname(p_normal),
+    tolerance = 1e-6
+  )))
 })
 
 test_that("GMM t degrees of freedom are n_obs minus n_params, not n_obs minus moments", {
@@ -237,8 +241,11 @@ test_that("GMM t degrees of freedom are n_obs minus n_params, not n_obs minus mo
 
   # df uses the two parameters (n - 2 = 18), not the three moment conditions
   # (n - 3 = 17). The two references are numerically distinct.
-  expect_equal(cv, rep(qt(1 - ref$alpha / 2, df = ref$n_obs - ref$n_params), 2),
-               tolerance = 1e-8)
+  expect_equal(
+    cv,
+    rep(qt(1 - ref$alpha / 2, df = ref$n_obs - ref$n_params), 2),
+    tolerance = 1e-8
+  )
   cv_moments <- qt(1 - ref$alpha / 2, df = ref$n_obs - 3)
   expect_false(isTRUE(all.equal(cv[1], cv_moments, tolerance = 1e-6)))
 })

@@ -12,7 +12,9 @@ make_causal_data <- function(n = 200, seed = 42) {
   AW <- A * W
 
   list(
-    Y = Y, A = A, W = W,
+    Y = Y,
+    A = A,
+    W = W,
     # Outcome model design matrix: intercept, A, W, A*W
     X = cbind(1, A, W, AW),
     # Propensity score model design matrix: intercept, W
@@ -74,7 +76,11 @@ test_that("ee_gformula two plans solves via MEstimator", {
   m <- estimate(m)
 
   # ACE (theta[1]) should be difference of mu1 (theta[2]) and mu0 (theta[3])
-  expect_equal(unname(m@theta[1]), unname(m@theta[2] - m@theta[3]), tolerance = 1e-6)
+  expect_equal(
+    unname(m@theta[1]),
+    unname(m@theta[2] - m@theta[3]),
+    tolerance = 1e-6
+  )
   # Causal means should be between 0 and 1
   expect_true(m@theta[2] > 0 && m@theta[2] < 1)
   expect_true(m@theta[3] > 0 && m@theta[3] < 1)
@@ -103,7 +109,11 @@ test_that("ee_ipw solves via MEstimator", {
   m <- estimate(m)
 
   # ACE should equal mu1 - mu0
-  expect_equal(unname(m@theta[1]), unname(m@theta[2] - m@theta[3]), tolerance = 1e-6)
+  expect_equal(
+    unname(m@theta[1]),
+    unname(m@theta[2] - m@theta[3]),
+    tolerance = 1e-6
+  )
   # Should have reasonable causal means
   expect_true(m@theta[2] > 0 && m@theta[2] < 1)
   expect_true(m@theta[3] > 0 && m@theta[3] < 1)
@@ -141,9 +151,16 @@ test_that("ee_ipw_msm with ordered truncation returns a matrix", {
   b <- ncol(d$Wmat)
   cc <- ncol(V)
   theta <- rep(0, cc + b)
-  result <- ee_ipw_msm(theta, y = d$Y, A = d$A, W = d$Wmat, V = V,
-                       distribution = "binomial", link = "logit",
-                       truncate = c(0.1, 0.9))
+  result <- ee_ipw_msm(
+    theta,
+    y = d$Y,
+    A = d$A,
+    W = d$Wmat,
+    V = V,
+    distribution = "binomial",
+    link = "logit",
+    truncate = c(0.1, 0.9)
+  )
   expect_true(is.matrix(result))
   expect_equal(nrow(result), cc + b)
   expect_equal(ncol(result), d$n)
@@ -158,9 +175,16 @@ test_that("ee_ipw_msm errors when truncate bounds are out of order", {
   cc <- ncol(V)
   theta <- rep(0, cc + b)
   expect_error(
-    ee_ipw_msm(theta, y = d$Y, A = d$A, W = d$Wmat, V = V,
-               distribution = "binomial", link = "logit",
-               truncate = c(0.9, 0.1)),
+    ee_ipw_msm(
+      theta,
+      y = d$Y,
+      A = d$A,
+      W = d$Wmat,
+      V = V,
+      distribution = "binomial",
+      link = "logit",
+      truncate = c(0.9, 0.1)
+    ),
     regexp = "ascending order"
   )
 })
@@ -172,8 +196,15 @@ test_that("ee_aipw returns (3+b+c)-by-n matrix", {
   b <- ncol(d$Wmat)
   c_params <- ncol(d$X)
   theta <- rep(0, 3 + b + c_params)
-  result <- ee_aipw(theta, y = d$Y, A = d$A, W = d$Wmat,
-                    X = d$X, X1 = d$X1, X0 = d$X0)
+  result <- ee_aipw(
+    theta,
+    y = d$Y,
+    A = d$A,
+    W = d$Wmat,
+    X = d$X,
+    X1 = d$X1,
+    X0 = d$X0
+  )
   expect_true(is.matrix(result))
   expect_equal(nrow(result), 3 + b + c_params)
   expect_equal(ncol(result), d$n)
@@ -185,8 +216,7 @@ test_that("ee_aipw solves via MEstimator", {
   c_params <- ncol(d$X)
 
   psi <- function(theta) {
-    ee_aipw(theta, y = d$Y, A = d$A, W = d$Wmat,
-            X = d$X, X1 = d$X1, X0 = d$X0)
+    ee_aipw(theta, y = d$Y, A = d$A, W = d$Wmat, X = d$X, X1 = d$X1, X0 = d$X0)
   }
   m <- MEstimator(
     stacked_equations = psi,
@@ -195,7 +225,11 @@ test_that("ee_aipw solves via MEstimator", {
   m <- estimate(m)
 
   # ACE should equal mu1 - mu0
-  expect_equal(unname(m@theta[1]), unname(m@theta[2] - m@theta[3]), tolerance = 1e-6)
+  expect_equal(
+    unname(m@theta[1]),
+    unname(m@theta[2] - m@theta[3]),
+    tolerance = 1e-6
+  )
   # Causal means should be between 0 and 1
   expect_true(m@theta[2] > 0 && m@theta[2] < 1)
   expect_true(m@theta[3] > 0 && m@theta[3] < 1)
@@ -207,9 +241,16 @@ test_that("ee_aipw with truncation works", {
   c_params <- ncol(d$X)
 
   psi <- function(theta) {
-    ee_aipw(theta, y = d$Y, A = d$A, W = d$Wmat,
-            X = d$X, X1 = d$X1, X0 = d$X0,
-            truncate = c(0.1, 0.9))
+    ee_aipw(
+      theta,
+      y = d$Y,
+      A = d$A,
+      W = d$Wmat,
+      X = d$X,
+      X1 = d$X1,
+      X0 = d$X0,
+      truncate = c(0.1, 0.9)
+    )
   }
   m <- MEstimator(
     stacked_equations = psi,
@@ -227,9 +268,16 @@ test_that("ee_aipw errors when truncate bounds are out of order", {
   c_params <- ncol(d$X)
   theta <- rep(0, 3 + b + c_params)
   expect_error(
-    ee_aipw(theta, y = d$Y, A = d$A, W = d$Wmat,
-            X = d$X, X1 = d$X1, X0 = d$X0,
-            truncate = c(0.9, 0.1)),
+    ee_aipw(
+      theta,
+      y = d$Y,
+      A = d$A,
+      W = d$Wmat,
+      X = d$X,
+      X1 = d$X1,
+      X0 = d$X0,
+      truncate = c(0.9, 0.1)
+    ),
     regexp = "ascending order"
   )
 })
@@ -245,23 +293,28 @@ test_that("gformula, ipw, and aipw estimate ATEs in same direction", {
   psi_gf <- function(theta) {
     ee_gformula(theta, y = d$Y, X = d$X, X1 = d$X1, X0 = d$X0)
   }
-  m_gf <- estimate(MEstimator(stacked_equations = psi_gf,
-                               init = c(0, 0.5, 0.5, rep(0, p))))
+  m_gf <- estimate(MEstimator(
+    stacked_equations = psi_gf,
+    init = c(0, 0.5, 0.5, rep(0, p))
+  ))
 
   # IPW ATE
   psi_ipw <- function(theta) {
     ee_ipw(theta, y = d$Y, A = d$A, W = d$Wmat)
   }
-  m_ipw <- estimate(MEstimator(stacked_equations = psi_ipw,
-                                init = c(0, 0.5, 0.5, rep(0, b))))
+  m_ipw <- estimate(MEstimator(
+    stacked_equations = psi_ipw,
+    init = c(0, 0.5, 0.5, rep(0, b))
+  ))
 
   # AIPW ATE
   psi_aipw <- function(theta) {
-    ee_aipw(theta, y = d$Y, A = d$A, W = d$Wmat,
-            X = d$X, X1 = d$X1, X0 = d$X0)
+    ee_aipw(theta, y = d$Y, A = d$A, W = d$Wmat, X = d$X, X1 = d$X1, X0 = d$X0)
   }
-  m_aipw <- estimate(MEstimator(stacked_equations = psi_aipw,
-                                 init = c(0, 0.5, 0.5, rep(0, b + p))))
+  m_aipw <- estimate(MEstimator(
+    stacked_equations = psi_aipw,
+    init = c(0, 0.5, 0.5, rep(0, b + p))
+  ))
 
   # All three should give ATEs with the same sign
   # (not testing exact values since methods differ)

@@ -17,8 +17,8 @@ test_that("aggregate_efuncs sums within groups correctly", {
   group <- c("a", "a", "b", "b")
 
   result <- aggregate_efuncs(ef, group)
-  expect_equal(result[1, 1], 3)  # 1 + 2
-  expect_equal(result[1, 2], 7)  # 3 + 4
+  expect_equal(result[1, 1], 3) # 1 + 2
+  expect_equal(result[1, 2], 7) # 3 + 4
 })
 
 test_that("aggregate_efuncs with singletons returns same values", {
@@ -32,22 +32,35 @@ test_that("aggregate_efuncs with singletons returns same values", {
 
 test_that("aggregate_efuncs works with multiple parameters", {
   # 3 parameters, 4 observations, 2 groups
-  ef <- matrix(c(
-    1, 2, 3, 4,   # param 1
-    5, 6, 7, 8,   # param 2
-    9, 10, 11, 12  # param 3
-  ), nrow = 3, byrow = TRUE)
+  ef <- matrix(
+    c(
+      1,
+      2,
+      3,
+      4, # param 1
+      5,
+      6,
+      7,
+      8, # param 2
+      9,
+      10,
+      11,
+      12 # param 3
+    ),
+    nrow = 3,
+    byrow = TRUE
+  )
   group <- c(1, 1, 2, 2)
 
   result <- aggregate_efuncs(ef, group)
   expect_equal(nrow(result), 3)
   expect_equal(ncol(result), 2)
-  expect_equal(result[1, 1], 3)   # 1+2
-  expect_equal(result[1, 2], 7)   # 3+4
-  expect_equal(result[2, 1], 11)  # 5+6
-  expect_equal(result[2, 2], 15)  # 7+8
-  expect_equal(result[3, 1], 19)  # 9+10
-  expect_equal(result[3, 2], 23)  # 11+12
+  expect_equal(result[1, 1], 3) # 1+2
+  expect_equal(result[1, 2], 7) # 3+4
+  expect_equal(result[2, 1], 11) # 5+6
+  expect_equal(result[2, 2], 15) # 7+8
+  expect_equal(result[3, 1], 19) # 9+10
+  expect_equal(result[3, 2], 23) # 11+12
 })
 
 test_that("aggregate_efuncs treats a 1-D vector as one parameter across observations", {
@@ -84,7 +97,7 @@ test_that("aggregate_efuncs 1-D input matches its explicit 1-row matrix form", {
 
 test_that("aggregate_efuncs errors on dimension mismatch", {
   ef <- matrix(1:6, nrow = 2)
-  group <- c(1, 2)  # length 2, but ef has 3 columns
+  group <- c(1, 2) # length 2, but ef has 3 columns
 
   expect_error(aggregate_efuncs(ef, group), "group")
 })

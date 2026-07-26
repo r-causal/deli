@@ -51,9 +51,11 @@ test_that("ee_mlogit solves via MEstimator", {
 
 test_that("ee_mlogit errors on parameter count mismatch", {
   X <- cbind(1, rnorm(10))
-  y <- cbind(c(1, 0, 0, 1, 0, 0, 1, 0, 1, 0),
-             c(0, 1, 0, 0, 1, 0, 0, 1, 0, 1),
-             c(0, 0, 1, 0, 0, 1, 0, 0, 0, 0))
+  y <- cbind(
+    c(1, 0, 0, 1, 0, 0, 1, 0, 1, 0),
+    c(0, 1, 0, 0, 1, 0, 0, 1, 0, 1),
+    c(0, 0, 1, 0, 0, 1, 0, 0, 0, 0)
+  )
   expect_error(ee_mlogit(rep(0, 3), X = X, y = y), "mismatch")
 })
 

@@ -76,10 +76,20 @@ test_that("spline with power = 2 produces quadratic terms", {
 test_that("normalized spline divides by range^power", {
   x <- c(0, 3)
   knots <- c(1, 2)
-  unnorm <- deli_spline(x, knots, power = 3, restricted = FALSE,
-                        normalized = FALSE)
-  normed <- deli_spline(x, knots, power = 3, restricted = FALSE,
-                        normalized = TRUE)
+  unnorm <- deli_spline(
+    x,
+    knots,
+    power = 3,
+    restricted = FALSE,
+    normalized = FALSE
+  )
+  normed <- deli_spline(
+    x,
+    knots,
+    power = 3,
+    restricted = FALSE,
+    normalized = TRUE
+  )
 
   # Divisor = (2 - 1)^3 = 1 in this case
   divisor <- (2 - 1)^3
@@ -87,10 +97,20 @@ test_that("normalized spline divides by range^power", {
 
   # Now with wider knot range
   knots2 <- c(0, 3)
-  unnorm2 <- deli_spline(x, knots2, power = 3, restricted = FALSE,
-                         normalized = FALSE)
-  normed2 <- deli_spline(x, knots2, power = 3, restricted = FALSE,
-                         normalized = TRUE)
+  unnorm2 <- deli_spline(
+    x,
+    knots2,
+    power = 3,
+    restricted = FALSE,
+    normalized = FALSE
+  )
+  normed2 <- deli_spline(
+    x,
+    knots2,
+    power = 3,
+    restricted = FALSE,
+    normalized = TRUE
+  )
   divisor2 <- (3 - 0)^3
   expect_equal(normed2, unnorm2 / divisor2)
 })
@@ -98,8 +118,13 @@ test_that("normalized spline divides by range^power", {
 test_that("spline with single knot and normalized works", {
   x <- c(0, 2, 4)
   knots <- c(1)
-  result <- deli_spline(x, knots, power = 3, restricted = FALSE,
-                        normalized = TRUE)
+  result <- deli_spline(
+    x,
+    knots,
+    power = 3,
+    restricted = FALSE,
+    normalized = TRUE
+  )
   # Divisor = 1^3 = 1
   expect_equal(ncol(result), 1)
   # x = 0: below knot
@@ -216,7 +241,7 @@ test_that("additive_design_matrix with NULL specifications returns X", {
 
 test_that("process_spline_spec fills defaults", {
   spec <- list(knots = c(1, 2, 3))
-  processed <- deli:::process_spline_spec(spec)
+  processed <- process_spline_spec(spec)
 
   expect_equal(processed$natural, TRUE)
   expect_equal(processed$power, 3)
@@ -226,14 +251,14 @@ test_that("process_spline_spec fills defaults", {
 
 test_that("process_spline_spec errors when knots missing", {
   expect_error(
-    deli:::process_spline_spec(list(penalty = 5)),
+    process_spline_spec(list(penalty = 5)),
     "knots"
   )
 })
 
 test_that("process_spline_spec warns on unexpected keys", {
   expect_warning(
-    deli:::process_spline_spec(list(knots = c(1), foo = "bar")),
+    process_spline_spec(list(knots = c(1), foo = "bar")),
     "foo"
   )
 })

@@ -53,12 +53,28 @@ ee_regression <- function(theta, X, y, model, weights = NULL, offset = NULL) {
 #' @returns A p-by-n matrix.
 #'
 #' @export
-ee_ridge_regression <- function(theta, X, y, model, penalty,
-                                weights = NULL, center = 0, offset = NULL) {
+ee_ridge_regression <- function(
+  theta,
+  X,
+  y,
+  model,
+  penalty,
+  weights = NULL,
+  center = 0,
+  offset = NULL
+) {
   # Ridge is the bridge penalty with gamma = 2 (L2 penalty)
-  ee_bridge_regression(theta, X = X, y = y, model = model,
-                       weights = weights, penalty = penalty,
-                       gamma = 2, center = center, offset = offset)
+  ee_bridge_regression(
+    theta,
+    X = X,
+    y = y,
+    model = model,
+    weights = weights,
+    penalty = penalty,
+    gamma = 2,
+    center = center,
+    offset = offset
+  )
 }
 
 #' Estimating equation for bridge penalized regression
@@ -82,15 +98,26 @@ ee_ridge_regression <- function(theta, X, y, model, penalty,
 #' @returns A p-by-n matrix.
 #'
 #' @export
-ee_bridge_regression <- function(theta, X, y, model, penalty, gamma,
-                                  weights = NULL, center = 0, offset = NULL) {
+ee_bridge_regression <- function(
+  theta,
+  X,
+  y,
+  model,
+  penalty,
+  gamma,
+  weights = NULL,
+  center = 0,
+  offset = NULL
+) {
   X <- coerce_design(X)
   y <- coerce_outcome(y)
   n <- nrow(X)
   w <- generate_weights(n, weights)
 
   eta <- pt_as_vector(X %*% theta)
-  if (!is.null(offset)) eta <- eta + as.numeric(offset)
+  if (!is.null(offset)) {
+    eta <- eta + as.numeric(offset)
+  }
   pred_y <- model_transform(eta, model)
 
   # Unweighted p-by-n score, mirroring Python's ((y - pred_y) * X).T
@@ -116,13 +143,28 @@ ee_bridge_regression <- function(theta, X, y, model, penalty, gamma,
 #' @returns A p-by-n matrix.
 #'
 #' @export
-ee_lasso_regression <- function(theta, X, y, model, penalty,
-                                 epsilon = 3e-3, weights = NULL,
-                                 center = 0, offset = NULL) {
-  ee_bridge_regression(theta, X = X, y = y, model = model,
-                       weights = weights, penalty = penalty,
-                       gamma = 1 + epsilon, center = center,
-                       offset = offset)
+ee_lasso_regression <- function(
+  theta,
+  X,
+  y,
+  model,
+  penalty,
+  epsilon = 3e-3,
+  weights = NULL,
+  center = 0,
+  offset = NULL
+) {
+  ee_bridge_regression(
+    theta,
+    X = X,
+    y = y,
+    model = model,
+    weights = weights,
+    penalty = penalty,
+    gamma = 1 + epsilon,
+    center = center,
+    offset = offset
+  )
 }
 
 #' Estimating equation for differentiable LASSO regression
@@ -137,16 +179,26 @@ ee_lasso_regression <- function(theta, X, y, model, penalty,
 #' @returns A p-by-n matrix.
 #'
 #' @export
-ee_dlasso_regression <- function(theta, X, y, model, penalty,
-                                  s = 1e-6, weights = NULL,
-                                  center = 0, offset = NULL) {
+ee_dlasso_regression <- function(
+  theta,
+  X,
+  y,
+  model,
+  penalty,
+  s = 1e-6,
+  weights = NULL,
+  center = 0,
+  offset = NULL
+) {
   X <- coerce_design(X)
   y <- coerce_outcome(y)
   n <- nrow(X)
   w <- generate_weights(n, weights)
 
   eta <- pt_as_vector(X %*% theta)
-  if (!is.null(offset)) eta <- eta + as.numeric(offset)
+  if (!is.null(offset)) {
+    eta <- eta + as.numeric(offset)
+  }
   pred_y <- model_transform(eta, model)
 
   # Unweighted p-by-n score, mirroring Python's ((y - pred_y) * X).T
@@ -172,9 +224,18 @@ ee_dlasso_regression <- function(theta, X, y, model, penalty,
 #' @returns A p-by-n matrix.
 #'
 #' @export
-ee_elasticnet_regression <- function(theta, X, y, model, penalty, ratio,
-                                      epsilon = 3e-3, weights = NULL,
-                                      center = 0, offset = NULL) {
+ee_elasticnet_regression <- function(
+  theta,
+  X,
+  y,
+  model,
+  penalty,
+  ratio,
+  epsilon = 3e-3,
+  weights = NULL,
+  center = 0,
+  offset = NULL
+) {
   if (ratio < 0 || ratio > 1) {
     cli::cli_abort("The elastic-net {.arg ratio} must be between 0 and 1.")
   }
@@ -185,7 +246,9 @@ ee_elasticnet_regression <- function(theta, X, y, model, penalty, ratio,
   w <- generate_weights(n, weights)
 
   eta <- pt_as_vector(X %*% theta)
-  if (!is.null(offset)) eta <- eta + as.numeric(offset)
+  if (!is.null(offset)) {
+    eta <- eta + as.numeric(offset)
+  }
   pred_y <- model_transform(eta, model)
 
   # Unweighted p-by-n score, mirroring Python's ((y - pred_y) * X).T
@@ -225,7 +288,10 @@ bridge_penalty <- function(theta, n, penalty, gamma, center) {
   }
 
   penalty_scaled <- penalty / (gamma * n)
-  penalty_scaled * gamma * (abs(theta - center)^(gamma - 1)) * sign(theta - center)
+  penalty_scaled *
+    gamma *
+    (abs(theta - center)^(gamma - 1)) *
+    sign(theta - center)
 }
 
 #' Internal differentiable LASSO penalty
@@ -247,8 +313,11 @@ dlasso_penalty <- function(theta, n, penalty, s, center) {
   # The standard-normal wrappers carry tangents under exact differentiation and
   # reduce to pnorm/dnorm for plain numeric input, mirroring Python's use of
   # standard_normal_cdf and standard_normal_pdf here.
-  penalty_scaled * (2 * standard_normal_cdf(tc / s) +
-                      2 * (tc / s) * standard_normal_pdf(tc / s) - 1)
+  penalty_scaled *
+    (2 *
+      standard_normal_cdf(tc / s) +
+      2 * (tc / s) * standard_normal_pdf(tc / s) -
+      1)
 }
 
 #' Estimating equation for multinomial logistic regression
@@ -348,9 +417,12 @@ ee_beta_regression <- function(theta, X, y, weights = NULL, offset = NULL) {
 
   # Precision parameter EE
   ef_prc <- matrix(
-    w * (deli_digamma(phi) - yhat * deli_digamma(yhat * phi) -
-           (1 - yhat) * deli_digamma((1 - yhat) * phi) +
-           yhat * log(y) + (1 - yhat) * log(1 - y)),
+    w *
+      (deli_digamma(phi) -
+        yhat * deli_digamma(yhat * phi) -
+        (1 - yhat) * deli_digamma((1 - yhat) * phi) +
+        yhat * log(y) +
+        (1 - yhat) * log(1 - y)),
     nrow = 1
   )
 
@@ -375,8 +447,15 @@ ee_beta_regression <- function(theta, X, y, weights = NULL, offset = NULL) {
 #' @returns A `(b+1)`-by-n matrix.
 #'
 #' @export
-ee_tobit <- function(theta, X, y, lower = NULL, upper = NULL,
-                     weights = NULL, offset = NULL) {
+ee_tobit <- function(
+  theta,
+  X,
+  y,
+  lower = NULL,
+  upper = NULL,
+  weights = NULL,
+  offset = NULL
+) {
   X <- as.matrix(X)
   y <- as.numeric(y)
   n <- nrow(X)
@@ -388,7 +467,9 @@ ee_tobit <- function(theta, X, y, lower = NULL, upper = NULL,
 
   # Linear predictor
   yhat <- pt_as_vector(X %*% beta)
-  if (!is.null(offset)) yhat <- yhat + as.numeric(offset)
+  if (!is.null(offset)) {
+    yhat <- yhat + as.numeric(offset)
+  }
   resid <- y - yhat
 
   # Left censoring
@@ -423,29 +504,38 @@ ee_tobit <- function(theta, X, y, lower = NULL, upper = NULL,
 
   # Input validation
   if (lower >= upper) {
-    cli::cli_abort("The {.arg lower} limit must be less than the {.arg upper} limit.")
+    cli::cli_abort(
+      "The {.arg lower} limit must be less than the {.arg upper} limit."
+    )
   }
   if (any(y < lower)) {
-    cli::cli_abort("Some observations have values below the specified {.arg lower} limit.")
+    cli::cli_abort(
+      "Some observations have values below the specified {.arg lower} limit."
+    )
   }
   if (any(y > upper)) {
-    cli::cli_abort("Some observations have values above the specified {.arg upper} limit.")
+    cli::cli_abort(
+      "Some observations have values above the specified {.arg upper} limit."
+    )
   }
 
   # Regression score: (b)-by-n
-  ef_treg <- t(X * (w * (
-    lcensor * (-lambda_lower / sigma) +
-    ucensor * (resid / sigma^2) +
-    rcensor * (lambda_upper / sigma)
-  )))
+  ef_treg <- t(
+    X *
+      (w *
+        (lcensor *
+          (-lambda_lower / sigma) +
+          ucensor * (resid / sigma^2) +
+          rcensor * (lambda_upper / sigma)))
+  )
 
   # Variance score: 1-by-n
   ef_sigma <- matrix(
-    w * (
-      lcensor * (-scaled_yl * lambda_lower / sigma) +
-      ucensor * (-1 / sigma + resid^2 / sigma^3) +
-      rcensor * (scaled_yu * lambda_upper / sigma)
-    ),
+    w *
+      (lcensor *
+        (-scaled_yl * lambda_lower / sigma) +
+        ucensor * (-1 / sigma + resid^2 / sigma^3) +
+        rcensor * (scaled_yu * lambda_upper / sigma)),
     nrow = 1
   )
 
@@ -475,26 +565,37 @@ ee_tobit <- function(theta, X, y, lower = NULL, upper = NULL,
 #'   additive design matrix.
 #'
 #' @export
-ee_additive_regression <- function(theta, X, y, specifications, model,
-                                    weights = NULL, offset = NULL) {
+ee_additive_regression <- function(
+  theta,
+  X,
+  y,
+  specifications,
+  model,
+  weights = NULL,
+  offset = NULL
+) {
   # Build the additive design matrix and retrieve per-column penalty values
-  result <- additive_design_matrix(X = X,                         # Original design matrix
-                                   specifications = specifications, # Spline specs per column
-                                   return_penalty = TRUE)           # Also return penalty vector
+  result <- additive_design_matrix(
+    X = X, # Original design matrix
+    specifications = specifications, # Spline specs per column
+    return_penalty = TRUE
+  ) # Also return penalty vector
 
-  Xa <- result$X          # Expanded design matrix with spline columns
+  Xa <- result$X # Expanded design matrix with spline columns
   penalty <- result$penalty # Penalty vector (0 for linear terms, lambda for spline terms)
 
   # Delegate to bridge regression with gamma = 2 (L2 / ridge penalty)
-  ee_bridge_regression(theta = theta,
-                       X = Xa,              # Use the expanded design matrix
-                       y = y,               # Observed outcomes
-                       model = model,       # Link function
-                       penalty = penalty,   # Per-column penalty values
-                       gamma = 2,           # Ridge (L2) penalty
-                       weights = weights,   # Observation weights
-                       center = 0,          # Splines always penalized toward zero
-                       offset = offset)     # Optional offset
+  ee_bridge_regression(
+    theta = theta,
+    X = Xa, # Use the expanded design matrix
+    y = y, # Observed outcomes
+    model = model, # Link function
+    penalty = penalty, # Per-column penalty values
+    gamma = 2, # Ridge (L2) penalty
+    weights = weights, # Observation weights
+    center = 0, # Splines always penalized toward zero
+    offset = offset
+  ) # Optional offset
 }
 
 #' Internal model transform dispatcher

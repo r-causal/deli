@@ -14,8 +14,12 @@
 #' @return A p-by-p bread matrix.
 #'
 #' @keywords internal
-compute_bread <- function(stacked_equations, theta, deriv_method = "capprox",
-                          dx = 1e-9) {
+compute_bread <- function(
+  stacked_equations,
+  theta,
+  deriv_method = "capprox",
+  dx = 1e-9
+) {
   # Sum the estimating equations across observations
   summed_ee <- function(input_theta) {
     ef <- stacked_equations(input_theta)
@@ -54,7 +58,7 @@ compute_bread <- function(stacked_equations, theta, deriv_method = "capprox",
     )
   }
 
-  if (any(is.na(bread_matrix))) {
+  if (anyNA(bread_matrix)) {
     warning(
       "The bread matrix contains NA values, so it cannot be inverted. ",
       "The variance will not be calculated.",
@@ -97,7 +101,7 @@ compute_meat <- function(evaluations) {
 build_sandwich <- function(bread, meat, allow_pinv = TRUE) {
   # If bread contains NA, return NULL
 
-  if (any(is.na(bread))) {
+  if (anyNA(bread)) {
     return(NULL)
   }
 
@@ -107,7 +111,8 @@ build_sandwich <- function(bread, meat, allow_pinv = TRUE) {
     bread_inv <- tryCatch(
       solve(bread),
       error = function(e) {
-        rlang::check_installed("MASS",
+        rlang::check_installed(
+          "MASS",
           reason = "for pseudo-inverse when the bread matrix is singular."
         )
         MASS::ginv(bread)
@@ -234,9 +239,14 @@ finite_sample_correction <- function(meat, n, p, adjustment = NULL) {
 #' Essential Statistical Inference (pp. 297-337). Springer, New York, NY.
 #'
 #' @export
-compute_sandwich <- function(stacked_equations, theta,
-                             deriv_method = "capprox", dx = 1e-9,
-                             allow_pinv = TRUE, finite_correction = NULL) {
+compute_sandwich <- function(
+  stacked_equations,
+  theta,
+  deriv_method = "capprox",
+  dx = 1e-9,
+  allow_pinv = TRUE,
+  finite_correction = NULL
+) {
   # Evaluate estimating equations at theta-hat
   evald <- stacked_equations(theta)
   if (is.null(dim(evald))) {
@@ -297,21 +307,33 @@ compute_sandwich <- function(stacked_equations, theta,
 # residual Monte Carlo error is negligible relative to the band width while
 # running about an order of magnitude faster. Set n_draws = 1e6 for numerical
 # agreement with Python under matched settings.
-confidence_bands <- new_generic("confidence_bands", "object", function(object, alpha = 0.05,
-                                                                       method = "supt",
-                                                                       n_draws = 100000L,
-                                                                       seed = NULL,
-                                                                       subset = NULL,
-                                                                       covariance = NULL, ...) {
-  S7::S7_dispatch()
-})
+confidence_bands <- new_generic(
+  "confidence_bands",
+  "object",
+  function(
+    object,
+    alpha = 0.05,
+    method = "supt",
+    n_draws = 100000L,
+    seed = NULL,
+    subset = NULL,
+    covariance = NULL,
+    ...
+  ) {
+    S7::S7_dispatch()
+  }
+)
 
-method(confidence_bands, deli_estimator) <- function(object, alpha = 0.05,
-                                                     method = "supt",
-                                                     n_draws = 100000L,
-                                                     seed = NULL,
-                                                     subset = NULL,
-                                                     covariance = NULL, ...) {
+method(confidence_bands, deli_estimator) <- function(
+  object,
+  alpha = 0.05,
+  method = "supt",
+  n_draws = 100000L,
+  seed = NULL,
+  subset = NULL,
+  covariance = NULL,
+  ...
+) {
   check_estimated(object)
   check_alpha(alpha)
 
@@ -323,19 +345,35 @@ method(confidence_bands, deli_estimator) <- function(object, alpha = 0.05,
     covariance <- object@variance
   }
 
-  compute_confidence_bands(theta, covariance, alpha = alpha,
-                           method = method, n_draws = n_draws, seed = seed)
+  compute_confidence_bands(
+    theta,
+    covariance,
+    alpha = alpha,
+    method = method,
+    n_draws = n_draws,
+    seed = seed
+  )
 }
 
-method(confidence_bands, class_numeric) <- function(object, alpha = 0.05,
-                                                     method = "supt",
-                                                     n_draws = 100000L,
-                                                     seed = NULL,
-                                                     subset = NULL,
-                                                     covariance = NULL, ...) {
+method(confidence_bands, class_numeric) <- function(
+  object,
+  alpha = 0.05,
+  method = "supt",
+  n_draws = 100000L,
+  seed = NULL,
+  subset = NULL,
+  covariance = NULL,
+  ...
+) {
   check_alpha(alpha)
-  compute_confidence_bands(object, covariance, alpha = alpha,
-                           method = method, n_draws = n_draws, seed = seed)
+  compute_confidence_bands(
+    object,
+    covariance,
+    alpha = alpha,
+    method = method,
+    n_draws = n_draws,
+    seed = seed
+  )
 }
 
 #' Compute confidence bands from theta and covariance
@@ -352,9 +390,14 @@ method(confidence_bands, class_numeric) <- function(object, alpha = 0.05,
 #' @returns A p-by-2 matrix with columns `"lower"` and `"upper"`.
 #'
 #' @export
-compute_confidence_bands <- function(theta, covariance, alpha = 0.05,
-                                      method = "supt", n_draws = 100000L,
-                                      seed = NULL) {
+compute_confidence_bands <- function(
+  theta,
+  covariance,
+  alpha = 0.05,
+  method = "supt",
+  n_draws = 100000L,
+  seed = NULL
+) {
   theta <- as.numeric(theta)
   covariance <- as.matrix(covariance)
   se <- sqrt(diag(covariance))
@@ -367,13 +410,18 @@ compute_confidence_bands <- function(theta, covariance, alpha = 0.05,
         "At least one parameter has a standard error of zero or less. The sup-t method cannot be applied."
       )
     }
-    if (!is.null(seed)) set.seed(seed)
-    rlang::check_installed("MASS",
+    if (!is.null(seed)) {
+      set.seed(seed)
+    }
+    rlang::check_installed(
+      "MASS",
       reason = "to draw from the multivariate normal for sup-t confidence bands."
     )
     # Draw from multivariate normal
     draws <- MASS::mvrnorm(n = n_draws, mu = rep(0, k), Sigma = covariance)
-    if (k == 1) draws <- matrix(draws, ncol = 1)
+    if (k == 1) {
+      draws <- matrix(draws, ncol = 1)
+    }
     # Scale by SE and take absolute value
     scaled <- abs(sweep(draws, 2, se, `/`))
     # Max across parameters for each draw
@@ -383,7 +431,9 @@ compute_confidence_bands <- function(theta, covariance, alpha = 0.05,
   } else if (method == "bonferroni") {
     cv <- qnorm(1 - alpha / (2 * k))
   } else {
-    cli::cli_abort("Method {.val {method}} is not supported. Use {.val supt} or {.val bonferroni}.")
+    cli::cli_abort(
+      "Method {.val {method}} is not supported. Use {.val supt} or {.val bonferroni}."
+    )
   }
 
   cb <- cbind(lower = theta - cv * se, upper = theta + cv * se)
@@ -415,31 +465,52 @@ compute_confidence_bands <- function(theta, covariance, alpha = 0.05,
 #' @returns A covariance matrix for `transform(theta)`.
 #'
 #' @export
-delta_method <- new_generic("delta_method", "object", function(object, transform,
-                                                                covariance = NULL,
-                                                                deriv_method = "capprox",
-                                                                dx = 1e-9, ...) {
-  S7::S7_dispatch()
-})
+delta_method <- new_generic(
+  "delta_method",
+  "object",
+  function(
+    object,
+    transform,
+    covariance = NULL,
+    deriv_method = "capprox",
+    dx = 1e-9,
+    ...
+  ) {
+    S7::S7_dispatch()
+  }
+)
 
-method(delta_method, deli_estimator) <- function(object, transform,
-                                                 covariance = NULL,
-                                                 deriv_method = "capprox",
-                                                 dx = 1e-9, ...) {
+method(delta_method, deli_estimator) <- function(
+  object,
+  transform,
+  covariance = NULL,
+  deriv_method = "capprox",
+  dx = 1e-9,
+  ...
+) {
   check_estimated(object)
   delta_method_impl(object@theta, transform, object@variance, deriv_method, dx)
 }
 
-method(delta_method, class_numeric) <- function(object, transform,
-                                                 covariance = NULL,
-                                                 deriv_method = "capprox",
-                                                 dx = 1e-9, ...) {
+method(delta_method, class_numeric) <- function(
+  object,
+  transform,
+  covariance = NULL,
+  deriv_method = "capprox",
+  dx = 1e-9,
+  ...
+) {
   delta_method_impl(object, transform, covariance, deriv_method, dx)
 }
 
 #' @noRd
-delta_method_impl <- function(theta, g, covariance,
-                               deriv_method = "capprox", dx = 1e-9) {
+delta_method_impl <- function(
+  theta,
+  g,
+  covariance,
+  deriv_method = "capprox",
+  dx = 1e-9
+) {
   theta <- as.numeric(theta)
   covariance <- as.matrix(covariance)
 

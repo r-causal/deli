@@ -27,7 +27,11 @@ test_that("nleqslv solver gives same results as rootSolve for ee_mean", {
   m_nleqslv <- make_fitted_mean(solver = "nleqslv")
 
   expect_equal(unname(m_nleqslv@theta), ref$theta, tolerance = 1e-5)
-  expect_equal(unname(m_nleqslv@variance[1, 1]), ref$variance[[1]], tolerance = 1e-4)
+  expect_equal(
+    unname(m_nleqslv@variance[1, 1]),
+    ref$variance[[1]],
+    tolerance = 1e-4
+  )
 })
 
 # ---- Custom solver function --------------------------------------------------

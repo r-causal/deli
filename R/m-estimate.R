@@ -65,12 +65,21 @@ m_estimate <- function(stacked_equations, ...) {
 
 #' @rdname m_estimate
 #' @export
-m_estimate.formula <- function(stacked_equations, data, .ee, ...,
-                               init = NULL, subset = NULL,
-                               finite_correction = NULL,
-                               solver = NULL, maxiter = 5000,
-                               tolerance = 1e-9, deriv_method = "capprox",
-                               dx = 1e-9, allow_pinv = TRUE) {
+m_estimate.formula <- function(
+  stacked_equations,
+  data,
+  .ee,
+  ...,
+  init = NULL,
+  subset = NULL,
+  finite_correction = NULL,
+  solver = NULL,
+  maxiter = 5000,
+  tolerance = 1e-9,
+  deriv_method = "capprox",
+  dx = 1e-9,
+  allow_pinv = TRUE
+) {
   formula <- stacked_equations
 
   # Build model frame and extract X, y
@@ -93,25 +102,53 @@ m_estimate.formula <- function(stacked_equations, data, .ee, ...,
     do.call(.ee, c(list(theta = theta, X = X), list(y), ee_args))
   }
 
-  obj <- MEstimator(stacked_equations = psi, init = init, subset = subset,
-                    finite_correction = finite_correction)
-  estimate(obj, solver = solver, maxiter = maxiter,
-           tolerance = tolerance, deriv_method = deriv_method,
-           dx = dx, allow_pinv = allow_pinv)
+  obj <- MEstimator(
+    stacked_equations = psi,
+    init = init,
+    subset = subset,
+    finite_correction = finite_correction
+  )
+  estimate(
+    obj,
+    solver = solver,
+    maxiter = maxiter,
+    tolerance = tolerance,
+    deriv_method = deriv_method,
+    dx = dx,
+    allow_pinv = allow_pinv
+  )
 }
 
 #' @rdname m_estimate
 #' @export
-m_estimate.default <- function(stacked_equations, ..., init, subset = NULL,
-                               finite_correction = NULL,
-                               solver = NULL, maxiter = 5000,
-                               tolerance = 1e-9, deriv_method = "capprox",
-                               dx = 1e-9, allow_pinv = TRUE) {
-  obj <- MEstimator(stacked_equations = stacked_equations, init = init,
-                    subset = subset, finite_correction = finite_correction)
-  estimate(obj, solver = solver, maxiter = maxiter,
-           tolerance = tolerance, deriv_method = deriv_method,
-           dx = dx, allow_pinv = allow_pinv)
+m_estimate.default <- function(
+  stacked_equations,
+  ...,
+  init,
+  subset = NULL,
+  finite_correction = NULL,
+  solver = NULL,
+  maxiter = 5000,
+  tolerance = 1e-9,
+  deriv_method = "capprox",
+  dx = 1e-9,
+  allow_pinv = TRUE
+) {
+  obj <- MEstimator(
+    stacked_equations = stacked_equations,
+    init = init,
+    subset = subset,
+    finite_correction = finite_correction
+  )
+  estimate(
+    obj,
+    solver = solver,
+    maxiter = maxiter,
+    tolerance = tolerance,
+    deriv_method = deriv_method,
+    dx = dx,
+    allow_pinv = allow_pinv
+  )
 }
 
 #' One-step GMM estimation
@@ -142,14 +179,23 @@ gmm_estimate <- function(stacked_equations, ...) {
 
 #' @rdname gmm_estimate
 #' @export
-gmm_estimate.formula <- function(stacked_equations, data, .ee, ...,
-                                 init = NULL, subset = NULL,
-                                 finite_correction = NULL,
-                                 solver = NULL, maxiter = 5000,
-                                 tolerance = 1e-9, deriv_method = "capprox",
-                                 dx = 1e-9, allow_pinv = TRUE,
-                                 overid_maxiter = 10L,
-                                 overid_tolerance = 1e-9) {
+gmm_estimate.formula <- function(
+  stacked_equations,
+  data,
+  .ee,
+  ...,
+  init = NULL,
+  subset = NULL,
+  finite_correction = NULL,
+  solver = NULL,
+  maxiter = 5000,
+  tolerance = 1e-9,
+  deriv_method = "capprox",
+  dx = 1e-9,
+  allow_pinv = TRUE,
+  overid_maxiter = 10L,
+  overid_tolerance = 1e-9
+) {
   formula <- stacked_equations
 
   # Build model frame and extract X, y
@@ -173,30 +219,56 @@ gmm_estimate.formula <- function(stacked_equations, data, .ee, ...,
   }
 
   obj <- GMMEstimator(
-    stacked_equations = psi, init = init, subset = subset,
+    stacked_equations = psi,
+    init = init,
+    subset = subset,
     finite_correction = finite_correction,
-    overid_maxiter = overid_maxiter, overid_tolerance = overid_tolerance
+    overid_maxiter = overid_maxiter,
+    overid_tolerance = overid_tolerance
   )
-  estimate(obj, solver = solver, maxiter = maxiter,
-           tolerance = tolerance, deriv_method = deriv_method,
-           dx = dx, allow_pinv = allow_pinv)
+  estimate(
+    obj,
+    solver = solver,
+    maxiter = maxiter,
+    tolerance = tolerance,
+    deriv_method = deriv_method,
+    dx = dx,
+    allow_pinv = allow_pinv
+  )
 }
 
 #' @rdname gmm_estimate
 #' @export
-gmm_estimate.default <- function(stacked_equations, ..., init, subset = NULL,
-                                 finite_correction = NULL,
-                                 solver = NULL, maxiter = 5000,
-                                 tolerance = 1e-9, deriv_method = "capprox",
-                                 dx = 1e-9, allow_pinv = TRUE,
-                                 overid_maxiter = 10L,
-                                 overid_tolerance = 1e-9) {
+gmm_estimate.default <- function(
+  stacked_equations,
+  ...,
+  init,
+  subset = NULL,
+  finite_correction = NULL,
+  solver = NULL,
+  maxiter = 5000,
+  tolerance = 1e-9,
+  deriv_method = "capprox",
+  dx = 1e-9,
+  allow_pinv = TRUE,
+  overid_maxiter = 10L,
+  overid_tolerance = 1e-9
+) {
   obj <- GMMEstimator(
-    stacked_equations = stacked_equations, init = init, subset = subset,
+    stacked_equations = stacked_equations,
+    init = init,
+    subset = subset,
     finite_correction = finite_correction,
-    overid_maxiter = overid_maxiter, overid_tolerance = overid_tolerance
+    overid_maxiter = overid_maxiter,
+    overid_tolerance = overid_tolerance
   )
-  estimate(obj, solver = solver, maxiter = maxiter,
-           tolerance = tolerance, deriv_method = deriv_method,
-           dx = dx, allow_pinv = allow_pinv)
+  estimate(
+    obj,
+    solver = solver,
+    maxiter = maxiter,
+    tolerance = tolerance,
+    deriv_method = deriv_method,
+    dx = dx,
+    allow_pinv = allow_pinv
+  )
 }

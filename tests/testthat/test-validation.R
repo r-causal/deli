@@ -39,23 +39,34 @@ test_that("check_estimated rejects an estimator that has not been fitted", {
 # check_penalty_shape -----------------------------------------------------
 
 test_that("check_penalty_shape accepts scalar penalty and center", {
-
   theta <- c(1, 2, 3)
   expect_no_error(check_penalty_shape(theta, penalty = 0.5, center = 0))
 })
 
 test_that("check_penalty_shape accepts penalty and center matching theta length", {
   theta <- c(1, 2, 3)
-  expect_no_error(check_penalty_shape(theta, penalty = c(0.1, 0.2, 0.3), center = c(0, 0, 0)))
+  expect_no_error(check_penalty_shape(
+    theta,
+    penalty = c(0.1, 0.2, 0.3),
+    center = c(0, 0, 0)
+  ))
 })
 
 test_that("check_penalty_shape accepts mixed scalar and vector arguments", {
   theta <- c(1, 2, 3)
   # scalar penalty, vector center
 
-  expect_no_error(check_penalty_shape(theta, penalty = 0.5, center = c(0, 0, 0)))
+  expect_no_error(check_penalty_shape(
+    theta,
+    penalty = 0.5,
+    center = c(0, 0, 0)
+  ))
   # vector penalty, scalar center
-  expect_no_error(check_penalty_shape(theta, penalty = c(0.1, 0.2, 0.3), center = 0))
+  expect_no_error(check_penalty_shape(
+    theta,
+    penalty = c(0.1, 0.2, 0.3),
+    center = 0
+  ))
 })
 
 test_that("check_penalty_shape rejects penalty with wrong length", {
@@ -103,20 +114,38 @@ test_that("check_penalty_shape accepts zero penalty values", {
 # check_survival_data_valid -----------------------------------------------
 
 test_that("check_survival_data_valid accepts valid survival data", {
-  expect_no_error(check_survival_data_valid(delta = c(0, 1, 1, 0), time = c(1, 2, 3, 4)))
-  expect_no_error(check_survival_data_valid(delta = c(1, 1, 1), time = c(0.5, 1.5, 10)))
-  expect_no_error(check_survival_data_valid(delta = c(0, 0, 0), time = c(1, 2, 3)))
+  expect_no_error(check_survival_data_valid(
+    delta = c(0, 1, 1, 0),
+    time = c(1, 2, 3, 4)
+  ))
+  expect_no_error(check_survival_data_valid(
+    delta = c(1, 1, 1),
+    time = c(0.5, 1.5, 10)
+  ))
+  expect_no_error(check_survival_data_valid(
+    delta = c(0, 0, 0),
+    time = c(1, 2, 3)
+  ))
 })
 
 test_that("check_survival_data_valid accepts data with NAs", {
   # NAs in delta should be ignored
 
-  expect_no_error(check_survival_data_valid(delta = c(0, 1, NA, 0), time = c(1, 2, 3, 4)))
+  expect_no_error(check_survival_data_valid(
+    delta = c(0, 1, NA, 0),
+    time = c(1, 2, 3, 4)
+  ))
   # NAs in time should be ignored
-  expect_no_error(check_survival_data_valid(delta = c(0, 1, 1, 0), time = c(1, NA, 3, 4)))
+  expect_no_error(check_survival_data_valid(
+    delta = c(0, 1, 1, 0),
+    time = c(1, NA, 3, 4)
+  ))
   # NAs in both
 
-  expect_no_error(check_survival_data_valid(delta = c(0, NA, 1, 0), time = c(1, NA, 3, 4)))
+  expect_no_error(check_survival_data_valid(
+    delta = c(0, NA, 1, 0),
+    time = c(1, NA, 3, 4)
+  ))
 })
 
 test_that("check_survival_data_valid rejects delta values other than 0 or 1", {

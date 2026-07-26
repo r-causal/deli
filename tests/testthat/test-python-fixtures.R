@@ -96,8 +96,13 @@ test_that("ee_percentile matches Python Delicatessen", {
   # Python uses solver='hybr', tolerance=1e-3, dx=1, deriv_method='fapprox'
   # to get approximate values. We match those settings here.
   m <- MEstimator(stacked_equations = psi, init = ref$init)
-  m <- estimate(m, solver = "nleqslv", tolerance = 1e-3,
-                dx = 1, deriv_method = "fapprox")
+  m <- estimate(
+    m,
+    solver = "nleqslv",
+    tolerance = 1e-3,
+    dx = 1,
+    deriv_method = "fapprox"
+  )
 
   expect_python_match(m, "ee_percentile_50", tolerance = 1e-3)
 })
@@ -164,8 +169,15 @@ test_that("ee_ipw_msm matches Python Delicatessen", {
   V <- ref$V
 
   psi <- function(theta) {
-    ee_ipw_msm(theta, y = y, A = A, W = W, V = V,
-               distribution = ref$distribution, link = ref$link)
+    ee_ipw_msm(
+      theta,
+      y = y,
+      A = A,
+      W = W,
+      V = V,
+      distribution = ref$distribution,
+      link = ref$link
+    )
   }
 
   m <- MEstimator(stacked_equations = psi, init = ref$init)
@@ -182,8 +194,7 @@ test_that("ee_gestimation_snmm matches Python Delicatessen", {
   V <- ref$V
 
   psi <- function(theta) {
-    ee_gestimation_snmm(theta, y = y, A = A, W = W, V = V,
-                         model = ref$model)
+    ee_gestimation_snmm(theta, y = y, A = A, W = W, V = V, model = ref$model)
   }
 
   m <- MEstimator(stacked_equations = psi, init = ref$init)
@@ -235,9 +246,14 @@ test_that("ee_mean_sensitivity_analysis matches Python Delicatessen", {
   q_eval <- ref$q_eval
 
   psi <- function(theta) {
-    ee_mean_sensitivity_analysis(theta, y = y, delta = delta, X = X,
-                                  q_eval = q_eval,
-                                  H_function = inverse_logit)
+    ee_mean_sensitivity_analysis(
+      theta,
+      y = y,
+      delta = delta,
+      X = X,
+      q_eval = q_eval,
+      H_function = inverse_logit
+    )
   }
 
   m <- MEstimator(stacked_equations = psi, init = ref$init)
@@ -300,8 +316,13 @@ test_that("ee_ridge_regression matches Python Delicatessen", {
   penalty <- ref$penalty
 
   psi <- function(theta) {
-    ee_ridge_regression(theta, X = X, y = y, model = "linear",
-                        penalty = penalty)
+    ee_ridge_regression(
+      theta,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = penalty
+    )
   }
 
   m <- MEstimator(stacked_equations = psi, init = ref$init)
@@ -317,8 +338,14 @@ test_that("ee_robust_regression (Huber) matches Python Delicatessen", {
   k <- ref$k
 
   psi <- function(theta) {
-    ee_robust_regression(theta, X = X, y = y, model = "linear",
-                         k = k, loss = "huber")
+    ee_robust_regression(
+      theta,
+      X = X,
+      y = y,
+      model = "linear",
+      k = k,
+      loss = "huber"
+    )
   }
 
   # Huber regression clips residuals beyond k, so from a starting point where
@@ -339,8 +366,13 @@ test_that("ee_lasso_regression matches Python Delicatessen", {
   y <- ref$y
 
   psi <- function(theta) {
-    ee_lasso_regression(theta, X = X, y = y, model = ref$model,
-                        penalty = ref$penalty)
+    ee_lasso_regression(
+      theta,
+      X = X,
+      y = y,
+      model = ref$model,
+      penalty = ref$penalty
+    )
   }
 
   m <- MEstimator(stacked_equations = psi, init = ref$init)
@@ -355,8 +387,13 @@ test_that("ee_dlasso_regression matches Python Delicatessen", {
   y <- ref$y
 
   psi <- function(theta) {
-    ee_dlasso_regression(theta, X = X, y = y, model = ref$model,
-                          penalty = ref$penalty)
+    ee_dlasso_regression(
+      theta,
+      X = X,
+      y = y,
+      model = ref$model,
+      penalty = ref$penalty
+    )
   }
 
   m <- MEstimator(stacked_equations = psi, init = ref$init)
@@ -371,8 +408,14 @@ test_that("ee_elasticnet_regression matches Python Delicatessen", {
   y <- ref$y
 
   psi <- function(theta) {
-    ee_elasticnet_regression(theta, X = X, y = y, model = ref$model,
-                              penalty = ref$penalty, ratio = ref$ratio)
+    ee_elasticnet_regression(
+      theta,
+      X = X,
+      y = y,
+      model = ref$model,
+      penalty = ref$penalty,
+      ratio = ref$ratio
+    )
   }
 
   m <- MEstimator(stacked_equations = psi, init = ref$init)
@@ -387,8 +430,14 @@ test_that("ee_bridge_regression matches Python Delicatessen", {
   y <- ref$y
 
   psi <- function(theta) {
-    ee_bridge_regression(theta, X = X, y = y, model = ref$model,
-                          penalty = ref$penalty, gamma = ref$gamma)
+    ee_bridge_regression(
+      theta,
+      X = X,
+      y = y,
+      model = ref$model,
+      penalty = ref$penalty,
+      gamma = ref$gamma
+    )
   }
 
   m <- MEstimator(stacked_equations = psi, init = ref$init)
@@ -405,8 +454,13 @@ test_that("ee_glm normal/identity matches Python Delicatessen", {
   y <- ref$y
 
   psi <- function(theta) {
-    ee_glm(theta, X = X, y = y, distribution = ref$distribution,
-            link = ref$link)
+    ee_glm(
+      theta,
+      X = X,
+      y = y,
+      distribution = ref$distribution,
+      link = ref$link
+    )
   }
 
   m <- MEstimator(stacked_equations = psi, init = ref$init)
@@ -421,8 +475,13 @@ test_that("ee_glm poisson/log matches Python Delicatessen", {
   y <- ref$y
 
   psi <- function(theta) {
-    ee_glm(theta, X = X, y = y, distribution = ref$distribution,
-            link = ref$link)
+    ee_glm(
+      theta,
+      X = X,
+      y = y,
+      distribution = ref$distribution,
+      link = ref$link
+    )
   }
 
   m <- MEstimator(stacked_equations = psi, init = ref$init)
@@ -434,7 +493,7 @@ test_that("ee_glm poisson/log matches Python Delicatessen", {
 test_that("ee_mlogit matches Python Delicatessen", {
   ref <- load_fixture("ee_mlogit")
   X <- ref$X
-  y <- ref$y  # one-hot encoded matrix
+  y <- ref$y # one-hot encoded matrix
 
   psi <- function(theta) {
     ee_mlogit(theta, X = X, y = y)
@@ -495,9 +554,13 @@ test_that("ee_additive_regression matches Python Delicatessen", {
   )
 
   psi <- function(theta) {
-    ee_additive_regression(theta, X = X, y = y,
-                            specifications = specs,
-                            model = ref$model)
+    ee_additive_regression(
+      theta,
+      X = X,
+      y = y,
+      specifications = specs,
+      model = ref$model
+    )
   }
 
   m <- MEstimator(stacked_equations = psi, init = ref$init)
@@ -514,8 +577,12 @@ test_that("ee_survival_model Weibull matches Python Delicatessen", {
   delta <- ref$delta
 
   psi <- function(theta) {
-    ee_survival_model(theta, time = t_obs, event = delta,
-                       distribution = ref$distribution)
+    ee_survival_model(
+      theta,
+      time = t_obs,
+      event = delta,
+      distribution = ref$distribution
+    )
   }
 
   m <- MEstimator(stacked_equations = psi, init = ref$init)
@@ -531,8 +598,13 @@ test_that("ee_aft Weibull matches Python Delicatessen", {
   delta <- ref$delta
 
   psi <- function(theta) {
-    ee_aft(theta, X = X, time = t_obs, event = delta,
-           distribution = ref$distribution)
+    ee_aft(
+      theta,
+      X = X,
+      time = t_obs,
+      event = delta,
+      distribution = ref$distribution
+    )
   }
 
   m <- MEstimator(stacked_equations = psi, init = ref$init)
@@ -610,13 +682,22 @@ test_that("ee_regression_calibration matches Python Delicatessen", {
 
     # Naive logistic (main study only)
     y_safe <- ifelse(r == 0, -999, y)
-    ee_logit <- ee_regression(theta_main, X = X_main, y = y_safe,
-                               model = "logistic")
+    ee_logit <- ee_regression(
+      theta_main,
+      X = X_main,
+      y = y_safe,
+      model = "logistic"
+    )
     ee_logit <- ee_logit * rep(r, each = nrow(ee_logit))
 
     # Regression calibration
-    ee_calib <- ee_regression_calibration(theta_calib, beta = theta_main[2],
-                                           a = a, a_star = a_star, r = r)
+    ee_calib <- ee_regression_calibration(
+      theta_calib,
+      beta = theta_main[2],
+      a = a,
+      a_star = a_star,
+      r = r
+    )
 
     rbind(ee_calib, ee_logit)
   }
@@ -667,8 +748,7 @@ test_that("ee_emax + ee_emax_ed stacked matches Python Delicatessen", {
 
   psi <- function(theta) {
     emax_ee <- ee_emax(theta[1:3], dose = dose, response = response)
-    ed_ee <- ee_emax_ed(theta[4], dose = dose, delta = delta,
-                         ed50 = theta[3])
+    ed_ee <- ee_emax_ed(theta[4], dose = dose, delta = delta, ed50 = theta[3])
     rbind(emax_ee, ed_ee)
   }
 
@@ -688,13 +768,22 @@ test_that("ee_loglogistic + ee_loglogistic_ed stacked matches Python Delicatesse
   psi <- function(theta) {
     # 3PL: fix lower, estimate upper (theta[1]), ed50 (theta[2]),
     # steepness (theta[3])
-    ll_ee <- ee_loglogistic(c(lower, theta[1:3]),
-                             dose = dose, response = response)
-    ll_ee <- ll_ee[-1, , drop = FALSE]  # Drop lower limit EE
+    ll_ee <- ee_loglogistic(
+      c(lower, theta[1:3]),
+      dose = dose,
+      response = response
+    )
+    ll_ee <- ll_ee[-1, , drop = FALSE] # Drop lower limit EE
 
-    ed_ee <- ee_loglogistic_ed(theta[4], dose = dose, delta = delta,
-                                lower = lower, upper = theta[1],
-                                ed50 = theta[2], steepness = theta[3])
+    ed_ee <- ee_loglogistic_ed(
+      theta[4],
+      dose = dose,
+      delta = delta,
+      lower = lower,
+      upper = theta[1],
+      ed50 = theta[2],
+      steepness = theta[3]
+    )
     rbind(ll_ee, ed_ee)
   }
 

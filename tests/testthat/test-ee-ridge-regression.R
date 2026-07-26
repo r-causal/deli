@@ -50,7 +50,11 @@ test_that("ee_ridge_regression pipeline results match full fixture", {
   m <- estimate(m)
 
   # Check asymptotic variance
-  expect_equal(unname(diag(m@asymptotic_variance)), diag(ref$asymptotic_variance), tolerance = 1e-3)
+  expect_equal(
+    unname(diag(m@asymptotic_variance)),
+    diag(ref$asymptotic_variance),
+    tolerance = 1e-3
+  )
 
   # Check bread matrix
   expect_equal(unname(m@bread), ref$bread, tolerance = 1e-3)
@@ -91,5 +95,9 @@ test_that("ee_ridge_regression with zero penalty matches ee_regression linear", 
   m_linear <- estimate(m_linear)
 
   expect_equal(m_ridge@theta, m_linear@theta, tolerance = 1e-6)
-  expect_equal(diag(m_ridge@variance), diag(m_linear@variance), tolerance = 1e-6)
+  expect_equal(
+    diag(m_ridge@variance),
+    diag(m_linear@variance),
+    tolerance = 1e-6
+  )
 })

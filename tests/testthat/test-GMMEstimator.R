@@ -35,8 +35,11 @@ test_that("GMMEstimator subset is sorted", {
     y <- c(1, 2, 3)
     rbind(y - theta[1], (y - theta[1])^2 - theta[2], y * theta[3])
   }
-  g <- GMMEstimator(stacked_equations = psi, init = c(0, 1, 1),
-                    subset = c(3L, 1L))
+  g <- GMMEstimator(
+    stacked_equations = psi,
+    init = c(0, 1, 1),
+    subset = c(3L, 1L)
+  )
   expect_equal(g@subset, c(1L, 3L))
 })
 
@@ -57,8 +60,12 @@ test_that("GMMEstimator accepts custom overid parameters", {
     y <- c(1, 2, 3)
     matrix(y - theta[1], nrow = 1)
   }
-  g <- GMMEstimator(stacked_equations = psi, init = c(0),
-                    overid_maxiter = 20L, overid_tolerance = 1e-6)
+  g <- GMMEstimator(
+    stacked_equations = psi,
+    init = c(0),
+    overid_maxiter = 20L,
+    overid_tolerance = 1e-6
+  )
   expect_equal(g@overid_maxiter, 20L)
   expect_equal(g@overid_tolerance, 1e-6)
 })
@@ -131,7 +138,8 @@ test_that("GMMEstimator rejects an unsupported finite_correction string", {
   }
   expect_error(
     GMMEstimator(
-      stacked_equations = psi, init = c(0),
+      stacked_equations = psi,
+      init = c(0),
       finite_correction = "nonsense"
     ),
     "HC1"
@@ -144,7 +152,8 @@ test_that("GMMEstimator rejects a non-character finite_correction", {
   }
   expect_error(
     GMMEstimator(
-      stacked_equations = psi, init = c(0),
+      stacked_equations = psi,
+      init = c(0),
       finite_correction = 5
     ),
     "HC1"
@@ -157,12 +166,16 @@ test_that("GMMEstimator accepts the supported finite_correction values", {
   }
   expect_no_error(
     GMMEstimator(
-      stacked_equations = psi, init = c(0), finite_correction = "HC1"
+      stacked_equations = psi,
+      init = c(0),
+      finite_correction = "HC1"
     )
   )
   expect_no_error(
     GMMEstimator(
-      stacked_equations = psi, init = c(0), finite_correction = NULL
+      stacked_equations = psi,
+      init = c(0),
+      finite_correction = NULL
     )
   )
 })
@@ -259,7 +272,8 @@ test_that("GMMEstimator rejects a non-scalar overid_maxiter", {
   }
   expect_error(
     GMMEstimator(
-      stacked_equations = psi, init = c(0),
+      stacked_equations = psi,
+      init = c(0),
       overid_maxiter = c(1L, 2L)
     ),
     "single"
@@ -283,7 +297,8 @@ test_that("GMMEstimator rejects a non-scalar overid_tolerance", {
   }
   expect_error(
     GMMEstimator(
-      stacked_equations = psi, init = c(0),
+      stacked_equations = psi,
+      init = c(0),
       overid_tolerance = c(1e-9, 1e-8)
     ),
     "single"
@@ -426,8 +441,8 @@ test_that("GMMEstimator handles over-identified equations", {
 
   psi <- function(theta) {
     rbind(
-      y - theta[1],             # mean equation
-      (y - theta[1])^2 - 2      # variance equation (moment condition)
+      y - theta[1], # mean equation
+      (y - theta[1])^2 - 2 # variance equation (moment condition)
     )
   }
 
@@ -470,8 +485,10 @@ test_that("GMMEstimator signals over-identification non-convergence as a cli war
   }
 
   g <- GMMEstimator(
-    stacked_equations = psi, init = c(2),
-    overid_maxiter = 1L, overid_tolerance = 1e-12
+    stacked_equations = psi,
+    init = c(2),
+    overid_maxiter = 1L,
+    overid_tolerance = 1e-12
   )
 
   cnd <- rlang::catch_cnd(estimate(g), classes = "warning")
@@ -604,7 +621,8 @@ test_that("GMMEstimator accepts custom solver function", {
 
   custom_solver <- function(stacked_equations, init) {
     result <- stats::optim(
-      par = init, fn = stacked_equations,
+      par = init,
+      fn = stacked_equations,
       method = "Nelder-Mead"
     )
     result$par

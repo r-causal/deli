@@ -16,8 +16,14 @@ test_that("provided weights are returned unchanged", {
 
 # ---- length mismatch raises error -------------------------------------------
 test_that("length mismatch raises error", {
-  expect_error(generate_weights(5, c(1, 2, 3)), "length.*weights.*must.*match|weights.*length")
-  expect_error(generate_weights(3, c(1, 2, 3, 4, 5)), "length.*weights.*must.*match|weights.*length")
+  expect_error(
+    generate_weights(5, c(1, 2, 3)),
+    "length.*weights.*must.*match|weights.*length"
+  )
+  expect_error(
+    generate_weights(3, c(1, 2, 3, 4, 5)),
+    "length.*weights.*must.*match|weights.*length"
+  )
 })
 
 # ---- works with non-integer weights -----------------------------------------

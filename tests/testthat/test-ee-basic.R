@@ -26,8 +26,8 @@ test_that("ee_mean_variance: mean and variance match Python", {
   # Stacked estimating equations: mean and variance
   psi <- function(theta) {
     rbind(
-      y - theta[1],                  # EE for the mean
-      (y - theta[1])^2 - theta[2]   # EE for the variance
+      y - theta[1], # EE for the mean
+      (y - theta[1])^2 - theta[2] # EE for the variance
     )
   }
 
@@ -57,7 +57,6 @@ test_that("ee_mean_robust with Huber loss matches Python", {
 })
 
 test_that("ee_mean_geometric: log geometric mean matches Python", {
-
   # The ee_mean_geometric fixture has NaN/Infinity values that cannot be
 
   # parsed by jsonlite, so we use the y data directly. The Python fixture

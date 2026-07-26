@@ -20,7 +20,9 @@ test_that("ee_emax solves via MEstimator", {
   e0_true <- 1
   emax_true <- 25
   e50_true <- 10
-  response <- e0_true + (emax_true * dose) / (e50_true + dose) + rnorm(n, sd = 1)
+  response <- e0_true +
+    (emax_true * dose) / (e50_true + dose) +
+    rnorm(n, sd = 1)
 
   psi <- function(theta) {
     ee_emax(theta, dose = dose, response = response)
@@ -55,8 +57,13 @@ test_that("ee_emax with robust loss works", {
   dose <- c(0, 1, 5, 10, 50, 100)
   response <- c(2, 5, 12, 18, 28, 30)
 
-  result <- ee_emax(c(2, 30, 15), dose = dose, response = response,
-                    loss = "huber", k = 1.345)
+  result <- ee_emax(
+    c(2, 30, 15),
+    dose = dose,
+    response = response,
+    loss = "huber",
+    k = 1.345
+  )
   expect_true(is.matrix(result))
   expect_equal(nrow(result), 3)
 })
@@ -129,8 +136,13 @@ test_that("ee_loglogistic with robust loss works", {
   dose <- c(0.1, 1, 5, 10, 50, 100)
   response <- c(5, 8, 15, 20, 24, 25)
 
-  result <- ee_loglogistic(c(5, 25, 10, 1), dose = dose,
-                            response = response, loss = "huber", k = 1.345)
+  result <- ee_loglogistic(
+    c(5, 25, 10, 1),
+    dose = dose,
+    response = response,
+    loss = "huber",
+    k = 1.345
+  )
   expect_true(is.matrix(result))
   expect_equal(nrow(result), 4)
 })
@@ -139,9 +151,15 @@ test_that("ee_loglogistic with robust loss works", {
 
 test_that("ee_loglogistic_ed returns 1-by-n matrix", {
   dose <- c(0.1, 1, 5, 10, 50)
-  result <- ee_loglogistic_ed(theta = 10, dose = dose, delta = 0.5,
-                               lower = 5, upper = 25, ed50 = 10,
-                               steepness = 1)
+  result <- ee_loglogistic_ed(
+    theta = 10,
+    dose = dose,
+    delta = 0.5,
+    lower = 5,
+    upper = 25,
+    ed50 = 10,
+    steepness = 1
+  )
   expect_true(is.matrix(result))
   expect_equal(nrow(result), 1)
   expect_equal(ncol(result), length(dose))
@@ -150,8 +168,14 @@ test_that("ee_loglogistic_ed returns 1-by-n matrix", {
 test_that("ee_loglogistic_ed at ed50 with delta=0.5 is near zero", {
   dose <- 1:10
   # At ED50, the response is midway between lower and upper
-  result <- ee_loglogistic_ed(theta = 10, dose = dose, delta = 0.5,
-                               lower = 0, upper = 100, ed50 = 10,
-                               steepness = 1)
+  result <- ee_loglogistic_ed(
+    theta = 10,
+    dose = dose,
+    delta = 0.5,
+    lower = 0,
+    upper = 100,
+    ed50 = 10,
+    steepness = 1
+  )
   expect_equal(as.numeric(result[1, 1]), 0, tolerance = 1e-6)
 })

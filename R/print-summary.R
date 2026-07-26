@@ -54,8 +54,12 @@ EstimatorSummary <- new_class(
 )
 
 #' @noRd
-summarize_estimator <- function(object, estimator_label, alpha = 0.05,
-                                subset = NULL) {
+summarize_estimator <- function(
+  object,
+  estimator_label,
+  alpha = 0.05,
+  subset = NULL
+) {
   check_estimated(object)
   check_alpha(alpha)
   check_estimator_subset(subset, object@n_params)
@@ -96,8 +100,12 @@ summarize_estimator <- function(object, estimator_label, alpha = 0.05,
 }
 
 #' @noRd
-method(summary, deli_estimator) <- function(object, alpha = 0.05,
-                                            subset = NULL, ...) {
+method(summary, deli_estimator) <- function(
+  object,
+  alpha = 0.05,
+  subset = NULL,
+  ...
+) {
   summarize_estimator(
     object,
     S7::S7_class(object)@name,
@@ -129,8 +137,15 @@ method(print, EstimatorSummary) <- function(x, ...) {
   # Header
   header <- sprintf(
     "%-*s %10s %10s %10s %10s %10s %10s %10s",
-    name_width, "", "Estimate", "Std.Err", "Z-score",
-    lcl_lab, ucl_lab, "P-value", "S-value"
+    name_width,
+    "",
+    "Estimate",
+    "Std.Err",
+    "Z-score",
+    lcl_lab,
+    ucl_lab,
+    "P-value",
+    "S-value"
   )
   cli::cli_verbatim(header)
 
@@ -139,10 +154,15 @@ method(print, EstimatorSummary) <- function(x, ...) {
     p_fmt <- format.pval(x@p[i], digits = 3, eps = 2.2e-16)
     row <- sprintf(
       "%-*s %10.4f %10.4f %10.4f %10.4f %10.4f %10s %10.4f",
-      name_width, param_names[i],
-      x@theta[i], x@se[i], x@z[i],
-      x@ci[i, "lower"], x@ci[i, "upper"],
-      p_fmt, x@s[i]
+      name_width,
+      param_names[i],
+      x@theta[i],
+      x@se[i],
+      x@z[i],
+      x@ci[i, "lower"],
+      x@ci[i, "upper"],
+      p_fmt,
+      x@s[i]
     )
     cli::cli_verbatim(row)
   }

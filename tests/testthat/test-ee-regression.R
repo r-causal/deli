@@ -13,7 +13,7 @@ test_that("ee_regression linear matches Python Delicatessen", {
   psi <- function(theta) {
     Xb <- X %*% theta
     residuals <- y - Xb
-    t(X * as.numeric(residuals))  # p-by-n
+    t(X * as.numeric(residuals)) # p-by-n
   }
 
   m <- MEstimator(stacked_equations = psi, init = init)
@@ -41,7 +41,7 @@ test_that("ee_regression logistic matches Python Delicatessen", {
   psi <- function(theta) {
     Xb <- X %*% theta
     residuals <- y - inverse_logit(Xb)
-    t(X * as.numeric(residuals))  # p-by-n
+    t(X * as.numeric(residuals)) # p-by-n
   }
 
   m <- MEstimator(stacked_equations = psi, init = init)
@@ -64,7 +64,7 @@ test_that("ee_regression poisson matches Python Delicatessen", {
   psi <- function(theta) {
     Xb <- X %*% theta
     residuals <- y - exp(Xb)
-    t(X * as.numeric(residuals))  # p-by-n
+    t(X * as.numeric(residuals)) # p-by-n
   }
 
   m <- MEstimator(stacked_equations = psi, init = init)
@@ -96,7 +96,7 @@ test_that("ee_ridge_regression matches Python Delicatessen", {
 
     # L2 penalty term: (penalty / n) * theta, broadcast across all n columns
     penalty_terms <- (penalty / n) * theta
-    score - penalty_terms  # recycled across columns
+    score - penalty_terms # recycled across columns
   }
 
   m <- MEstimator(stacked_equations = psi, init = init)

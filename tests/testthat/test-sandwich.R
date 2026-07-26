@@ -3,10 +3,9 @@
 test_that("compute_meat() returns correct p-by-p matrix for known input", {
   # 2 parameters, 3 observations
   evaluations <- matrix(
-    c(1, 2,
-      3, 4,
-      5, 6),
-    nrow = 2, ncol = 3
+    c(1, 2, 3, 4, 5, 6),
+    nrow = 2,
+    ncol = 3
   )
   # Expected: tcrossprod(evaluations) = evaluations %*% t(evaluations)
   #   [1*1+3*3+5*5, 1*2+3*4+5*6]   [35, 44]
@@ -230,7 +229,11 @@ test_that("compute_sandwich returns the MEstimator asymptotic variance", {
   # compute_sandwich returns the asymptotic (un-scaled by n) sandwich, which is
   # exactly what the estimator stores as its asymptotic variance.
   expect_equal(dim(sandwich), c(2L, 2L))
-  expect_equal(unname(sandwich), unname(m@asymptotic_variance), tolerance = 1e-8)
+  expect_equal(
+    unname(sandwich),
+    unname(m@asymptotic_variance),
+    tolerance = 1e-8
+  )
 
   # Scaling the returned matrix by 1/n gives the standard-error-scale variance.
   expect_equal(unname(sandwich / m@n_obs), unname(m@variance), tolerance = 1e-8)

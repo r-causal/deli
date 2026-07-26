@@ -16,8 +16,13 @@ test_that("ee_glm negative_binomial appends the polygamma nuisance equation", {
 
   # The raw estimating function must return ncol(X) + 1 rows: one score row
   # per regression coefficient plus the dispersion nuisance row.
-  ee <- ee_glm(init, X = X, y = y,
-               distribution = "negative_binomial", link = "log")
+  ee <- ee_glm(
+    init,
+    X = X,
+    y = y,
+    distribution = "negative_binomial",
+    link = "log"
+  )
 
   expect_equal(nrow(ee), ref$ee_nrow)
   expect_equal(nrow(ee), ncol(X) + 1L)
@@ -36,8 +41,13 @@ test_that("ee_glm negative_binomial/log matches Python Delicatessen", {
   init <- ref$init
 
   psi <- function(theta) {
-    ee_glm(theta, X = X, y = y,
-           distribution = "negative_binomial", link = "log")
+    ee_glm(
+      theta,
+      X = X,
+      y = y,
+      distribution = "negative_binomial",
+      link = "log"
+    )
   }
 
   m <- MEstimator(stacked_equations = psi, init = init)
@@ -84,9 +94,14 @@ test_that("ee_glm negative_binomial leaves the nuisance row unweighted", {
   weights <- ref$weights
 
   psi <- function(theta) {
-    ee_glm(theta, X = X, y = y,
-           distribution = "negative_binomial", link = "log",
-           weights = weights)
+    ee_glm(
+      theta,
+      X = X,
+      y = y,
+      distribution = "negative_binomial",
+      link = "log",
+      weights = weights
+    )
   }
 
   m <- MEstimator(stacked_equations = psi, init = init)
@@ -98,6 +113,9 @@ test_that("ee_glm negative_binomial leaves the nuisance row unweighted", {
   # estimate away from Python. See the note above on the 1e-5 tolerance for the
   # numerically differentiated nuisance equation.
   expect_length(m@theta, ncol(X) + 1L)
-  expect_python_match(m, "ee_glm_negative_binomial_weighted_log",
-                      tolerance = 1e-5)
+  expect_python_match(
+    m,
+    "ee_glm_negative_binomial_weighted_log",
+    tolerance = 1e-5
+  )
 })

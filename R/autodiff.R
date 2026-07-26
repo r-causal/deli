@@ -108,7 +108,8 @@ c.PrimalTangent <- function(...) {
 # PrimalTangent.
 #' @noRd
 pt_ops_is_array <- function(e1, e2) {
-  is_pt_array(e1) || inherits(e1, "PrimalTangentVector") ||
+  is_pt_array(e1) ||
+    inherits(e1, "PrimalTangentVector") ||
     (!missing(e2) && (is_pt_array(e2) || inherits(e2, "PrimalTangentVector")))
 }
 
@@ -122,9 +123,13 @@ pt_ops_unsupported <- function(generic, array_result, unary) {
   fname <- generic
   if (array_result) {
     if (unary) {
-      cli::cli_abort("Unary {.val {fname}} is not supported for tangent arrays.")
+      cli::cli_abort(
+        "Unary {.val {fname}} is not supported for tangent arrays."
+      )
     } else {
-      cli::cli_abort("Operator {.val {fname}} is not supported for tangent arrays.")
+      cli::cli_abort(
+        "Operator {.val {fname}} is not supported for tangent arrays."
+      )
     }
   } else if (unary) {
     stop("Unary operator ", fname, " not supported for PrimalTangent")
@@ -142,7 +147,8 @@ pt_ops_unary <- function(e1, generic) {
   array_result <- pt_ops_is_array(e1)
   wrap <- if (array_result) primal_tangent_array else primal_tangent
   a <- pt_arrays(e1)
-  switch(generic,
+  switch(
+    generic,
     "-" = wrap(-a$primal, -a$tangent),
     "+" = e1,
     pt_ops_unsupported(generic, array_result, unary = TRUE)
@@ -167,10 +173,12 @@ pt_ops_binary <- function(e1, e2, generic) {
   t2 <- b$tangent
 
   # Whether the exponent carries a tangent decides the power rule to apply
-  pow_is_variable <- is_pt(e2) || is_pt_array(e2) ||
+  pow_is_variable <- is_pt(e2) ||
+    is_pt_array(e2) ||
     inherits(e2, "PrimalTangentVector")
 
-  switch(generic,
+  switch(
+    generic,
     "+" = wrap(p1 + p2, t1 + t2),
     "-" = wrap(p1 - p2, t1 - t2),
     "*" = wrap(p1 * p2, t1 * p2 + p1 * t2),
@@ -184,9 +192,9 @@ pt_ops_binary <- function(e1, e2, generic) {
     },
     # Comparisons are non-differentiable; return the primal comparison for
     # control flow (if/else). Tangent information is irrelevant.
-    "<"  = p1 < p2,
+    "<" = p1 < p2,
     "<=" = p1 <= p2,
-    ">"  = p1 > p2,
+    ">" = p1 > p2,
     ">=" = p1 >= p2,
     "==" = p1 == p2,
     "!=" = p1 != p2,
@@ -217,8 +225,8 @@ Ops.PrimalTangent <- function(e1, e2) {
 # or a matrix tangent array selects the branch per element.
 #' @noRd
 abs_tangent <- function(p, t) {
-  tangent <- sign(p) * t                 # +t where p > 0, -t where p < 0
-  tangent[p == 0] <- NaN                  # derivative undefined at the kink
+  tangent <- sign(p) * t # +t where p > 0, -t where p < 0
+  tangent[p == 0] <- NaN # derivative undefined at the kink
   tangent
 }
 
@@ -231,7 +239,7 @@ abs_tangent <- function(p, t) {
 # `NaN %% 1 == 0` would otherwise be NA and leak an NA tangent.
 #' @noRd
 step_tangent <- function(p, t) {
-  ifelse(is.finite(p) & p %% 1 == 0, NaN, 0) * t   # NaN on finite integers, 0 elsewhere
+  ifelse(is.finite(p) & p %% 1 == 0, NaN, 0) * t # NaN on finite integers, 0 elsewhere
 }
 
 # ---- shared elementwise Math rules ------------------------------------------
@@ -245,40 +253,44 @@ step_tangent <- function(p, t) {
 # the caller can raise its own shape-appropriate abort.
 #' @noRd
 pt_math_rule <- function(generic, p, t) {
-  switch(generic,
-    "exp"   = list(primal = exp(p),   tangent = exp(p) * t),
-    "log"   = list(primal = log(p),   tangent = t / p),
-    "log2"  = list(primal = log2(p),  tangent = t / (p * log(2))),
+  switch(
+    generic,
+    "exp" = list(primal = exp(p), tangent = exp(p) * t),
+    "log" = list(primal = log(p), tangent = t / p),
+    "log2" = list(primal = log2(p), tangent = t / (p * log(2))),
     "log10" = list(primal = log10(p), tangent = t / (p * log(10))),
-    "sqrt"  = list(primal = sqrt(p),  tangent = t / (2 * sqrt(p))),
-    "sin"   = list(primal = sin(p),   tangent = cos(p) * t),
-    "cos"   = list(primal = cos(p),   tangent = -sin(p) * t),
-    "tan"   = list(primal = tan(p),   tangent = t / cos(p)^2),
-    "asin"  = list(primal = asin(p),  tangent = t / sqrt(1 - p^2)),
-    "acos"  = list(primal = acos(p),  tangent = -t / sqrt(1 - p^2)),
-    "atan"  = list(primal = atan(p),  tangent = t / (1 + p^2)),
-    "sinh"  = list(primal = sinh(p),  tangent = cosh(p) * t),
-    "cosh"  = list(primal = cosh(p),  tangent = sinh(p) * t),
-    "tanh"  = list(primal = tanh(p),  tangent = t / cosh(p)^2),
+    "sqrt" = list(primal = sqrt(p), tangent = t / (2 * sqrt(p))),
+    "sin" = list(primal = sin(p), tangent = cos(p) * t),
+    "cos" = list(primal = cos(p), tangent = -sin(p) * t),
+    "tan" = list(primal = tan(p), tangent = t / cos(p)^2),
+    "asin" = list(primal = asin(p), tangent = t / sqrt(1 - p^2)),
+    "acos" = list(primal = acos(p), tangent = -t / sqrt(1 - p^2)),
+    "atan" = list(primal = atan(p), tangent = t / (1 + p^2)),
+    "sinh" = list(primal = sinh(p), tangent = cosh(p) * t),
+    "cosh" = list(primal = cosh(p), tangent = sinh(p) * t),
+    "tanh" = list(primal = tanh(p), tangent = t / cosh(p)^2),
     "asinh" = list(primal = asinh(p), tangent = t / sqrt(p^2 + 1)),
     "acosh" = list(primal = acosh(p), tangent = t / sqrt(p^2 - 1)),
     "atanh" = list(primal = atanh(p), tangent = t / (1 - p^2)),
-    "log1p"    = list(primal = log1p(p),    tangent = t / (1 + p)),
-    "expm1"    = list(primal = expm1(p),    tangent = exp(p) * t),
-    "lgamma"   = list(primal = lgamma(p),   tangent = digamma(p) * t),
-    "digamma"  = list(primal = digamma(p),  tangent = trigamma(p) * t),
-    "trigamma" = list(primal = trigamma(p), tangent = psigamma(p, deriv = 2) * t),
+    "log1p" = list(primal = log1p(p), tangent = t / (1 + p)),
+    "expm1" = list(primal = expm1(p), tangent = exp(p) * t),
+    "lgamma" = list(primal = lgamma(p), tangent = digamma(p) * t),
+    "digamma" = list(primal = digamma(p), tangent = trigamma(p) * t),
+    "trigamma" = list(
+      primal = trigamma(p),
+      tangent = psigamma(p, deriv = 2) * t
+    ),
     # cumsum is linear, so both slots run the same cumulative sum
-    "cumsum"   = list(primal = cumsum(p),   tangent = cumsum(t)),
-    "abs"      = list(primal = abs(p),      tangent = abs_tangent(p, t)),
-    "floor"    = list(primal = floor(p),    tangent = step_tangent(p, t)),
-    "ceiling"  = list(primal = ceiling(p),  tangent = step_tangent(p, t)),
+    "cumsum" = list(primal = cumsum(p), tangent = cumsum(t)),
+    "abs" = list(primal = abs(p), tangent = abs_tangent(p, t)),
+    "floor" = list(primal = floor(p), tangent = step_tangent(p, t)),
+    "ceiling" = list(primal = ceiling(p), tangent = step_tangent(p, t)),
     # sign is piecewise constant, so its derivative is zero away from the
     # jump at zero and treated as zero throughout, mirroring numpy's np.sign
     # on an object array of primal-tangent pairs (it collapses to a plain
     # integer sign, carrying no tangent). The penalized regression equations
     # rely on this to differentiate the bridge penalty exactly.
-    "sign"     = list(primal = sign(p),     tangent = 0 * t),
+    "sign" = list(primal = sign(p), tangent = 0 * t),
     NULL
   )
 }
@@ -299,7 +311,8 @@ Math.PrimalTangent <- function(x, ...) {
 #' @export
 Summary.PrimalTangent <- function(..., na.rm = FALSE) {
   args <- list(...)
-  switch(.Generic,
+  switch(
+    .Generic,
     "sum" = {
       total_p <- 0
       total_t <- 0
@@ -331,7 +344,9 @@ Summary.PrimalTangent <- function(..., na.rm = FALSE) {
         if (is_pt(a)) {
           ap <- a$primal
           at <- a$tangent
-          if (length(at) < length(ap)) at <- rep_len(at, length(ap))
+          if (length(at) < length(ap)) {
+            at <- rep_len(at, length(ap))
+          }
           all_p <- c(all_p, ap)
           all_t <- c(all_t, at)
         } else {
@@ -355,7 +370,9 @@ Summary.PrimalTangent <- function(..., na.rm = FALSE) {
         if (is_pt(a)) {
           ap <- a$primal
           at <- a$tangent
-          if (length(at) < length(ap)) at <- rep_len(at, length(ap))
+          if (length(at) < length(ap)) {
+            at <- rep_len(at, length(ap))
+          }
           all_p <- c(all_p, ap)
           all_t <- c(all_t, at)
         } else {
@@ -373,7 +390,9 @@ Summary.PrimalTangent <- function(..., na.rm = FALSE) {
         if (is_pt(a)) {
           ap <- a$primal
           at <- a$tangent
-          if (length(at) < length(ap)) at <- rep_len(at, length(ap))
+          if (length(at) < length(ap)) {
+            at <- rep_len(at, length(ap))
+          }
           all_p <- c(all_p, ap)
           all_t <- c(all_t, at)
         } else {
@@ -477,7 +496,11 @@ pt_flatten <- function(x) {
     x <- x$elements
   }
   # x is now a plain list of scalar pairs (or numeric constants)
-  primal <- vapply(x, function(e) if (is_pt(e)) e$primal else as.numeric(e), numeric(1))
+  primal <- vapply(
+    x,
+    function(e) if (is_pt(e)) e$primal else as.numeric(e),
+    numeric(1)
+  )
   tangent <- vapply(x, function(e) if (is_pt(e)) e$tangent else 0, numeric(1))
   list(primal = primal, tangent = tangent)
 }
@@ -544,7 +567,7 @@ is_tangent_container <- function(x) {
 pt_matmul <- function(x, y) {
   a <- pt_arrays(x)
   b <- pt_arrays(y)
-  primal <- a$primal %*% b$primal                       # ordinary product
+  primal <- a$primal %*% b$primal # ordinary product
   tangent <- a$tangent %*% b$primal + a$primal %*% b$tangent
   primal_tangent_array(primal, tangent)
 }
@@ -689,7 +712,9 @@ Math.PrimalTangentArray <- function(x, ...) {
     # Bind to a local first: cli rejects an interpolated expression that begins
     # with a dot, so `{.Generic}` cannot be interpolated directly.
     fname <- .Generic
-    cli::cli_abort("Math function {.val {fname}} is not supported for tangent arrays.")
+    cli::cli_abort(
+      "Math function {.val {fname}} is not supported for tangent arrays."
+    )
   }
   primal_tangent_array(rule$primal, rule$tangent)
 }
@@ -748,7 +773,10 @@ colSums <- function(x, ...) {
   if (!is_tangent_container(x)) {
     return(base::colSums(x, ...))
   }
-  primal_tangent_array(base::colSums(x$primal, ...), base::colSums(x$tangent, ...))
+  primal_tangent_array(
+    base::colSums(x$primal, ...),
+    base::colSums(x$tangent, ...)
+  )
 }
 
 # ---- tangent-aware parallel minimum and maximum -----------------------------
@@ -811,8 +839,11 @@ pmin <- function(..., na.rm = FALSE) {
 
 #' @noRd
 ifelse <- function(test, yes, no) {
-  if (!is_tangent_container(test) && !is_tangent_container(yes) &&
-        !is_tangent_container(no)) {
+  if (
+    !is_tangent_container(test) &&
+      !is_tangent_container(yes) &&
+      !is_tangent_container(no)
+  ) {
     return(base::ifelse(test, yes, no))
   }
   pt_where(test, yes, no)
@@ -902,11 +933,19 @@ extract_tangent_column <- function(result) {
     return(as.vector(result$tangent))
   }
   if (inherits(result, "PrimalTangentVector")) {
-    return(vapply(result$elements, function(e) if (is_pt(e)) e$tangent else 0, numeric(1)))
+    return(vapply(
+      result$elements,
+      function(e) if (is_pt(e)) e$tangent else 0,
+      numeric(1)
+    ))
   }
   if (is.list(result)) {
     # Multiple outputs from c.PrimalTangent
-    return(vapply(result, function(e) if (is_pt(e)) e$tangent else 0, numeric(1)))
+    return(vapply(
+      result,
+      function(e) if (is_pt(e)) e$tangent else 0,
+      numeric(1)
+    ))
   }
   # Plain numeric: constant output, all derivatives are 0
   rep(0, length(result))

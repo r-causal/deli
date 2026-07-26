@@ -48,9 +48,14 @@ GMMEstimator <- new_class(
       default = NULL
     )
   ),
-  constructor = function(stacked_equations, init, subset = NULL,
-                         finite_correction = NULL,
-                         overid_maxiter = 10L, overid_tolerance = 1e-9) {
+  constructor = function(
+    stacked_equations,
+    init,
+    subset = NULL,
+    finite_correction = NULL,
+    overid_maxiter = 10L,
+    overid_tolerance = 1e-9
+  ) {
     check_estimator_init(init)
     check_finite_correction(finite_correction)
     check_estimator_subset(subset, length(init))

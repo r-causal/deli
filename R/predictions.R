@@ -20,8 +20,13 @@
 #'   `lower`, `upper`.
 #'
 #' @export
-regression_predictions <- function(X, theta, covariance,
-                                   offset = NULL, alpha = 0.05) {
+regression_predictions <- function(
+  X,
+  theta,
+  covariance,
+  offset = NULL,
+  alpha = 0.05
+) {
   # Validate alpha
   if (alpha <= 0 || alpha >= 1) {
     cli::cli_abort("{.arg alpha} must be between 0 and 1 (exclusive).")
@@ -84,9 +89,16 @@ regression_predictions <- function(X, theta, covariance,
 #'   `lower`, `upper`.
 #'
 #' @export
-survival_predictions <- function(times, theta, covariance, distribution,
-                                  measure = "survival", alpha = 0.05,
-                                  deriv_method = "capprox", dx = 1e-9) {
+survival_predictions <- function(
+  times,
+  theta,
+  covariance,
+  distribution,
+  measure = "survival",
+  alpha = 0.05,
+  deriv_method = "capprox",
+  dx = 1e-9
+) {
   if (alpha <= 0 || alpha >= 1) {
     cli::cli_abort("{.arg alpha} must be between 0 and 1 (exclusive).")
   }
@@ -120,8 +132,13 @@ survival_predictions <- function(times, theta, covariance, distribution,
   g_func <- function(th) {
     do.call(c, lapply(times, function(t) predict_at_time(t, th)))
   }
-  cov_m <- delta_method(theta, transform = g_func, covariance = covariance,
-                        deriv_method = deriv_method, dx = dx)
+  cov_m <- delta_method(
+    theta,
+    transform = g_func,
+    covariance = covariance,
+    deriv_method = deriv_method,
+    dx = dx
+  )
   var_m <- diag(cov_m)
 
   # Confidence intervals. pmax(var_m, 0) guards the finite-difference paths,
@@ -157,8 +174,13 @@ survival_predictions <- function(times, theta, covariance, distribution,
 #' @returns A data frame with n rows and one column per time point.
 #'
 #' @export
-aft_predictions_individual <- function(X, times, theta, distribution,
-                                        measure = "survival") {
+aft_predictions_individual <- function(
+  X,
+  times,
+  theta,
+  distribution,
+  measure = "survival"
+) {
   X <- as.matrix(X)
   theta <- as.numeric(theta)
   distribution <- tolower(distribution)
@@ -283,10 +305,17 @@ aft_predictions_individual <- function(X, times, theta, distribution,
 #' )
 #'
 #' @export
-aft_predictions_function <- function(X, times, theta, covariance,
-                                     distribution, measure = "survival",
-                                     alpha = 0.05, deriv_method = "capprox",
-                                     dx = 1e-9) {
+aft_predictions_function <- function(
+  X,
+  times,
+  theta,
+  covariance,
+  distribution,
+  measure = "survival",
+  alpha = 0.05,
+  deriv_method = "capprox",
+  dx = 1e-9
+) {
   # Validate alpha level (mirrors the sibling prediction helpers)
   if (alpha <= 0 || alpha >= 1) {
     cli::cli_abort("{.arg alpha} must be between 0 and 1 (exclusive).")
@@ -363,8 +392,13 @@ aft_predictions_function <- function(X, times, theta, covariance,
   est <- vapply(times, function(t) predict_at_time(t, theta), numeric(1))
 
   # Delta-method covariance of the measure across times, then its diagonal
-  cov_m <- delta_method(theta, transform = g_func, covariance = covariance,
-                        deriv_method = deriv_method, dx = dx)
+  cov_m <- delta_method(
+    theta,
+    transform = g_func,
+    covariance = covariance,
+    deriv_method = deriv_method,
+    dx = dx
+  )
   var_m <- diag(as.matrix(cov_m))
 
   # Wald-type point-wise confidence intervals. pmax(var_m, 0) guards the finite-
@@ -408,10 +442,16 @@ aft_predictions_function <- function(X, times, theta, covariance,
 #'   `times_to_predict` is specified).
 #'
 #' @export
-plogit_predict <- function(theta, time, event, X, S = NULL,
-                            times_to_predict = NULL,
-                            measure = "survival",
-                            unique_times = NULL) {
+plogit_predict <- function(
+  theta,
+  time,
+  event,
+  X,
+  S = NULL,
+  times_to_predict = NULL,
+  measure = "survival",
+  unique_times = NULL
+) {
   time <- as.numeric(time)
   event <- as.numeric(event)
   X <- as.matrix(X)
@@ -442,22 +482,25 @@ plogit_predict <- function(theta, time, event, X, S = NULL,
   }
 
   # Log-odds contributions
-  log_odds_w <- as.numeric(X %*% beta_x)            # n-vector
-  log_odds_t <- as.numeric(time_design_matrix %*% beta_s)  # K-vector
+  log_odds_w <- as.numeric(X %*% beta_x) # n-vector
+  log_odds_t <- as.numeric(time_design_matrix %*% beta_s) # K-vector
 
   # Predicted event probability at each time: K-by-n matrix
   log_odds_w_matrix <- matrix(
     rep(log_odds_w, each = n_time_steps),
-    nrow = n_time_steps, ncol = n
+    nrow = n_time_steps,
+    ncol = n
   )
   y_pred <- inverse_logit(log_odds_w_matrix + log_odds_t)
 
   # Cumulative product of (1 - p) gives survival: S(t) = prod(1 - h(t_k))
-  survival_pred <- apply(1 - y_pred, 2, cumprod)     # K-by-n matrix
+  survival_pred <- apply(1 - y_pred, 2, cumprod) # K-by-n matrix
 
   # Convert to requested measure
   prediction_matrix <- convert_survival_measures(
-    survival_pred, hazard = y_pred, measure = measure
+    survival_pred,
+    hazard = y_pred,
+    measure = measure
   )
 
   # Return predictions

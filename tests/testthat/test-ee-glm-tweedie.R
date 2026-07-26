@@ -23,8 +23,14 @@ test_that("ee_glm tweedie returns ncol(X) rows with no nuisance equation", {
   # The raw estimating function must return exactly ncol(X) rows: one score row
   # per regression coefficient and nothing more. This discriminates tweedie from
   # the negative binomial and gamma distributions, which append a nuisance row.
-  ee <- ee_glm(init, X = X, y = y,
-               distribution = "tweedie", link = "log", hyperparameter = 1.5)
+  ee <- ee_glm(
+    init,
+    X = X,
+    y = y,
+    distribution = "tweedie",
+    link = "log",
+    hyperparameter = 1.5
+  )
 
   expect_equal(nrow(ee), ref$ee_nrow)
   expect_equal(nrow(ee), ncol(X))
@@ -42,8 +48,14 @@ test_that("ee_glm tweedie hyperparameter=1.5 matches Python Delicatessen", {
   init <- ref$init
 
   psi <- function(theta) {
-    ee_glm(theta, X = X, y = y,
-           distribution = "tweedie", link = "log", hyperparameter = 1.5)
+    ee_glm(
+      theta,
+      X = X,
+      y = y,
+      distribution = "tweedie",
+      link = "log",
+      hyperparameter = 1.5
+    )
   }
 
   m <- MEstimator(stacked_equations = psi, init = init)
@@ -62,8 +74,14 @@ test_that("ee_glm tweedie hyperparameter=1 reproduces the Poisson GLM", {
   init <- ref$init
 
   tweedie_psi <- function(theta) {
-    ee_glm(theta, X = X, y = y,
-           distribution = "tweedie", link = "log", hyperparameter = 1.0)
+    ee_glm(
+      theta,
+      X = X,
+      y = y,
+      distribution = "tweedie",
+      link = "log",
+      hyperparameter = 1.0
+    )
   }
   m_tw <- estimate(MEstimator(stacked_equations = tweedie_psi, init = init))
 
@@ -90,8 +108,14 @@ test_that("ee_glm tweedie hyperparameter=2 matches Python and the gamma GLM beta
   init <- ref$init
 
   tweedie_psi <- function(theta) {
-    ee_glm(theta, X = X, y = y,
-           distribution = "tweedie", link = "log", hyperparameter = 2.0)
+    ee_glm(
+      theta,
+      X = X,
+      y = y,
+      distribution = "tweedie",
+      link = "log",
+      hyperparameter = 2.0
+    )
   }
   m_tw <- estimate(MEstimator(stacked_equations = tweedie_psi, init = init))
 
@@ -105,13 +129,17 @@ test_that("ee_glm tweedie hyperparameter=2 matches Python and the gamma GLM beta
   gamma_psi <- function(theta) {
     ee_glm(theta, X = X, y = y, distribution = "gamma", link = "log")
   }
-  m_gamma <- estimate(MEstimator(stacked_equations = gamma_psi,
-                                 init = c(init, 0)))
+  m_gamma <- estimate(MEstimator(
+    stacked_equations = gamma_psi,
+    init = c(init, 0)
+  ))
 
   expect_length(m_gamma@theta, ncol(X) + 1L)
-  expect_equal(unname(m_tw@theta),
-               unname(m_gamma@theta)[seq_len(ncol(X))],
-               tolerance = 1e-6)
+  expect_equal(
+    unname(m_tw@theta),
+    unname(m_gamma@theta)[seq_len(ncol(X))],
+    tolerance = 1e-6
+  )
 })
 
 test_that("ee_glm tweedie hyperparameter changes the solution", {
@@ -127,8 +155,14 @@ test_that("ee_glm tweedie hyperparameter changes the solution", {
   fit <- function(p) {
     estimate(MEstimator(
       stacked_equations = function(theta) {
-        ee_glm(theta, X = X, y = y,
-               distribution = "tweedie", link = "log", hyperparameter = p)
+        ee_glm(
+          theta,
+          X = X,
+          y = y,
+          distribution = "tweedie",
+          link = "log",
+          hyperparameter = p
+        )
       },
       init = init
     ))
@@ -158,8 +192,14 @@ test_that("ee_glm tweedie rejects a negative hyperparameter", {
   # name the "non-negative" constraint so this assertion does not pass on the
   # generic "distribution not supported" or "unused argument" errors.
   expect_error(
-    ee_glm(init, X = X, y = y,
-           distribution = "tweedie", link = "log", hyperparameter = -1),
+    ee_glm(
+      init,
+      X = X,
+      y = y,
+      distribution = "tweedie",
+      link = "log",
+      hyperparameter = -1
+    ),
     "non-negative"
   )
 })

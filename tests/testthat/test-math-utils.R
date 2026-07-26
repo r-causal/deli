@@ -64,9 +64,9 @@ test_that("deli_digamma() handles large values", {
 test_that("deli_digamma() at negative integers returns NaN without warning", {
   # digamma is undefined at non-positive integers; deli_digamma handles
   # this gracefully by returning NaN without triggering a warning
-  expect_no_warning(result0 <- deli_digamma(0))
+  result0 <- expect_no_warning(deli_digamma(0))
   expect_true(is.nan(result0))
-  expect_no_warning(result_neg1 <- deli_digamma(-1))
+  result_neg1 <- expect_no_warning(deli_digamma(-1))
   expect_true(is.nan(result_neg1))
 })
 

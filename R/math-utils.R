@@ -48,7 +48,10 @@ deli_digamma <- function(z) {
     return(primal_tangent(digamma(z$primal), z$tangent * trigamma(z$primal)))
   }
   if (is_pt_array(z)) {
-    return(primal_tangent_array(digamma(z$primal), z$tangent * trigamma(z$primal)))
+    return(primal_tangent_array(
+      digamma(z$primal),
+      z$tangent * trigamma(z$primal)
+    ))
   }
   # Return NaN directly for non-positive integers (poles of digamma)
   # without triggering base R's NaN warning
@@ -56,7 +59,7 @@ deli_digamma <- function(z) {
   out <- numeric(length(z))
   poles <- z <= 0 & z == trunc(z)
   out[poles] <- NaN
-  if (any(!poles)) {
+  if (!all(poles)) {
     out[!poles] <- digamma(z[!poles])
   }
   out
@@ -104,10 +107,16 @@ standard_normal_pdf <- function(x) {
   # Dispatch on tangent-carrying inputs: the tangent of the PDF is -x times the
   # PDF, matching Python's PrimalTangentPairs.normal_pdf
   if (is_pt(x)) {
-    return(primal_tangent(dnorm(x$primal), x$tangent * (-x$primal * dnorm(x$primal))))
+    return(primal_tangent(
+      dnorm(x$primal),
+      x$tangent * (-x$primal * dnorm(x$primal))
+    ))
   }
   if (is_pt_array(x)) {
-    return(primal_tangent_array(dnorm(x$primal), x$tangent * (-x$primal * dnorm(x$primal))))
+    return(primal_tangent_array(
+      dnorm(x$primal),
+      x$tangent * (-x$primal * dnorm(x$primal))
+    ))
   }
   dnorm(x)
 }

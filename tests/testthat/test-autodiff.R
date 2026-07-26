@@ -136,8 +136,8 @@ test_that("autodiff quotient rule: x1 / x2", {
   result <- auto_differentiation(c(6, 3), f)
   # df/dx1 = 1/x2 = 1/3
   # df/dx2 = -x1/x2^2 = -6/9 = -2/3
-  expect_equal(result[1, 1], 1/3)
-  expect_equal(result[1, 2], -6/9)
+  expect_equal(result[1, 1], 1 / 3)
+  expect_equal(result[1, 2], -6 / 9)
 })
 
 test_that("autodiff reverse division: constant / x", {
@@ -164,10 +164,10 @@ test_that("autodiff handles comparison operators", {
     if (x[1] > 0) x[1]^2 else -x[1]^2
   }
   result_pos <- auto_differentiation(c(3), f)
-  expect_equal(result_pos[1, 1], 6)  # 2x = 6
+  expect_equal(result_pos[1, 1], 6) # 2x = 6
 
   result_neg <- auto_differentiation(c(-3), f)
-  expect_equal(result_neg[1, 1], 6)  # -2x = 6
+  expect_equal(result_neg[1, 1], 6) # -2x = 6
 })
 
 # ---- abs ----
@@ -289,12 +289,12 @@ test_that("autodiff gives same variance as approx in MEstimator", {
 test_that("autodiff differentiates matrix-vector product X %*% theta", {
   # Design-matrix pattern: constant X times the parameter vector.
   set.seed(2024)
-  X <- matrix(rnorm(6), nrow = 3, ncol = 2)   # constant design matrix (data)
+  X <- matrix(rnorm(6), nrow = 3, ncol = 2) # constant design matrix (data)
   theta <- c(0.5, -1.2)
 
   f <- function(th) {
-    eta <- X %*% th                 # length-3 predictor carrying tangents
-    c(eta[1], eta[2], eta[3])       # reduce to a plain vector by indexing
+    eta <- X %*% th # length-3 predictor carrying tangents
+    c(eta[1], eta[2], eta[3]) # reduce to a plain vector by indexing
   }
 
   exact <- auto_differentiation(theta, f)
@@ -310,13 +310,13 @@ test_that("autodiff differentiates a regression-score EE using X %*% theta", {
   # the summed linear-regression score t(X) %*% (y - X %*% theta), whose
   # Jacobian (the bread up to sign) is -X'X.
   set.seed(7)
-  X <- matrix(rnorm(18), nrow = 6, ncol = 3)   # constant design matrix (data)
-  y <- rnorm(6)                                # constant outcomes (data)
+  X <- matrix(rnorm(18), nrow = 6, ncol = 3) # constant design matrix (data)
+  y <- rnorm(6) # constant outcomes (data)
   theta <- c(0.3, -0.8, 1.1)
 
   f <- function(th) {
-    resid <- y - X %*% th           # length-6 residuals carrying tangents
-    sc <- t(X) %*% resid            # length-3 score carrying tangents
+    resid <- y - X %*% th # length-6 residuals carrying tangents
+    sc <- t(X) %*% resid # length-3 score carrying tangents
     c(sc[1], sc[2], sc[3])
   }
 
@@ -329,12 +329,12 @@ test_that("autodiff differentiates a regression-score EE using X %*% theta", {
 
 test_that("autodiff differentiates matrix-matrix product A %*% Theta", {
   # Constant matrix times a matrix assembled from tangent-carrying parameters.
-  A <- matrix(c(1, 0, 2, 3), nrow = 2)          # constant, [[1, 2], [0, 3]]
+  A <- matrix(c(1, 0, 2, 3), nrow = 2) # constant, [[1, 2], [0, 3]]
   theta <- c(0.5, -1.2, 2.0, 0.3)
 
   f <- function(x) {
     Theta <- matrix(c(x[1], x[2], x[3], x[4]), nrow = 2)
-    P <- A %*% Theta                            # 2-by-2 product carrying tangents
+    P <- A %*% Theta # 2-by-2 product carrying tangents
     c(P[1, 1], P[2, 1], P[1, 2], P[2, 2])
   }
 
@@ -354,11 +354,11 @@ test_that("autodiff differentiates matrix-matrix product A %*% Theta", {
 
 test_that("autodiff differentiates vector-matrix product theta %*% M", {
   # Tangent-carrying vector times a constant matrix.
-  M <- matrix(c(1, 0, 2, 0, 1, 3, 2, 1, 0), nrow = 3, byrow = TRUE)   # constant
+  M <- matrix(c(1, 0, 2, 0, 1, 3, 2, 1, 0), nrow = 3, byrow = TRUE) # constant
   theta <- c(0.5, -1.2, 2.0)
 
   f <- function(x) {
-    r <- x %*% M                    # length-3 result carrying tangents
+    r <- x %*% M # length-3 result carrying tangents
     c(r[1], r[2], r[3])
   }
 
@@ -375,7 +375,7 @@ test_that("autodiff differentiates through matrix() construction from tangents",
   theta <- c(0.7, -0.4, 1.3, 0.9)
 
   f <- function(x) {
-    M <- matrix(x, nrow = 2)        # column-major reshape of a tangent vector
+    M <- matrix(x, nrow = 2) # column-major reshape of a tangent vector
     c(M[1, 1]^2, M[2, 1], M[1, 2], M[2, 2]^3)
   }
 
@@ -397,9 +397,9 @@ test_that("autodiff differentiates through rbind() of tangent-carrying rows", {
   theta <- c(0.5, -1.2, 2.0)
 
   f <- function(x) {
-    a <- x[1:2]                     # tangent-carrying vector
-    b <- x[2:3]                     # tangent-carrying vector
-    M <- rbind(a, b)                # 2-by-2 stacked by rows
+    a <- x[1:2] # tangent-carrying vector
+    b <- x[2:3] # tangent-carrying vector
+    M <- rbind(a, b) # 2-by-2 stacked by rows
     c(M[1, 1]^2, M[1, 2], M[2, 1], M[2, 2])
   }
 
@@ -421,9 +421,9 @@ test_that("autodiff differentiates through cbind() of tangent-carrying columns",
   theta <- c(0.5, -1.2, 2.0)
 
   f <- function(x) {
-    a <- x[1:2]                     # tangent-carrying vector
-    b <- x[2:3]                     # tangent-carrying vector
-    M <- cbind(a, b)                # 2-by-2 stacked by columns
+    a <- x[1:2] # tangent-carrying vector
+    b <- x[2:3] # tangent-carrying vector
+    M <- cbind(a, b) # 2-by-2 stacked by columns
     c(M[1, 1], M[1, 2]^2, M[2, 1], M[2, 2])
   }
 
@@ -445,8 +445,8 @@ test_that("autodiff differentiates through t() transpose of a tangent matrix", {
   theta <- c(0.7, -0.4, 1.3, 0.9)
 
   f <- function(x) {
-    M <- matrix(x, nrow = 2)        # 2-by-2 tangent-carrying matrix
-    Mt <- t(M)                      # transpose
+    M <- matrix(x, nrow = 2) # 2-by-2 tangent-carrying matrix
+    Mt <- t(M) # transpose
     c(Mt[1, 1], Mt[1, 2]^2, Mt[2, 1], Mt[2, 2])
   }
 
@@ -470,9 +470,9 @@ test_that("autodiff supports [, [[, and [i, j] indexing of tangent values", {
   theta <- c(1.5, -0.5, 2.0, 0.7)
 
   f <- function(x) {
-    v <- x[1:3]                     # `[` slice of a tangent-carrying vector
-    M <- matrix(x, nrow = 2)        # 2-by-2 tangent-carrying matrix
-    c(v[[1]]^2, v[2], M[2, 1] * M[1, 2])   # `[[`, `[`, and `[i, j]` indexing
+    v <- x[1:3] # `[` slice of a tangent-carrying vector
+    M <- matrix(x, nrow = 2) # 2-by-2 tangent-carrying matrix
+    c(v[[1]]^2, v[2], M[2, 1] * M[1, 2]) # `[[`, `[`, and `[i, j]` indexing
   }
 
   exact <- auto_differentiation(theta, f)
@@ -494,9 +494,9 @@ test_that("autodiff selects whole rows and columns of a tangent matrix", {
   theta <- c(0.7, -0.4, 1.3, 0.9, 2.1, -1.5)
 
   f <- function(x) {
-    M <- matrix(x, nrow = 2)        # 2-by-3, column-major
-    row1 <- M[1, ]                  # whole first row -> (x1, x3, x5)
-    col2 <- M[, 2]                  # whole second column -> (x3, x4)
+    M <- matrix(x, nrow = 2) # 2-by-3, column-major
+    row1 <- M[1, ] # whole first row -> (x1, x3, x5)
+    col2 <- M[, 2] # whole second column -> (x3, x4)
     c(row1[1], row1[2]^2, row1[3], col2[1], col2[2])
   }
 
@@ -505,11 +505,11 @@ test_that("autodiff selects whole rows and columns of a tangent matrix", {
 
   # Outputs are (x1, x3^2, x5, x3, x4).
   analytic <- rbind(
-    c(1, 0, 0,             0, 0, 0),
-    c(0, 0, 2 * theta[3],  0, 0, 0),
-    c(0, 0, 0,             0, 1, 0),
-    c(0, 0, 1,             0, 0, 0),
-    c(0, 0, 0,             1, 0, 0)
+    c(1, 0, 0, 0, 0, 0),
+    c(0, 0, 2 * theta[3], 0, 0, 0),
+    c(0, 0, 0, 0, 1, 0),
+    c(0, 0, 1, 0, 0, 0),
+    c(0, 0, 0, 1, 0, 0)
   )
   expect_equal(exact, approx, tolerance = 1e-5)
   expect_equal(exact, analytic, tolerance = 1e-8)
@@ -746,8 +746,8 @@ test_that("autodiff differentiates cumsum over a tangent-carrying vector", {
   theta <- c(1.0, 2.0, 3.0)
 
   f <- function(x) {
-    v <- matrix(x, ncol = 1)        # tangent-carrying column vector
-    s <- cumsum(v)                  # running total, one output per element
+    v <- matrix(x, ncol = 1) # tangent-carrying column vector
+    s <- cumsum(v) # running total, one output per element
     c(s[1], s[2], s[3])
   }
 
@@ -780,7 +780,7 @@ test_that("autodiff differentiates cumsum composed with a nonlinear map", {
 
   g <- 2 * theta
   analytic <- rbind(
-    c(g[1], 0,    0),
+    c(g[1], 0, 0),
     c(g[1], g[2], 0),
     c(g[1], g[2], g[3])
   )
@@ -796,7 +796,10 @@ test_that("a genuinely unwired Math member aborts on a tangent array with a rend
   # interpolating `.Generic` directly would raise "Invalid cli literal:
   # `{.Generic}` starts with a dot" instead of the designed message.
   pta <- primal_tangent_array(matrix(1:4, nrow = 2), matrix(1:4, nrow = 2))
-  expect_error(gamma(pta), "Math function.*gamma.*not supported for tangent arrays")
+  expect_error(
+    gamma(pta),
+    "Math function.*gamma.*not supported for tangent arrays"
+  )
 })
 
 # ---- EE-shaped composite: logistic score with plogis(X %*% theta) -----------
@@ -809,14 +812,14 @@ test_that("autodiff differentiates a logistic score using plogis(X %*% theta)", 
   # W = diag(p (1 - p)) and p = plogis(X %*% theta).
   set.seed(11)
   n <- 8
-  X <- cbind(1, rnorm(n), rnorm(n))   # constant design matrix (data)
-  y <- rbinom(n, 1, 0.5)              # constant outcomes (data)
+  X <- cbind(1, rnorm(n), rnorm(n)) # constant design matrix (data)
+  y <- rbinom(n, 1, 0.5) # constant outcomes (data)
   theta <- c(0.2, -0.5, 0.3)
 
   f <- function(th) {
-    eta <- X %*% th                   # length-n predictor carrying tangents
-    p <- inverse_logit(eta)           # elementwise logistic transform
-    sc <- t(X) %*% (y - p)            # length-3 score carrying tangents
+    eta <- X %*% th # length-n predictor carrying tangents
+    p <- inverse_logit(eta) # elementwise logistic transform
+    sc <- t(X) %*% (y - p) # length-3 score carrying tangents
     c(sc[1], sc[2], sc[3])
   }
 
@@ -883,13 +886,13 @@ test_that("autodiff differentiates abs over a vector primal (PrimalTangent)", {
   # tangent; abs must apply sign(p) * t elementwise so the summed derivative is
   # sum(sign(x1 - y)). The primal entries sit away from 0 for the capprox check.
   y <- c(-2, -1, 3)
-  x0 <- 0.5                             # x1 - y = c(2.5, 1.5, -2.5): mixed sign
+  x0 <- 0.5 # x1 - y = c(2.5, 1.5, -2.5): mixed sign
   f <- function(x) sum(abs(x[1] - y))
 
   exact <- auto_differentiation(x0, f)
   approx <- approx_differentiation(f, x0, method = "capprox")
 
-  analytic <- sum(sign(x0 - y))         # 1 + 1 - 1 = 1
+  analytic <- sum(sign(x0 - y)) # 1 + 1 - 1 = 1
   expect_equal(exact[1, 1], approx[1, 1], tolerance = 1e-5)
   expect_equal(exact[1, 1], analytic, tolerance = 1e-8)
 })
@@ -897,25 +900,25 @@ test_that("autodiff differentiates abs over a vector primal (PrimalTangent)", {
 test_that("abs on a vector-primal PrimalTangent applies sign(p) * t elementwise", {
   # Direct guard covering the mixed-sign case the scalar if() cannot handle,
   # including the p == 0 kink where the tangent is NaN (Python convention).
-  pt <- primal_tangent(c(-2, 0, 3), 1)  # vector primal, scalar broadcast tangent
+  pt <- primal_tangent(c(-2, 0, 3), 1) # vector primal, scalar broadcast tangent
   r <- abs(pt)
 
   expect_equal(r$primal, c(2, 0, 3))
-  expect_equal(r$tangent[1], -1)        # sign(-2) * 1
-  expect_true(is.nan(r$tangent[2]))     # undefined at 0
-  expect_equal(r$tangent[3], 1)         # sign(3) * 1
+  expect_equal(r$tangent[1], -1) # sign(-2) * 1
+  expect_true(is.nan(r$tangent[2])) # undefined at 0
+  expect_equal(r$tangent[3], 1) # sign(3) * 1
 })
 
 test_that("autodiff differentiates abs over a PrimalTangentArray", {
   # `X %*% theta` is a PrimalTangentArray; abs must apply elementwise so the
   # Jacobian of abs(X theta) with respect to theta is diag(sign(eta)) %*% X.
-  X <- matrix(c(1, -1, 0.5, 2, 1, -1), nrow = 3, ncol = 2)   # constant (data)
-  theta <- c(0.9, -0.8)                 # eta = c(-0.7, -1.7, 1.25): away from 0
+  X <- matrix(c(1, -1, 0.5, 2, 1, -1), nrow = 3, ncol = 2) # constant (data)
+  theta <- c(0.9, -0.8) # eta = c(-0.7, -1.7, 1.25): away from 0
 
   f <- function(th) {
-    eta <- X %*% th                     # length-3 predictor carrying tangents
-    a <- abs(eta)                       # elementwise abs on the tangent array
-    c(a[1], a[2], a[3])                 # reduce to a plain vector by indexing
+    eta <- X %*% th # length-3 predictor carrying tangents
+    a <- abs(eta) # elementwise abs on the tangent array
+    c(a[1], a[2], a[3]) # reduce to a plain vector by indexing
   }
 
   exact <- auto_differentiation(theta, f)
@@ -937,7 +940,7 @@ test_that("abs on a PrimalTangentArray applies sign(p) * t elementwise", {
 
   expect_s3_class(r, "PrimalTangentArray")
   expect_equal(r$primal, matrix(c(1, 2, 3, 4), nrow = 2))
-  expect_equal(r$tangent, matrix(c(-1, 1, -1, 1), nrow = 2))   # sign(p) * t
+  expect_equal(r$tangent, matrix(c(-1, 1, -1, 1), nrow = 2)) # sign(p) * t
 })
 
 test_that("abs on a PrimalTangentVector applies sign(p) * t per element", {
@@ -953,7 +956,7 @@ test_that("abs on a PrimalTangentVector applies sign(p) * t per element", {
   parts <- pt_arrays(abs(ptv))
 
   expect_equal(parts$primal, c(2, 3, 0.5))
-  expect_equal(parts$tangent, c(-1, 2, -3))   # sign(p) * t, per element
+  expect_equal(parts$tangent, c(-1, 2, -3)) # sign(p) * t, per element
 })
 
 # ---- floor and ceiling on vector primals ------------------------------------
@@ -963,7 +966,7 @@ test_that("autodiff differentiates floor over a vector primal (zero off integers
   # of the test is confirming the vector primal flows through without the
   # length > 1 error and returns a zero (not NaN) tangent off the integers.
   y <- c(0.3, 1.7, 2.2)
-  x0 <- 0.5                             # x1 + y = c(0.8, 2.2, 2.7): non-integer
+  x0 <- 0.5 # x1 + y = c(0.8, 2.2, 2.7): non-integer
   f <- function(x) sum(floor(x[1] + y))
 
   exact <- auto_differentiation(x0, f)
@@ -980,13 +983,13 @@ test_that("floor on a vector-primal PrimalTangent: zero off integers, NaN at int
   r <- floor(pt)
 
   expect_equal(r$primal, c(2, 2))
-  expect_true(is.nan(r$tangent[1]))     # integer: derivative undefined
-  expect_equal(r$tangent[2], 0)         # non-integer: derivative 0
+  expect_true(is.nan(r$tangent[1])) # integer: derivative undefined
+  expect_equal(r$tangent[2], 0) # non-integer: derivative 0
 })
 
 test_that("autodiff differentiates ceiling over a vector primal (zero off integers)", {
   y <- c(0.3, 1.7, 2.2)
-  x0 <- 0.5                             # x1 + y = c(0.8, 2.2, 2.7): non-integer
+  x0 <- 0.5 # x1 + y = c(0.8, 2.2, 2.7): non-integer
   f <- function(x) sum(ceiling(x[1] + y))
 
   exact <- auto_differentiation(x0, f)
@@ -1001,15 +1004,15 @@ test_that("ceiling on a vector-primal PrimalTangent: zero off integers, NaN at i
   r <- ceiling(pt)
 
   expect_equal(r$primal, c(3, 3))
-  expect_true(is.nan(r$tangent[1]))     # integer: derivative undefined
-  expect_equal(r$tangent[2], 0)         # non-integer: derivative 0
+  expect_true(is.nan(r$tangent[1])) # integer: derivative undefined
+  expect_equal(r$tangent[2], 0) # non-integer: derivative 0
 })
 
 test_that("floor and ceiling on a PrimalTangentArray follow the integer convention", {
   # Elementwise branch selection on a matrix: one integer entry (NaN tangent)
   # and three non-integer entries (zero tangent).
   pta <- primal_tangent_array(
-    matrix(c(0.8, 2, -1.5, 2.7), nrow = 2),   # entry [2, 1] == 2 is the integer
+    matrix(c(0.8, 2, -1.5, 2.7), nrow = 2), # entry [2, 1] == 2 is the integer
     matrix(c(1, 1, 1, 1), nrow = 2)
   )
 
@@ -1017,14 +1020,14 @@ test_that("floor and ceiling on a PrimalTangentArray follow the integer conventi
   expect_s3_class(rf, "PrimalTangentArray")
   expect_equal(rf$primal, matrix(c(0, 2, -2, 2), nrow = 2))
   expect_equal(rf$tangent[1, 1], 0)
-  expect_true(is.nan(rf$tangent[2, 1]))       # integer entry
+  expect_true(is.nan(rf$tangent[2, 1])) # integer entry
   expect_equal(rf$tangent[1, 2], 0)
   expect_equal(rf$tangent[2, 2], 0)
 
   rc <- ceiling(pta)
   expect_equal(rc$primal, matrix(c(1, 2, -1, 3), nrow = 2))
   expect_equal(rc$tangent[1, 1], 0)
-  expect_true(is.nan(rc$tangent[2, 1]))       # integer entry
+  expect_true(is.nan(rc$tangent[2, 1])) # integer entry
   expect_equal(rc$tangent[1, 2], 0)
   expect_equal(rc$tangent[2, 2], 0)
 })
@@ -1085,9 +1088,9 @@ test_that("floor and ceiling handle a mixed finite/NaN vector primal elementwise
 
   rf <- floor(pt)
   expect_true(is.nan(rf$primal[1]))
-  expect_equal(rf$tangent[1], 0)          # NaN primal: 0 tangent
-  expect_true(is.nan(rf$tangent[2]))      # finite integer: kink
-  expect_equal(rf$tangent[3], 0)          # finite non-integer: 0 tangent
+  expect_equal(rf$tangent[1], 0) # NaN primal: 0 tangent
+  expect_true(is.nan(rf$tangent[2])) # finite integer: kink
+  expect_equal(rf$tangent[3], 0) # finite non-integer: 0 tangent
 })
 
 # ---- prod as a differentiable reduction -------------------------------------
@@ -1101,7 +1104,7 @@ test_that("autodiff differentiates prod of three parameters", {
   exact <- auto_differentiation(theta, f)
   approx <- approx_differentiation(f, theta, method = "capprox")
 
-  analytic <- rbind(c(-3 * 4, 2 * 4, 2 * -3))   # c(-12, 8, -6)
+  analytic <- rbind(c(-3 * 4, 2 * 4, 2 * -3)) # c(-12, 8, -6)
   expect_equal(exact, approx, tolerance = 1e-5)
   expect_equal(exact, analytic, tolerance = 1e-8)
 })
@@ -1117,7 +1120,7 @@ test_that("autodiff differentiates prod of four parameters", {
     seq_along(theta),
     function(i) prod(theta[-i]),
     numeric(1)
-  ))                                            # c(-3, 2.25, -1.5, -9)
+  )) # c(-3, 2.25, -1.5, -9)
   expect_equal(exact, approx, tolerance = 1e-5)
   expect_equal(exact, analytic, tolerance = 1e-8)
 })
@@ -1131,8 +1134,10 @@ test_that("autodiff differentiates prod of four parameters", {
 # both the binary and the unary abort paths.
 
 test_that("an unsupported binary operator on a tangent array names the operator", {
-  pta <- primal_tangent_array(matrix(c(1, 2, 3, 4), nrow = 2),
-                              matrix(c(1, 1, 1, 1), nrow = 2))
+  pta <- primal_tangent_array(
+    matrix(c(1, 2, 3, 4), nrow = 2),
+    matrix(c(1, 1, 1, 1), nrow = 2)
+  )
   expect_error(
     pta %% pta,
     'Operator "%%" is not supported for tangent arrays.',
@@ -1141,8 +1146,10 @@ test_that("an unsupported binary operator on a tangent array names the operator"
 })
 
 test_that("an unsupported unary operator on a tangent array names the operator", {
-  pta <- primal_tangent_array(matrix(c(1, 2, 3, 4), nrow = 2),
-                              matrix(c(1, 1, 1, 1), nrow = 2))
+  pta <- primal_tangent_array(
+    matrix(c(1, 2, 3, 4), nrow = 2),
+    matrix(c(1, 1, 1, 1), nrow = 2)
+  )
   expect_error(
     !pta,
     'Unary "!" is not supported for tangent arrays.',
@@ -1172,8 +1179,8 @@ test_that("an unsupported unary operator on a tangent array names the operator",
 test_that("autodiff differentiates log over a tangent array X %*% theta", {
   # d log(eta_i) / d theta_j = X[i, j] / eta_i, so the Jacobian is X scaled row
   # i by 1 / eta_i (column-major recycling divides each column by eta).
-  X <- cbind(1, c(0.2, 0.4, 0.6))       # constant design matrix (data)
-  theta <- c(1.5, 0.8)                  # eta = c(1.66, 1.82, 1.98): positive
+  X <- cbind(1, c(0.2, 0.4, 0.6)) # constant design matrix (data)
+  theta <- c(1.5, 0.8) # eta = c(1.66, 1.82, 1.98): positive
 
   f <- function(th) {
     eta <- X %*% th
@@ -1193,7 +1200,7 @@ test_that("autodiff differentiates log over a tangent array X %*% theta", {
 test_that("autodiff differentiates sqrt over a tangent array X %*% theta", {
   # d sqrt(eta_i) / d theta_j = X[i, j] / (2 sqrt(eta_i)).
   X <- cbind(1, c(0.2, 0.4, 0.6))
-  theta <- c(1.5, 0.8)                  # eta positive
+  theta <- c(1.5, 0.8) # eta positive
 
   f <- function(th) {
     eta <- X %*% th
@@ -1233,7 +1240,7 @@ test_that("autodiff differentiates sin over a tangent array X %*% theta", {
 test_that("autodiff differentiates lgamma over a tangent array X %*% theta", {
   # d lgamma(eta_i) / d theta_j = digamma(eta_i) * X[i, j].
   X <- cbind(1, c(0.2, 0.4, 0.6))
-  theta <- c(1.5, 0.8)                  # eta positive, away from gamma poles
+  theta <- c(1.5, 0.8) # eta positive, away from gamma poles
 
   f <- function(th) {
     eta <- X %*% th
@@ -1268,8 +1275,8 @@ test_that("autodiff differentiates a Poisson-style score using exp(X %*% theta)"
   # whose Jacobian is the negative weighted cross-product -X' diag(exp(eta)) X.
   set.seed(13)
   n <- 8
-  X <- cbind(1, rnorm(n), rnorm(n))     # constant design matrix (data)
-  y <- rpois(n, 2)                      # constant outcomes (data)
+  X <- cbind(1, rnorm(n), rnorm(n)) # constant design matrix (data)
+  y <- rpois(n, 2) # constant outcomes (data)
   theta <- c(0.1, -0.3, 0.2)
 
   f <- function(th) {
@@ -1305,13 +1312,13 @@ test_that("autodiff differentiates (X %*% beta) / theta[k] (tobit/AFT scale idio
   # A tangent-carrying predictor divided by a scalar tangent parameter. The
   # first two parameters form beta; the third is the scale in the denominator.
   set.seed(21)
-  X <- matrix(rnorm(6), nrow = 3, ncol = 2)   # constant design matrix (data)
-  theta <- c(0.5, -1.2, 2.0)                  # beta = theta[1:2], scale = theta[3]
+  X <- matrix(rnorm(6), nrow = 3, ncol = 2) # constant design matrix (data)
+  theta <- c(0.5, -1.2, 2.0) # beta = theta[1:2], scale = theta[3]
 
   f <- function(th) {
-    eta <- X %*% th[1:2]                       # PrimalTangentArray predictor
-    s <- th[3]                                 # scalar PrimalTangent denominator
-    z <- eta / s                               # mixed array / scalar dispatch
+    eta <- X %*% th[1:2] # PrimalTangentArray predictor
+    s <- th[3] # scalar PrimalTangent denominator
+    z <- eta / s # mixed array / scalar dispatch
     c(z[1], z[2], z[3])
   }
 
@@ -1328,13 +1335,13 @@ test_that("autodiff differentiates (X %*% beta) / theta[k] (tobit/AFT scale idio
 
 test_that("autodiff differentiates theta[k] * (X %*% beta) (scalar times array)", {
   set.seed(22)
-  X <- matrix(rnorm(6), nrow = 3, ncol = 2)   # constant design matrix (data)
-  theta <- c(0.5, -1.2, 2.0)                  # beta = theta[1:2], scale = theta[3]
+  X <- matrix(rnorm(6), nrow = 3, ncol = 2) # constant design matrix (data)
+  theta <- c(0.5, -1.2, 2.0) # beta = theta[1:2], scale = theta[3]
 
   f <- function(th) {
     eta <- X %*% th[1:2]
     s <- th[3]
-    z <- s * eta                               # scalar * array dispatch
+    z <- s * eta # scalar * array dispatch
     c(z[1], z[2], z[3])
   }
 
@@ -1353,8 +1360,8 @@ test_that("mixed array / scalar Ops route to the array method in both orders", {
   # Direct guards: a length-2 tangent vector meeting a scalar tangent pair. Each
   # operator and both operand orders must return a PrimalTangentArray with the
   # elementwise-broadcast primal and the correct tangent rule.
-  pta <- primal_tangent_array(c(2, 4), c(1, 0))   # vector primal, tangent
-  pts <- primal_tangent(2, 0.5)                   # scalar primal, tangent
+  pta <- primal_tangent_array(c(2, 4), c(1, 0)) # vector primal, tangent
+  pts <- primal_tangent(2, 0.5) # scalar primal, tangent
 
   # division: array / scalar
   r <- pta / pts
@@ -1382,15 +1389,15 @@ test_that("mixed array / scalar Ops route to the array method in both orders", {
   # subtraction both orders
   r <- pta - pts
   expect_equal(r$primal, c(0, 2))
-  expect_equal(r$tangent, c(0.5, -0.5))   # t1 - t2 = c(1,0) - 0.5
+  expect_equal(r$tangent, c(0.5, -0.5)) # t1 - t2 = c(1,0) - 0.5
   r <- pts - pta
   expect_equal(r$primal, c(0, -2))
-  expect_equal(r$tangent, c(-0.5, 0.5))   # t2 - t1 = 0.5 - c(1,0)
+  expect_equal(r$tangent, c(-0.5, 0.5)) # t2 - t1 = 0.5 - c(1,0)
 
   # addition
   r <- pta + pts
   expect_equal(r$primal, c(4, 6))
-  expect_equal(r$tangent, c(1.5, 0.5))    # t1 + t2 = c(1,0) + 0.5
+  expect_equal(r$tangent, c(1.5, 0.5)) # t1 + t2 = c(1,0) + 0.5
 })
 
 test_that("scalar / scalar PrimalTangent Ops still return a scalar pair", {
