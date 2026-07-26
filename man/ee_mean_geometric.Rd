@@ -26,3 +26,11 @@ geometric mean. When \code{log_theta = TRUE} (default), solves
 \eqn{\log(Y_i) - \theta} where \eqn{\theta} is the log of the geometric
 mean.
 }
+\examples{
+y <- c(1, 2, 3, 1, 4, 5, 3, 2, 6, 7)
+psi <- function(theta) ee_mean_geometric(theta, y = y)
+m <- MEstimator(stacked_equations = psi, init = 1) |>
+  estimate()
+coef(m)
+
+}

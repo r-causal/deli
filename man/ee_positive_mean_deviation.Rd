@@ -25,3 +25,20 @@ cannot be used to estimate the variance. The function warns on each call
 for this reason. It is offered for completeness but is not generally
 recommended for applications.
 }
+\examples{
+\dontshow{if (requireNamespace("minpack.lm", quietly = TRUE)) withAutoprint(\{ # examplesIf}
+y <- c(1, 2, 3, 1, 4, 5, 3, 2, 6, 7)
+psi <- function(theta) ee_positive_mean_deviation(theta, y = y)
+
+# The median equation is a step function of theta, so the Jacobian is
+# singular and the default solver cannot move. Start the median at the sample
+# median, which is the solution, and use the Levenberg-Marquardt solver to
+# fit the remaining parameter.
+m <- MEstimator(stacked_equations = psi, init = c(0, median(y))) |>
+  estimate(solver = "lm")
+
+# Each call warns for the same reason: the median estimating equation is not
+# differentiable, so the sandwich variance should not be trusted.
+coef(m)
+\dontshow{\}) # examplesIf}
+}
