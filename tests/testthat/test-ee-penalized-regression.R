@@ -38,18 +38,27 @@ test_that("ee_bridge_regression with gamma=2 matches ee_ridge_regression", {
   )
 })
 
+# The LASSO and elastic net reach bridge_penalty with gamma just above 1, so
+# every evaluation of their estimating equations warns that the penalty is not
+# everywhere differentiable and the sandwich variance is therefore not well
+# defined. That warning is asserted on its own below; the tests that solve or
+# compare fits suppress it at the call site so the assertion under test is not
+# buried under repeated copies of the same warning, one per EE evaluation.
+
 test_that("ee_lasso_regression returns correct shape", {
   ref <- load_fixture("ee_regression_linear")
   X <- ref$X
   y <- ref$y
   init <- ref$init
 
-  result <- ee_lasso_regression(
-    init,
-    X = X,
-    y = y,
-    model = "linear",
-    penalty = 0.5
+  result <- suppressWarnings(
+    ee_lasso_regression(
+      init,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = 0.5
+    )
   )
   expect_true(is.matrix(result))
   expect_equal(nrow(result), ncol(X))
@@ -63,7 +72,9 @@ test_that("ee_lasso_regression solves via MEstimator", {
   init <- ref$init
 
   psi <- function(theta) {
-    ee_lasso_regression(theta, X = X, y = y, model = "linear", penalty = 0.5)
+    suppressWarnings(
+      ee_lasso_regression(theta, X = X, y = y, model = "linear", penalty = 0.5)
+    )
   }
   m <- estimate(MEstimator(stacked_equations = psi, init = init))
   expect_true(all(is.finite(m@theta)))
@@ -76,8 +87,11 @@ test_that("ee_lasso_regression with zero penalty matches unpenalized", {
   y <- ref$y
   init <- ref$init
 
+  # The warning depends only on gamma, so a zero penalty still raises it
   psi_lasso <- function(theta) {
-    ee_lasso_regression(theta, X = X, y = y, model = "linear", penalty = 0)
+    suppressWarnings(
+      ee_lasso_regression(theta, X = X, y = y, model = "linear", penalty = 0)
+    )
   }
   psi_linear <- function(theta) {
     ee_regression(theta, X = X, y = y, model = "linear")
@@ -125,13 +139,15 @@ test_that("ee_elasticnet_regression returns correct shape", {
   y <- ref$y
   init <- ref$init
 
-  result <- ee_elasticnet_regression(
-    init,
-    X = X,
-    y = y,
-    model = "linear",
-    penalty = 0.5,
-    ratio = 0.5
+  result <- suppressWarnings(
+    ee_elasticnet_regression(
+      init,
+      X = X,
+      y = y,
+      model = "linear",
+      penalty = 0.5,
+      ratio = 0.5
+    )
   )
   expect_true(is.matrix(result))
   expect_equal(nrow(result), ncol(X))
@@ -144,14 +160,18 @@ test_that("ee_elasticnet_regression with ratio=0 matches ridge", {
   init <- ref$init
   penalty <- ref$penalty
 
+  # ratio = 0 zeroes the L1 contribution, but the L1 penalty is still evaluated
+  # to form it, so the non-differentiability warning is still raised
   psi_en <- function(theta) {
-    ee_elasticnet_regression(
-      theta,
-      X = X,
-      y = y,
-      model = "linear",
-      penalty = penalty,
-      ratio = 0
+    suppressWarnings(
+      ee_elasticnet_regression(
+        theta,
+        X = X,
+        y = y,
+        model = "linear",
+        penalty = penalty,
+        ratio = 0
+      )
     )
   }
   psi_ridge <- function(theta) {
@@ -349,6 +369,37 @@ test_that("ee_bridge_regression does not warn for gamma >= 2", {
   )
 })
 
+test_that("ee_lasso_regression warns that it is not always differentiable", {
+  ref <- load_fixture("ee_regression_linear")
+
+  expect_warning(
+    ee_lasso_regression(
+      ref$init,
+      X = ref$X,
+      y = ref$y,
+      model = "linear",
+      penalty = 1
+    ),
+    "not always differentiable"
+  )
+})
+
+test_that("ee_elasticnet_regression warns that it is not always differentiable", {
+  ref <- load_fixture("ee_regression_linear")
+
+  expect_warning(
+    ee_elasticnet_regression(
+      ref$init,
+      X = ref$X,
+      y = ref$y,
+      model = "linear",
+      penalty = 1,
+      ratio = 0.5
+    ),
+    "not always differentiable"
+  )
+})
+
 test_that("ee_lasso_regression validates penalty shape and sign", {
   ref <- load_fixture("ee_regression_linear")
   X <- ref$X
@@ -464,10 +515,14 @@ test_that("stronger penalty shrinks coefficients more", {
   init <- ref$init
 
   psi_low <- function(theta) {
-    ee_lasso_regression(theta, X = X, y = y, model = "linear", penalty = 0.1)
+    suppressWarnings(
+      ee_lasso_regression(theta, X = X, y = y, model = "linear", penalty = 0.1)
+    )
   }
   psi_high <- function(theta) {
-    ee_lasso_regression(theta, X = X, y = y, model = "linear", penalty = 10)
+    suppressWarnings(
+      ee_lasso_regression(theta, X = X, y = y, model = "linear", penalty = 10)
+    )
   }
 
   m_low <- estimate(MEstimator(stacked_equations = psi_low, init = init))
