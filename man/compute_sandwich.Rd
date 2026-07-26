@@ -78,14 +78,13 @@ theta <- c(mean(y), stats::var(y) * (length(y) - 1) / length(y))
 # Wrap the built-in estimating equation as a function of theta alone
 psi <- function(theta) ee_mean_variance(theta, y = y)
 
-# Compute the sandwich at the solved parameter values
-sandwich_asymp <- compute_sandwich(psi, theta = theta)
+# compute_sandwich() returns the asymptotic-scale variance, so dividing by
+# n puts it on the standard-error scale
+sandwich <- compute_sandwich(psi, theta = theta) / length(y)
+sandwich
 
-# The result is the asymptotic-scale variance. Dividing by n gives the
-# standard-error-scale variance, and its diagonal square roots are the
-# standard errors.
-sandwich <- sandwich_asymp / length(y)
-se <- sqrt(diag(sandwich))
+# The diagonal square roots are the standard errors
+sqrt(diag(sandwich))
 
 }
 \references{

@@ -80,6 +80,7 @@ scalar delta-method covariance.
 }
 
 \examples{
+\dontshow{if (requireNamespace("nleqslv", quietly = TRUE)) withAutoprint(\{ # examplesIf}
 # Weibull AFT fit, then a survival curve for one covariate pattern
 set.seed(1)
 n <- 200
@@ -94,14 +95,16 @@ delta <- as.numeric(t_event <= t_censor)
 psi <- function(theta) {
   ee_aft(theta, X = Xd, time = t_obs, event = delta, distribution = "weibull")
 }
-m <- MEstimator(stacked_equations = psi,
-                init = c(mean(log(t_obs)), 0, 0))
-m <- estimate(m, solver = "nleqslv")
+m <- MEstimator(
+  stacked_equations = psi,
+  init = c(mean(log(t_obs)), 0, 0)
+) |>
+  estimate(solver = "nleqslv")
 
 aft_predictions_function(
   X = matrix(c(1, 1), nrow = 1), times = c(5, 10, 20),
   theta = m@theta, covariance = m@variance,
   distribution = "weibull", measure = "risk"
 )
-
+\dontshow{\}) # examplesIf}
 }

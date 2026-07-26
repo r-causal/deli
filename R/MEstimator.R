@@ -19,11 +19,14 @@
 #' @export
 #' @examples
 #' # Estimating equations for the mean
+#' y <- c(1, 2, 3, 4, 5)
 #' psi <- function(theta) {
-#'   y <- c(1, 2, 3, 4, 5)
 #'   matrix(y - theta[1], nrow = 1)
 #' }
-#' m <- MEstimator(stacked_equations = psi, init = c(0))
+#' m <- MEstimator(stacked_equations = psi, init = 0) |>
+#'   estimate()
+#' coef(m)
+#' summary(m)
 MEstimator <- new_class(
   "MEstimator",
   parent = deli_estimator,

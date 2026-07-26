@@ -26,11 +26,41 @@
 #' @export
 #' @examples
 #' # Estimating equations for the mean (just-identified)
+#' y <- c(1, 2, 3, 4, 5)
 #' psi <- function(theta) {
-#'   y <- c(1, 2, 3, 4, 5)
 #'   matrix(y - theta[1], nrow = 1)
 #' }
-#' g <- GMMEstimator(stacked_equations = psi, init = c(0))
+#' g <- GMMEstimator(stacked_equations = psi, init = 0) |>
+#'   estimate()
+#' coef(g)
+#'
+#' # Instrumental variables with two instruments for a single treatment
+#' # effect: 2 estimating equations, 1 parameter, so the system is
+#' # over-identified and `MEstimator()` cannot solve it.
+#' set.seed(42)
+#' n <- 200
+#' Z1 <- rbinom(n, 1, 0.5)
+#' Z2 <- rnorm(n)
+#' U <- rnorm(n)
+#' A <- 0.5 * Z1 + 0.3 * Z2 + U + rnorm(n)
+#' Y <- 2 * A - U + rnorm(n)
+#'
+#' psi_iv <- function(theta) {
+#'   rbind(
+#'     Z1 * (Y - theta[1] * A),
+#'     Z2 * (Y - theta[1] * A)
+#'   )
+#' }
+#'
+#' # The two-step weight matrix update needs more than the default 10
+#' # iterations to converge here.
+#' g2 <- GMMEstimator(
+#'   stacked_equations = psi_iv,
+#'   init = 0,
+#'   overid_maxiter = 200L
+#' ) |>
+#'   estimate()
+#' summary(g2)
 GMMEstimator <- new_class(
   "GMMEstimator",
   parent = deli_estimator,

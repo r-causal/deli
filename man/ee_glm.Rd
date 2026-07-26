@@ -113,8 +113,8 @@ psi <- function(theta) {
          link = "log")
 }
 
-m <- MEstimator(stacked_equations = psi, init = c(0, 0, 0, 0))
-m <- estimate(m)
+m <- MEstimator(stacked_equations = psi, init = c(0, 0, 0, 0)) |>
+  estimate()
 m@theta
 
 # Tweedie GLM with a log link. The power p is a fixed hyperparameter, not an
@@ -129,7 +129,7 @@ psi_tw <- function(theta) {
          hyperparameter = 1.5)
 }
 
-m_tw <- MEstimator(stacked_equations = psi_tw, init = c(0, 0, 0))
-m_tw <- estimate(m_tw)
+m_tw <- MEstimator(stacked_equations = psi_tw, init = c(0, 0, 0)) |>
+  estimate()
 m_tw@theta
 }

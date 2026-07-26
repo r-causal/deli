@@ -40,8 +40,8 @@
 #'   y <- c(1, 2, 3, 4, 5)
 #'   matrix(y - theta[1], nrow = 1)
 #' }
-#' m <- MEstimator(stacked_equations = psi, init = c(0))
-#' m <- estimate(m)
+#' m <- MEstimator(stacked_equations = psi, init = c(0)) |>
+#'   estimate()
 #' m@theta
 estimate <- new_generic(
   "estimate",
