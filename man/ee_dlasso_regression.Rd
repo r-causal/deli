@@ -43,3 +43,20 @@ A p-by-n matrix.
 Uses a smooth approximation to the L1 penalty based on the standard
 normal CDF and PDF.
 }
+\examples{
+# A penalty vector gives one value per column of the design matrix. A scalar
+# penalty would shrink the intercept along with the slopes. The estimating
+# equation carries the penalty's derivative. Here that derivative is smooth,
+# so the estimating equation is differentiable and no warning is issued,
+# unlike ee_lasso_regression() whose derivative has unbounded slope at the
+# penalty center.
+fit <- m_estimate(
+  mpg ~ wt + hp,
+  data = mtcars,
+  .ee = ee_dlasso_regression,
+  model = "linear",
+  penalty = c(0, 5, 5)
+)
+coef(fit)
+
+}

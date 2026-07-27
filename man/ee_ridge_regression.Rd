@@ -41,3 +41,16 @@ Returns a p-by-n matrix of estimating equation contributions for ridge
 (L2-penalized) regression:
 \deqn{\psi_i(\theta) = \{Y_i - g(X_i^T \theta)\} X_i - \frac{\lambda}{n} \theta}
 }
+\examples{
+# A penalty vector gives one value per column of the design matrix. A scalar
+# penalty would shrink the intercept along with the slopes.
+fit <- m_estimate(
+  mpg ~ wt + hp,
+  data = mtcars,
+  .ee = ee_ridge_regression,
+  model = "linear",
+  penalty = c(0, 5, 5)
+)
+coef(fit)
+
+}

@@ -103,6 +103,7 @@ must be non-negative.
 # Negative binomial GLM with a log link estimates the regression
 # coefficients plus one log-dispersion parameter, so init has ncol(X) + 1
 # entries.
+set.seed(1)
 n <- 200
 X <- cbind(1, rnorm(n), rnorm(n))
 mu <- exp(0.5 + 0.5 * X[, 2] - 0.3 * X[, 3])
@@ -121,6 +122,7 @@ m@theta
 # estimated parameter, so init has ncol(X) entries. Here p = 1.5 sits in the
 # compound Poisson-gamma regime, appropriate for non-negative data with a
 # point mass at zero.
+set.seed(2)
 mu <- exp(0.5 + 0.5 * X[, 2] - 0.3 * X[, 3])
 y_tw <- rpois(n, lambda = mu)
 

@@ -45,3 +45,21 @@ Returns a p-by-n matrix for bridge penalized regression. Bridge is the
 general case: ridge is \code{gamma = 2}, LASSO approximation is
 \code{gamma = 1 + epsilon}.
 }
+\examples{
+# A penalty vector gives one value per column of the design matrix. A scalar
+# penalty would shrink the intercept along with the slopes. The estimating
+# equation carries the penalty's derivative, which varies like
+# |theta|^(gamma - 1) near the penalty center. That derivative is itself
+# differentiable only once gamma reaches 2, so gamma = 2.3 issues no
+# warning while a value below 2 would.
+fit <- m_estimate(
+  mpg ~ wt + hp,
+  data = mtcars,
+  .ee = ee_bridge_regression,
+  model = "linear",
+  penalty = c(0, 5, 5),
+  gamma = 2.3
+)
+coef(fit)
+
+}

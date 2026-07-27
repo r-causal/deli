@@ -43,3 +43,22 @@ Uses the bridge penalty with \code{gamma = 1 + epsilon} to approximate LASSO
 (L1 penalty). The true LASSO is not differentiable at zero, so an
 approximation is used.
 }
+\examples{
+# A penalty vector gives one value per column of the design matrix. A scalar
+# penalty would shrink the intercept along with the slopes.
+#
+# The approximate L1 penalty enters the estimating equation as its own
+# derivative, and that derivative has unbounded slope at the penalty center.
+# The estimating equation is therefore not differentiable there, so the
+# bread matrix is undefined and every evaluation warns that the sandwich
+# variance should not be trusted here.
+fit <- m_estimate(
+  mpg ~ wt + hp,
+  data = mtcars,
+  .ee = ee_lasso_regression,
+  model = "linear",
+  penalty = c(0, 5, 5)
+)
+coef(fit)
+
+}

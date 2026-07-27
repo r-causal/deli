@@ -13,6 +13,24 @@
 #'
 #' @returns A p-by-n matrix.
 #'
+#' @examples
+#' fit <- m_estimate(
+#'   mpg ~ wt + hp,
+#'   data = mtcars,
+#'   .ee = ee_regression,
+#'   model = "linear"
+#' )
+#' summary(fit)
+#'
+#' # The same equation fits a logistic regression through the model argument.
+#' fit_logit <- m_estimate(
+#'   vs ~ mpg,
+#'   data = mtcars,
+#'   .ee = ee_regression,
+#'   model = "logistic"
+#' )
+#' coef(fit_logit)
+#'
 #' @export
 ee_regression <- function(theta, X, y, model, weights = NULL, offset = NULL) {
   X <- coerce_design(X)
@@ -51,6 +69,18 @@ ee_regression <- function(theta, X, y, model, weights = NULL, offset = NULL) {
 #' @param offset Optional numeric vector of n offsets. Default `NULL`.
 #'
 #' @returns A p-by-n matrix.
+#'
+#' @examples
+#' # A penalty vector gives one value per column of the design matrix. A scalar
+#' # penalty would shrink the intercept along with the slopes.
+#' fit <- m_estimate(
+#'   mpg ~ wt + hp,
+#'   data = mtcars,
+#'   .ee = ee_ridge_regression,
+#'   model = "linear",
+#'   penalty = c(0, 5, 5)
+#' )
+#' coef(fit)
 #'
 #' @export
 ee_ridge_regression <- function(
@@ -97,6 +127,23 @@ ee_ridge_regression <- function(
 #'
 #' @returns A p-by-n matrix.
 #'
+#' @examples
+#' # A penalty vector gives one value per column of the design matrix. A scalar
+#' # penalty would shrink the intercept along with the slopes. The estimating
+#' # equation carries the penalty's derivative, which varies like
+#' # |theta|^(gamma - 1) near the penalty center. That derivative is itself
+#' # differentiable only once gamma reaches 2, so gamma = 2.3 issues no
+#' # warning while a value below 2 would.
+#' fit <- m_estimate(
+#'   mpg ~ wt + hp,
+#'   data = mtcars,
+#'   .ee = ee_bridge_regression,
+#'   model = "linear",
+#'   penalty = c(0, 5, 5),
+#'   gamma = 2.3
+#' )
+#' coef(fit)
+#'
 #' @export
 ee_bridge_regression <- function(
   theta,
@@ -142,6 +189,24 @@ ee_bridge_regression <- function(
 #'
 #' @returns A p-by-n matrix.
 #'
+#' @examples
+#' # A penalty vector gives one value per column of the design matrix. A scalar
+#' # penalty would shrink the intercept along with the slopes.
+#' #
+#' # The approximate L1 penalty enters the estimating equation as its own
+#' # derivative, and that derivative has unbounded slope at the penalty center.
+#' # The estimating equation is therefore not differentiable there, so the
+#' # bread matrix is undefined and every evaluation warns that the sandwich
+#' # variance should not be trusted here.
+#' fit <- m_estimate(
+#'   mpg ~ wt + hp,
+#'   data = mtcars,
+#'   .ee = ee_lasso_regression,
+#'   model = "linear",
+#'   penalty = c(0, 5, 5)
+#' )
+#' coef(fit)
+#'
 #' @export
 ee_lasso_regression <- function(
   theta,
@@ -177,6 +242,22 @@ ee_lasso_regression <- function(
 #'   Default `1e-6`.
 #'
 #' @returns A p-by-n matrix.
+#'
+#' @examples
+#' # A penalty vector gives one value per column of the design matrix. A scalar
+#' # penalty would shrink the intercept along with the slopes. The estimating
+#' # equation carries the penalty's derivative. Here that derivative is smooth,
+#' # so the estimating equation is differentiable and no warning is issued,
+#' # unlike ee_lasso_regression() whose derivative has unbounded slope at the
+#' # penalty center.
+#' fit <- m_estimate(
+#'   mpg ~ wt + hp,
+#'   data = mtcars,
+#'   .ee = ee_dlasso_regression,
+#'   model = "linear",
+#'   penalty = c(0, 5, 5)
+#' )
+#' coef(fit)
 #'
 #' @export
 ee_dlasso_regression <- function(
@@ -222,6 +303,25 @@ ee_dlasso_regression <- function(
 #' @param epsilon Numeric LASSO approximation parameter. Default `0.003`.
 #'
 #' @returns A p-by-n matrix.
+#'
+#' @examples
+#' # A penalty vector gives one value per column of the design matrix. A scalar
+#' # penalty would shrink the intercept along with the slopes.
+#' #
+#' # The L1 half of the penalty enters the estimating equation as its own
+#' # derivative, and that derivative has unbounded slope at the penalty center.
+#' # The estimating equation is therefore not differentiable there, so the
+#' # bread matrix is undefined and every evaluation warns that the sandwich
+#' # variance should not be trusted here.
+#' fit <- m_estimate(
+#'   mpg ~ wt + hp,
+#'   data = mtcars,
+#'   .ee = ee_elasticnet_regression,
+#'   model = "linear",
+#'   penalty = c(0, 5, 5),
+#'   ratio = 0.5
+#' )
+#' coef(fit)
 #'
 #' @export
 ee_elasticnet_regression <- function(
@@ -334,6 +434,29 @@ dlasso_penalty <- function(theta, n, penalty, s, center) {
 #'
 #' @returns A `(b * (k-1))`-by-n matrix.
 #'
+#' @examples
+#' set.seed(123)
+#' n <- 50
+#' W <- rbinom(n, 1, 0.5)
+#' probs <- cbind(0.5 - 0.2 * W, 0.3 + 0.1 * W, 0.2 + 0.1 * W)
+#' y_cat <- sapply(seq_len(n), function(i) sample(1:3, 1, prob = probs[i, ]))
+#'
+#' # The outcome is an indicator matrix whose first column is the reference
+#' # category.
+#' y <- cbind(
+#'   as.integer(y_cat == 1),
+#'   as.integer(y_cat == 2),
+#'   as.integer(y_cat == 3)
+#' )
+#' X <- cbind(1, W)
+#'
+#' psi <- function(theta) ee_mlogit(theta, X = X, y = y)
+#'
+#' # Two columns of X and two non-reference categories give four parameters.
+#' m <- MEstimator(stacked_equations = psi, init = rep(0, 4)) |>
+#'   estimate()
+#' coef(m)
+#'
 #' @export
 ee_mlogit <- function(theta, X, y, weights = NULL, offset = NULL) {
   X <- as.matrix(X)
@@ -392,6 +515,22 @@ ee_mlogit <- function(theta, X, y, weights = NULL, offset = NULL) {
 #'
 #' @returns A `(b+1)`-by-n matrix.
 #'
+#' @examplesIf requireNamespace("nleqslv", quietly = TRUE)
+#' set.seed(42)
+#' n <- 50
+#' W <- rnorm(n)
+#' mu <- 1 / (1 + exp(-(0.5 + 0.3 * W)))
+#' y <- rbeta(n, shape1 = mu * 10, shape2 = (1 - mu) * 10)
+#' X <- cbind(1, W)
+#'
+#' psi <- function(theta) ee_beta_regression(theta, X = X, y = y)
+#'
+#' # The last parameter is log(phi), started here at a precision of 10. The
+#' # default solver diverges on this equation, so use nleqslv.
+#' m <- MEstimator(stacked_equations = psi, init = c(0, 0, log(10))) |>
+#'   estimate(solver = "nleqslv")
+#' coef(m)
+#'
 #' @export
 ee_beta_regression <- function(theta, X, y, weights = NULL, offset = NULL) {
   X <- as.matrix(X)
@@ -445,6 +584,25 @@ ee_beta_regression <- function(theta, X, y, weights = NULL, offset = NULL) {
 #' @param offset Optional numeric vector of n offsets. Default `NULL`.
 #'
 #' @returns A `(b+1)`-by-n matrix.
+#'
+#' @examples
+#' # A latent outcome observed only down to zero, so the negative values are
+#' # left censored at the limit.
+#' set.seed(123)
+#' n <- 200
+#' X <- cbind(1, rnorm(n))
+#' y <- pmax(1 + 0.5 * X[, 2] + rnorm(n), 0)
+#'
+#' psi <- function(theta) ee_tobit(theta, X = X, y = y, lower = 0)
+#'
+#' # The last parameter is log(sigma), started at the log of the observed
+#' # standard deviation.
+#' m <- MEstimator(
+#'   stacked_equations = psi,
+#'   init = c(mean(y), 0, log(sd(y)))
+#' ) |>
+#'   estimate()
+#' coef(m)
 #'
 #' @export
 ee_tobit <- function(
@@ -563,6 +721,34 @@ ee_tobit <- function(
 #'
 #' @returns A p-by-n matrix, where p is the number of columns in the expanded
 #'   additive design matrix.
+#'
+#' @examples
+#' set.seed(42)
+#' n <- 200
+#' x <- runif(n, -3, 3)
+#' y <- sin(x) + rnorm(n, sd = 0.3)
+#' X <- cbind(1, x)
+#'
+#' # No spline on the intercept column, a penalized spline on x.
+#' specs <- list(NULL, list(knots = c(-2, -1, 0, 1, 2), penalty = 5))
+#'
+#' psi <- function(theta) {
+#'   ee_additive_regression(
+#'     theta,
+#'     X = X,
+#'     y = y,
+#'     specifications = specs,
+#'     model = "linear"
+#'   )
+#' }
+#'
+#' # One parameter per column of the expanded design matrix.
+#' m <- MEstimator(
+#'   stacked_equations = psi,
+#'   init = rep(0, ncol(additive_design_matrix(X, specs)))
+#' ) |>
+#'   estimate()
+#' coef(m)
 #'
 #' @export
 ee_additive_regression <- function(

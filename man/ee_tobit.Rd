@@ -38,3 +38,23 @@ A \code{(b+1)}-by-n matrix.
 Handles left and/or right censored outcomes using standard normal PDF/CDF.
 Theta is \verb{(beta, log(sigma))}, a vector of length \code{b + 1}.
 }
+\examples{
+# A latent outcome observed only down to zero, so the negative values are
+# left censored at the limit.
+set.seed(123)
+n <- 200
+X <- cbind(1, rnorm(n))
+y <- pmax(1 + 0.5 * X[, 2] + rnorm(n), 0)
+
+psi <- function(theta) ee_tobit(theta, X = X, y = y, lower = 0)
+
+# The last parameter is log(sigma), started at the log of the observed
+# standard deviation.
+m <- MEstimator(
+  stacked_equations = psi,
+  init = c(mean(y), 0, log(sd(y)))
+) |>
+  estimate()
+coef(m)
+
+}
