@@ -25,8 +25,7 @@ equations, covering basic statistics, regression, causal inference,
 survival analysis, measurement error, and pharmacokinetics.
 
 deli is an R port of the Python
-[delicatessen](https://github.com/pzivich/Delicatessen) library. Under
-matched settings the two packages reproduce each other numerically. The
+[delicatessen](https://github.com/pzivich/Delicatessen) library. The
 [Translating from
 Python](https://r-causal.github.io/deli/articles/translating-from-python.html)
 article maps the Python interface onto deli and documents where the R
@@ -86,8 +85,7 @@ summary(fit)
 
 `vcov()` returns the sandwich variance-covariance matrix and `confint()`
 returns Wald confidence intervals. deli also supplies
-[broom](https://broom.tidymodels.org) tidiers, so results flow into
-tidyverse pipelines through `tidy()` and `glance()`.
+[broom](https://broom.tidymodels.org) tidiers, `tidy()` and `glance()`.
 
 ## Learn more
 
