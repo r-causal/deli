@@ -412,6 +412,316 @@ test_that("gmm_estimate() forwards subset to the minimizer", {
   )
 })
 
+# ---- One-step wrappers reproduce the two-step form ---------------------------
+#
+# m_estimate() and gmm_estimate() construct an estimator and call estimate() in
+# a single call. Every constructor argument and every estimate() argument is
+# handed straight through, so a one-step fit must be the same fit as the
+# two-step form built from the same estimating function. The documentation
+# depends on that equivalence: examples and articles use the one-step form
+# everywhere the two-step form is not itself the subject. These tests hold the
+# pass-through in place, and compare with expect_identical() rather than a
+# tolerance so that a refactor which quietly reroutes an argument is caught
+# instead of being absorbed by slack.
+
+# The arguments the estimator constructors take. Everything else in an argument
+# set belongs to estimate().
+constructor_arg_names <- c(
+  "subset",
+  "finite_correction",
+  "overid_maxiter",
+  "overid_tolerance"
+)
+
+fit_two_step <- function(constructor, psi, init, args) {
+  constructor_args <- args[names(args) %in% constructor_arg_names]
+  estimate_args <- args[!names(args) %in% constructor_arg_names]
+  obj <- do.call(
+    constructor,
+    c(list(stacked_equations = psi, init = init), constructor_args)
+  )
+  do.call(estimate, c(list(obj), estimate_args))
+}
+
+expect_same_fit <- function(one_step, two_step, label) {
+  expect_identical(coef(one_step), coef(two_step), info = label)
+  expect_identical(vcov(one_step), vcov(two_step), info = label)
+}
+
+# Linear regression on mtcars: three parameters, solved reliably from zero
+# starting values by every solver under test.
+mtcars_regression_psi <- function() {
+  X <- stats::model.matrix(mpg ~ wt + hp, data = mtcars)
+  y <- mtcars$mpg
+  function(theta) ee_regression(theta, X = X, y = y, model = "linear")
+}
+
+mtcars_regression_init <- c(`(Intercept)` = 0, wt = 0, hp = 0)
+
+# The argument surface the documentation actually passes, one set per argument
+# plus a set carrying all of them at once.
+m_argument_sets <- list(
+  "defaults" = list(),
+  "solver = NULL" = list(solver = NULL),
+  "solver = rootSolve" = list(solver = "rootSolve"),
+  "solver = lm" = list(solver = "lm"),
+  "deriv_method = capprox" = list(deriv_method = "capprox"),
+  "deriv_method = exact" = list(deriv_method = "exact"),
+  "maxiter and tolerance" = list(maxiter = 200L, tolerance = 1e-7),
+  "dx" = list(dx = 1e-6),
+  "allow_pinv = FALSE" = list(allow_pinv = FALSE),
+  "subset" = list(subset = 1L),
+  "finite_correction = HC1" = list(finite_correction = "HC1"),
+  "every argument at once" = list(
+    solver = "lm",
+    maxiter = 400L,
+    tolerance = 1e-8,
+    deriv_method = "exact",
+    dx = 1e-7,
+    allow_pinv = FALSE,
+    subset = c(1L, 2L),
+    finite_correction = "HC1"
+  )
+)
+
+# GMM minimizes rather than root-finds, so the solver names are stats::optim
+# methods, and it carries the two over-identification controls as well.
+gmm_argument_sets <- list(
+  "defaults" = list(),
+  "solver = NULL" = list(solver = NULL),
+  "solver = BFGS" = list(solver = "BFGS"),
+  "deriv_method = capprox" = list(deriv_method = "capprox"),
+  "deriv_method = exact" = list(deriv_method = "exact"),
+  "maxiter and tolerance" = list(maxiter = 200L, tolerance = 1e-7),
+  "dx" = list(dx = 1e-6),
+  "allow_pinv = FALSE" = list(allow_pinv = FALSE),
+  "subset" = list(subset = 1L),
+  "finite_correction = HC1" = list(finite_correction = "HC1"),
+  "overid controls" = list(overid_maxiter = 25L, overid_tolerance = 1e-7),
+  "every argument at once" = list(
+    solver = "BFGS",
+    maxiter = 400L,
+    tolerance = 1e-8,
+    deriv_method = "exact",
+    dx = 1e-7,
+    allow_pinv = FALSE,
+    subset = c(1L, 2L),
+    finite_correction = "HC1",
+    overid_maxiter = 25L,
+    overid_tolerance = 1e-7
+  )
+)
+
+test_that("m_estimate() function interface reproduces the two-step fit", {
+  psi <- mtcars_regression_psi()
+
+  for (label in names(m_argument_sets)) {
+    args <- m_argument_sets[[label]]
+    one_step <- do.call(
+      m_estimate,
+      c(
+        list(stacked_equations = psi, init = mtcars_regression_init),
+        args
+      )
+    )
+    two_step <- fit_two_step(
+      MEstimator,
+      psi,
+      mtcars_regression_init,
+      args
+    )
+    expect_same_fit(one_step, two_step, label)
+  }
+})
+
+test_that("m_estimate() formula interface reproduces the two-step fit", {
+  psi <- mtcars_regression_psi()
+
+  for (label in names(m_argument_sets)) {
+    args <- m_argument_sets[[label]]
+    one_step <- do.call(
+      m_estimate,
+      c(
+        list(
+          mpg ~ wt + hp,
+          data = mtcars,
+          .ee = ee_regression,
+          model = "linear"
+        ),
+        args
+      )
+    )
+    two_step <- fit_two_step(
+      MEstimator,
+      psi,
+      mtcars_regression_init,
+      args
+    )
+    expect_same_fit(one_step, two_step, label)
+  }
+})
+
+test_that("gmm_estimate() function interface reproduces the two-step fit", {
+  psi <- mtcars_regression_psi()
+
+  for (label in names(gmm_argument_sets)) {
+    args <- gmm_argument_sets[[label]]
+    one_step <- do.call(
+      gmm_estimate,
+      c(
+        list(stacked_equations = psi, init = mtcars_regression_init),
+        args
+      )
+    )
+    two_step <- fit_two_step(
+      GMMEstimator,
+      psi,
+      mtcars_regression_init,
+      args
+    )
+    expect_same_fit(one_step, two_step, label)
+  }
+})
+
+test_that("gmm_estimate() formula interface reproduces the two-step fit", {
+  psi <- mtcars_regression_psi()
+
+  for (label in names(gmm_argument_sets)) {
+    args <- gmm_argument_sets[[label]]
+    one_step <- do.call(
+      gmm_estimate,
+      c(
+        list(
+          mpg ~ wt + hp,
+          data = mtcars,
+          .ee = ee_regression,
+          model = "linear"
+        ),
+        args
+      )
+    )
+    two_step <- fit_two_step(
+      GMMEstimator,
+      psi,
+      mtcars_regression_init,
+      args
+    )
+    expect_same_fit(one_step, two_step, label)
+  }
+})
+
+# ---- Over-identified GMM -----------------------------------------------------
+#
+# GMM earns its keep when there are more moment conditions than parameters. Two
+# instruments for a single treatment effect give two estimating equations and
+# one parameter, which MEstimator() rejects outright. The two-step weight matrix
+# needs more than the default ten updating iterations to settle here, which also
+# makes this the one system where overid_maxiter and overid_tolerance are
+# observable in the fit.
+
+make_iv_data <- function() {
+  set.seed(42)
+  n <- 200
+  z1 <- stats::rbinom(n, 1, 0.5)
+  z2 <- stats::rnorm(n)
+  u <- stats::rnorm(n)
+  a <- 0.5 * z1 + 0.3 * z2 + u + stats::rnorm(n)
+  y <- 2 * a - u + stats::rnorm(n)
+  data.frame(z1 = z1, z2 = z2, u = u, a = a, y = y)
+}
+
+make_iv_psi <- function(d) {
+  function(theta) {
+    rbind(
+      d$z1 * (d$y - theta[1] * d$a),
+      d$z2 * (d$y - theta[1] * d$a)
+    )
+  }
+}
+
+test_that("the IV moment conditions are over-identified", {
+  d <- make_iv_data()
+  psi <- make_iv_psi(d)
+
+  # Two equations, one parameter. M-estimation has no root to find.
+  expect_equal(dim(psi(c(effect = 0))), c(2L, 200L))
+  expect_error(
+    estimate(MEstimator(stacked_equations = psi, init = c(effect = 0))),
+    regexp = "one estimating equation per parameter"
+  )
+})
+
+test_that("gmm_estimate() solves the over-identified IV system", {
+  d <- make_iv_data()
+  psi <- make_iv_psi(d)
+
+  g <- gmm_estimate(
+    stacked_equations = psi,
+    init = c(effect = 0),
+    overid_maxiter = 200L
+  )
+
+  expect_s3_class(g, "deli::GMMEstimator")
+  expect_equal(nobs(g), 200L)
+  expect_equal(names(coef(g)), "effect")
+
+  # The updating loop converged, so the weight matrix moved off the identity it
+  # starts from.
+  expect_false(isTRUE(all.equal(g@weight_matrix, diag(2))))
+
+  # The instruments recover the treatment effect of 2 used to generate the
+  # data, and the interval covers it.
+  expect_equal(unname(coef(g)), 2, tolerance = 0.15)
+  ci <- confint(g)
+  expect_lt(ci[1, "lower"], 2)
+  expect_gt(ci[1, "upper"], 2)
+
+  # The confounded least-squares estimate is further from the truth, so the
+  # instruments are doing the work rather than the data being easy.
+  ols <- unname(coef(stats::lm(y ~ a - 1, data = d)))
+  expect_lt(abs(unname(coef(g)) - 2), abs(ols - 2))
+})
+
+test_that("gmm_estimate() over-identified fit reproduces the two-step fit", {
+  d <- make_iv_data()
+  psi <- make_iv_psi(d)
+  init <- c(effect = 0)
+
+  overid_argument_sets <- list(
+    "converged updating" = list(overid_maxiter = 200L),
+    "no updating step" = list(overid_maxiter = 0L),
+    "loose overid_tolerance" = list(
+      overid_maxiter = 200L,
+      overid_tolerance = 1
+    )
+  )
+
+  fits <- list()
+  for (label in names(overid_argument_sets)) {
+    args <- overid_argument_sets[[label]]
+    one_step <- do.call(
+      gmm_estimate,
+      c(list(stacked_equations = psi, init = init), args)
+    )
+    two_step <- fit_two_step(GMMEstimator, psi, init, args)
+    expect_same_fit(one_step, two_step, label)
+    fits[[label]] <- one_step
+  }
+
+  # Both controls change the answer, so the comparisons above are not vacuous.
+  # Zero updating iterations leaves the identity weight matrix in place, and a
+  # tolerance of 1 stops the updating after a single step.
+  expect_identical(fits[["no updating step"]]@weight_matrix, diag(2))
+  expect_false(identical(
+    coef(fits[["converged updating"]]),
+    coef(fits[["no updating step"]])
+  ))
+  expect_false(identical(
+    coef(fits[["converged updating"]]),
+    coef(fits[["loose overid_tolerance"]])
+  ))
+})
+
 # ---- Phase 5: Broom tidiers -------------------------------------------------
 
 test_that("tidy() returns expected columns", {
