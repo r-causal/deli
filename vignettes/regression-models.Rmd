@@ -21,10 +21,18 @@ library(deli)
 ## Overview
 
 deli provides estimating equations for a wide range of regression models.
-All regression EEs follow the same pattern: define a `psi` function that
-supplies the design matrix and response, then pass it to `m_estimate()`, which
-builds the estimator and solves it in one call. The sandwich variance estimator
-automatically provides robust standard errors.
+All of them are fitted the same way: pass a formula, a data frame, and the
+estimating equation to `m_estimate()`, which builds the design matrix,
+constructs the estimator, and solves it in one call. Further arguments, such as
+`model` or `penalty`, go to the estimating equation. The sandwich variance
+estimator automatically provides robust standard errors, and the parameters are
+named after the design matrix columns.
+
+Every model shown here can also be fitted through the function interface, where
+you write a `psi` function that supplies the design matrix and response
+yourself. That form is what you need for a design the formula notation cannot
+express, and for custom or stacked equations; see
+`vignette("custom-estimating-equations")`.
 
 ## Linear regression
 
@@ -36,13 +44,9 @@ n <- 300
 x1 <- rnorm(n)
 x2 <- rbinom(n, 1, 0.5)
 y <- 1 + 2 * x1 - 0.5 * x2 + rnorm(n)
-X <- cbind(1, x1, x2)
+d <- data.frame(x1, x2, y)
 
-psi <- function(theta) {
-  ee_regression(theta, X = X, y = y, model = "linear")
-}
-
-m <- m_estimate(stacked_equations = psi, init = c(0, 0, 0))
+m <- m_estimate(y ~ x1 + x2, data = d, .ee = ee_regression, model = "linear")
 summary(m)
 ```
 
@@ -55,13 +59,9 @@ set.seed(42)
 n <- 500
 x <- rnorm(n)
 y <- rbinom(n, 1, inverse_logit(0.5 + x))
-X <- cbind(1, x)
+d <- data.frame(x, y)
 
-psi <- function(theta) {
-  ee_regression(theta, X = X, y = y, model = "logistic")
-}
-
-m <- m_estimate(stacked_equations = psi, init = c(0, 0))
+m <- m_estimate(y ~ x, data = d, .ee = ee_regression, model = "logistic")
 summary(m)
 ```
 
@@ -74,13 +74,9 @@ set.seed(42)
 n <- 500
 x <- rnorm(n)
 y <- rpois(n, lambda = exp(0.5 + 0.3 * x))
-X <- cbind(1, x)
+d <- data.frame(x, y)
 
-psi <- function(theta) {
-  ee_regression(theta, X = X, y = y, model = "poisson")
-}
-
-m <- m_estimate(stacked_equations = psi, init = c(0, 0))
+m <- m_estimate(y ~ x, data = d, .ee = ee_regression, model = "poisson")
 summary(m)
 ```
 
@@ -94,13 +90,15 @@ set.seed(42)
 n <- 500
 x <- rnorm(n)
 y <- rpois(n, lambda = exp(0.5 + 0.3 * x))
-X <- cbind(1, x)
+d <- data.frame(x, y)
 
-psi <- function(theta) {
-  ee_glm(theta, X = X, y = y, distribution = "poisson", link = "log")
-}
-
-m <- m_estimate(stacked_equations = psi, init = c(0, 0))
+m <- m_estimate(
+  y ~ x,
+  data = d,
+  .ee = ee_glm,
+  distribution = "poisson",
+  link = "log"
+)
 m@theta
 ```
 
@@ -126,14 +124,15 @@ n <- 200
 x1 <- rnorm(n)
 x2 <- rnorm(n)
 y <- 1 + 0.5 * x1 + 0.3 * x2 + rnorm(n)
-X <- cbind(1, x1, x2)
+d <- data.frame(x1, x2, y)
 
-psi <- function(theta) {
-  ee_ridge_regression(theta, X = X, y = y, model = "linear",
-                       penalty = 0.5)
-}
-
-m <- m_estimate(stacked_equations = psi, init = c(0, 0, 0))
+m <- m_estimate(
+  y ~ x1 + x2,
+  data = d,
+  .ee = ee_ridge_regression,
+  model = "linear",
+  penalty = 0.5
+)
 m@theta
 ```
 
@@ -142,13 +141,14 @@ m@theta
 L1 penalty produces sparse solutions:
 
 ```{r}
-psi <- function(theta) {
-  ee_lasso_regression(theta, X = X, y = y, model = "linear",
-                       penalty = 0.1)
-}
-
 # Not differentiable, so the sandwich variance should not be trusted here
-m <- m_estimate(stacked_equations = psi, init = c(0, 0, 0))
+m <- m_estimate(
+  y ~ x1 + x2,
+  data = d,
+  .ee = ee_lasso_regression,
+  model = "linear",
+  penalty = 0.1
+)
 m@theta
 ```
 
@@ -157,13 +157,15 @@ m@theta
 Combines L1 and L2 penalties:
 
 ```{r}
-psi <- function(theta) {
-  ee_elasticnet_regression(theta, X = X, y = y, model = "linear",
-                            penalty = 0.1, ratio = 0.5)
-}
-
 # The L1 half is not differentiable, so again distrust the sandwich variance
-m <- m_estimate(stacked_equations = psi, init = c(0, 0, 0))
+m <- m_estimate(
+  y ~ x1 + x2,
+  data = d,
+  .ee = ee_elasticnet_regression,
+  model = "linear",
+  penalty = 0.1,
+  ratio = 0.5
+)
 m@theta
 ```
 
@@ -179,23 +181,24 @@ x <- rnorm(n)
 y <- 1 + 2 * x + rnorm(n)
 # Add some outliers
 y[1:5] <- y[1:5] + 20
-X <- cbind(1, x)
-
-# Huber loss with k = 1.345
-psi <- function(theta) {
-  ee_robust_regression(theta, X = X, y = y, model = "linear",
-                        loss = "huber", k = 1.345)
-}
+d <- data.frame(x, y)
 
 # Robust losses can have several roots, so seed the search from least squares
-start <- coef(lm(y ~ x))
-m <- m_estimate(stacked_equations = psi, init = start)
+start <- coef(lm(y ~ x, data = d))
+
+# Huber loss with k = 1.345
+m <- m_estimate(
+  y ~ x,
+  data = d,
+  .ee = ee_robust_regression,
+  model = "linear",
+  loss = "huber",
+  k = 1.345,
+  init = start
+)
 
 # Compare with OLS (affected by outliers)
-psi_ols <- function(theta) {
-  ee_regression(theta, X = X, y = y, model = "linear")
-}
-m_ols <- m_estimate(stacked_equations = psi_ols, init = c(0, 0))
+m_ols <- m_estimate(y ~ x, data = d, .ee = ee_regression, model = "linear")
 
 rbind(robust = m@theta, ols = m_ols@theta)
 ```
@@ -204,40 +207,44 @@ Available loss functions: `"huber"`, `"tukey"`, `"andrew"`, `"hampel"`.
 
 ## Weighted regression
 
-All regression EEs support observation weights via the `weights` argument:
+All regression EEs support observation weights via the `weights` argument.
+Arguments passed through `m_estimate()` are evaluated in the data frame, so the
+column name is enough:
 
 ```{r}
 set.seed(42)
 n <- 200
 x <- rnorm(n)
 y <- 1 + 2 * x + rnorm(n)
-X <- cbind(1, x)
 w <- runif(n, 0.5, 1.5)
+d <- data.frame(x, y, w)
 
-psi <- function(theta) {
-  ee_regression(theta, X = X, y = y, model = "linear", weights = w)
-}
-
-m <- m_estimate(stacked_equations = psi, init = c(0, 0))
+m <- m_estimate(
+  y ~ x,
+  data = d,
+  .ee = ee_regression,
+  model = "linear",
+  weights = w
+)
 m@theta
 ```
 
 ## Predictions after regression
 
 After fitting any regression model, use `regression_predictions()` for
-predicted values with confidence intervals:
+predicted values with confidence intervals. It takes a design matrix rather
+than a data frame, so build the prediction design with the same columns in the
+same order as the fitted model. Here the formula `y ~ x` gives an intercept
+followed by `x`:
 
 ```{r}
 set.seed(42)
 n <- 300
 x <- rnorm(n)
 y <- 1 + 2 * x + rnorm(n)
-X <- cbind(1, x)
+d <- data.frame(x, y)
 
-psi <- function(theta) {
-  ee_regression(theta, X = X, y = y, model = "linear")
-}
-m <- m_estimate(stacked_equations = psi, init = c(0, 0))
+m <- m_estimate(y ~ x, data = d, .ee = ee_regression, model = "linear")
 
 # Predict at new covariate values
 x_new <- seq(-2, 2, length.out = 5)

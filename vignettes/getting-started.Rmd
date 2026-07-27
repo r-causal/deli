@@ -223,20 +223,18 @@ m@theta[1]
 ## Predictions
 
 After fitting a model, use `regression_predictions()` for predicted values
-with confidence intervals:
+with confidence intervals. It takes a design matrix rather than a data frame,
+so build the prediction design with the same columns in the same order as the
+fitted model. Here the formula `y ~ x` gives an intercept followed by `x`:
 
 ```{r}
 set.seed(42)
 n <- 200
 x <- rnorm(n)
 y <- 1 + 2 * x + rnorm(n)
-X <- cbind(1, x)
+d <- data.frame(x, y)
 
-psi <- function(theta) {
-  ee_regression(theta, X = X, y = y, model = "linear")
-}
-
-m <- m_estimate(stacked_equations = psi, init = c(0, 0))
+m <- m_estimate(y ~ x, data = d, .ee = ee_regression, model = "linear")
 
 # Predict at new values
 x_new <- seq(-2, 2, by = 1)
@@ -294,13 +292,9 @@ n <- 500
 x <- rnorm(n)
 pr <- inverse_logit(0.5 + x)
 y <- rbinom(n, 1, pr)
-X <- cbind(1, x)
+d <- data.frame(x, y)
 
-psi <- function(theta) {
-  ee_regression(theta, X = X, y = y, model = "logistic")
-}
-
-m <- m_estimate(stacked_equations = psi, init = c(0, 0))
+m <- m_estimate(y ~ x, data = d, .ee = ee_regression, model = "logistic")
 
 # Variance of the predicted probability at x = 1, via the delta method.
 # The log-odds at the pattern (intercept = 1, x = 1) is theta[1] + theta[2].

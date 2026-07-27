@@ -167,15 +167,15 @@ approximation to compute the variance.
 ### Example: odds ratio via the delta method
 
 Using the same logistic regression as above, we can get the odds ratio variance
-without stacking:
+without stacking. Nothing custom is stacked onto the regression here, so the
+formula interface applies: give `m_estimate()` a formula and a data frame and it
+builds the design matrix and response for you.
 
 ```{r}
 # Fit the logistic regression only
-psi_reg <- function(theta) {
-  ee_regression(theta, X = X, y = y, model = "logistic")
-}
+d <- data.frame(x, y)
 
-m_reg <- m_estimate(stacked_equations = psi_reg, init = c(0, 0))
+m_reg <- m_estimate(y ~ x, data = d, .ee = ee_regression, model = "logistic")
 m_reg@theta
 ```
 
