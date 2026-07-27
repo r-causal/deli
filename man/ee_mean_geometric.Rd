@@ -29,8 +29,7 @@ mean.
 \examples{
 y <- c(1, 2, 3, 1, 4, 5, 3, 2, 6, 7)
 psi <- function(theta) ee_mean_geometric(theta, y = y)
-m <- MEstimator(stacked_equations = psi, init = 1) |>
-  estimate()
+m <- m_estimate(stacked_equations = psi, init = 1)
 coef(m)
 
 }

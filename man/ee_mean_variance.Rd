@@ -23,8 +23,7 @@ and variance:
 \examples{
 y <- c(1, 2, 3, 1, 4, 5, 3, 2, 6, 7)
 psi <- function(theta) ee_mean_variance(theta, y = y)
-m <- MEstimator(stacked_equations = psi, init = c(0, 1)) |>
-  estimate()
+m <- m_estimate(stacked_equations = psi, init = c(0, 1))
 coef(m)
 
 }

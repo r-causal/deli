@@ -61,11 +61,10 @@ k <- length(unique(d$time[d$delta == 1]))
 psi <- function(theta) {
   ee_plogit(theta, X = W, time = d$time, event = d$delta)
 }
-m <- MEstimator(
+m <- m_estimate(
   stacked_equations = psi,
   init = c(rep(0, ncol(W)), -4, rep(0, k - 1))
-) |>
-  estimate()
+)
 
 # The first three parameters are the covariate coefficients, which
 # approximate log hazard ratios. The remaining parameters are the

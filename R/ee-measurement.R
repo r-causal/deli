@@ -34,11 +34,10 @@
 #'   ee_rogan_gladen(theta, y = y, y_star = y_star, r = r)
 #' }
 #'
-#' m <- MEstimator(
+#' m <- m_estimate(
 #'   stacked_equations = psi,
 #'   init = c(0.5, 0.5, 0.75, 0.75)
-#' ) |>
-#'   estimate()
+#' )
 #'
 #' # Corrected prevalence, naive prevalence, sensitivity, specificity
 #' coef(m)
@@ -113,8 +112,7 @@ ee_rogan_gladen <- function(theta, y, y_star, r, weights = NULL) {
 #'   ee_rogan_gladen_extended(theta, y = y, y_star = y_star, r = r, X = X)
 #' }
 #'
-#' m <- MEstimator(stacked_equations = psi, init = c(0.5, 1, 1)) |>
-#'   estimate()
+#' m <- m_estimate(stacked_equations = psi, init = c(0.5, 1, 1))
 #'
 #' # Corrected prevalence, then the sensitivity and specificity intercepts
 #' coef(m)
@@ -209,8 +207,7 @@ ee_rogan_gladen_extended <- function(theta, y, y_star, r, X, weights = NULL) {
 #'   ee_regression_calibration(theta, beta = 0.8, a = a, a_star = a_star, r = r)
 #' }
 #'
-#' m <- MEstimator(stacked_equations = psi, init = c(1, 0.1, 0.5)) |>
-#'   estimate()
+#' m <- m_estimate(stacked_equations = psi, init = c(1, 0.1, 0.5))
 #'
 #' # Corrected coefficient, then the calibration slope and intercept
 #' coef(m)

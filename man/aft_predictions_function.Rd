@@ -95,11 +95,11 @@ delta <- as.numeric(t_event <= t_censor)
 psi <- function(theta) {
   ee_aft(theta, X = Xd, time = t_obs, event = delta, distribution = "weibull")
 }
-m <- MEstimator(
+m <- m_estimate(
   stacked_equations = psi,
-  init = c(mean(log(t_obs)), 0, 0)
-) |>
-  estimate(solver = "nleqslv")
+  init = c(mean(log(t_obs)), 0, 0),
+  solver = "nleqslv"
+)
 
 aft_predictions_function(
   X = matrix(c(1, 1), nrow = 1), times = c(5, 10, 20),

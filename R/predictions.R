@@ -125,8 +125,11 @@ regression_predictions <- function(
 #'     distribution = "weibull"
 #'   )
 #' }
-#' m <- MEstimator(stacked_equations = psi, init = c(0.1, 0.1)) |>
-#'   estimate(solver = "nleqslv")
+#' m <- m_estimate(
+#'   stacked_equations = psi,
+#'   init = c(0.1, 0.1),
+#'   solver = "nleqslv"
+#' )
 #'
 #' # The survival function at three follow-up times, with delta-method
 #' # confidence intervals. Observed times run from 5 to 225 days.
@@ -257,11 +260,11 @@ survival_predictions <- function(
 #' psi <- function(theta) {
 #'   ee_aft(theta, X = Xd, time = t_obs, event = delta, distribution = "weibull")
 #' }
-#' m <- MEstimator(
+#' m <- m_estimate(
 #'   stacked_equations = psi,
-#'   init = c(mean(log(t_obs)), 0, 0)
-#' ) |>
-#'   estimate(solver = "nleqslv")
+#'   init = c(mean(log(t_obs)), 0, 0),
+#'   solver = "nleqslv"
+#' )
 #'
 #' # Rows are individuals and columns are the requested times. The first two
 #' # people share a covariate pattern, as do the third and fourth, so their
@@ -398,11 +401,11 @@ aft_predictions_individual <- function(
 #' psi <- function(theta) {
 #'   ee_aft(theta, X = Xd, time = t_obs, event = delta, distribution = "weibull")
 #' }
-#' m <- MEstimator(
+#' m <- m_estimate(
 #'   stacked_equations = psi,
-#'   init = c(mean(log(t_obs)), 0, 0)
-#' ) |>
-#'   estimate(solver = "nleqslv")
+#'   init = c(mean(log(t_obs)), 0, 0),
+#'   solver = "nleqslv"
+#' )
 #'
 #' aft_predictions_function(
 #'   X = matrix(c(1, 1), nrow = 1), times = c(5, 10, 20),
@@ -563,11 +566,10 @@ aft_predictions_function <- function(
 #' psi <- function(theta) {
 #'   ee_plogit(theta, X = W, time = d$time, event = d$delta)
 #' }
-#' m <- MEstimator(
+#' m <- m_estimate(
 #'   stacked_equations = psi,
 #'   init = c(rep(0, ncol(W)), -4, rep(0, k - 1))
-#' ) |>
-#'   estimate()
+#' )
 #'
 #' # Rows are the requested times and columns are individuals, so this shows
 #' # disease-free survival at 12, 24, and 59 months for the first five people.

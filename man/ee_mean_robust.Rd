@@ -29,8 +29,7 @@ mean using the specified loss function:
 set.seed(1)
 y <- c(rnorm(49), 50)
 psi <- function(theta) ee_mean_robust(theta, y = y, k = 1.345, loss = "huber")
-m <- MEstimator(stacked_equations = psi, init = 0) |>
-  estimate()
+m <- m_estimate(stacked_equations = psi, init = 0)
 
 # The Huber estimate stays near the uncontaminated mean, unlike mean(y).
 coef(m)

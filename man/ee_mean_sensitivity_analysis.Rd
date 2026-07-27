@@ -64,8 +64,7 @@ psi <- function(theta) {
 
 # theta holds the corrected mean, started near the observed outcomes,
 # followed by the two missingness model coefficients.
-m <- MEstimator(stacked_equations = psi, init = c(180, 0, 0)) |>
-  estimate()
+m <- m_estimate(stacked_equations = psi, init = c(180, 0, 0))
 coef(m)
 
 }

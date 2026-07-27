@@ -58,11 +58,10 @@ psi <- function(theta) ee_2sls(theta, y = Y, A = A, Z = Z, W = W)
 
 # theta holds the three second-stage coefficients followed by the three
 # first-stage coefficients.
-m <- MEstimator(
+m <- m_estimate(
   stacked_equations = psi,
   init = c(beta_init, alpha_init)
-) |>
-  estimate()
+)
 
 # theta_1 is the coefficient on the fitted treatment, the causal effect.
 coef(m)

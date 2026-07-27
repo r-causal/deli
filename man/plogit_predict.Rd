@@ -57,11 +57,10 @@ k <- length(unique(d$time[d$delta == 1]))
 psi <- function(theta) {
   ee_plogit(theta, X = W, time = d$time, event = d$delta)
 }
-m <- MEstimator(
+m <- m_estimate(
   stacked_equations = psi,
   init = c(rep(0, ncol(W)), -4, rep(0, k - 1))
-) |>
-  estimate()
+)
 
 # Rows are the requested times and columns are individuals, so this shows
 # disease-free survival at 12, 24, and 59 months for the first five people.

@@ -13,8 +13,7 @@
 #' @examples
 #' y <- c(1, 2, 3, 1, 4, 5, 3, 2, 6, 7)
 #' psi <- function(theta) ee_mean(theta, y = y)
-#' m <- MEstimator(stacked_equations = psi, init = 0) |>
-#'   estimate()
+#' m <- m_estimate(stacked_equations = psi, init = 0)
 #' coef(m)
 #'
 #' @export
@@ -39,8 +38,7 @@ ee_mean <- function(theta, y, weights = NULL) {
 #' @examples
 #' y <- c(1, 2, 3, 1, 4, 5, 3, 2, 6, 7)
 #' psi <- function(theta) ee_mean_variance(theta, y = y)
-#' m <- MEstimator(stacked_equations = psi, init = c(0, 1)) |>
-#'   estimate()
+#' m <- m_estimate(stacked_equations = psi, init = c(0, 1))
 #' coef(m)
 #'
 #' @export
@@ -71,8 +69,7 @@ ee_mean_variance <- function(theta, y) {
 #' set.seed(1)
 #' y <- c(rnorm(49), 50)
 #' psi <- function(theta) ee_mean_robust(theta, y = y, k = 1.345, loss = "huber")
-#' m <- MEstimator(stacked_equations = psi, init = 0) |>
-#'   estimate()
+#' m <- m_estimate(stacked_equations = psi, init = 0)
 #'
 #' # The Huber estimate stays near the uncontaminated mean, unlike mean(y).
 #' coef(m)
@@ -103,8 +100,7 @@ ee_mean_robust <- function(theta, y, k, loss = "huber") {
 #' @examples
 #' y <- c(1, 2, 3, 1, 4, 5, 3, 2, 6, 7)
 #' psi <- function(theta) ee_mean_geometric(theta, y = y)
-#' m <- MEstimator(stacked_equations = psi, init = 1) |>
-#'   estimate()
+#' m <- m_estimate(stacked_equations = psi, init = 1)
 #' coef(m)
 #'
 #' @export
@@ -142,8 +138,7 @@ ee_mean_geometric <- function(theta, y, weights = NULL, log_theta = TRUE) {
 #' # The estimating function is a step function of theta, so its derivative is
 #' # zero wherever it is defined and the root finder cannot search. Start at the
 #' # sample quantile, which is the solution.
-#' m <- MEstimator(stacked_equations = psi, init = median(y)) |>
-#'   estimate()
+#' m <- m_estimate(stacked_equations = psi, init = median(y))
 #'
 #' # Each call warns for the same reason: the median estimating equation is not
 #' # differentiable, so the sandwich variance should not be trusted.
@@ -187,8 +182,11 @@ ee_percentile <- function(theta, y, q) {
 #' # singular and the default solver cannot move. Start the median at the sample
 #' # median, which is the solution, and use the Levenberg-Marquardt solver to
 #' # fit the remaining parameter.
-#' m <- MEstimator(stacked_equations = psi, init = c(0, median(y))) |>
-#'   estimate(solver = "lm")
+#' m <- m_estimate(
+#'   stacked_equations = psi,
+#'   init = c(0, median(y)),
+#'   solver = "lm"
+#' )
 #'
 #' # Each call warns for the same reason: the median estimating equation is not
 #' # differentiable, so the sandwich variance should not be trusted.

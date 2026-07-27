@@ -84,8 +84,7 @@ psi <- function(theta) {
 
 # theta holds the two marginal structural model coefficients, whose slope is
 # the causal effect, followed by the two propensity score coefficients.
-m <- MEstimator(stacked_equations = psi, init = rep(0, 4)) |>
-  estimate()
+m <- m_estimate(stacked_equations = psi, init = rep(0, 4))
 coef(m)
 
 }

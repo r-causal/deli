@@ -36,8 +36,7 @@
 #'
 #' # theta holds the average causal effect, the mean under treatment, and the
 #' # mean under no treatment, followed by the four outcome model coefficients.
-#' m <- MEstimator(stacked_equations = psi, init = rep(0, 7)) |>
-#'   estimate()
+#' m <- m_estimate(stacked_equations = psi, init = rep(0, 7))
 #' coef(m)[1:3]
 #'
 #' @export
@@ -141,8 +140,7 @@ ee_gformula <- function(theta, y, X, X1, X0 = NULL, force_continuous = FALSE) {
 #' # theta holds the average causal effect, the mean under treatment, and the
 #' # mean under no treatment, followed by the three propensity score
 #' # coefficients.
-#' m <- MEstimator(stacked_equations = psi, init = rep(0, 6)) |>
-#'   estimate()
+#' m <- m_estimate(stacked_equations = psi, init = rep(0, 6))
 #' coef(m)[1:3]
 #'
 #' @export
@@ -236,8 +234,7 @@ ee_ipw <- function(theta, y, A, W, truncate = NULL, weights = NULL) {
 #' # theta holds the average causal effect, the mean under treatment, and the
 #' # mean under no treatment, followed by the three propensity score
 #' # coefficients and the four outcome model coefficients.
-#' m <- MEstimator(stacked_equations = psi, init = rep(0, 10)) |>
-#'   estimate()
+#' m <- m_estimate(stacked_equations = psi, init = rep(0, 10))
 #' summary(m, subset = 1:3)
 #'
 #' @export
@@ -375,8 +372,7 @@ ee_aipw <- function(
 #'
 #' # theta holds the two marginal structural model coefficients, whose slope is
 #' # the causal effect, followed by the two propensity score coefficients.
-#' m <- MEstimator(stacked_equations = psi, init = rep(0, 4)) |>
-#'   estimate()
+#' m <- m_estimate(stacked_equations = psi, init = rep(0, 4))
 #' coef(m)
 #'
 #' @export
@@ -491,8 +487,7 @@ ee_ipw_msm <- function(
 #'
 #' # theta holds the structural mean model coefficient, which is the causal
 #' # effect, followed by the two propensity score coefficients.
-#' m <- MEstimator(stacked_equations = psi, init = rep(0, 3)) |>
-#'   estimate()
+#' m <- m_estimate(stacked_equations = psi, init = rep(0, 3))
 #' coef(m)
 #'
 #' @export
@@ -615,8 +610,7 @@ ee_gestimation_snmm <- function(
 #' psi <- function(theta) ee_iv_causal(theta, y = Y, A = A, Z = Z)
 #'
 #' # theta holds the causal effect followed by the mean of the instrument.
-#' m <- MEstimator(stacked_equations = psi, init = c(0, 0.5)) |>
-#'   estimate()
+#' m <- m_estimate(stacked_equations = psi, init = c(0, 0.5))
 #' coef(m)
 #'
 #' @export
@@ -689,11 +683,10 @@ ee_iv_causal <- function(theta, y, A, Z, weights = NULL) {
 #'
 #' # theta holds the three second-stage coefficients followed by the three
 #' # first-stage coefficients.
-#' m <- MEstimator(
+#' m <- m_estimate(
 #'   stacked_equations = psi,
 #'   init = c(beta_init, alpha_init)
-#' ) |>
-#'   estimate()
+#' )
 #'
 #' # theta_1 is the coefficient on the fitted treatment, the causal effect.
 #' coef(m)
@@ -804,8 +797,7 @@ ee_2sls <- function(theta, y, A, Z, W = NULL, weights = NULL) {
 #'
 #' # theta holds the corrected mean, started near the observed outcomes,
 #' # followed by the two missingness model coefficients.
-#' m <- MEstimator(stacked_equations = psi, init = c(180, 0, 0)) |>
-#'   estimate()
+#' m <- m_estimate(stacked_equations = psi, init = c(180, 0, 0))
 #' coef(m)
 #'
 #' @export

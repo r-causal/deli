@@ -24,8 +24,7 @@ Returns a 1-by-n matrix of estimating equation contributions for the mean:
 \examples{
 y <- c(1, 2, 3, 1, 4, 5, 3, 2, 6, 7)
 psi <- function(theta) ee_mean(theta, y = y)
-m <- MEstimator(stacked_equations = psi, init = 0) |>
-  estimate()
+m <- m_estimate(stacked_equations = psi, init = 0)
 coef(m)
 
 }

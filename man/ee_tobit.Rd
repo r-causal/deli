@@ -50,11 +50,10 @@ psi <- function(theta) ee_tobit(theta, X = X, y = y, lower = 0)
 
 # The last parameter is log(sigma), started at the log of the observed
 # standard deviation.
-m <- MEstimator(
+m <- m_estimate(
   stacked_equations = psi,
   init = c(mean(y), 0, log(sd(y)))
-) |>
-  estimate()
+)
 coef(m)
 
 }

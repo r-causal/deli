@@ -43,11 +43,11 @@ delta <- as.numeric(t_event <= t_censor)
 psi <- function(theta) {
   ee_aft(theta, X = Xd, time = t_obs, event = delta, distribution = "weibull")
 }
-m <- MEstimator(
+m <- m_estimate(
   stacked_equations = psi,
-  init = c(mean(log(t_obs)), 0, 0)
-) |>
-  estimate(solver = "nleqslv")
+  init = c(mean(log(t_obs)), 0, 0),
+  solver = "nleqslv"
+)
 
 # Rows are individuals and columns are the requested times. The first two
 # people share a covariate pattern, as do the third and fourth, so their

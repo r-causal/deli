@@ -34,8 +34,11 @@ psi <- function(theta) ee_positive_mean_deviation(theta, y = y)
 # singular and the default solver cannot move. Start the median at the sample
 # median, which is the solution, and use the Levenberg-Marquardt solver to
 # fit the remaining parameter.
-m <- MEstimator(stacked_equations = psi, init = c(0, median(y))) |>
-  estimate(solver = "lm")
+m <- m_estimate(
+  stacked_equations = psi,
+  init = c(0, median(y)),
+  solver = "lm"
+)
 
 # Each call warns for the same reason: the median estimating equation is not
 # differentiable, so the sandwich variance should not be trusted.

@@ -40,11 +40,11 @@
 #'
 #' # The default rootSolve solver does not converge here, so nleqslv is used.
 #' # The last parameter is log(1/sigma), not a regression coefficient.
-#' m <- MEstimator(
+#' m <- m_estimate(
 #'   stacked_equations = psi,
-#'   init = c(mean(log(t_obs)), 0, 0)
-#' ) |>
-#'   estimate(solver = "nleqslv")
+#'   init = c(mean(log(t_obs)), 0, 0),
+#'   solver = "nleqslv"
+#' )
 #' coef(m)
 #'
 #' @export
@@ -161,8 +161,11 @@ ee_aft <- function(
 #'     distribution = "weibull"
 #'   )
 #' }
-#' m <- MEstimator(stacked_equations = psi, init = c(0.1, 0.1)) |>
-#'   estimate(solver = "nleqslv")
+#' m <- m_estimate(
+#'   stacked_equations = psi,
+#'   init = c(0.1, 0.1),
+#'   solver = "nleqslv"
+#' )
 #'
 #' # The first parameter is the scale, the second the shape. A shape near 1
 #' # means the Weibull fits about as well as the simpler exponential.
@@ -260,11 +263,10 @@ ee_survival_model <- function(theta, time, event, distribution) {
 #' psi <- function(theta) {
 #'   ee_plogit(theta, X = W, time = d$time, event = d$delta)
 #' }
-#' m <- MEstimator(
+#' m <- m_estimate(
 #'   stacked_equations = psi,
 #'   init = c(rep(0, ncol(W)), -4, rep(0, k - 1))
-#' ) |>
-#'   estimate()
+#' )
 #'
 #' # The first three parameters are the covariate coefficients, which
 #' # approximate log hazard ratios. The remaining parameters are the

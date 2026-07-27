@@ -498,8 +498,7 @@ dlasso_penalty <- function(theta, n, penalty, s, center) {
 #' psi <- function(theta) ee_mlogit(theta, X = X, y = y)
 #'
 #' # Two columns of X and two non-reference categories give four parameters.
-#' m <- MEstimator(stacked_equations = psi, init = rep(0, 4)) |>
-#'   estimate()
+#' m <- m_estimate(stacked_equations = psi, init = rep(0, 4))
 #' coef(m)
 #'
 #' @export
@@ -581,8 +580,11 @@ ee_mlogit <- function(theta, X, y, weights = NULL, offset = NULL) {
 #'
 #' # The last parameter is log(phi), started here at a precision of 10. The
 #' # default solver diverges on this equation, so use nleqslv.
-#' m <- MEstimator(stacked_equations = psi, init = c(0, 0, log(10))) |>
-#'   estimate(solver = "nleqslv")
+#' m <- m_estimate(
+#'   stacked_equations = psi,
+#'   init = c(0, 0, log(10)),
+#'   solver = "nleqslv"
+#' )
 #' coef(m)
 #'
 #' @export
@@ -655,11 +657,10 @@ ee_beta_regression <- function(theta, X, y, weights = NULL, offset = NULL) {
 #'
 #' # The last parameter is log(sigma), started at the log of the observed
 #' # standard deviation.
-#' m <- MEstimator(
+#' m <- m_estimate(
 #'   stacked_equations = psi,
 #'   init = c(mean(y), 0, log(sd(y)))
-#' ) |>
-#'   estimate()
+#' )
 #' coef(m)
 #'
 #' @export
@@ -805,11 +806,10 @@ ee_tobit <- function(
 #' }
 #'
 #' # One parameter per column of the expanded design matrix.
-#' m <- MEstimator(
+#' m <- m_estimate(
 #'   stacked_equations = psi,
 #'   init = rep(0, ncol(additive_design_matrix(X, specs)))
-#' ) |>
-#'   estimate()
+#' )
 #' coef(m)
 #'
 #' @export

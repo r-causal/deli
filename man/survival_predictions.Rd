@@ -78,8 +78,11 @@ psi <- function(theta) {
     distribution = "weibull"
   )
 }
-m <- MEstimator(stacked_equations = psi, init = c(0.1, 0.1)) |>
-  estimate(solver = "nleqslv")
+m <- m_estimate(
+  stacked_equations = psi,
+  init = c(0.1, 0.1),
+  solver = "nleqslv"
+)
 
 # The survival function at three follow-up times, with delta-method
 # confidence intervals. Observed times run from 5 to 225 days.

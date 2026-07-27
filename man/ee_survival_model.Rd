@@ -43,8 +43,11 @@ psi <- function(theta) {
     distribution = "weibull"
   )
 }
-m <- MEstimator(stacked_equations = psi, init = c(0.1, 0.1)) |>
-  estimate(solver = "nleqslv")
+m <- m_estimate(
+  stacked_equations = psi,
+  init = c(0.1, 0.1),
+  solver = "nleqslv"
+)
 
 # The first parameter is the scale, the second the shape. A shape near 1
 # means the Weibull fits about as well as the simpler exponential.

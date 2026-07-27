@@ -55,8 +55,7 @@ psi <- function(theta) {
   ee_regression_calibration(theta, beta = 0.8, a = a, a_star = a_star, r = r)
 }
 
-m <- MEstimator(stacked_equations = psi, init = c(1, 0.1, 0.5)) |>
-  estimate()
+m <- m_estimate(stacked_equations = psi, init = c(1, 0.1, 0.5))
 
 # Corrected coefficient, then the calibration slope and intercept
 coef(m)

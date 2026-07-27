@@ -33,8 +33,11 @@ psi <- function(theta) {
 }
 
 # The default rootSolve solver does not converge here, so nleqslv is used.
-m <- MEstimator(stacked_equations = psi, init = c(0.2, 8, 2, 1)) |>
-  estimate(solver = "nleqslv")
+m <- m_estimate(
+  stacked_equations = psi,
+  init = c(0.2, 8, 2, 1),
+  solver = "nleqslv"
+)
 
 # Lower limit, upper limit, ED50, and steepness
 coef(m)

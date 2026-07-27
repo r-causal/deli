@@ -38,8 +38,11 @@ psi <- function(theta) ee_beta_regression(theta, X = X, y = y)
 
 # The last parameter is log(phi), started here at a precision of 10. The
 # default solver diverges on this equation, so use nleqslv.
-m <- MEstimator(stacked_equations = psi, init = c(0, 0, log(10))) |>
-  estimate(solver = "nleqslv")
+m <- m_estimate(
+  stacked_equations = psi,
+  init = c(0, 0, log(10)),
+  solver = "nleqslv"
+)
 coef(m)
 \dontshow{\}) # examplesIf}
 }

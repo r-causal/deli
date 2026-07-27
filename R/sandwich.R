@@ -313,8 +313,7 @@ compute_sandwich <- function(
 #'   rbind(y1 - theta[1], y2 - theta[2])
 #' }
 #'
-#' m <- MEstimator(stacked_equations = psi, init = c(0, 0)) |>
-#'   estimate()
+#' m <- m_estimate(stacked_equations = psi, init = c(0, 0))
 #'
 #' # Simultaneous bands cover both means at once, so they are wider than the
 #' # pointwise intervals from confint(m)

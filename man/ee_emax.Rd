@@ -33,8 +33,7 @@ psi <- function(theta) {
   ee_emax(theta, dose = inderjit$dose, response = inderjit$response)
 }
 
-m <- MEstimator(stacked_equations = psi, init = c(8, -8, 2)) |>
-  estimate()
+m <- m_estimate(stacked_equations = psi, init = c(8, -8, 2))
 
 # Zero-dose response, maximum change in response, and ED50
 coef(m)

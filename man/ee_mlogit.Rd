@@ -44,8 +44,7 @@ X <- cbind(1, W)
 psi <- function(theta) ee_mlogit(theta, X = X, y = y)
 
 # Two columns of X and two non-reference categories give four parameters.
-m <- MEstimator(stacked_equations = psi, init = rep(0, 4)) |>
-  estimate()
+m <- m_estimate(stacked_equations = psi, init = rep(0, 4))
 coef(m)
 
 }

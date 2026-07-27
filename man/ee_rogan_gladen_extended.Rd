@@ -47,8 +47,7 @@ psi <- function(theta) {
   ee_rogan_gladen_extended(theta, y = y, y_star = y_star, r = r, X = X)
 }
 
-m <- MEstimator(stacked_equations = psi, init = c(0.5, 1, 1)) |>
-  estimate()
+m <- m_estimate(stacked_equations = psi, init = c(0.5, 1, 1))
 
 # Corrected prevalence, then the sensitivity and specificity intercepts
 coef(m)

@@ -50,8 +50,7 @@ psi <- function(theta) ee_gformula(theta, y = Y, X = X, X1 = X1, X0 = X0)
 
 # theta holds the average causal effect, the mean under treatment, and the
 # mean under no treatment, followed by the four outcome model coefficients.
-m <- MEstimator(stacked_equations = psi, init = rep(0, 7)) |>
-  estimate()
+m <- m_estimate(stacked_equations = psi, init = rep(0, 7))
 coef(m)[1:3]
 
 }

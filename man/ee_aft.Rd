@@ -57,11 +57,11 @@ psi <- function(theta) {
 
 # The default rootSolve solver does not converge here, so nleqslv is used.
 # The last parameter is log(1/sigma), not a regression coefficient.
-m <- MEstimator(
+m <- m_estimate(
   stacked_equations = psi,
-  init = c(mean(log(t_obs)), 0, 0)
-) |>
-  estimate(solver = "nleqslv")
+  init = c(mean(log(t_obs)), 0, 0),
+  solver = "nleqslv"
+)
 coef(m)
 \dontshow{\}) # examplesIf}
 }

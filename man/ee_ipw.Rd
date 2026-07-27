@@ -46,8 +46,7 @@ psi <- function(theta) ee_ipw(theta, y = Y, A = A, W = W_ps)
 # theta holds the average causal effect, the mean under treatment, and the
 # mean under no treatment, followed by the three propensity score
 # coefficients.
-m <- MEstimator(stacked_equations = psi, init = rep(0, 6)) |>
-  estimate()
+m <- m_estimate(stacked_equations = psi, init = rep(0, 6))
 coef(m)[1:3]
 
 }

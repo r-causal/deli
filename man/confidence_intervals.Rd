@@ -34,8 +34,7 @@ psi <- function(theta) {
   y <- c(1, 2, 3, 4, 5)
   matrix(y - theta[1], nrow = 1)
 }
-m <- MEstimator(stacked_equations = psi, init = c(0)) |>
-  estimate()
+m <- m_estimate(stacked_equations = psi, init = c(0))
 confidence_intervals(m)
 }
 \seealso{

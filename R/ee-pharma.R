@@ -20,8 +20,7 @@
 #'   ee_emax(theta, dose = inderjit$dose, response = inderjit$response)
 #' }
 #'
-#' m <- MEstimator(stacked_equations = psi, init = c(8, -8, 2)) |>
-#'   estimate()
+#' m <- m_estimate(stacked_equations = psi, init = c(8, -8, 2))
 #'
 #' # Zero-dose response, maximum change in response, and ED50
 #' coef(m)
@@ -91,8 +90,7 @@ ee_emax <- function(theta, dose, response, loss = NULL, k = NULL) {
 #'   rbind(emax, ed90)
 #' }
 #'
-#' m <- MEstimator(stacked_equations = psi, init = c(8, -8, 2, 10)) |>
-#'   estimate()
+#' m <- m_estimate(stacked_equations = psi, init = c(8, -8, 2, 10))
 #'
 #' # theta_4 is the ED90, and stacking gives it its own sandwich standard error
 #' coef(m)
@@ -125,8 +123,11 @@ ee_emax_ed <- function(theta, dose, delta, ed50) {
 #' }
 #'
 #' # The default rootSolve solver does not converge here, so nleqslv is used.
-#' m <- MEstimator(stacked_equations = psi, init = c(0.2, 8, 2, 1)) |>
-#'   estimate(solver = "nleqslv")
+#' m <- m_estimate(
+#'   stacked_equations = psi,
+#'   init = c(0.2, 8, 2, 1),
+#'   solver = "nleqslv"
+#' )
 #'
 #' # Lower limit, upper limit, ED50, and steepness
 #' coef(m)
@@ -214,8 +215,7 @@ ee_loglogistic <- function(theta, dose, response, loss = NULL, k = NULL) {
 #'
 #' # This stacked system is sensitive to its starting values, so a reasonable
 #' # init matters more here than it does for most equations.
-#' m <- MEstimator(stacked_equations = psi, init = c(8, 2, 1, 5)) |>
-#'   estimate()
+#' m <- m_estimate(stacked_equations = psi, init = c(8, 2, 1, 5))
 #'
 #' # Upper limit, ED50, steepness, and the ED90
 #' coef(m)

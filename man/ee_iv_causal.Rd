@@ -39,8 +39,7 @@ Y <- 3 * A - U + rnorm(n, sd = 0.5)
 psi <- function(theta) ee_iv_causal(theta, y = Y, A = A, Z = Z)
 
 # theta holds the causal effect followed by the mean of the instrument.
-m <- MEstimator(stacked_equations = psi, init = c(0, 0.5)) |>
-  estimate()
+m <- m_estimate(stacked_equations = psi, init = c(0, 0.5))
 coef(m)
 
 }

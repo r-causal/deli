@@ -67,8 +67,7 @@ psi <- function(theta) {
 
 # theta holds the structural mean model coefficient, which is the causal
 # effect, followed by the two propensity score coefficients.
-m <- MEstimator(stacked_equations = psi, init = rep(0, 3)) |>
-  estimate()
+m <- m_estimate(stacked_equations = psi, init = rep(0, 3))
 coef(m)
 
 }

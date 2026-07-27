@@ -38,8 +38,7 @@
 #'
 #' psi <- function(theta) aggregate_efuncs(ee_mean(theta, y = y), group = group)
 #'
-#' m <- MEstimator(stacked_equations = psi, init = mean(y)) |>
-#'   estimate()
+#' m <- m_estimate(stacked_equations = psi, init = mean(y))
 #'
 #' # Cluster-robust standard error, larger than the naive independence version
 #' sqrt(diag(vcov(m)))

@@ -64,11 +64,10 @@ psi <- function(theta) {
 }
 
 # One parameter per column of the expanded design matrix.
-m <- MEstimator(
+m <- m_estimate(
   stacked_equations = psi,
   init = rep(0, ncol(additive_design_matrix(X, specs)))
-) |>
-  estimate()
+)
 coef(m)
 
 }

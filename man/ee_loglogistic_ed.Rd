@@ -54,8 +54,7 @@ psi <- function(theta) {
 
 # This stacked system is sensitive to its starting values, so a reasonable
 # init matters more here than it does for most equations.
-m <- MEstimator(stacked_equations = psi, init = c(8, 2, 1, 5)) |>
-  estimate()
+m <- m_estimate(stacked_equations = psi, init = c(8, 2, 1, 5))
 
 # Upper limit, ED50, steepness, and the ED90
 coef(m)

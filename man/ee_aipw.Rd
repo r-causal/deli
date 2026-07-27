@@ -59,8 +59,7 @@ psi <- function(theta) {
 # theta holds the average causal effect, the mean under treatment, and the
 # mean under no treatment, followed by the three propensity score
 # coefficients and the four outcome model coefficients.
-m <- MEstimator(stacked_equations = psi, init = rep(0, 10)) |>
-  estimate()
+m <- m_estimate(stacked_equations = psi, init = rep(0, 10))
 summary(m, subset = 1:3)
 
 }

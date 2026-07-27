@@ -40,8 +40,7 @@ psi <- function(theta) {
   rbind(emax, ed90)
 }
 
-m <- MEstimator(stacked_equations = psi, init = c(8, -8, 2, 10)) |>
-  estimate()
+m <- m_estimate(stacked_equations = psi, init = c(8, -8, 2, 10))
 
 # theta_4 is the ED90, and stacking gives it its own sandwich standard error
 coef(m)
