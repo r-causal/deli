@@ -28,7 +28,9 @@ to the estimating equation, such as `model` or `penalty`, go in the same call
 and are forwarded to it, while `init`, `subset`, `solver`, and the other solver
 controls are arguments of `m_estimate()` itself. The sandwich variance estimator
 automatically provides robust standard errors, and the parameters are named
-after the design matrix columns.
+after the design matrix columns whenever `init` is left at its default. An
+explicit `init` supplies the parameter names instead, so name its elements if
+you want them carried through to the output.
 
 `init` defaults to a zero vector with one element per design matrix column. That
 is the right length for most estimating equations, but not for the few that

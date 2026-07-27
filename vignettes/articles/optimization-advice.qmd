@@ -50,7 +50,8 @@ started far from the solution, because their estimating functions are flat or
 steep in regions away from the optimum.
 
 `init` is supplied when the estimator is constructed and travels with the
-object. Constructing one without solving it shows this directly:
+object. Constructing one without solving it and reading `init` back off the
+object shows this directly:
 
 ```{r}
 #| label: init-example
@@ -66,6 +67,8 @@ psi_robust <- function(theta) {
 
 # Seed the intercept at the mean of the outcome and the slope at zero
 m <- MEstimator(psi_robust, init = c(mean(y), 0))
+
+m@init
 ```
 
 ## Seed from a simpler fit
