@@ -41,7 +41,7 @@ jobs:
       - name: Create the Python environment for the Python article chunks
         run: |
           uv venv .venv
-          uv pip install --compile-bytecode --python .venv/bin/python delicatessen numpy
+          uv pip install --compile-bytecode --python .venv/bin/python 'delicatessen==4.2' numpy
 
       - uses: r-lib/actions/setup-r@v2
         with:
