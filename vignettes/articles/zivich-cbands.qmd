@@ -16,6 +16,9 @@ Python counterpart.
 ```{r}
 #| label: setup
 library(deli)
+library(ggplot2)
+
+theme_set(theme_minimal())
 ```
 
 Zivich et al. (2025) provides an introduction to different types of confidence regions, including confidence bands. Briefly, confidence bands are an extension of confidence intervals for vectors (or multiple) parameters. The issue with standard confidence intervals, is that they only claim a single parameter at that rate. When considering coverage for *multiple* parameters, simultaneous confidence interval coverage can be far below the nominal rate. Confidence bands are a set of intervals for a set of parameters.
@@ -115,31 +118,62 @@ One item to note here is that the confidence bands were only computed for a *sub
 ```{r}
 #| label: case1-plot
 # Plot confidence intervals and bands
-plot(NULL, xlim = c(-10, 80), ylim = c(-70, 70),
-     xlab = expression("Average Causal Effect - CD4, " * psi[1]),
-     ylab = expression("Average Causal Effect - CD8, " * psi[2]))
+region_levels <- c("Intervals", "sup-t Band")
+regions <- data.frame(
+  region = factor(region_levels, levels = region_levels),
+  xmin = c(ci[1, 1], cb[1, 1]),
+  xmax = c(ci[1, 2], cb[1, 2]),
+  ymin = c(ci[2, 1], cb[2, 1]),
+  ymax = c(ci[2, 2], cb[2, 2])
+)
 
-# Reference lines for the null
-abline(h = 0, lty = 3, col = "gray")
-abline(v = 0, lty = 3, col = "gray")
-
-# Confidence interval rectangle (implied)
-rect(ci[1, 1], ci[2, 1], ci[1, 2], ci[2, 2],
-     border = adjustcolor("red", alpha.f = 0.3), lty = 2)
-
-# Confidence intervals as lines
-lines(ci[1, ], rep(psi[2], 2), col = "red")
-lines(rep(psi[1], 2), ci[2, ], col = "red")
-
-# Confidence bands rectangle
-rect(cb[1, 1], cb[2, 1], cb[1, 2], cb[2, 2], border = "blue")
+# Confidence intervals as lines through the point estimate
+crosshairs <- data.frame(
+  x = c(ci[1, 1], psi[1]),
+  xend = c(ci[1, 2], psi[1]),
+  y = c(psi[2], ci[2, 1]),
+  yend = c(psi[2], ci[2, 2])
+)
 
 # Estimated parameters
-points(psi[1], psi[2], pch = 18, cex = 1.5, col = "black")
+estimate <- data.frame(x = psi[1], y = psi[2])
 
-legend("topleft", legend = c("Intervals", "sup-t Band", expression(hat(theta))),
-       col = c("red", "blue", "black"), lty = c(1, 1, NA),
-       pch = c(NA, NA, 18), bg = "white")
+ggplot() +
+  # Reference lines for the null
+  geom_hline(yintercept = 0, linetype = 3, color = "gray") +
+  geom_vline(xintercept = 0, linetype = 3, color = "gray") +
+  geom_rect(
+    data = regions,
+    aes(
+      xmin = xmin,
+      xmax = xmax,
+      ymin = ymin,
+      ymax = ymax,
+      color = region,
+      linetype = region
+    ),
+    fill = NA
+  ) +
+  geom_segment(
+    data = crosshairs,
+    aes(x = x, xend = xend, y = y, yend = yend),
+    color = "red"
+  ) +
+  geom_point(data = estimate, aes(x = x, y = y, shape = "estimate"), size = 3) +
+  scale_color_manual(values = c("Intervals" = "red", "sup-t Band" = "blue")) +
+  scale_linetype_manual(values = c("Intervals" = 2, "sup-t Band" = 1)) +
+  scale_shape_manual(
+    values = c(estimate = 18),
+    labels = expression(hat(theta))
+  ) +
+  coord_cartesian(xlim = c(-10, 80), ylim = c(-70, 70)) +
+  labs(
+    x = expression("Average Causal Effect - CD4, " * psi[1]),
+    y = expression("Average Causal Effect - CD8, " * psi[2]),
+    color = NULL,
+    linetype = NULL,
+    shape = NULL
+  )
 ```
 
 Using this visualization, we can imagine the true value of the parameters as a point in this 2 dimensional Euclidean space. Therefore, our confidence regions (rectangles here) claim to include that point 95% of the times as the number of computed regions from new samples goes to infinity. The red rectangle (implied by the confidence intervals) is too small to cover the parameter at that rate. The blue rectangle, or confidence bands, do coverage the true point at that rate.
@@ -318,27 +352,35 @@ cb <- compute_confidence_bands(y_vals, covariance = cov_p,
 ```{r}
 #| label: case3-plot
 # Plot confidence bands and intervals
-plot(cd4_grid, y_vals, type = "l", col = "black",
-     xlim = c(90, 930), ylim = c(150, 700),
-     xlab = "Baseline CD4",
-     ylab = "Conditional Average Causal Effect")
-grid()
+cace <- data.frame(
+  cd4 = cd4_grid,
+  estimate = y_vals,
+  band_lower = cb[, 1],
+  band_upper = cb[, 2],
+  interval_lower = y_hat$lower,
+  interval_upper = y_hat$upper
+)
 
-# Confidence bands shading
-polygon(c(cd4_grid, rev(cd4_grid)),
-        c(cb[, 1], rev(cb[, 2])),
-        col = adjustcolor("blue", alpha.f = 0.4), border = NA)
-
-# Confidence intervals shading
-polygon(c(cd4_grid, rev(cd4_grid)),
-        c(y_hat$lower, rev(y_hat$upper)),
-        col = adjustcolor("red", alpha.f = 0.4), border = NA)
-
-# Prediction line on top
-lines(cd4_grid, y_vals, col = "black")
-
-legend("topleft", legend = c("Bands", "Intervals"),
-       fill = adjustcolor(c("blue", "red"), alpha.f = 0.4), border = NA)
+ggplot(cace, aes(x = cd4, y = estimate)) +
+  # Confidence bands shading
+  geom_ribbon(
+    aes(ymin = band_lower, ymax = band_upper, fill = "Bands"),
+    alpha = 0.4
+  ) +
+  # Confidence intervals shading
+  geom_ribbon(
+    aes(ymin = interval_lower, ymax = interval_upper, fill = "Intervals"),
+    alpha = 0.4
+  ) +
+  # Prediction line on top
+  geom_line() +
+  scale_fill_manual(values = c(Bands = "blue", Intervals = "red")) +
+  coord_cartesian(xlim = c(90, 930), ylim = c(150, 700)) +
+  labs(
+    x = "Baseline CD4",
+    y = "Conditional Average Causal Effect",
+    fill = NULL
+  )
 ```
 
 Again, we can see the confidence intervals provide much too precise of inference when we are interested in multiple parameters (like a *function*). While confidence bands have not routinely been used, they ought to be and `deli` makes them easy to compute.

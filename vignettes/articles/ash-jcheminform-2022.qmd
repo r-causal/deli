@@ -16,6 +16,25 @@ Python counterpart.
 ```{r}
 #| label: setup
 library(deli)
+library(ggplot2)
+
+theme_set(theme_minimal())
+
+# The hit enrichment curves are step functions, so the shaded regions have to
+# step with them. The fraction tested decreases as the score threshold rises,
+# so each interval takes its limits from the right-hand endpoint. This returns
+# the corners of the resulting stepped region, ordered along the x axis.
+step_band <- function(x, lower, upper) {
+  ord <- order(x)
+  interval <- seq_len(length(x) - 1)
+  corner <- as.vector(rbind(interval, interval + 1))
+  value <- rep(interval + 1, each = 2)
+  data.frame(
+    x = x[ord][corner],
+    lower = lower[ord][value],
+    upper = upper[ord][value]
+  )
+}
 ```
 
 The following is a replication of the applied analysis of Ash & Hughes-Oliver
@@ -165,29 +184,29 @@ x_vals <- estr@theta[(n_unique_mxz + 1):(n_unique_mxz * 2)]
 # Extract beta values (hit enrichment)
 y_vals <- estr@theta[1:n_unique_mxz]
 
-plot(
-  x_vals, y_vals,
-  type = "s", col = "black",
-  log = "x",
-  xlab = "Fraction Tested",
-  ylab = "Hit Enrichment"
+curve_mxz <- data.frame(x = x_vals, y = y_vals)
+
+# Confidence intervals (red shading) and confidence bands (blue shading)
+regions_mxz <- rbind(
+  cbind(step_band(x_vals, cints[, 1], cints[, 2]), region = "Intervals"),
+  cbind(step_band(x_vals, cbands[, 1], cbands[, 2]), region = "Bands")
+)
+regions_mxz$region <- factor(
+  regions_mxz$region,
+  levels = c("Intervals", "Bands")
 )
 
-# Confidence intervals (red shading)
-polygon(
-  c(x_vals, rev(x_vals)),
-  c(cints[, 1], rev(cints[, 2])),
-  col = adjustcolor("red", alpha.f = 0.2),
-  border = NA
-)
-
-# Confidence bands (blue shading)
-polygon(
-  c(x_vals, rev(x_vals)),
-  c(cbands[, 1], rev(cbands[, 2])),
-  col = adjustcolor("blue", alpha.f = 0.2),
-  border = NA
-)
+ggplot(curve_mxz, aes(x = x, y = y)) +
+  geom_ribbon(
+    data = regions_mxz,
+    aes(x = x, ymin = lower, ymax = upper, fill = region),
+    inherit.aes = FALSE,
+    alpha = 0.2
+  ) +
+  geom_step(direction = "vh") +
+  scale_fill_manual(values = c(Intervals = "red", Bands = "blue")) +
+  scale_x_log10() +
+  labs(x = "Fraction Tested", y = "Hit Enrichment", fill = NULL)
 ```
 
 The estimated hit enrichment curve is comparable to the one reported in Figure 5
@@ -307,39 +326,42 @@ cb_icm <- cbands
 
 ```{r}
 #| label: comparison-plot
-# Max Z-score (blue)
-plot(
-  rho_mxz, beta_mxz,
-  type = "s", col = "blue",
-  log = "x",
-  xlab = "Fraction Tested",
-  ylab = "Hit Enrichment",
-  ylim = range(c(cb_mxz, cb_srf, cb_icm))
-)
-polygon(
-  c(rho_mxz, rev(rho_mxz)),
-  c(cb_mxz[, 1], rev(cb_mxz[, 2])),
-  col = adjustcolor("blue", alpha.f = 0.2),
-  border = NA
-)
+# Max Z-score (blue), Surflex (red), and ICM (gold)
+method_levels <- c("Max Z-score", "Surflex", "ICM")
+method_colors <- c("Max Z-score" = "blue", "Surflex" = "red", "ICM" = "gold")
 
-# Surflex (red)
-lines(rho_srf, beta_srf, type = "s", col = "red")
-polygon(
-  c(rho_srf, rev(rho_srf)),
-  c(cb_srf[, 1], rev(cb_srf[, 2])),
-  col = adjustcolor("red", alpha.f = 0.2),
-  border = NA
+curves <- rbind(
+  data.frame(x = rho_mxz, y = beta_mxz, method = "Max Z-score"),
+  data.frame(x = rho_srf, y = beta_srf, method = "Surflex"),
+  data.frame(x = rho_icm, y = beta_icm, method = "ICM")
 )
+curves$method <- factor(curves$method, levels = method_levels)
 
-# ICM (gold)
-lines(rho_icm, beta_icm, type = "s", col = "gold")
-polygon(
-  c(rho_icm, rev(rho_icm)),
-  c(cb_icm[, 1], rev(cb_icm[, 2])),
-  col = adjustcolor("gold", alpha.f = 0.2),
-  border = NA
+bands <- rbind(
+  cbind(step_band(rho_mxz, cb_mxz[, 1], cb_mxz[, 2]), method = "Max Z-score"),
+  cbind(step_band(rho_srf, cb_srf[, 1], cb_srf[, 2]), method = "Surflex"),
+  cbind(step_band(rho_icm, cb_icm[, 1], cb_icm[, 2]), method = "ICM")
 )
+bands$method <- factor(bands$method, levels = method_levels)
+
+ggplot(curves, aes(x = x, y = y, color = method)) +
+  geom_ribbon(
+    data = bands,
+    aes(x = x, ymin = lower, ymax = upper, fill = method),
+    inherit.aes = FALSE,
+    alpha = 0.2
+  ) +
+  geom_step(direction = "vh") +
+  scale_color_manual(values = method_colors) +
+  scale_fill_manual(values = method_colors) +
+  scale_x_log10() +
+  coord_cartesian(ylim = range(c(cb_mxz, cb_srf, cb_icm))) +
+  labs(
+    x = "Fraction Tested",
+    y = "Hit Enrichment",
+    color = NULL,
+    fill = NULL
+  )
 ```
 
 The plot closely aligns with the complete Figure 5.

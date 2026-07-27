@@ -16,6 +16,9 @@ Python counterpart.
 ```{r}
 #| label: setup
 library(deli)
+library(ggplot2)
+
+theme_set(theme_minimal())
 ```
 
 Cole et al. (2023) reviewed a sensitivity analysis method for missing data
@@ -219,14 +222,12 @@ p <- p[order(p$alpha), ]
 
 ```{r}
 #| label: sens-grid-plot
-plot(p$alpha, p$point, type = "l",
-     xlab = expression(alpha), ylab = expression(hat(mu)),
-     ylim = c(300, 900))
-polygon(c(p$alpha, rev(p$alpha)),
-        c(p$lcl, rev(p$ucl)),
-        col = rgb(0, 0, 0, 0.2), border = NA)
-legend("topright", legend = "95% CI",
-       fill = rgb(0, 0, 0, 0.2), border = NA)
+ggplot(p, aes(x = alpha, y = point)) +
+  geom_ribbon(aes(ymin = lcl, ymax = ucl, fill = "95% CI"), alpha = 0.2) +
+  geom_line() +
+  scale_fill_manual(values = c("95% CI" = "black")) +
+  coord_cartesian(ylim = c(300, 900)) +
+  labs(x = expression(alpha), y = expression(hat(mu)), fill = NULL)
 ```
 
 Estimating $\mu$ across this grid of $\alpha$ takes a few seconds at most.

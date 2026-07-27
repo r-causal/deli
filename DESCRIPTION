@@ -4,17 +4,16 @@ Version: 0.0.0.9000
 Authors@R:
     person("Malcolm", "Barrett", , "malcolmbarrett@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0003-0299-5825"))
-Description: Provides a general API for M-estimation via solving estimating
-    equations with empirical sandwich variance estimation. Includes pre-built
-    estimating equations for basic statistics, regression, causal inference,
-    survival analysis, measurement error, and pharmacokinetics. An R port of
-    the Python 'Delicatessen' library.
+Description: Provides a general API for M-estimation via solving
+    estimating equations with empirical sandwich variance estimation.
+    Includes pre-built estimating equations for basic statistics,
+    regression, causal inference, survival analysis, measurement error,
+    and pharmacokinetics. An R port of the Python 'Delicatessen' library.
 License: MIT + file LICENSE
 URL: https://github.com/r-causal/deli, https://r-causal.github.io/deli
 BugReports: https://github.com/r-causal/deli/issues
-Encoding: UTF-8
-Language: en-US
-Roxygen: list(markdown = TRUE)
+Depends:
+    R (>= 4.3)
 Imports:
     cli,
     generics,
@@ -33,11 +32,13 @@ Suggests:
     readxl,
     rmarkdown,
     testthat (>= 3.0.0)
-VignetteBuilder: knitr
+VignetteBuilder: 
+    knitr
+Config/Needs/website: ggplot2, quarto
+Config/roxygen2/version: 8.0.0
 Config/testthat/edition: 3
-Depends:
-    R (>= 4.3)
+Encoding: UTF-8
+Language: en-US
 LazyData: true
 LazyDataCompression: xz
-Config/Needs/website: quarto
-Config/roxygen2/version: 8.0.0
+Roxygen: list(markdown = TRUE)
