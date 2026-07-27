@@ -48,6 +48,9 @@ The central objects correspond directly:
 In Python you call methods on the estimator (`m.estimate()`,
 `m.confidence_intervals()`). In deli these are generic functions that take the
 estimator as their first argument (`estimate(m)`, `confidence_intervals(m)`).
+Those generics are a direct transliteration of the Python methods, and deli
+offers an idiomatic R surface for the same work alongside them. The section
+[Direct port or idiomatic R] below covers which one to reach for.
 
 ## Class and function correspondence
 
@@ -66,19 +69,19 @@ estimator as their first argument (`estimate(m)`, `confidence_intervals(m)`).
 | `m.print_results(...)` | `print(m)` / `summary(m)` | Idiomatic replacement; `summary(m, alpha = ...)` supported. |
 | `compute_sandwich(...)` | `compute_sandwich(...)` | Exported in both. |
 | `delta_method(theta, g, covariance, deriv_method, dx)` | `delta_method(object, transform, covariance, deriv_method, dx)` | `g` renamed `transform`; different `deriv_method` default. |
-| `compute_confidence_bands(...)` | `compute_confidence_bands(...)` | |
-| `logit`, `inverse_logit` | `logit`, `inverse_logit` | |
+| `compute_confidence_bands(...)` | `compute_confidence_bands(...)` | Both default to `n_draws = 1e5`; only the estimator method differs (see below). |
+| `logit`, `inverse_logit` | `logit`, `inverse_logit` | Required in place of `stats::qlogis()` and `stats::plogis()` under `deriv_method = "exact"` (see below). |
 | `identity(value)` | `identity_transform(value)` | Renamed to avoid masking base R `identity()`. |
-| `polygamma(n, x)` | `deli_polygamma(n, x)` | Renamed to avoid a namespace clash. |
+| `polygamma(n, x)` | `deli_polygamma(n, x)` | Renamed to avoid a namespace clash. Takes the order first, as in Python; base R's `psigamma(x, deriv = n)` takes it second. |
 | `digamma(z)` | `deli_digamma(z)` | Renamed to avoid masking base R `digamma()`. At the poles (non-positive integers) `deli_digamma()` returns `NaN`, matching base R `digamma()`; SciPy returns `-Inf`. `NA` and `NaN` inputs propagate unchanged. |
-| `standard_normal_cdf`, `standard_normal_pdf` | `standard_normal_cdf`, `standard_normal_pdf` | |
+| `standard_normal_cdf`, `standard_normal_pdf` | `standard_normal_cdf`, `standard_normal_pdf` | Required in place of `stats::pnorm()` and `stats::dnorm()` under `deriv_method = "exact"` (see below). |
 | `robust_loss_functions(residual, loss, k, a, b)` | `robust_loss_functions(residuals, loss, k)` | Hampel thresholds passed as `k = c(a, b, c)` (see below). |
-| `aggregate_efuncs(est_funcs, group)` | `aggregate_efuncs(est_funcs, group)` | |
-| `regression_predictions(...)` | `regression_predictions(...)` | Returns a data frame. |
-| `aft_predictions_individual(...)` | `aft_predictions_individual(...)` | |
-| `aft_predictions_function(...)` | `aft_predictions_function(...)` | |
-| `spline(...)` | `deli_spline(...)` | Renamed to avoid masking `stats::spline()`. |
-| `additive_design_matrix(...)` | `additive_design_matrix(...)` | |
+| `aggregate_efuncs(est_funcs, group)` | `aggregate_efuncs(est_funcs, group)` | Takes and returns the same p-by-g matrix; `group` may be any vector R can split on. |
+| `regression_predictions(...)` | `regression_predictions(...)` | Idiomatic replacement; returns a data frame rather than a NumPy array. |
+| `aft_predictions_individual(...)` | `aft_predictions_individual(...)` | Idiomatic replacement; returns a data frame rather than a NumPy array. |
+| `aft_predictions_function(...)` | `aft_predictions_function(...)` | Idiomatic replacement; returns a data frame rather than a NumPy array. R adds `deriv_method` and `dx`. |
+| `spline(...)` | `deli_spline(...)` | Renamed to avoid masking `stats::spline()`. First argument renamed `variable` to `x`. |
+| `additive_design_matrix(...)` | `additive_design_matrix(...)` | Idiomatic replacement; `return_penalty = TRUE` gives a named list with `X` and `penalty` rather than a tuple. |
 
 The forward-difference and autodiff helpers `approx_differentiation()` and
 `auto_differentiation()` are public in Python. In deli they back the
@@ -374,6 +377,111 @@ m2 <- m_estimate(
 )
 coef(m2)
 ```
+
+## Direct port or idiomatic R
+
+deli gives you two surfaces for most of what delicatessen does. One is a direct
+transliteration of the Python API, so a Python analysis maps across call by
+call. The other is the shape an R user expects, and it is what the rest of
+deli's documentation uses. Both compute the same numbers, so the choice is about
+which code reads naturally to whoever maintains it next.
+
+This article shows the transliterated form throughout, because demonstrating the
+correspondence with Python is its job. In your own R code, reach for the
+idiomatic form.
+
+### Estimation
+
+`MEstimator(...) |> estimate()` transliterates Python's object workflow:
+construct the estimator, then solve it. `m_estimate()` does both in one call,
+which is the normal shape of a model fit in R. `lm(mpg ~ wt, data = mtcars)`
+builds and fits together, and nothing in R asks you to construct a model and
+then solve it as a separate step. `gmm_estimate()` stands in the same relation
+to `GMMEstimator()`.
+
+The wrappers pass every `MEstimator()` constructor argument and every
+`estimate()` argument straight through, so nothing is reachable only from the
+two-step form:
+
+```{r}
+#| label: idiomatic-estimation
+m_one_step <- m_estimate(
+  stacked_equations = psi,
+  init = c(0, 0),
+  solver = "lm",
+  deriv_method = "fapprox"
+)
+
+all.equal(m@theta, m_one_step@theta)
+```
+
+`m_estimate()` also accepts a formula and a data frame, as the previous chunk
+showed. That interface builds the design matrix and the initial values for you
+and has no Python counterpart at all.
+
+### Inference
+
+`confidence_intervals()`, `z_scores()`, `p_values()`, and `s_values()` mirror
+the Python estimator methods one for one. `confint()`, `summary()`, and
+`tidy()` return the same quantities through the accessors R users already reach
+for on a fitted model:
+
+```{r}
+#| label: idiomatic-inference
+confidence_intervals(m, alpha = 0.05)
+
+confint(m, level = 0.95)
+```
+
+Note the parameterization. Python states interval width as `alpha`, and deli's
+`confidence_intervals()` and `summary()` keep that argument. The R accessors
+take its complement: `confint()` uses `level` and `generics::tidy()` uses
+`conf.level`, each equal to `1 - alpha`. A Python `alpha=0.01` becomes
+`level = 0.99`.
+
+`summary()` collects the estimates, standard errors, test statistics, and
+intervals into one table, and `tidy()` returns the same content as a data frame
+for use in a pipeline. Python's nearest equivalent to either is
+`print_results()`, which prints rather than returns:
+
+```{r}
+#| label: idiomatic-tidy
+generics::tidy(m, conf.int = TRUE)
+```
+
+### Transformations and math
+
+deli exports seven small functions that delicatessen also exports. Five of them
+are not conveniences. They are required inside estimating equations and inside
+transforms passed to `delta_method()`, because their base R counterparts stop
+the computation under `deriv_method = "exact"`. Exact differentiation carries a
+derivative alongside each value, and those five base R functions hand their
+argument straight to compiled code that requires a plain number.
+
+| Python | deli | base R counterpart | Under `deriv_method = "exact"` |
+|---|---|---|---|
+| `inverse_logit(x)` | `inverse_logit(x)` | `stats::plogis(x)` | deli only; base R errors |
+| `logit(p)` | `logit(p)` | `stats::qlogis(p)` | deli only; base R errors |
+| `standard_normal_cdf(x)` | `standard_normal_cdf(x)` | `stats::pnorm(x)` | deli only; base R errors |
+| `standard_normal_pdf(x)` | `standard_normal_pdf(x)` | `stats::dnorm(x)` | deli only; base R errors |
+| `polygamma(n, x)` | `deli_polygamma(n, x)` | `base::psigamma(x, deriv = n)` | deli only; base R errors |
+| `digamma(z)` | `deli_digamma(z)` | `base::digamma(z)` | either works |
+| `identity(value)` | `identity_transform(value)` | `base::identity(value)` | either works |
+
+Outside those two positions, including data simulation and post-fit display,
+prefer the base R counterpart. It computes exactly the same values and is the
+function your R readers already know:
+
+```{r}
+#| label: idiomatic-transforms
+identical(plogis(m@theta), inverse_logit(m@theta))
+```
+
+The last two rows are exempt in both directions: `digamma()` and `identity()`
+differentiate exactly, so base R serves in any position. Note also that
+`deli_polygamma(n, x)` keeps Python's argument order and takes the order first,
+while `base::psigamma(x, deriv = n)` takes it second. The two are not
+interchangeable by position.
 
 ## Reproducibility summary
 
