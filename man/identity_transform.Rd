@@ -15,8 +15,24 @@ The input \code{value}, unchanged.
 \description{
 Returns the input unchanged. Used as a no-op transformation in contexts
 that accept an arbitrary transformation function.
+
+This is \code{\link[base:identity]{base::identity()}} under a name that does not mask it. The two are
+interchangeable everywhere, including under exact differentiation
+(\code{deriv_method = "exact"}), since returning the argument untouched also
+returns any tangent it carries. \code{identity_transform()} exists so that code
+translated from Python delicatessen, where the function is called
+\code{identity()}, can keep its shape. In R code, prefer \code{identity()}.
 }
 \examples{
 identity_transform(42)
 identity_transform(c(1, 2, 3))
+
+# The same value as base R, and the same object
+identical(identity_transform(c(1, 2, 3)), identity(c(1, 2, 3)))
+
+}
+\seealso{
+\code{\link[base:identity]{base::identity()}}, which does the same thing and is the idiomatic
+choice in R. \code{\link[=inverse_logit]{inverse_logit()}} has the full list of deli utilities and
+their base R counterparts.
 }

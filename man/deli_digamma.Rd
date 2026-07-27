@@ -13,9 +13,33 @@ deli_digamma(z)
 Numeric digamma values.
 }
 \description{
-Wrapper around \code{\link[base:digamma]{base::digamma()}}.
+Evaluates the digamma function, the first derivative of the log gamma
+function.
+
+This is the equivalent of \code{\link[base:digamma]{base::digamma()}}, and unlike most of the deli
+utilities it is not required anywhere: \code{digamma()} belongs to the \code{Math}
+group generic and has a tangent rule, so it differentiates under
+\code{deriv_method = "exact"} just as \code{deli_digamma()} does. The two agree value
+for value, including at the poles and on missing input. The only difference
+is that \code{deli_digamma()} returns \code{NaN} at the non-positive integers, where
+the digamma function has poles, without base R's \verb{NaNs produced} warning.
+\code{deli_digamma()} exists so that code translated from Python delicatessen,
+where the function is called \code{digamma()}, can keep its shape.
 }
 \examples{
 deli_digamma(1)
 deli_digamma(c(0.5, 1, 2))
+
+# The same values as the base R counterpart
+all.equal(deli_digamma(c(0.5, 1, 2)), digamma(c(0.5, 1, 2)))
+
+# NaN at the poles, where base R warns, and missing values pass through
+deli_digamma(c(-1, 0, 2.5, NA))
+
+}
+\seealso{
+\code{\link[base:digamma]{base::digamma()}}, which is usable in the same positions, and
+\code{\link[=deli_polygamma]{deli_polygamma()}} for the higher-order derivatives. \code{\link[=inverse_logit]{inverse_logit()}} has
+the full list of deli utilities and their base R counterparts, including
+the five that base R cannot stand in for under exact differentiation.
 }

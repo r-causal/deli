@@ -1,8 +1,13 @@
 #' Robust loss function derivatives
 #'
+#' @description
 #' Computes the first derivative (psi function) of robust loss functions,
 #' evaluated at the given residuals. Used internally by `ee_mean_robust()` and
 #' `ee_robust_regression()`.
+#'
+#' This function mirrors `robust_loss_functions()` in Python delicatessen, so
+#' code translated from Python can keep its shape. There is no base R equivalent
+#' for these score functions, so this is the interface for them in deli as well.
 #'
 #' @param residuals Numeric vector of residuals.
 #' @param loss Character string specifying the loss function. One of:

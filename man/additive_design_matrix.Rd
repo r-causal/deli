@@ -31,6 +31,10 @@ Constructs the expanded design matrix for generalized additive models by
 appending spline basis terms according to per-column specifications. Each
 column in \code{X} keeps its linear term; columns with a non-\code{NULL} specification
 get additional spline basis columns appended.
+
+This function mirrors \code{additive_design_matrix()} in Python delicatessen, so
+code translated from Python can keep its shape. There is no base R equivalent
+of this construction, so this is the interface for it in deli as well.
 }
 \examples{
 set.seed(42)

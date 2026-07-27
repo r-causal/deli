@@ -23,6 +23,10 @@ Numeric vector the same length as \code{residuals}.
 Computes the first derivative (psi function) of robust loss functions,
 evaluated at the given residuals. Used internally by \code{ee_mean_robust()} and
 \code{ee_robust_regression()}.
+
+This function mirrors \code{robust_loss_functions()} in Python delicatessen, so
+code translated from Python can keep its shape. There is no base R equivalent
+for these score functions, so this is the interface for them in deli as well.
 }
 \examples{
 r <- c(-5, -1, 0, 1, 5)

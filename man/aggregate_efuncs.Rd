@@ -25,8 +25,12 @@ columns sort lexically by label rather than by factor-level order.
 Collapses unit-level estimating function contributions into group-level
 contributions for clustered or grouped data. Uses an independent working
 correlation structure (summing within groups).
-}
-\details{
+
+This function mirrors \code{aggregate_efuncs()} in Python delicatessen, so code
+translated from Python can keep its shape. There is no base R equivalent that
+operates on estimating function contributions, so this is the interface for
+them in deli as well.
+
 This function should be called inside the \code{psi} function after computing
 unit-level estimating equations but before returning them to
 \code{\link[=MEstimator]{MEstimator()}}. This changes the effective sample size used by the

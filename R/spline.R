@@ -1,8 +1,17 @@
 #' Generate polynomial spline basis terms
 #'
+#' @description
 #' Generates polynomial spline terms for a numeric vector at pre-specified
 #' knot locations. Default is restricted (natural) cubic splines, but
 #' unrestricted splines with different polynomial terms can also be generated.
+#'
+#' This function mirrors `spline()` in Python delicatessen, so code translated
+#' from Python can keep its shape. Despite the name it has nothing to do with
+#' [stats::spline()], which interpolates a curve through data points and returns
+#' the interpolated values. `deli_spline()` builds a truncated power basis, a
+#' matrix of design columns to be used as covariates in a regression. The `deli_`
+#' prefix is there so that the two names do not collide. No base R function
+#' builds this basis, so this is the interface for it in deli as well.
 #'
 #' Unrestricted splines for knot \eqn{k} are:
 #' \deqn{s_k(X) = I(X > k) (X - k)^a}
@@ -96,10 +105,15 @@ deli_spline <- function(
 
 #' Build an additive design matrix for GAMs
 #'
+#' @description
 #' Constructs the expanded design matrix for generalized additive models by
 #' appending spline basis terms according to per-column specifications. Each
 #' column in `X` keeps its linear term; columns with a non-`NULL` specification
 #' get additional spline basis columns appended.
+#'
+#' This function mirrors `additive_design_matrix()` in Python delicatessen, so
+#' code translated from Python can keep its shape. There is no base R equivalent
+#' of this construction, so this is the interface for it in deli as well.
 #'
 #' @param X Numeric matrix (n-by-b) of input covariates.
 #' @param specifications A list of length `b` (number of columns in `X`).

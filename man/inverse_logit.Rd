@@ -14,8 +14,76 @@ Numeric probability values.
 }
 \description{
 Transforms log-odds into probabilities: \eqn{1 / (1 + \exp(-x))}.
+
+This is the equivalent of \code{\link[stats:plogis]{stats::plogis()}} and returns identical values for
+numeric input, except that it carries derivatives. Exact differentiation
+(\code{deriv_method = "exact"}) propagates a tangent alongside each value through
+the arithmetic and \code{Math} group generics. \code{inverse_logit()} is written as
+\code{1 / (1 + exp(-logodds))}, so a tangent passes through it; \code{plogis()} is a
+compiled primitive and errors on a tangent-carrying argument. Use
+\code{inverse_logit()} inside estimating equations and inside transforms passed to
+\code{\link[=delta_method]{delta_method()}}, and \code{plogis()} for ordinary numeric work.
 }
+\section{Exact differentiation}{
+
+\code{deriv_method = "exact"} is forward-mode automatic differentiation. It
+carries a tangent alongside each value and dispatches through the arithmetic
+(\code{Ops}) and \code{Math} group generics. A compiled base R primitive outside those
+groups cannot accept a tangent-carrying argument and stops with
+\verb{Non-numeric argument to mathematical function}.
+
+Each deli utility below returns the same values as its base R counterpart for
+numeric input. What separates them is whether the counterpart survives exact
+mode:\tabular{lll}{
+   deli function \tab base R counterpart \tab base R under \code{deriv_method = "exact"} \cr
+   \code{\link[=inverse_logit]{inverse_logit()}} \tab \code{\link[stats:plogis]{stats::plogis()}} \tab errors \cr
+   \code{\link[=logit]{logit()}} \tab \code{\link[stats:qlogis]{stats::qlogis()}} \tab errors \cr
+   \code{\link[=standard_normal_cdf]{standard_normal_cdf()}} \tab \code{\link[stats:pnorm]{stats::pnorm()}} \tab errors \cr
+   \code{\link[=standard_normal_pdf]{standard_normal_pdf()}} \tab \code{\link[stats:dnorm]{stats::dnorm()}} \tab errors \cr
+   \code{\link[=deli_polygamma]{deli_polygamma()}} \tab \code{\link[base:psigamma]{base::psigamma()}} \tab errors \cr
+   \code{\link[=deli_digamma]{deli_digamma()}} \tab \code{\link[base:digamma]{base::digamma()}} \tab works \cr
+   \code{\link[=identity_transform]{identity_transform()}} \tab \code{\link[base:identity]{base::identity()}} \tab works \cr
+}
+
+
+For the first five rows, use the deli function inside estimating equations
+and inside transforms passed to \code{\link[=delta_method]{delta_method()}}, and the base R function
+everywhere else: simulating data, post-fit display, plain numeric work. For
+the last two rows the base R function is usable everywhere, because
+\code{digamma()} is a \code{Math} group member with a tangent rule and \code{identity()}
+passes its argument through untouched.
+
+The polygamma row is the one place where the arguments do not line up.
+\code{deli_polygamma(n, x)} takes the derivative order first and
+\code{psigamma(x, deriv = n)} takes it second, so a positional substitution
+between the two computes a different quantity and raises no error.
+}
+
 \examples{
 inverse_logit(0)
 inverse_logit(c(-2, 0, 2))
+
+# The same values as the base R counterpart
+all.equal(inverse_logit(c(-2, 0, 2)), plogis(c(-2, 0, 2)))
+
+m <- m_estimate(
+  vs ~ mpg,
+  data = mtcars,
+  .ee = ee_regression,
+  model = "logistic"
+)
+
+# Variance of the fitted probability at mpg = 20. Writing
+# `plogis(theta[1] + theta[2] * 20)` here instead would error, because exact
+# differentiation hands the transform a tangent-carrying argument.
+delta_method(
+  m,
+  transform = function(theta) inverse_logit(theta[1] + theta[2] * 20),
+  deriv_method = "exact"
+)
+
+}
+\seealso{
+\code{\link[stats:plogis]{stats::plogis()}}, the base R equivalent for ordinary numeric work,
+and \code{\link[=logit]{logit()}}, which inverts this transformation.
 }

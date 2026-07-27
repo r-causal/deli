@@ -1,8 +1,14 @@
 #' Aggregate estimating function contributions by group
 #'
+#' @description
 #' Collapses unit-level estimating function contributions into group-level
 #' contributions for clustered or grouped data. Uses an independent working
 #' correlation structure (summing within groups).
+#'
+#' This function mirrors `aggregate_efuncs()` in Python delicatessen, so code
+#' translated from Python can keep its shape. There is no base R equivalent that
+#' operates on estimating function contributions, so this is the interface for
+#' them in deli as well.
 #'
 #' This function should be called inside the `psi` function after computing
 #' unit-level estimating equations but before returning them to
