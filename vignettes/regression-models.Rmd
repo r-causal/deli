@@ -21,8 +21,9 @@ library(deli)
 ## Overview
 
 deli provides estimating equations for a wide range of regression models.
-All regression EEs follow the same pattern: define a `psi` function, create
-an `MEstimator`, and call `estimate()`. The sandwich variance estimator
+All regression EEs follow the same pattern: define a `psi` function that
+supplies the design matrix and response, then pass it to `m_estimate()`, which
+builds the estimator and solves it in one call. The sandwich variance estimator
 automatically provides robust standard errors.
 
 ## Linear regression
@@ -41,7 +42,7 @@ psi <- function(theta) {
   ee_regression(theta, X = X, y = y, model = "linear")
 }
 
-m <- MEstimator(stacked_equations = psi, init = c(0, 0, 0)) |> estimate()
+m <- m_estimate(stacked_equations = psi, init = c(0, 0, 0))
 summary(m)
 ```
 
@@ -60,7 +61,7 @@ psi <- function(theta) {
   ee_regression(theta, X = X, y = y, model = "logistic")
 }
 
-m <- MEstimator(stacked_equations = psi, init = c(0, 0)) |> estimate()
+m <- m_estimate(stacked_equations = psi, init = c(0, 0))
 summary(m)
 ```
 
@@ -79,7 +80,7 @@ psi <- function(theta) {
   ee_regression(theta, X = X, y = y, model = "poisson")
 }
 
-m <- MEstimator(stacked_equations = psi, init = c(0, 0)) |> estimate()
+m <- m_estimate(stacked_equations = psi, init = c(0, 0))
 summary(m)
 ```
 
@@ -99,7 +100,7 @@ psi <- function(theta) {
   ee_glm(theta, X = X, y = y, distribution = "poisson", link = "log")
 }
 
-m <- MEstimator(stacked_equations = psi, init = c(0, 0)) |> estimate()
+m <- m_estimate(stacked_equations = psi, init = c(0, 0))
 m@theta
 ```
 
@@ -132,7 +133,7 @@ psi <- function(theta) {
                        penalty = 0.5)
 }
 
-m <- MEstimator(stacked_equations = psi, init = c(0, 0, 0)) |> estimate()
+m <- m_estimate(stacked_equations = psi, init = c(0, 0, 0))
 m@theta
 ```
 
@@ -147,7 +148,7 @@ psi <- function(theta) {
 }
 
 # Not differentiable, so the sandwich variance should not be trusted here
-m <- MEstimator(stacked_equations = psi, init = c(0, 0, 0)) |> estimate()
+m <- m_estimate(stacked_equations = psi, init = c(0, 0, 0))
 m@theta
 ```
 
@@ -162,7 +163,7 @@ psi <- function(theta) {
 }
 
 # The L1 half is not differentiable, so again distrust the sandwich variance
-m <- MEstimator(stacked_equations = psi, init = c(0, 0, 0)) |> estimate()
+m <- m_estimate(stacked_equations = psi, init = c(0, 0, 0))
 m@theta
 ```
 
@@ -188,13 +189,13 @@ psi <- function(theta) {
 
 # Robust losses can have several roots, so seed the search from least squares
 start <- coef(lm(y ~ x))
-m <- MEstimator(stacked_equations = psi, init = start) |> estimate()
+m <- m_estimate(stacked_equations = psi, init = start)
 
 # Compare with OLS (affected by outliers)
 psi_ols <- function(theta) {
   ee_regression(theta, X = X, y = y, model = "linear")
 }
-m_ols <- MEstimator(stacked_equations = psi_ols, init = c(0, 0)) |> estimate()
+m_ols <- m_estimate(stacked_equations = psi_ols, init = c(0, 0))
 
 rbind(robust = m@theta, ols = m_ols@theta)
 ```
@@ -217,7 +218,7 @@ psi <- function(theta) {
   ee_regression(theta, X = X, y = y, model = "linear", weights = w)
 }
 
-m <- MEstimator(stacked_equations = psi, init = c(0, 0)) |> estimate()
+m <- m_estimate(stacked_equations = psi, init = c(0, 0))
 m@theta
 ```
 
@@ -236,7 +237,7 @@ X <- cbind(1, x)
 psi <- function(theta) {
   ee_regression(theta, X = X, y = y, model = "linear")
 }
-m <- MEstimator(stacked_equations = psi, init = c(0, 0)) |> estimate()
+m <- m_estimate(stacked_equations = psi, init = c(0, 0))
 
 # Predict at new covariate values
 x_new <- seq(-2, 2, length.out = 5)

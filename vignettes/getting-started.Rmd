@@ -187,7 +187,7 @@ psi <- function(theta) {
   ee_mean_variance(theta, y = y)
 }
 
-m <- MEstimator(stacked_equations = psi, init = c(0, 0)) |> estimate()
+m <- m_estimate(stacked_equations = psi, init = c(0, 0))
 m@theta  # c(mean, variance)
 ```
 
@@ -197,7 +197,7 @@ For more complex stacking with custom equations, see
 ## Causal inference: inverse probability weighting
 
 deli includes estimating equations for causal inference. Because they combine
-several components, they are a natural fit for the estimator objects. Here is
+several components, they are a natural fit for the function interface. Here is
 an example that uses inverse probability weighting (IPW) to estimate an average
 treatment effect:
 
@@ -214,11 +214,7 @@ psi <- function(theta) {
 }
 
 # theta: ACE, E[Y(1)], E[Y(0)], beta0, beta1
-m <- MEstimator(
-  stacked_equations = psi,
-  init = c(0, 0, 0, 0, 0)
-) |>
-  estimate()
+m <- m_estimate(stacked_equations = psi, init = c(0, 0, 0, 0, 0))
 
 # ACE (average causal effect) ~ 2
 m@theta[1]
@@ -240,7 +236,7 @@ psi <- function(theta) {
   ee_regression(theta, X = X, y = y, model = "linear")
 }
 
-m <- MEstimator(stacked_equations = psi, init = c(0, 0)) |> estimate()
+m <- m_estimate(stacked_equations = psi, init = c(0, 0))
 
 # Predict at new values
 x_new <- seq(-2, 2, by = 1)
@@ -268,7 +264,7 @@ psi <- function(theta) {
   aggregate_efuncs(ef, group = group)
 }
 
-m <- MEstimator(stacked_equations = psi, init = mean(y)) |> estimate()
+m <- m_estimate(stacked_equations = psi, init = mean(y))
 
 m@theta
 m@variance  # Accounts for within-cluster correlation
@@ -304,7 +300,7 @@ psi <- function(theta) {
   ee_regression(theta, X = X, y = y, model = "logistic")
 }
 
-m <- MEstimator(stacked_equations = psi, init = c(0, 0)) |> estimate()
+m <- m_estimate(stacked_equations = psi, init = c(0, 0))
 
 # Variance of the predicted probability at x = 1, via the delta method.
 # The log-odds at the pattern (intercept = 1, x = 1) is theta[1] + theta[2].

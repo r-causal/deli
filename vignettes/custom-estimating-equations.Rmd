@@ -71,7 +71,7 @@ psi <- function(theta) {
   rbind(row1, row2, row3)
 }
 
-m <- MEstimator(stacked_equations = psi, init = c(1, 1, 1)) |> estimate()
+m <- m_estimate(stacked_equations = psi, init = c(1, 1, 1))
 m@theta
 ```
 
@@ -136,7 +136,7 @@ psi <- function(theta) {
   rbind(ee_reg, ee_or)
 }
 
-m <- MEstimator(stacked_equations = psi, init = c(0, 0, 1)) |> estimate()
+m <- m_estimate(stacked_equations = psi, init = c(0, 0, 1))
 summary(m)
 ```
 
@@ -151,7 +151,7 @@ exp(m@theta[2])
 ### How stacking works
 
 When you `rbind()` a 2-by-n matrix from `ee_regression()` with a 1-by-n matrix
-from a custom equation, you get a 3-by-n matrix. The `MEstimator` solves the
+from a custom equation, you get a 3-by-n matrix. `m_estimate()` solves the
 full 3-parameter system simultaneously and computes the sandwich variance for
 all parameters at once. This is what makes the variance estimates valid: the
 covariance between the regression coefficients and the odds ratio is captured
@@ -175,7 +175,7 @@ psi_reg <- function(theta) {
   ee_regression(theta, X = X, y = y, model = "logistic")
 }
 
-m_reg <- MEstimator(stacked_equations = psi_reg, init = c(0, 0)) |> estimate()
+m_reg <- m_estimate(stacked_equations = psi_reg, init = c(0, 0))
 m_reg@theta
 ```
 
@@ -215,7 +215,7 @@ natural for your problem.
 ### Using the delta method with raw estimates
 
 You can also call `delta_method()` directly on a numeric vector of estimates
-and a covariance matrix, without an `MEstimator` object:
+and a covariance matrix, without a fitted estimator object:
 
 ```{r}
 delta_method(
