@@ -75,18 +75,19 @@ logit <- function(prob) {
 #' @section Exact differentiation:
 #' `deriv_method = "exact"` is forward-mode automatic differentiation: it
 #' replaces each value with an object carrying both the value and its
-#' derivative. deli registers `Ops`, `Math`, and `Summary` group generic methods
-#' for those objects, and a function differentiates exactly only if it
-#' dispatches to one of them. `plogis()`, `qlogis()`, `pnorm()`, `dnorm()`, and
-#' `psigamma()` never dispatch: each hands its argument straight to compiled
-#' code through `.Call()` or `.Internal()`, which requires a plain number, so
-#' the call stops with `Non-numeric argument to mathematical function`.
+#' derivative. deli supports those objects through S3 methods: the `Ops`,
+#' `Math`, and `Summary` group generics, plus non-group methods such as `[`,
+#' `%*%`, and `t()`. [standard_normal_cdf()], [standard_normal_pdf()],
+#' [deli_polygamma()], and [deli_digamma()] recognize a tangent-carrying
+#' argument themselves and apply their own analytic rule. Support within the
+#' group generics is partial; see `vignette("getting-started")` for the
+#' operations deli differentiates.
 #'
-#' Group membership is necessary but not sufficient. deli's `Math` method
-#' implements tangent rules for part of the group and raises an error for the
-#' rest: `gamma()`, `round()`, `signif()`, `trunc()`, `cumprod()`, `cummax()`,
-#' and `cummin()`. `vignette("getting-started")` lists the whole supported
-#' surface.
+#' `plogis()`, `qlogis()`, `pnorm()`, `dnorm()`, and `psigamma()` take none of
+#' these paths. Each hands its argument straight to compiled code through
+#' `.Call()` or `.Internal()` without dispatching, so the tangent reaches C code
+#' that requires a plain number and the call stops with a
+#' `non-numeric argument to mathematical function` error.
 #'
 #' Each deli utility below returns the same values as its base R counterpart for
 #' numeric input. What separates them is whether the counterpart survives exact

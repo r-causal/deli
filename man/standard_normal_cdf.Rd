@@ -30,18 +30,19 @@ passed to \code{\link[=delta_method]{delta_method()}}, and \code{pnorm()} for or
 
 \code{deriv_method = "exact"} is forward-mode automatic differentiation: it
 replaces each value with an object carrying both the value and its
-derivative. deli registers \code{Ops}, \code{Math}, and \code{Summary} group generic methods
-for those objects, and a function differentiates exactly only if it
-dispatches to one of them. \code{plogis()}, \code{qlogis()}, \code{pnorm()}, \code{dnorm()}, and
-\code{psigamma()} never dispatch: each hands its argument straight to compiled
-code through \code{.Call()} or \code{.Internal()}, which requires a plain number, so
-the call stops with \verb{Non-numeric argument to mathematical function}.
+derivative. deli supports those objects through S3 methods: the \code{Ops},
+\code{Math}, and \code{Summary} group generics, plus non-group methods such as \code{[},
+\code{\%*\%}, and \code{t()}. \code{\link[=standard_normal_cdf]{standard_normal_cdf()}}, \code{\link[=standard_normal_pdf]{standard_normal_pdf()}},
+\code{\link[=deli_polygamma]{deli_polygamma()}}, and \code{\link[=deli_digamma]{deli_digamma()}} recognize a tangent-carrying
+argument themselves and apply their own analytic rule. Support within the
+group generics is partial; see \code{vignette("getting-started")} for the
+operations deli differentiates.
 
-Group membership is necessary but not sufficient. deli's \code{Math} method
-implements tangent rules for part of the group and raises an error for the
-rest: \code{gamma()}, \code{round()}, \code{signif()}, \code{trunc()}, \code{cumprod()}, \code{cummax()},
-and \code{cummin()}. \code{vignette("getting-started")} lists the whole supported
-surface.
+\code{plogis()}, \code{qlogis()}, \code{pnorm()}, \code{dnorm()}, and \code{psigamma()} take none of
+these paths. Each hands its argument straight to compiled code through
+\code{.Call()} or \code{.Internal()} without dispatching, so the tangent reaches C code
+that requires a plain number and the call stops with a
+\verb{non-numeric argument to mathematical function} error.
 
 Each deli utility below returns the same values as its base R counterpart for
 numeric input. What separates them is whether the counterpart survives exact
