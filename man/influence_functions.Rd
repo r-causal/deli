@@ -22,3 +22,11 @@ number of observations and p is the number of parameters.
 Computes the influence function values for individual observations:
 \deqn{IF(O_i; \theta) = B_n(\theta)^{-1} \psi(O_i; \theta)}
 }
+\examples{
+fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
+                  model = "linear")
+
+# One row per observation, showing its contribution to each estimate
+head(influence_functions(fit))
+
+}

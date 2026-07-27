@@ -42,3 +42,15 @@ using the Delta Method:
 where \eqn{G} is the Jacobian of \eqn{g} and \eqn{\Sigma} is the
 covariance matrix of \eqn{\theta}.
 }
+\examples{
+fit <- m_estimate(vs ~ mpg, data = mtcars, .ee = ee_regression,
+                  model = "logistic")
+
+# Variance of the odds ratio for mpg, exponentiating the log-odds coefficient
+delta_method(fit, transform = function(theta) exp(theta[2]))
+
+# The same variance from the estimates and covariance alone
+delta_method(coef(fit), transform = function(theta) exp(theta[2]),
+             covariance = vcov(fit))
+
+}

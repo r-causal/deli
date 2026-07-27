@@ -28,3 +28,16 @@ Methods for base R generics \code{\link[stats:coef]{stats::coef()}}, \code{\link
 \code{\link[stats:confint]{stats::confint()}}, and \code{\link[stats:nobs]{stats::nobs()}} so that deli estimator objects
 interoperate with the broader R modeling ecosystem.
 }
+\examples{
+fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
+                  model = "linear")
+
+coef(fit)
+
+vcov(fit)
+
+confint(fit)
+
+nobs(fit)
+
+}

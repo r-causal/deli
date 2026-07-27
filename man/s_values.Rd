@@ -20,3 +20,10 @@ A numeric vector of S-values.
 Computes Shannon Information values (S-values) as \eqn{S = -\log_2(P)},
 where \eqn{P} is the corresponding P-value.
 }
+\examples{
+fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
+                  model = "linear")
+
+s_values(fit)
+
+}

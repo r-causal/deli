@@ -66,6 +66,12 @@ method(confidence_intervals, deli_estimator) <- function(
 #'
 #' @returns A numeric vector of Z-scores.
 #'
+#' @examples
+#' fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
+#'                   model = "linear")
+#'
+#' z_scores(fit)
+#'
 #' @export
 z_scores <- new_generic("z_scores", "object", function(object, null = 0, ...) {
   S7::S7_dispatch()
@@ -91,6 +97,12 @@ method(z_scores, deli_estimator) <- function(object, null = 0, ...) {
 #'
 #' @returns A numeric vector of P-values.
 #'
+#' @examples
+#' fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
+#'                   model = "linear")
+#'
+#' p_values(fit)
+#'
 #' @export
 p_values <- new_generic("p_values", "object", function(object, null = 0, ...) {
   S7::S7_dispatch()
@@ -111,6 +123,12 @@ method(p_values, deli_estimator) <- function(object, null = 0, ...) {
 #' @param ... Additional arguments (currently unused).
 #'
 #' @returns A numeric vector of S-values.
+#'
+#' @examples
+#' fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
+#'                   model = "linear")
+#'
+#' s_values(fit)
 #'
 #' @export
 s_values <- new_generic("s_values", "object", function(object, null = 0, ...) {

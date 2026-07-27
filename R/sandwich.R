@@ -300,6 +300,24 @@ compute_sandwich <- function(
 #'
 #' @returns A p-by-2 matrix with columns `"lower"` and `"upper"`.
 #'
+#' @examplesIf requireNamespace("MASS", quietly = TRUE)
+#' # Two independent samples, each contributing one mean parameter
+#' set.seed(42)
+#' n <- 200
+#' y1 <- rnorm(n, 2)
+#' y2 <- rnorm(n, 3)
+#'
+#' psi <- function(theta) {
+#'   rbind(y1 - theta[1], y2 - theta[2])
+#' }
+#'
+#' m <- MEstimator(stacked_equations = psi, init = c(0, 0)) |>
+#'   estimate()
+#'
+#' # Simultaneous bands cover both means at once, so they are wider than the
+#' # pointwise intervals from confint(m)
+#' confidence_bands(m, method = "supt", seed = 1)
+#'
 #' @export
 # n_draws defaults to 1e5, not the 1e6 Python uses on its estimator method. The
 # sup-t critical value converges to the same quantile either way, and at 1e5 the
@@ -388,6 +406,14 @@ method(confidence_bands, class_numeric) <- function(
 #'
 #' @returns A p-by-2 matrix with columns `"lower"` and `"upper"`.
 #'
+#' @examplesIf requireNamespace("MASS", quietly = TRUE)
+#' fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
+#'                   model = "linear")
+#'
+#' # Bands from the estimates and covariance alone, without the fitted object
+#' compute_confidence_bands(coef(fit), covariance = vcov(fit),
+#'                          method = "supt", seed = 1)
+#'
 #' @export
 compute_confidence_bands <- function(
   theta,
@@ -462,6 +488,17 @@ compute_confidence_bands <- function(
 #' @param ... Additional arguments (currently unused).
 #'
 #' @returns A covariance matrix for `transform(theta)`.
+#'
+#' @examples
+#' fit <- m_estimate(vs ~ mpg, data = mtcars, .ee = ee_regression,
+#'                   model = "logistic")
+#'
+#' # Variance of the odds ratio for mpg, exponentiating the log-odds coefficient
+#' delta_method(fit, transform = function(theta) exp(theta[2]))
+#'
+#' # The same variance from the estimates and covariance alone
+#' delta_method(coef(fit), transform = function(theta) exp(theta[2]),
+#'              covariance = vcov(fit))
 #'
 #' @export
 delta_method <- new_generic(

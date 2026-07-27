@@ -38,3 +38,12 @@ Restricted (natural) splines subtract the last spline term:
 where \eqn{K} is the largest knot. Restricted splines return one fewer
 column than the number of knots.
 }
+\examples{
+# Restricted quadratic splines at four knots, so three basis columns
+s <- deli_spline(1:59, knots = c(10, 20, 30, 40), power = 2)
+dim(s)
+
+# Each term stays at zero below its knot and grows above it
+s[c(5, 15, 25, 35, 45, 55), ]
+
+}

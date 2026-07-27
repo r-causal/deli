@@ -20,3 +20,10 @@ A numeric vector of Z-scores.
 Computes Wald-type Z-scores:
 \eqn{(\hat{\theta} - \theta_0) / \widehat{SE}(\hat{\theta})}.
 }
+\examples{
+fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
+                  model = "linear")
+
+z_scores(fit)
+
+}

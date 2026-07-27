@@ -22,3 +22,10 @@ compared to the standard normal distribution by default. When a
 \code{finite_correction} is set on the fit, they are compared instead to the
 t-distribution with \eqn{n - p} degrees of freedom.
 }
+\examples{
+fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
+                  model = "linear")
+
+p_values(fit)
+
+}

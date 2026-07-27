@@ -11,6 +11,13 @@
 #' @returns An n-by-p matrix of influence function values, where n is the
 #'   number of observations and p is the number of parameters.
 #'
+#' @examples
+#' fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
+#'                   model = "linear")
+#'
+#' # One row per observation, showing its contribution to each estimate
+#' head(influence_functions(fit))
+#'
 #' @export
 influence_functions <- new_generic(
   "influence_functions",
