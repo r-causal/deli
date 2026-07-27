@@ -414,15 +414,24 @@ test_that("gmm_estimate() forwards subset to the minimizer", {
 
 # ---- One-step wrappers reproduce the two-step form ---------------------------
 #
-# m_estimate() and gmm_estimate() construct an estimator and call estimate() in
-# a single call. Every constructor argument and every estimate() argument is
-# handed straight through, so a one-step fit must be the same fit as the
-# two-step form built from the same estimating function. The documentation
-# depends on that equivalence: examples and articles use the one-step form
-# everywhere the two-step form is not itself the subject. These tests hold the
-# pass-through in place, and compare with expect_identical() rather than a
-# tolerance so that a refactor which quietly reroutes an argument is caught
-# instead of being absorbed by slack.
+# m_estimate() and gmm_estimate() build an estimator and call estimate() in a
+# single call, handing every constructor argument and every estimate() argument
+# straight through. The documentation leans on that equivalence: examples and
+# articles use the one-step form everywhere the two-step form is not itself the
+# subject, so an argument that stopped reaching the estimator would change
+# published numbers without changing any visible code.
+#
+# Each grid entry carries two claims. The first is the equivalence itself,
+# checked with expect_identical() rather than a tolerance so that a refactor
+# quietly rerouting an argument is caught instead of absorbed by slack. The
+# second is that the argument set moves the fit away from the same fixture's
+# default. The second claim is what keeps the first from being vacuous: an
+# argument the fixture cannot feel reproduces the default fit wherever the
+# wrapper sends it, so the two forms agree whether or not the pass-through
+# works. Arguments the linear mtcars fit cannot feel therefore get fixtures of
+# their own further down: a nonlinear fit for the M estimator's maxiter and
+# tolerance, a rank-deficient design for allow_pinv, and an over-identified
+# system for the two over-identification controls.
 
 # The arguments the estimator constructors take. Everything else in an argument
 # set belongs to estimate().
@@ -443,13 +452,71 @@ fit_two_step <- function(constructor, psi, init, args) {
   do.call(estimate, c(list(obj), estimate_args))
 }
 
+same_fit <- function(a, b) {
+  identical(coef(a), coef(b)) && identical(vcov(a), vcov(b))
+}
+
 expect_same_fit <- function(one_step, two_step, label) {
   expect_identical(coef(one_step), coef(two_step), info = label)
   expect_identical(vcov(one_step), vcov(two_step), info = label)
 }
 
+# One row of an argument grid: the arguments to pass, whether the fit they
+# produce must differ from the fixture's default fit, and the warning they are
+# expected to raise. An exhausted iteration budget is a non-convergence warning
+# by construction, so the only way to observe maxiter is to catch that warning
+# rather than compare bare fits.
+arg_case <- function(args, differs = TRUE, warning = NULL) {
+  list(args = args, differs = differs, warning = warning)
+}
+
+# Forces a fit, requiring the case's declared warning when it declares one.
+# Anything undeclared propagates and fails the run.
+fit_case <- function(fit, warning, label) {
+  if (is.null(warning)) {
+    return(fit)
+  }
+  # expect_warning() hands back the condition rather than the value, so the
+  # fitted object is caught on the side.
+  caught <- NULL
+  expect_warning(caught <- fit, warning, info = label)
+  caught
+}
+
+# Runs every case in a grid through both forms. `one_step` takes an argument
+# list and returns the wrapper fit; `two_step` returns the build-then-estimate
+# fit for the same arguments.
+expect_grid_matches <- function(cases, one_step, two_step, default_fit) {
+  for (label in names(cases)) {
+    case <- cases[[label]]
+    wrapped <- fit_case(one_step(case$args), case$warning, label)
+    manual <- fit_case(two_step(case$args), case$warning, label)
+    expect_same_fit(wrapped, manual, label)
+    if (case$differs) {
+      expect_false(same_fit(wrapped, default_fit), info = label)
+    } else {
+      expect_same_fit(wrapped, default_fit, label)
+    }
+  }
+}
+
+# Leave-one-out over a combined argument set. Dropping any member must change
+# the fit; a member that survives its own removal is one the combined set never
+# exercised, whatever the grid claims to cover.
+expect_every_argument_felt <- function(fit_with, args) {
+  full <- fit_with(args)
+  for (name in names(args)) {
+    expect_false(
+      same_fit(fit_with(args[setdiff(names(args), name)]), full),
+      info = name
+    )
+  }
+}
+
 # Linear regression on mtcars: three parameters, solved reliably from zero
-# starting values by every solver under test.
+# starting values by every solver under test. Being linear, it reaches its root
+# in a couple of Newton steps far inside any iteration budget and below any
+# tolerance, so maxiter and tolerance move to the logistic fixture below.
 mtcars_regression_psi <- function() {
   X <- stats::model.matrix(mpg ~ wt + hp, data = mtcars)
   y <- mtcars$mpg
@@ -458,137 +525,119 @@ mtcars_regression_psi <- function() {
 
 mtcars_regression_init <- c(`(Intercept)` = 0, wt = 0, hp = 0)
 
-# The argument surface the documentation actually passes, one set per argument
-# plus a set carrying all of them at once.
+# Both combined sets below hold deriv_method at a finite-difference method,
+# because "exact" ignores dx and would leave the dx member inert, and neither
+# carries maxiter, because an exhausted budget stops the solver before
+# tolerance can matter.
 m_argument_sets <- list(
-  "defaults" = list(),
-  "solver = NULL" = list(solver = NULL),
-  "solver = rootSolve" = list(solver = "rootSolve"),
-  "solver = lm" = list(solver = "lm"),
-  "deriv_method = capprox" = list(deriv_method = "capprox"),
-  "deriv_method = exact" = list(deriv_method = "exact"),
-  "maxiter and tolerance" = list(maxiter = 200L, tolerance = 1e-7),
-  "dx" = list(dx = 1e-6),
-  "allow_pinv = FALSE" = list(allow_pinv = FALSE),
-  "subset" = list(subset = 1L),
-  "finite_correction = HC1" = list(finite_correction = "HC1"),
-  "every argument at once" = list(
+  "defaults" = arg_case(list(), differs = FALSE),
+  "solver = NULL" = arg_case(list(solver = NULL), differs = FALSE),
+  "solver = rootSolve" = arg_case(list(solver = "rootSolve"), differs = FALSE),
+  "solver = lm" = arg_case(list(solver = "lm")),
+  "deriv_method = capprox" = arg_case(
+    list(deriv_method = "capprox"),
+    differs = FALSE
+  ),
+  "deriv_method = exact" = arg_case(list(deriv_method = "exact")),
+  "dx" = arg_case(list(dx = 1e-6)),
+  "subset" = arg_case(list(subset = 1L)),
+  "finite_correction = HC1" = arg_case(list(finite_correction = "HC1")),
+  "every argument at once" = arg_case(list(
     solver = "lm",
-    maxiter = 400L,
-    tolerance = 1e-8,
-    deriv_method = "exact",
+    deriv_method = "fapprox",
     dx = 1e-7,
-    allow_pinv = FALSE,
     subset = c(1L, 2L),
     finite_correction = "HC1"
-  )
+  ))
 )
 
 # GMM minimizes rather than root-finds, so the solver names are stats::optim
-# methods, and it carries the two over-identification controls as well.
+# methods. "Nelder-Mead" is a poor minimizer for this badly scaled objective
+# and wanders far from the least-squares answer, which is the point: it is a
+# deterministic, warning-free fit that the default "BFGS" cannot reproduce, so
+# a solver that stopped reaching estimate() would show up immediately.
+# Minimizing is iterative even for a linear system, so unlike the M grid the
+# GMM grid can hold maxiter and tolerance here.
 gmm_argument_sets <- list(
-  "defaults" = list(),
-  "solver = NULL" = list(solver = NULL),
-  "solver = BFGS" = list(solver = "BFGS"),
-  "deriv_method = capprox" = list(deriv_method = "capprox"),
-  "deriv_method = exact" = list(deriv_method = "exact"),
-  "maxiter and tolerance" = list(maxiter = 200L, tolerance = 1e-7),
-  "dx" = list(dx = 1e-6),
-  "allow_pinv = FALSE" = list(allow_pinv = FALSE),
-  "subset" = list(subset = 1L),
-  "finite_correction = HC1" = list(finite_correction = "HC1"),
-  "overid controls" = list(overid_maxiter = 25L, overid_tolerance = 1e-7),
-  "every argument at once" = list(
-    solver = "BFGS",
-    maxiter = 400L,
-    tolerance = 1e-8,
-    deriv_method = "exact",
+  "defaults" = arg_case(list(), differs = FALSE),
+  "solver = NULL" = arg_case(list(solver = NULL), differs = FALSE),
+  "solver = BFGS" = arg_case(list(solver = "BFGS"), differs = FALSE),
+  "solver = Nelder-Mead" = arg_case(list(solver = "Nelder-Mead")),
+  "deriv_method = capprox" = arg_case(
+    list(deriv_method = "capprox"),
+    differs = FALSE
+  ),
+  "deriv_method = exact" = arg_case(list(deriv_method = "exact")),
+  "maxiter" = arg_case(list(maxiter = 2L), warning = "did not converge"),
+  "tolerance" = arg_case(list(tolerance = 1e-6)),
+  "dx" = arg_case(list(dx = 1e-6)),
+  "subset" = arg_case(list(subset = 1L)),
+  "finite_correction = HC1" = arg_case(list(finite_correction = "HC1")),
+  "every argument at once" = arg_case(list(
+    solver = "Nelder-Mead",
+    tolerance = 1e-6,
+    deriv_method = "fapprox",
     dx = 1e-7,
-    allow_pinv = FALSE,
     subset = c(1L, 2L),
-    finite_correction = "HC1",
-    overid_maxiter = 25L,
-    overid_tolerance = 1e-7
-  )
+    finite_correction = "HC1"
+  ))
 )
+
+m_one_step_function <- function(psi, init) {
+  function(args) {
+    do.call(m_estimate, c(list(stacked_equations = psi, init = init), args))
+  }
+}
+
+m_one_step_formula <- function(formula, data, ...) {
+  fixed <- c(list(formula, data = data), list(...))
+  function(args) do.call(m_estimate, c(fixed, args))
+}
 
 test_that("m_estimate() function interface reproduces the two-step fit", {
   psi <- mtcars_regression_psi()
-
-  for (label in names(m_argument_sets)) {
-    args <- m_argument_sets[[label]]
-    one_step <- do.call(
-      m_estimate,
-      c(
-        list(stacked_equations = psi, init = mtcars_regression_init),
-        args
-      )
-    )
-    two_step <- fit_two_step(
-      MEstimator,
-      psi,
-      mtcars_regression_init,
-      args
-    )
-    expect_same_fit(one_step, two_step, label)
+  one_step <- m_one_step_function(psi, mtcars_regression_init)
+  two_step <- function(args) {
+    fit_two_step(MEstimator, psi, mtcars_regression_init, args)
   }
+
+  expect_grid_matches(m_argument_sets, one_step, two_step, one_step(list()))
 })
 
 test_that("m_estimate() formula interface reproduces the two-step fit", {
   psi <- mtcars_regression_psi()
-
-  for (label in names(m_argument_sets)) {
-    args <- m_argument_sets[[label]]
-    one_step <- do.call(
-      m_estimate,
-      c(
-        list(
-          mpg ~ wt + hp,
-          data = mtcars,
-          .ee = ee_regression,
-          model = "linear"
-        ),
-        args
-      )
-    )
-    two_step <- fit_two_step(
-      MEstimator,
-      psi,
-      mtcars_regression_init,
-      args
-    )
-    expect_same_fit(one_step, two_step, label)
+  one_step <- m_one_step_formula(
+    mpg ~ wt + hp,
+    data = mtcars,
+    .ee = ee_regression,
+    model = "linear"
+  )
+  two_step <- function(args) {
+    fit_two_step(MEstimator, psi, mtcars_regression_init, args)
   }
+
+  expect_grid_matches(m_argument_sets, one_step, two_step, one_step(list()))
 })
 
 test_that("gmm_estimate() function interface reproduces the two-step fit", {
   psi <- mtcars_regression_psi()
-
-  for (label in names(gmm_argument_sets)) {
-    args <- gmm_argument_sets[[label]]
-    one_step <- do.call(
+  one_step <- function(args) {
+    do.call(
       gmm_estimate,
-      c(
-        list(stacked_equations = psi, init = mtcars_regression_init),
-        args
-      )
+      c(list(stacked_equations = psi, init = mtcars_regression_init), args)
     )
-    two_step <- fit_two_step(
-      GMMEstimator,
-      psi,
-      mtcars_regression_init,
-      args
-    )
-    expect_same_fit(one_step, two_step, label)
   }
+  two_step <- function(args) {
+    fit_two_step(GMMEstimator, psi, mtcars_regression_init, args)
+  }
+
+  expect_grid_matches(gmm_argument_sets, one_step, two_step, one_step(list()))
 })
 
 test_that("gmm_estimate() formula interface reproduces the two-step fit", {
   psi <- mtcars_regression_psi()
-
-  for (label in names(gmm_argument_sets)) {
-    args <- gmm_argument_sets[[label]]
-    one_step <- do.call(
+  one_step <- function(args) {
+    do.call(
       gmm_estimate,
       c(
         list(
@@ -600,13 +649,191 @@ test_that("gmm_estimate() formula interface reproduces the two-step fit", {
         args
       )
     )
-    two_step <- fit_two_step(
-      GMMEstimator,
-      psi,
-      mtcars_regression_init,
-      args
+  }
+  two_step <- function(args) {
+    fit_two_step(GMMEstimator, psi, mtcars_regression_init, args)
+  }
+
+  expect_grid_matches(gmm_argument_sets, one_step, two_step, one_step(list()))
+})
+
+test_that("the combined M argument set exercises every argument it carries", {
+  psi <- mtcars_regression_psi()
+  expect_every_argument_felt(
+    m_one_step_function(psi, mtcars_regression_init),
+    m_argument_sets[["every argument at once"]]$args
+  )
+})
+
+test_that("the combined GMM argument set exercises every argument it carries", {
+  psi <- mtcars_regression_psi()
+  fit_with <- function(args) {
+    do.call(
+      gmm_estimate,
+      c(list(stacked_equations = psi, init = mtcars_regression_init), args)
     )
-    expect_same_fit(one_step, two_step, label)
+  }
+  expect_every_argument_felt(
+    fit_with,
+    gmm_argument_sets[["every argument at once"]]$args
+  )
+})
+
+# ---- maxiter and tolerance need a nonlinear fit ------------------------------
+#
+# Logistic regression on the same three-parameter shape gives rootSolve a
+# genuine Newton sequence to walk, which is the only setting where an M
+# estimator can feel its iteration budget or its convergence tolerance. A
+# capped budget stops the solver short of the root and warns; a loose tolerance
+# accepts an earlier iterate and stays silent, because solve_equations() warns
+# on the budget rather than on the tolerance. The design carries the same wt
+# and hp columns as the linear fixture, so it takes the same init vector.
+mtcars_logistic_psi <- function() {
+  X <- stats::model.matrix(am ~ wt + hp, data = mtcars)
+  y <- mtcars$am
+  function(theta) ee_regression(theta, X = X, y = y, model = "logistic")
+}
+
+m_iteration_argument_sets <- list(
+  "defaults" = arg_case(list(), differs = FALSE),
+  "maxiter" = arg_case(list(maxiter = 2L), warning = "did not converge"),
+  "tolerance" = arg_case(list(tolerance = 1e-1))
+)
+
+test_that("m_estimate() function interface forwards maxiter and tolerance", {
+  psi <- mtcars_logistic_psi()
+  one_step <- m_one_step_function(psi, mtcars_regression_init)
+  two_step <- function(args) {
+    fit_two_step(MEstimator, psi, mtcars_regression_init, args)
+  }
+
+  expect_grid_matches(
+    m_iteration_argument_sets,
+    one_step,
+    two_step,
+    one_step(list())
+  )
+})
+
+test_that("m_estimate() formula interface forwards maxiter and tolerance", {
+  psi <- mtcars_logistic_psi()
+  one_step <- m_one_step_formula(
+    am ~ wt + hp,
+    data = mtcars,
+    .ee = ee_regression,
+    model = "logistic"
+  )
+  two_step <- function(args) {
+    fit_two_step(MEstimator, psi, mtcars_regression_init, args)
+  }
+
+  expect_grid_matches(
+    m_iteration_argument_sets,
+    one_step,
+    two_step,
+    one_step(list())
+  )
+})
+
+# ---- allow_pinv needs a singular bread ---------------------------------------
+#
+# allow_pinv chooses between solve() and MASS::ginv() in build_sandwich(), so it
+# only does anything when the bread is singular. Duplicating a predictor makes
+# the three-parameter bread rank two. Root-finding stays well posed because
+# subset solves only the intercept and the wt slope, leaving the duplicate
+# frozen at its zero start, which is the ordinary least-squares fit of mpg on
+# wt; the bread is still assembled over all three parameters and so is
+# singular. That the allow_pinv = FALSE fits error is itself the proof the
+# fixture is doing its job.
+collinear_regression_data <- function() {
+  d <- mtcars[c("mpg", "wt")]
+  d$wt_copy <- d$wt
+  d
+}
+
+collinear_regression_psi <- function(d) {
+  X <- stats::model.matrix(mpg ~ wt + wt_copy, data = d)
+  y <- d$mpg
+  function(theta) ee_regression(theta, X = X, y = y, model = "linear")
+}
+
+collinear_regression_init <- c(`(Intercept)` = 0, wt = 0, wt_copy = 0)
+
+test_that("every wrapper interface forwards allow_pinv to the bread", {
+  skip_if_not_installed("MASS")
+  d <- collinear_regression_data()
+  psi <- collinear_regression_psi(d)
+  init <- collinear_regression_init
+  # Solving only the identified parameters keeps the root-finder quiet while
+  # the bread stays rank deficient.
+  fixed <- list(subset = c(1L, 2L))
+  formula_args <- list(
+    mpg ~ wt + wt_copy,
+    data = d,
+    .ee = ee_regression,
+    model = "linear"
+  )
+
+  wrappers <- list(
+    "m_estimate() function" = list(
+      one_step = function(args) {
+        do.call(
+          m_estimate,
+          c(list(stacked_equations = psi, init = init), fixed, args)
+        )
+      },
+      two_step = function(args) {
+        fit_two_step(MEstimator, psi, init, c(fixed, args))
+      }
+    ),
+    "m_estimate() formula" = list(
+      one_step = function(args) {
+        do.call(m_estimate, c(formula_args, fixed, args))
+      },
+      two_step = function(args) {
+        fit_two_step(MEstimator, psi, init, c(fixed, args))
+      }
+    ),
+    "gmm_estimate() function" = list(
+      one_step = function(args) {
+        do.call(
+          gmm_estimate,
+          c(list(stacked_equations = psi, init = init), fixed, args)
+        )
+      },
+      two_step = function(args) {
+        fit_two_step(GMMEstimator, psi, init, c(fixed, args))
+      }
+    ),
+    "gmm_estimate() formula" = list(
+      one_step = function(args) {
+        do.call(gmm_estimate, c(formula_args, fixed, args))
+      },
+      two_step = function(args) {
+        fit_two_step(GMMEstimator, psi, init, c(fixed, args))
+      }
+    )
+  )
+
+  for (label in names(wrappers)) {
+    wrapper <- wrappers[[label]]
+    # TRUE falls through to the pseudo-inverse and both forms agree.
+    expect_same_fit(
+      wrapper$one_step(list(allow_pinv = TRUE)),
+      wrapper$two_step(list(allow_pinv = TRUE)),
+      label
+    )
+    # FALSE leaves solve() to fail, in both forms alike.
+    expect_error(
+      wrapper$one_step(list(allow_pinv = FALSE)),
+      "singular",
+      info = label
+    )
+    expect_error(
+      wrapper$two_step(list(allow_pinv = FALSE)),
+      "singular",
+      info = label
+    )
   }
 })
 
@@ -618,6 +845,12 @@ test_that("gmm_estimate() formula interface reproduces the two-step fit", {
 # needs more than the default ten updating iterations to settle here, which also
 # makes this the one system where overid_maxiter and overid_tolerance are
 # observable in the fit.
+#
+# The moment conditions are written against a design matrix and a response so
+# that the same function serves as the .ee of a formula fit.
+# prepare_formula_psi() passes allow_over_identification = TRUE on the GMM path,
+# so a .ee returning more rows than the design has columns reaches the updating
+# loop from a formula as readily as from a closure.
 
 make_iv_data <- function() {
   set.seed(42)
@@ -630,12 +863,15 @@ make_iv_data <- function() {
   data.frame(z1 = z1, z2 = z2, u = u, a = a, y = y)
 }
 
+iv_moment_conditions <- function(theta, X, y, z1, z2) {
+  residual <- as.numeric(y - X %*% theta)
+  rbind(z1 * residual, z2 * residual)
+}
+
 make_iv_psi <- function(d) {
+  X <- stats::model.matrix(y ~ a - 1, data = d)
   function(theta) {
-    rbind(
-      d$z1 * (d$y - theta[1] * d$a),
-      d$z2 * (d$y - theta[1] * d$a)
-    )
+    iv_moment_conditions(theta, X = X, y = d$y, z1 = d$z1, z2 = d$z2)
   }
 }
 
@@ -682,44 +918,80 @@ test_that("gmm_estimate() solves the over-identified IV system", {
   expect_lt(abs(unname(coef(g)) - 2), abs(ols - 2))
 })
 
+# The fully converged fit is the baseline the other two are measured against:
+# zero updating iterations leaves the identity weight matrix in place, and a
+# tolerance of 1 stops the updating after a single step. The package default of
+# ten iterations does not settle this system and warns, so it cannot serve as
+# the baseline.
+overid_argument_sets <- list(
+  "converged updating" = arg_case(
+    list(overid_maxiter = 200L),
+    differs = FALSE
+  ),
+  "no updating step" = arg_case(list(overid_maxiter = 0L)),
+  "loose overid_tolerance" = arg_case(list(
+    overid_maxiter = 200L,
+    overid_tolerance = 1
+  ))
+)
+
 test_that("gmm_estimate() over-identified fit reproduces the two-step fit", {
   d <- make_iv_data()
   psi <- make_iv_psi(d)
   init <- c(effect = 0)
 
-  overid_argument_sets <- list(
-    "converged updating" = list(overid_maxiter = 200L),
-    "no updating step" = list(overid_maxiter = 0L),
-    "loose overid_tolerance" = list(
-      overid_maxiter = 200L,
-      overid_tolerance = 1
-    )
-  )
-
-  fits <- list()
-  for (label in names(overid_argument_sets)) {
-    args <- overid_argument_sets[[label]]
-    one_step <- do.call(
-      gmm_estimate,
-      c(list(stacked_equations = psi, init = init), args)
-    )
-    two_step <- fit_two_step(GMMEstimator, psi, init, args)
-    expect_same_fit(one_step, two_step, label)
-    fits[[label]] <- one_step
+  one_step <- function(args) {
+    do.call(gmm_estimate, c(list(stacked_equations = psi, init = init), args))
   }
+  two_step <- function(args) fit_two_step(GMMEstimator, psi, init, args)
 
-  # Both controls change the answer, so the comparisons above are not vacuous.
-  # Zero updating iterations leaves the identity weight matrix in place, and a
-  # tolerance of 1 stops the updating after a single step.
-  expect_identical(fits[["no updating step"]]@weight_matrix, diag(2))
-  expect_false(identical(
-    coef(fits[["converged updating"]]),
-    coef(fits[["no updating step"]])
-  ))
-  expect_false(identical(
-    coef(fits[["converged updating"]]),
-    coef(fits[["loose overid_tolerance"]])
-  ))
+  expect_grid_matches(
+    overid_argument_sets,
+    one_step,
+    two_step,
+    one_step(list(overid_maxiter = 200L))
+  )
+  expect_identical(
+    one_step(list(overid_maxiter = 0L))@weight_matrix,
+    diag(2)
+  )
+})
+
+test_that("gmm_estimate() formula interface reaches the updating loop", {
+  d <- make_iv_data()
+  psi <- make_iv_psi(d)
+  init <- c(a = 0)
+
+  one_step <- function(args) {
+    do.call(
+      gmm_estimate,
+      c(
+        list(
+          y ~ a - 1,
+          data = d,
+          .ee = iv_moment_conditions,
+          z1 = d$z1,
+          z2 = d$z2
+        ),
+        args
+      )
+    )
+  }
+  two_step <- function(args) fit_two_step(GMMEstimator, psi, init, args)
+
+  # Two moment conditions against the single column the formula supplies, so
+  # the formula fit really is over-identified and the controls are live.
+  expect_identical(dim(psi(init)), c(2L, 200L))
+  expect_grid_matches(
+    overid_argument_sets,
+    one_step,
+    two_step,
+    one_step(list(overid_maxiter = 200L))
+  )
+  expect_identical(
+    one_step(list(overid_maxiter = 0L))@weight_matrix,
+    diag(2)
+  )
 })
 
 # ---- Phase 5: Broom tidiers -------------------------------------------------
