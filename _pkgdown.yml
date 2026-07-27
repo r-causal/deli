@@ -64,11 +64,14 @@ reference:
   - title: Statistical Inference
     desc: Tools for statistical inference from fitted estimators.
     contents:
+      - deli-generics
+      - deli-tidiers
       - confidence_intervals
       - z_scores
       - p_values
       - s_values
       - confidence_bands
+      - compute_confidence_bands
       - delta_method
       - influence_functions
       - compute_sandwich
@@ -143,8 +146,12 @@ reference:
       - plogit_predict
       - convert_survival_measures
 
-  - title: Utilities
-    desc: Transformation functions, loss functions, and other helpers.
+  - title: Transformations and Math
+    desc: >
+      Transformations and special functions that mirror base R counterparts such
+      as `plogis()`, `qlogis()`, `pnorm()`, `dnorm()`, and `psigamma()`. Several
+      are required in place of those counterparts under exact differentiation,
+      which the base R versions do not support.
     contents:
       - logit
       - inverse_logit
@@ -153,14 +160,16 @@ reference:
       - standard_normal_pdf
       - deli_polygamma
       - deli_digamma
+
+  - title: Model Building Utilities
+    desc: >
+      Helpers for building estimating equations and design matrices. None has a
+      base R counterpart that returns the same values.
+    contents:
       - robust_loss_functions
       - aggregate_efuncs
       - deli_spline
       - additive_design_matrix
-      - compute_confidence_bands
-      - gmm_estimate
-      - deli-generics
-      - deli-tidiers
 
   - title: Datasets
     desc: Bundled example datasets.
