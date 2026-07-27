@@ -26,3 +26,34 @@ A 4-by-n matrix.
 Corrects for mismeasured binary outcomes using external validation data
 to estimate sensitivity and specificity.
 }
+\examples{
+# A main study measures a binary outcome with an imperfect test. An external
+# validation study measures both the test and the gold standard, and so
+# informs the sensitivity and specificity used to correct the main study.
+set.seed(2)
+n_main <- 500
+n_validation <- 400
+n <- n_main + n_validation
+y_true <- rbinom(n, 1, 0.25)
+y_star <- ifelse(y_true == 1, rbinom(n, 1, 0.9), 1 - rbinom(n, 1, 0.85))
+r <- c(rep(1, n_main), rep(0, n_validation))
+
+# The gold standard is unobserved in the main study, so those positions carry
+# a 0 placeholder. The placeholder never reaches an estimate: the sensitivity
+# and specificity equations are multiplied by (1 - r).
+y <- ifelse(r == 1, 0, y_true)
+
+psi <- function(theta) {
+  ee_rogan_gladen(theta, y = y, y_star = y_star, r = r)
+}
+
+m <- MEstimator(
+  stacked_equations = psi,
+  init = c(0.5, 0.5, 0.75, 0.75)
+) |>
+  estimate()
+
+# Corrected prevalence, naive prevalence, sensitivity, specificity
+coef(m)
+
+}

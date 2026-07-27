@@ -32,3 +32,30 @@ A \code{(2+p)}-by-n matrix.
 Corrects for measurement error in a binary predictor using external
 validation data. Scales the naive coefficient by the calibration factor.
 }
+\examples{
+# A binary exposure is measured with error in the main study. The external
+# validation study regresses the gold-standard exposure on the mismeasured
+# one, and that calibration slope rescales the naive outcome coefficient.
+set.seed(789)
+n <- 500
+a_true <- rbinom(n, 1, 0.5)
+a_star <- ifelse(a_true == 1, rbinom(n, 1, 0.85), rbinom(n, 1, 0.1))
+r <- c(rep(0, 200), rep(1, 300))
+
+# Gold standard observed only in the validation sample (r == 0)
+a <- ifelse(r == 0, a_true, 0)
+
+# `beta` is the naive coefficient for the mismeasured exposure, supplied here
+# as a fixed external value. Stack an outcome model and pass its coefficient
+# instead to propagate the uncertainty in that estimate as well.
+psi <- function(theta) {
+  ee_regression_calibration(theta, beta = 0.8, a = a, a_star = a_star, r = r)
+}
+
+m <- MEstimator(stacked_equations = psi, init = c(1, 0.1, 0.5)) |>
+  estimate()
+
+# Corrected coefficient, then the calibration slope and intercept
+coef(m)
+
+}

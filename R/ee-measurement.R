@@ -13,6 +13,36 @@
 #'
 #' @returns A 4-by-n matrix.
 #'
+#' @examples
+#' # A main study measures a binary outcome with an imperfect test. An external
+#' # validation study measures both the test and the gold standard, and so
+#' # informs the sensitivity and specificity used to correct the main study.
+#' set.seed(2)
+#' n_main <- 500
+#' n_validation <- 400
+#' n <- n_main + n_validation
+#' y_true <- rbinom(n, 1, 0.25)
+#' y_star <- ifelse(y_true == 1, rbinom(n, 1, 0.9), 1 - rbinom(n, 1, 0.85))
+#' r <- c(rep(1, n_main), rep(0, n_validation))
+#'
+#' # The gold standard is unobserved in the main study, so those positions carry
+#' # a 0 placeholder. The placeholder never reaches an estimate: the sensitivity
+#' # and specificity equations are multiplied by (1 - r).
+#' y <- ifelse(r == 1, 0, y_true)
+#'
+#' psi <- function(theta) {
+#'   ee_rogan_gladen(theta, y = y, y_star = y_star, r = r)
+#' }
+#'
+#' m <- MEstimator(
+#'   stacked_equations = psi,
+#'   init = c(0.5, 0.5, 0.75, 0.75)
+#' ) |>
+#'   estimate()
+#'
+#' # Corrected prevalence, naive prevalence, sensitivity, specificity
+#' coef(m)
+#'
 #' @export
 ee_rogan_gladen <- function(theta, y, y_star, r, weights = NULL) {
   y <- as.numeric(y)
@@ -64,6 +94,30 @@ ee_rogan_gladen <- function(theta, y, y_star, r, weights = NULL) {
 #' @param weights Optional numeric vector of n weights. Default `NULL`.
 #'
 #' @returns A `(1+2*p)`-by-n matrix.
+#'
+#' @examples
+#' # The same validation design as ee_rogan_gladen(), with sensitivity and
+#' # specificity now modeled by logistic regression. The design matrix here is
+#' # intercept only, so both models estimate a single log-odds.
+#' set.seed(123)
+#' n <- 500
+#' y_true <- rbinom(n, 1, 0.3)
+#' y_star <- ifelse(y_true == 1, rbinom(n, 1, 0.9), 1 - rbinom(n, 1, 0.85))
+#' r <- c(rep(0, 200), rep(1, 300))
+#'
+#' # Gold standard observed only in the validation sample (r == 0)
+#' y <- ifelse(r == 0, y_true, 0)
+#' X <- cbind(rep(1, n))
+#'
+#' psi <- function(theta) {
+#'   ee_rogan_gladen_extended(theta, y = y, y_star = y_star, r = r, X = X)
+#' }
+#'
+#' m <- MEstimator(stacked_equations = psi, init = c(0.5, 1, 1)) |>
+#'   estimate()
+#'
+#' # Corrected prevalence, then the sensitivity and specificity intercepts
+#' coef(m)
 #'
 #' @export
 ee_rogan_gladen_extended <- function(theta, y, y_star, r, X, weights = NULL) {
@@ -129,6 +183,32 @@ ee_rogan_gladen_extended <- function(theta, y, y_star, r, X, weights = NULL) {
 #' @param weights Optional numeric vector of n weights. Default `NULL`.
 #'
 #' @returns A `(2+p)`-by-n matrix.
+#'
+#' @examples
+#' # A binary exposure is measured with error in the main study. The external
+#' # validation study regresses the gold-standard exposure on the mismeasured
+#' # one, and that calibration slope rescales the naive outcome coefficient.
+#' set.seed(789)
+#' n <- 500
+#' a_true <- rbinom(n, 1, 0.5)
+#' a_star <- ifelse(a_true == 1, rbinom(n, 1, 0.85), rbinom(n, 1, 0.1))
+#' r <- c(rep(0, 200), rep(1, 300))
+#'
+#' # Gold standard observed only in the validation sample (r == 0)
+#' a <- ifelse(r == 0, a_true, 0)
+#'
+#' # `beta` is the naive coefficient for the mismeasured exposure, supplied here
+#' # as a fixed external value. Stack an outcome model and pass its coefficient
+#' # instead to propagate the uncertainty in that estimate as well.
+#' psi <- function(theta) {
+#'   ee_regression_calibration(theta, beta = 0.8, a = a, a_star = a_star, r = r)
+#' }
+#'
+#' m <- MEstimator(stacked_equations = psi, init = c(1, 0.1, 0.5)) |>
+#'   estimate()
+#'
+#' # Corrected coefficient, then the calibration slope and intercept
+#' coef(m)
 #'
 #' @export
 ee_regression_calibration <- function(

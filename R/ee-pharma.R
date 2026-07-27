@@ -13,6 +13,19 @@
 #'
 #' @returns A 3-by-n matrix.
 #'
+#' @examples
+#' # Dose-response of a herbicide on ryegrass root length. The response falls
+#' # with dose, so the maximum response parameter is initialized negative.
+#' psi <- function(theta) {
+#'   ee_emax(theta, dose = inderjit$dose, response = inderjit$response)
+#' }
+#'
+#' m <- MEstimator(stacked_equations = psi, init = c(8, -8, 2)) |>
+#'   estimate()
+#'
+#' # Zero-dose response, maximum change in response, and ED50
+#' coef(m)
+#'
 #' @export
 ee_emax <- function(theta, dose, response, loss = NULL, k = NULL) {
   dose <- as.numeric(dose)
@@ -60,6 +73,30 @@ ee_emax <- function(theta, dose, response, loss = NULL, k = NULL) {
 #'
 #' @returns A 1-by-n matrix.
 #'
+#' @examples
+#' # This equation carries no information on its own, so stack it with the
+#' # E-max equation that supplies the ED50. Here delta = 0.9 requests the ED90.
+#' psi <- function(theta) {
+#'   emax <- ee_emax(
+#'     theta[1:3],
+#'     dose = inderjit$dose,
+#'     response = inderjit$response
+#'   )
+#'   ed90 <- ee_emax_ed(
+#'     theta[4],
+#'     dose = inderjit$dose,
+#'     delta = 0.9,
+#'     ed50 = theta[3]
+#'   )
+#'   rbind(emax, ed90)
+#' }
+#'
+#' m <- MEstimator(stacked_equations = psi, init = c(8, -8, 2, 10)) |>
+#'   estimate()
+#'
+#' # theta_4 is the ED90, and stacking gives it its own sandwich standard error
+#' coef(m)
+#'
 #' @export
 ee_emax_ed <- function(theta, dose, delta, ed50) {
   n <- length(dose)
@@ -80,6 +117,19 @@ ee_emax_ed <- function(theta, dose, delta, ed50) {
 #' @param k Optional numeric tuning parameter for robust loss.
 #'
 #' @returns A 4-by-n matrix.
+#'
+#' @examplesIf requireNamespace("nleqslv", quietly = TRUE)
+#' # Four-parameter log-logistic dose-response for the ryegrass data.
+#' psi <- function(theta) {
+#'   ee_loglogistic(theta, dose = inderjit$dose, response = inderjit$response)
+#' }
+#'
+#' # The default rootSolve solver does not converge here, so nleqslv is used.
+#' m <- MEstimator(stacked_equations = psi, init = c(0.2, 8, 2, 1)) |>
+#'   estimate(solver = "nleqslv")
+#'
+#' # Lower limit, upper limit, ED50, and steepness
+#' coef(m)
 #'
 #' @export
 ee_loglogistic <- function(theta, dose, response, loss = NULL, k = NULL) {
@@ -137,6 +187,38 @@ ee_loglogistic <- function(theta, dose, response, loss = NULL, k = NULL) {
 #' @param steepness Numeric steepness parameter.
 #'
 #' @returns A 1-by-n matrix.
+#'
+#' @examples
+#' # The lower limit is held at zero instead of being estimated: root length
+#' # cannot fall below zero, and the five-parameter stack diverges on these
+#' # data. The lower-limit row of the log-logistic equation is therefore
+#' # dropped, leaving the upper limit, ED50, and steepness to be estimated
+#' # alongside the ED90.
+#' psi <- function(theta) {
+#'   loglogistic <- ee_loglogistic(
+#'     c(0, theta[1:3]),
+#'     dose = inderjit$dose,
+#'     response = inderjit$response
+#'   )
+#'   ed90 <- ee_loglogistic_ed(
+#'     theta[4],
+#'     dose = inderjit$dose,
+#'     delta = 0.9,
+#'     lower = 0,
+#'     upper = theta[1],
+#'     ed50 = theta[2],
+#'     steepness = theta[3]
+#'   )
+#'   rbind(loglogistic[-1, , drop = FALSE], ed90)
+#' }
+#'
+#' # This stacked system is sensitive to its starting values, so a reasonable
+#' # init matters more here than it does for most equations.
+#' m <- MEstimator(stacked_equations = psi, init = c(8, 2, 1, 5)) |>
+#'   estimate()
+#'
+#' # Upper limit, ED50, steepness, and the ED90
+#' coef(m)
 #'
 #' @export
 ee_loglogistic_ed <- function(

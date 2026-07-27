@@ -22,3 +22,28 @@ A 1-by-n matrix.
 Computes the effective dose at level delta from the E-max model.
 Should be stacked with \code{\link[=ee_emax]{ee_emax()}}.
 }
+\examples{
+# This equation carries no information on its own, so stack it with the
+# E-max equation that supplies the ED50. Here delta = 0.9 requests the ED90.
+psi <- function(theta) {
+  emax <- ee_emax(
+    theta[1:3],
+    dose = inderjit$dose,
+    response = inderjit$response
+  )
+  ed90 <- ee_emax_ed(
+    theta[4],
+    dose = inderjit$dose,
+    delta = 0.9,
+    ed50 = theta[3]
+  )
+  rbind(emax, ed90)
+}
+
+m <- MEstimator(stacked_equations = psi, init = c(8, -8, 2, 10)) |>
+  estimate()
+
+# theta_4 is the ED90, and stacking gives it its own sandwich standard error
+coef(m)
+
+}

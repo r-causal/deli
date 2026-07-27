@@ -25,3 +25,18 @@ A 4-by-n matrix.
 Implements the 4-parameter log-logistic model:
 \deqn{R_i = \theta_0 + \frac{\theta_m - \theta_0}{1 + \exp[\theta_s (\log D_i - \log \theta_{50})]}}
 }
+\examples{
+\dontshow{if (requireNamespace("nleqslv", quietly = TRUE)) withAutoprint(\{ # examplesIf}
+# Four-parameter log-logistic dose-response for the ryegrass data.
+psi <- function(theta) {
+  ee_loglogistic(theta, dose = inderjit$dose, response = inderjit$response)
+}
+
+# The default rootSolve solver does not converge here, so nleqslv is used.
+m <- MEstimator(stacked_equations = psi, init = c(0.2, 8, 2, 1)) |>
+  estimate(solver = "nleqslv")
+
+# Lower limit, upper limit, ED50, and steepness
+coef(m)
+\dontshow{\}) # examplesIf}
+}
