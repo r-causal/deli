@@ -71,8 +71,7 @@ psi <- function(theta) {
   rbind(row1, row2, row3)
 }
 
-m <- MEstimator(stacked_equations = psi, init = c(1, 1, 1))
-m <- estimate(m)
+m <- MEstimator(stacked_equations = psi, init = c(1, 1, 1)) |> estimate()
 m@theta
 ```
 
@@ -137,8 +136,7 @@ psi <- function(theta) {
   rbind(ee_reg, ee_or)
 }
 
-m <- MEstimator(stacked_equations = psi, init = c(0, 0, 1))
-m <- estimate(m)
+m <- MEstimator(stacked_equations = psi, init = c(0, 0, 1)) |> estimate()
 summary(m)
 ```
 
@@ -177,8 +175,7 @@ psi_reg <- function(theta) {
   ee_regression(theta, X = X, y = y, model = "logistic")
 }
 
-m_reg <- MEstimator(stacked_equations = psi_reg, init = c(0, 0))
-m_reg <- estimate(m_reg)
+m_reg <- MEstimator(stacked_equations = psi_reg, init = c(0, 0)) |> estimate()
 m_reg@theta
 ```
 
@@ -198,8 +195,7 @@ interval:
 or_est <- exp(m_reg@theta[2])
 or_se <- sqrt(dm_var[1, 1])
 ci <- or_est + c(-1, 1) * qnorm(0.975) * or_se
-cat("OR:", round(or_est, 3), "\n")
-cat("95% CI:", round(ci[1], 3), "to", round(ci[2], 3), "\n")
+round(c(or = unname(or_est), lower = ci[1], upper = ci[2]), 3)
 ```
 
 ### When to use the delta method vs. stacking

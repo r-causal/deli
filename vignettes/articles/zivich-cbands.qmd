@@ -78,22 +78,27 @@ estfunc <- function(theta) {
 
 # Estimating the parameters
 inits <- c(0, 0, 300, 300, 300, 300, rep(0, n_alpha))
-estr <- MEstimator(stacked_equations = estfunc, init = inits)
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = estfunc, init = inits) |> estimate()
 psi <- estr@theta
 
 # Confidence intervals
-ci <- confidence_intervals(estr)
+ci <- confint(estr)
 # Confidence bands (1-based subset for R)
 cb <- confidence_bands(estr, method = "supt", subset = 1:2, seed = 10177L)
 ```
 
+The 95% confidence intervals for the two causal effects are
+
 ```{r}
-#| label: case1-results
-cat("95% Confidence Intervals\n")
-print(ci[1:2, ])
-cat("\n95% Confidence Bands\n")
-print(cb)
+#| label: case1-intervals
+ci[1:2, ]
+```
+
+and the 95% confidence bands are
+
+```{r}
+#| label: case1-bands
+cb
 ```
 
 As shown here, the confidence bands encapsulate the confidence intervals. These wider intervals are the price we pay to have simultaneous coverage of our parameters. However, this drop in precision is important since our interest (and thus our interpretations) are for more than one parameter. This distinction between confidence regions is slightly easier to understand visually.
@@ -177,12 +182,11 @@ estfunc <- function(theta) {
 
 # Estimating the parameters
 inits <- c(300, 0, 0, 0, rep(0, n_alpha))
-estr <- MEstimator(stacked_equations = estfunc, init = inits)
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = estfunc, init = inits) |> estimate()
 psi <- estr@theta
 
 # Confidence intervals
-ci <- confidence_intervals(estr)
+ci <- confint(estr)
 # Confidence bands (1-based subset for R)
 cb <- confidence_bands(estr, method = "supt", subset = 1:4, seed = 10177L)
 ```
@@ -190,7 +194,7 @@ cb <- confidence_bands(estr, method = "supt", subset = 1:4, seed = 10177L)
 ```{r}
 #| label: case2-results
 # Display results
-results <- data.frame(
+data.frame(
   Names = colnames(msm),
   Estimate = round(psi[1:4], 1),
   Interval = sapply(1:4, function(i) {
@@ -200,7 +204,6 @@ results <- data.frame(
     paste0("[", round(cb[i, 1], 1), " ", round(cb[i, 2], 1), "]")
   })
 )
-print(results)
 ```
 
 Again, the bands compensate for the fact that we are interested in simultaneous inference. Additionally, we restrict the computation of the confidence bands only to the parameters of interest (the first 4 parameters of `theta`).
@@ -256,8 +259,7 @@ estfunc <- function(theta) {
 
 # Estimating the parameters
 inits <- c(300, rep(0, msm_size - 1), rep(0, n_alpha))
-estr <- MEstimator(stacked_equations = estfunc, init = inits)
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = estfunc, init = inits) |> estimate()
 
 psi <- estr@theta[1:msm_size]
 v_psi <- estr@variance[1:msm_size, 1:msm_size]

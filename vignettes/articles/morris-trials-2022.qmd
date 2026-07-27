@@ -153,13 +153,16 @@ estr <- MEstimator(
     )
   },
   init = c(0, 0, 0.5, 0.5, rep(0, n_beta_oc))
-)
-estr <- estimate(estr)
+) |>
+  estimate()
 
 # Results
 se <- sqrt(diag(estr@variance))
-cat(sprintf("Risk Difference: %.3f (%.3f)\n", estr@theta[1], se[1]))
-cat(sprintf("Risk Ratio:      %.3f (%.3f)\n", estr@theta[2], se[2]))
+data.frame(
+  Measure = c("Risk Difference", "Risk Ratio"),
+  Estimate = round(estr@theta[1:2], 3),
+  SE = round(se[1:2], 3)
+)
 ```
 
 ## Inverse Probability Weighting
@@ -228,13 +231,16 @@ estr <- MEstimator(
     )
   },
   init = c(0, 0, 0.5, 0.5, rep(0, n_beta_ps))
-)
-estr <- estimate(estr)
+) |>
+  estimate()
 
 # Results
 se <- sqrt(diag(estr@variance))
-cat(sprintf("Risk Difference: %.3f (%.3f)\n", estr@theta[1], se[1]))
-cat(sprintf("Risk Ratio:      %.3f (%.3f)\n", estr@theta[2], se[2]))
+data.frame(
+  Measure = c("Risk Difference", "Risk Ratio"),
+  Estimate = round(estr@theta[1:2], 3),
+  SE = round(se[1:2], 3)
+)
 ```
 
 ## Discussion

@@ -142,8 +142,7 @@ psi <- function(theta) {
 }
 
 # Construct the estimator and solve
-m <- MEstimator(stacked_equations = psi, init = 0)
-m <- estimate(m)
+m <- MEstimator(stacked_equations = psi, init = 0) |> estimate()
 
 coef(m)
 ```
@@ -185,8 +184,7 @@ psi <- function(theta) {
   ee_mean_variance(theta, y = y)
 }
 
-m <- MEstimator(stacked_equations = psi, init = c(0, 0))
-m <- estimate(m)
+m <- MEstimator(stacked_equations = psi, init = c(0, 0)) |> estimate()
 m@theta  # c(mean, variance)
 ```
 
@@ -216,8 +214,8 @@ psi <- function(theta) {
 m <- MEstimator(
   stacked_equations = psi,
   init = c(0, 0, 0, 0, 0)
-)
-m <- estimate(m)
+) |>
+  estimate()
 
 # ACE (average causal effect) ~ 2
 m@theta[1]
@@ -239,8 +237,7 @@ psi <- function(theta) {
   ee_regression(theta, X = X, y = y, model = "linear")
 }
 
-m <- MEstimator(stacked_equations = psi, init = c(0, 0))
-m <- estimate(m)
+m <- MEstimator(stacked_equations = psi, init = c(0, 0)) |> estimate()
 
 # Predict at new values
 x_new <- seq(-2, 2, by = 1)
@@ -268,8 +265,7 @@ psi <- function(theta) {
   aggregate_efuncs(ef, group = group)
 }
 
-m <- MEstimator(stacked_equations = psi, init = mean(y))
-m <- estimate(m)
+m <- MEstimator(stacked_equations = psi, init = mean(y)) |> estimate()
 
 m@theta
 m@variance  # Accounts for within-cluster correlation
@@ -303,8 +299,7 @@ psi <- function(theta) {
   ee_regression(theta, X = X, y = y, model = "logistic")
 }
 
-m <- MEstimator(stacked_equations = psi, init = c(0, 0))
-m <- estimate(m)
+m <- MEstimator(stacked_equations = psi, init = c(0, 0)) |> estimate()
 
 # Variance of the predicted probability at x = 1, via the delta method.
 # The log-odds at the pattern (intercept = 1, x = 1) is theta[1] + theta[2].

@@ -42,8 +42,7 @@ y <- d$MathAch
 X <- as.matrix(d[, c("intercept", "female", "cses")])
 g <- d$School
 
-cat("Students:", nrow(d), "\n")
-cat("Schools:", length(unique(g)), "\n")
+c(students = nrow(d), schools = length(unique(g)))
 ```
 
 ## Example 1: Ignoring Clustering
@@ -65,15 +64,15 @@ estr <- MEstimator(
     ee_regression(theta, X = X, y = y, model = "linear")
   },
   init = c(10, 0, 0)
-)
-estr <- estimate(estr)
+) |>
+  estimate()
 
 # Results
 data.frame(
   Param = c("Intercept", "Female", "Centered SES"),
   Coef = round(estr@theta, 4),
-  LCL = round(confidence_intervals(estr)[, 1], 4),
-  UCL = round(confidence_intervals(estr)[, 2], 4)
+  LCL = round(confint(estr)[, 1], 4),
+  UCL = round(confint(estr)[, 2], 4)
 )
 ```
 
@@ -105,15 +104,15 @@ estr_cl <- MEstimator(
     aggregate_efuncs(ef, group = g)
   },
   init = c(10, 0, 0)
-)
-estr_cl <- estimate(estr_cl)
+) |>
+  estimate()
 
 # Results
 data.frame(
   Param = c("Intercept", "Female", "Centered SES"),
   Coef = round(estr_cl@theta, 4),
-  LCL = round(confidence_intervals(estr_cl)[, 1], 4),
-  UCL = round(confidence_intervals(estr_cl)[, 2], 4)
+  LCL = round(confint(estr_cl)[, 1], 4),
+  UCL = round(confint(estr_cl)[, 2], 4)
 )
 ```
 

@@ -64,9 +64,8 @@ psi <- function(theta) {
 }
 
 # theta: ACE, E[Y(1)], E[Y(0)], beta0, beta1, beta2, beta3
-m <- MEstimator(stacked_equations = psi,
-                 init = c(0, 0, 0, 0, 0, 0, 0))
-m <- estimate(m)
+m <- MEstimator(stacked_equations = psi, init = c(0, 0, 0, 0, 0, 0, 0)) |>
+  estimate()
 
 # ACE estimate (true = 1.5)
 m@theta[1]
@@ -90,9 +89,8 @@ psi <- function(theta) {
 }
 
 # theta: ACE, E[Y(1)], E[Y(0)], alpha0, alpha1, alpha2
-m <- MEstimator(stacked_equations = psi,
-                 init = c(0, 0, 0, 0, 0, 0))
-m <- estimate(m)
+m <- MEstimator(stacked_equations = psi, init = c(0, 0, 0, 0, 0, 0)) |>
+  estimate()
 
 # ACE
 m@theta[1]
@@ -110,9 +108,8 @@ psi <- function(theta) {
          truncate = c(0.1, 0.9))
 }
 
-m <- MEstimator(stacked_equations = psi,
-                 init = c(0, 0, 0, 0, 0, 0))
-m <- estimate(m)
+m <- MEstimator(stacked_equations = psi, init = c(0, 0, 0, 0, 0, 0)) |>
+  estimate()
 m@theta[1]
 ```
 
@@ -135,9 +132,11 @@ psi <- function(theta) {
 }
 
 # theta: ACE, E[Y(1)], E[Y(0)], alpha (3), beta (4)
-m <- MEstimator(stacked_equations = psi,
-                 init = c(0, 0, 0, rep(0, 3), rep(0, 4)))
-m <- estimate(m)
+m <- MEstimator(
+  stacked_equations = psi,
+  init = c(0, 0, 0, rep(0, 3), rep(0, 4))
+) |>
+  estimate()
 
 # ACE
 m@theta[1]
@@ -147,36 +146,37 @@ summary(m)
 ## Comparing methods
 
 ```{r}
-cat("True ATE: 1.5\n")
-cat(sprintf("G-formula: %.3f\n", {
-  psi <- function(theta) {
-    ee_gformula(theta, y = Y, X = cbind(1, A, W1, W2),
-                X1 = cbind(1, 1, W1, W2),
-                X0 = cbind(1, 0, W1, W2))
-  }
-  m <- MEstimator(stacked_equations = psi, init = rep(0, 7))
-  m <- estimate(m)
-  m@theta[1]
-}))
-cat(sprintf("IPW:       %.3f\n", {
-  psi <- function(theta) {
-    ee_ipw(theta, y = Y, A = A, W = cbind(1, W1, W2))
-  }
-  m <- MEstimator(stacked_equations = psi, init = rep(0, 6))
-  m <- estimate(m)
-  m@theta[1]
-}))
-cat(sprintf("AIPW:      %.3f\n", {
-  psi <- function(theta) {
-    ee_aipw(theta, y = Y, A = A, W = cbind(1, W1, W2),
-            X = cbind(1, A, W1, W2),
-            X1 = cbind(1, 1, W1, W2),
-            X0 = cbind(1, 0, W1, W2))
-  }
-  m <- MEstimator(stacked_equations = psi, init = rep(0, 10))
-  m <- estimate(m)
-  m@theta[1]
-}))
+psi_gformula <- function(theta) {
+  ee_gformula(theta, y = Y, X = cbind(1, A, W1, W2),
+              X1 = cbind(1, 1, W1, W2),
+              X0 = cbind(1, 0, W1, W2))
+}
+m_gformula <- MEstimator(stacked_equations = psi_gformula, init = rep(0, 7)) |>
+  estimate()
+
+psi_ipw <- function(theta) {
+  ee_ipw(theta, y = Y, A = A, W = cbind(1, W1, W2))
+}
+m_ipw <- MEstimator(stacked_equations = psi_ipw, init = rep(0, 6)) |>
+  estimate()
+
+psi_aipw <- function(theta) {
+  ee_aipw(theta, y = Y, A = A, W = cbind(1, W1, W2),
+          X = cbind(1, A, W1, W2),
+          X1 = cbind(1, 1, W1, W2),
+          X0 = cbind(1, 0, W1, W2))
+}
+m_aipw <- MEstimator(stacked_equations = psi_aipw, init = rep(0, 10)) |>
+  estimate()
+
+data.frame(
+  method = c("G-formula", "IPW", "AIPW"),
+  estimate = round(
+    c(m_gformula@theta[[1]], m_ipw@theta[[1]], m_aipw@theta[[1]]),
+    3
+  ),
+  true_ate = 1.5
+)
 ```
 
 ## Further reading
