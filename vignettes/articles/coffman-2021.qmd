@@ -88,8 +88,7 @@ psi_ace <- function(theta) {
 }
 
 init_vals <- c(0, 0.5, 0.5, rep(0, ncol(W_matrix)))
-estr <- MEstimator(stacked_equations = psi_ace, init = init_vals) |>
-  estimate()
+estr <- m_estimate(stacked_equations = psi_ace, init = init_vals)
 
 c(ace = coef(estr)[[1]], confint(estr)[1, ])
 ```
@@ -189,8 +188,7 @@ psi_cde <- function(theta) {
 init_vals <- c(0, 0, 0.5, 0.5, 0.5, 0.5,
                rep(0, ncol(W_matrix)),
                rep(0, ncol(X_matrix)))
-estr <- MEstimator(stacked_equations = psi_cde, init = init_vals) |>
-  estimate()
+estr <- m_estimate(stacked_equations = psi_cde, init = init_vals)
 
 cde <- cbind(estimate = coef(estr), confint(estr))[1:2, ]
 rownames(cde) <- c("CDE(1)", "CDE(0)")
@@ -292,8 +290,7 @@ psi_pde <- function(theta) {
 init_vals <- c(0, 0.5, 0.5,
                rep(0, ncol(W_matrix)),
                rep(0, ncol(X_matrix)))
-estr <- MEstimator(stacked_equations = psi_pde, init = init_vals) |>
-  estimate()
+estr <- m_estimate(stacked_equations = psi_pde, init = init_vals)
 
 c(pde = coef(estr)[[1]], confint(estr)[1, ])
 ```
@@ -345,8 +342,7 @@ psi_pie <- function(theta) {
 init_vals <- c(0, 0.5, 0.5,
                rep(0, ncol(W_matrix)),
                rep(0, ncol(X_matrix)))
-estr <- MEstimator(stacked_equations = psi_pie, init = init_vals) |>
-  estimate()
+estr <- m_estimate(stacked_equations = psi_pie, init = init_vals)
 
 c(pie = coef(estr)[[1]], confint(estr)[1, ])
 ```
@@ -399,8 +395,7 @@ psi_full <- function(theta) {
 init_vals <- c(0, 0, 0.5, 0.5, 0.5,
                rep(0, ncol(W_matrix)),
                rep(0, ncol(X_matrix)))
-estr <- MEstimator(stacked_equations = psi_full, init = init_vals) |>
-  estimate()
+estr <- m_estimate(stacked_equations = psi_full, init = init_vals)
 cb <- confidence_bands(estr, subset = c(1, 2), seed = 921453)
 
 pure <- cbind(estimate = coef(estr)[1:2], cb)

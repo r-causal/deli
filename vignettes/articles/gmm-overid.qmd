@@ -58,12 +58,12 @@ Y <- 2 * A - W * A + rnorm(n)
 ### Estimation with separate parameters
 
 Each instrument defines its own estimating equation with its own parameter. This
-is a square system (2 equations, 2 parameters), so `MEstimator` works.
+is a square system (2 equations, 2 parameters), so `m_estimate()` solves it.
 
 ```{r}
 #| label: iv-separate
 # Two instruments, two parameters (just-identified)
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     # Z1 moment condition with beta_1
     ee1 <- matrix(Z1 * (Y - theta[1] * A), nrow = 1)
@@ -72,8 +72,7 @@ estr <- MEstimator(
     rbind(ee1, ee2)
   },
   init = c(0, 0)
-) |>
-  estimate()
+)
 
 data.frame(
   Param = c("beta_1 (Z1)", "beta_2 (Z2)"),
@@ -120,12 +119,13 @@ estr_fail <- MEstimator(
 `GMMEstimator` handles the over-identified case by minimizing a quadratic form
 $Q(\theta) = \bar{g}(\theta)^T W \bar{g}(\theta)$, where $\bar{g}(\theta)$ is
 the vector of average estimating equations and $W$ is a weight matrix. It
-iterates to find the optimal weight matrix.
+iterates to find the optimal weight matrix. `gmm_estimate()` builds one and
+solves it in a single call.
 
 ```{r}
 #| label: gmm-combined
 # Over-identified: 2 equations, 1 parameter
-estr_gmm <- GMMEstimator(
+estr_gmm <- gmm_estimate(
   stacked_equations = function(theta) {
     # Both instruments, single beta
     ee1 <- matrix(Z1 * (Y - theta[1] * A), nrow = 1)
@@ -133,8 +133,7 @@ estr_gmm <- GMMEstimator(
     rbind(ee1, ee2)
   },
   init = c(0)
-) |>
-  estimate()
+)
 
 data.frame(
   Param = "beta (combined)",
@@ -214,7 +213,7 @@ A_all <- d$A
 Y_all <- d$Y
 X_s <- cbind(1, W_vec)  # Design matrix for sampling model
 
-estr_transport <- GMMEstimator(
+estr_transport <- gmm_estimate(
   stacked_equations = function(theta) {
     beta <- theta[1]
     alpha <- theta[2:3]
@@ -234,8 +233,7 @@ estr_transport <- GMMEstimator(
     rbind(ee1, ee2, ee_s)
   },
   init = c(0, 0, 0)
-) |>
-  estimate()
+)
 
 data.frame(
   Param = c("beta (transported)", "alpha_0", "alpha_1"),

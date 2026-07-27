@@ -62,13 +62,12 @@ parents, and $\hat{Y}_i = \theta_0 + \theta_1 P_i + \theta_2 S_i$.
 
 ```{r}
 #| label: ols
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     ee_regression(theta, X = X, y = y, model = "linear")
   },
   init = c(0, 0, 0)
-) |>
-  estimate()
+)
 
 # Save OLS estimates for use as initial values in robust regression
 ols_theta <- unname(estr@theta)
@@ -117,14 +116,13 @@ commonly recommended, we use $k = 1$ here.
 
 ```{r}
 #| label: huber
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     ee_robust_regression(theta, X = X, y = y, model = "linear",
                          loss = "huber", k = 1)
   },
   init = c(0, 0, 0)
-) |>
-  estimate()
+)
 
 data.frame(
   Param = c("Intercept", "Poverty", "Single"),
@@ -141,14 +139,13 @@ having a sharp hinge point. We set $k = 1$.
 
 ```{r}
 #| label: fair
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     ee_robust_regression(theta, X = X, y = y, model = "linear",
                          loss = "fair", k = 1)
   },
   init = c(0, 0, 0)
-) |>
-  estimate()
+)
 
 data.frame(
   Param = c("Intercept", "Poverty", "Single"),
@@ -167,14 +164,13 @@ but does not shrink contributions fully to zero. We set $k = 1$.
 #| label: cauchy
 # Use OLS estimates as starting values. Redescending loss functions have
 # multiple roots, so c(0,0,0) can converge to a spurious solution.
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     ee_robust_regression(theta, X = X, y = y, model = "linear",
                          loss = "cauchy", k = 1)
   },
   init = ols_theta
-) |>
-  estimate()
+)
 
 data.frame(
   Param = c("Intercept", "Poverty", "Single"),
@@ -197,14 +193,15 @@ $k = 1$.
 # score is zero beyond a hard cut-off, so its bread derivative is discontinuous
 # there; we take the derivative by exact automatic differentiation to get a
 # deterministic variance at that discontinuity.
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     ee_robust_regression(theta, X = X, y = y, model = "linear",
                          loss = "andrew", k = 1)
   },
-  init = c(0, 0, 0)
-) |>
-  estimate(solver = "lm", deriv_method = "exact")
+  init = c(0, 0, 0),
+  solver = "lm",
+  deriv_method = "exact"
+)
 
 data.frame(
   Param = c("Intercept", "Poverty", "Single"),
@@ -221,14 +218,13 @@ steepness at the same value of $k$. We set $k = 1$.
 
 ```{r}
 #| label: welsch
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     ee_robust_regression(theta, X = X, y = y, model = "linear",
                          loss = "welsch", k = 1)
   },
   init = c(0, 0, 0)
-) |>
-  estimate()
+)
 
 data.frame(
   Param = c("Intercept", "Poverty", "Single"),
@@ -247,14 +243,15 @@ functions. We set $k = 1$.
 #| label: ullah
 # Start from zero with the Levenberg-Marquardt solver, matching the reference
 # analysis, and take the derivative by exact automatic differentiation.
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     ee_robust_regression(theta, X = X, y = y, model = "linear",
                          loss = "ullah", k = 1)
   },
-  init = c(0, 0, 0)
-) |>
-  estimate(solver = "lm", deriv_method = "exact")
+  init = c(0, 0, 0),
+  solver = "lm",
+  deriv_method = "exact"
+)
 
 data.frame(
   Param = c("Intercept", "Poverty", "Single"),
@@ -271,14 +268,13 @@ Small values of $k$ produce large standard errors, so we use $k = 5$.
 
 ```{r}
 #| label: tukey
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     ee_robust_regression(theta, X = X, y = y, model = "linear",
                          loss = "tukey", k = 5)
   },
   init = c(0, 0, 0)
-) |>
-  estimate()
+)
 
 data.frame(
   Param = c("Intercept", "Poverty", "Single"),
@@ -301,15 +297,16 @@ hinge, `b` the plateau upper limit, and `c` the zero point.
 # analysis, and take the derivative by exact automatic differentiation. The
 # tuning constants k = c(1/3, 4/3, 2) correspond to the reference parameters
 # k = 2, lower = 1/3, upper = 4/3.
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     # k = c(a, b, c) where a < b < c
     ee_robust_regression(theta, X = X, y = y, model = "linear",
                          loss = "hampel", k = c(1/3, 4/3, 2))
   },
-  init = c(0, 0, 0)
-) |>
-  estimate(solver = "lm", deriv_method = "exact")
+  init = c(0, 0, 0),
+  solver = "lm",
+  deriv_method = "exact"
+)
 
 data.frame(
   Param = c("Intercept", "Poverty", "Single"),

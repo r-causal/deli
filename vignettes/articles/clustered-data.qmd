@@ -66,13 +66,12 @@ small when the data are clustered.
 ```{r}
 #| label: ex1
 # Fit linear regression ignoring clustering
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     ee_regression(theta, X = X, y = y, model = "linear")
   },
   init = c(10, 0, 0)
-) |>
-  estimate()
+)
 
 # Results
 data.frame(
@@ -103,7 +102,7 @@ The key idea is straightforward: wrap the output of `ee_regression()` with
 ```{r}
 #| label: ex2
 # Fit linear regression accounting for school-level clustering
-estr_cl <- MEstimator(
+estr_cl <- m_estimate(
   stacked_equations = function(theta) {
     # Compute individual-level estimating functions
     ef <- ee_regression(theta, X = X, y = y, model = "linear")
@@ -111,8 +110,7 @@ estr_cl <- MEstimator(
     aggregate_efuncs(ef, group = g)
   },
   init = c(10, 0, 0)
-) |>
-  estimate()
+)
 
 # Results
 data.frame(

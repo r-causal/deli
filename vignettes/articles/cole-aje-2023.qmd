@@ -66,7 +66,7 @@ y <- d1$Y_fill
 s <- d1$S
 W <- as.matrix(d1[, c("intercept", "W")])
 
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     mu_w <- theta[1]    # Weighted (transported) proportion
     mu_n <- theta[2]    # Naive (study-only) proportion
@@ -90,8 +90,7 @@ estr <- MEstimator(
     rbind(ee_wprop, ee_nprop, ee_sm)
   },
   init = c(0.5, 0.5, 0., 0.)
-) |>
-  estimate()
+)
 
 data.frame(
   Param = c("mu_weighted", "mu_naive", "beta_0", "beta_1"),
@@ -131,13 +130,12 @@ rownames(d2) <- NULL
 
 ```{r}
 #| label: case2
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     ee_rogan_gladen(theta, y = d2$Y, y_star = d2$Y_star, r = d2$R)
   },
   init = c(0.5, 0.5, 0.75, 0.75)
-) |>
-  estimate()
+)
 
 data.frame(
   Param = c("Corrected", "Mismeasured", "Sensitivity", "Specificity"),
@@ -204,7 +202,7 @@ s1 <- as.numeric(d3$S == 1)   # Main study (mismeasured outcome)
 s2 <- as.numeric(d3$S == 2)   # Target population
 s3 <- as.numeric(d3$S == 3)   # Validation sample
 
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     param <- theta[1:4]  # Measurement error parameters
     beta <- theta[5:6]   # Sampling model coefficients
@@ -228,9 +226,9 @@ estr <- MEstimator(
 
     rbind(ee_rg, ee_sm)
   },
-  init = c(0.5, 0.5, 0.75, 0.75, 0., 0.)
-) |>
-  estimate(solver = "lm")
+  init = c(0.5, 0.5, 0.75, 0.75, 0., 0.),
+  solver = "lm"
+)
 
 se <- sqrt(diag(vcov(estr)))
 data.frame(

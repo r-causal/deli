@@ -52,13 +52,12 @@ Fit a logistic regression model for $Y$ given $X, W$.
 X <- as.matrix(d[, c("intercept", "X", "W")])
 y <- d$Y
 
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     ee_regression(theta, X = X, y = y, model = "logistic")
   },
   init = c(0, 0, 0)
-) |>
-  estimate()
+)
 
 # Results
 data.frame(
@@ -86,7 +85,7 @@ X1 <- X0 <- X
 X1[, "X"] <- 1
 X0[, "X"] <- 0
 
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     beta <- theta[1:3]
     mu0 <- theta[4]
@@ -109,8 +108,7 @@ estr <- MEstimator(
     rbind(ee_logit, ee_r0, ee_r1, ee_rd)
   },
   init = c(0, 0, 0, 0.5, 0.5, 0)
-) |>
-  estimate()
+)
 
 data.frame(
   Param = c("beta_0", "beta_1", "beta_2", "mu_0", "mu_1", "delta"),
@@ -130,7 +128,7 @@ a <- d$X
 W <- as.matrix(d[, c("intercept", "W")])
 y <- d$Y
 
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     alpha <- theta[1:2]
     mu0 <- theta[3]
@@ -153,8 +151,7 @@ estr <- MEstimator(
     rbind(ee_logit, ee_r0, ee_r1, ee_rd)
   },
   init = c(0, 0, 0.5, 0.5, 0)
-) |>
-  estimate()
+)
 
 data.frame(
   Param = c("alpha_0", "alpha_1", "mu_0", "mu_1", "delta"),
@@ -185,13 +182,12 @@ rownames(d3) <- NULL
 
 ```{r}
 #| label: ex3
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     ee_rogan_gladen(theta, y = d3$Y, y_star = d3$W, r = d3$R)
   },
   init = c(0.75, 0.75, 0.75, 0.75)
-) |>
-  estimate()
+)
 
 data.frame(
   Param = c("Corrected", "Mismeasured", "Sensitivity", "Specificity"),

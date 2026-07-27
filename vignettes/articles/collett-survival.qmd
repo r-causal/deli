@@ -60,7 +60,7 @@ psi <- function(theta) {
 }
 
 # Fit the M-estimator
-estr <- MEstimator(stacked_equations = psi, init = c(0.01)) |> estimate()
+estr <- m_estimate(stacked_equations = psi, init = c(0.01))
 
 # Display the results
 results <- data.frame(
@@ -112,7 +112,7 @@ psi <- function(theta) {
 }
 
 # Fit the M-estimator
-estr <- MEstimator(stacked_equations = psi, init = c(0.01, 1.0)) |> estimate()
+estr <- m_estimate(stacked_equations = psi, init = c(0.01, 1.0))
 
 # Display the results
 results <- data.frame(
@@ -179,7 +179,7 @@ psi <- function(theta) {
 }
 
 # Fit the M-estimator
-estr <- MEstimator(stacked_equations = psi, init = c(6.0, 0.0)) |> estimate()
+estr <- m_estimate(stacked_equations = psi, init = c(6.0, 0.0))
 
 # Display the results
 results <- data.frame(
@@ -255,8 +255,7 @@ psi <- function(theta) {
 }
 
 # Fit the M-estimator
-estr <- MEstimator(stacked_equations = psi, init = c(5.0, 0.0, 0.0)) |>
-  estimate()
+estr <- m_estimate(stacked_equations = psi, init = c(5.0, 0.0, 0.0))
 
 # Display the results
 results <- data.frame(
@@ -373,8 +372,7 @@ psi <- function(theta) {
 }
 
 # Fit the M-estimator
-estr <- MEstimator(stacked_equations = psi, init = c(5.0, 0.0, 0.0)) |>
-  estimate()
+estr <- m_estimate(stacked_equations = psi, init = c(5.0, 0.0, 0.0))
 
 # Display the results
 results <- data.frame(
@@ -442,8 +440,7 @@ psi <- function(theta) {
 }
 
 # Fit the M-estimator
-estr <- MEstimator(stacked_equations = psi, init = c(5.0, 0.0, 0.0)) |>
-  estimate()
+estr <- m_estimate(stacked_equations = psi, init = c(5.0, 0.0, 0.0))
 
 # Display the results
 results <- data.frame(

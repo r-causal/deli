@@ -88,7 +88,7 @@ estfunc <- function(theta) {
 
 # Estimating the parameters
 inits <- c(0, 0, 300, 300, 300, 300, rep(0, n_alpha))
-estr <- MEstimator(stacked_equations = estfunc, init = inits) |> estimate()
+estr <- m_estimate(stacked_equations = estfunc, init = inits)
 psi <- estr@theta
 
 # Confidence intervals
@@ -223,7 +223,7 @@ estfunc <- function(theta) {
 
 # Estimating the parameters
 inits <- c(300, 0, 0, 0, rep(0, n_alpha))
-estr <- MEstimator(stacked_equations = estfunc, init = inits) |> estimate()
+estr <- m_estimate(stacked_equations = estfunc, init = inits)
 psi <- estr@theta
 
 # Confidence intervals
@@ -300,7 +300,7 @@ estfunc <- function(theta) {
 
 # Estimating the parameters
 inits <- c(300, rep(0, msm_size - 1), rep(0, n_alpha))
-estr <- MEstimator(stacked_equations = estfunc, init = inits) |> estimate()
+estr <- m_estimate(stacked_equations = estfunc, init = inits)
 
 psi <- estr@theta[1:msm_size]
 v_psi <- estr@variance[1:msm_size, 1:msm_size]

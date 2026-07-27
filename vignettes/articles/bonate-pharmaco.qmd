@@ -54,7 +54,7 @@ psi <- function(theta) {
 }
 
 # Estimate the parameters
-estr <- MEstimator(stacked_equations = psi, init = c(-40, 5)) |> estimate()
+estr <- m_estimate(stacked_equations = psi, init = c(-40, 5))
 
 # View results
 estr@theta
@@ -79,8 +79,11 @@ psi_robust <- function(theta) {
 }
 
 # Estimate the parameters
-estr <- MEstimator(stacked_equations = psi_robust, init = c(-40, 5)) |>
-  estimate(solver = "nleqslv")
+estr <- m_estimate(
+  stacked_equations = psi_robust,
+  init = c(-40, 5),
+  solver = "nleqslv"
+)
 
 # View results
 estr@theta
@@ -117,8 +120,11 @@ psi <- function(theta) {
 }
 
 # Estimate the parameters
-estr <- MEstimator(stacked_equations = psi, init = c(0, 60, 0.5)) |>
-  estimate(solver = "nleqslv")
+estr <- m_estimate(
+  stacked_equations = psi,
+  init = c(0, 60, 0.5),
+  solver = "nleqslv"
+)
 
 # View results
 estr@theta
@@ -139,8 +145,11 @@ psi_c <- function(theta) {
 }
 
 # Estimate the parameters
-estr <- MEstimator(stacked_equations = psi_c, init = c(0, 60, 0.5)) |>
-  estimate(solver = "nleqslv")
+estr <- m_estimate(
+  stacked_equations = psi_c,
+  init = c(0, 60, 0.5),
+  solver = "nleqslv"
+)
 
 # View results
 estr@theta
@@ -157,12 +166,12 @@ However, 12 observations is still relatively few so we can further apply a finit
 ```{r}
 #| label: emax-finite
 # Apply HC1 finite-sample correction
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = psi_c,
   init = c(0, 60, 0.5),
-  finite_correction = "HC1"
-) |>
-  estimate(solver = "nleqslv")
+  finite_correction = "HC1",
+  solver = "nleqslv"
+)
 
 # View results
 estr@theta
@@ -205,7 +214,7 @@ psi <- function(theta) {
 }
 
 # Estimate the parameters
-estr_null <- MEstimator(stacked_equations = psi, init = c(0)) |> estimate()
+estr_null <- m_estimate(stacked_equations = psi, init = c(0))
 estr_null@theta
 ```
 
@@ -225,8 +234,7 @@ psi <- function(theta) {
 }
 
 # Estimate the parameters
-estr_full <- MEstimator(stacked_equations = psi, init = c(0, 0, 0, 0, 0)) |>
-  estimate()
+estr_full <- m_estimate(stacked_equations = psi, init = c(0, 0, 0, 0, 0))
 estr_full@theta
 ```
 
@@ -246,8 +254,7 @@ psi <- function(theta) {
 }
 
 # Estimate the parameters
-estr_redu <- MEstimator(stacked_equations = psi, init = c(0, 0, 0)) |>
-  estimate()
+estr_redu <- m_estimate(stacked_equations = psi, init = c(0, 0, 0))
 estr_redu@theta
 ```
 
@@ -267,8 +274,7 @@ psi <- function(theta) {
 }
 
 # Estimate the parameters
-estr_prob <- MEstimator(stacked_equations = psi, init = c(0, 0, 0)) |>
-  estimate()
+estr_prob <- m_estimate(stacked_equations = psi, init = c(0, 0, 0))
 estr_prob@theta
 ```
 
@@ -288,8 +294,7 @@ psi <- function(theta) {
 }
 
 # Estimate the parameters
-estr_clog <- MEstimator(stacked_equations = psi, init = c(0, 0, 0)) |>
-  estimate()
+estr_clog <- m_estimate(stacked_equations = psi, init = c(0, 0, 0))
 estr_clog@theta
 ```
 

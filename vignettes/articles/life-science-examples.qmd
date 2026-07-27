@@ -53,13 +53,12 @@ X <- cbind(1, x)
 
 ```{r}
 #| label: cs1a
-estr_bench <- MEstimator(
+estr_bench <- m_estimate(
   stacked_equations = function(theta) {
     ee_regression(theta, X = cbind(1, x), y = y_no, model = "linear")
   },
   init = c(0, 0)
-) |>
-  estimate()
+)
 
 data.frame(
   Param = c("Intercept", "Height"),
@@ -73,13 +72,12 @@ data.frame(
 
 ```{r}
 #| label: cs1b
-estr_outlier <- MEstimator(
+estr_outlier <- m_estimate(
   stacked_equations = function(theta) {
     ee_regression(theta, X = X, y = y_out, model = "linear")
   },
   init = c(0, 0)
-) |>
-  estimate()
+)
 
 data.frame(
   Param = c("Intercept", "Height"),
@@ -96,15 +94,14 @@ loss with tuning constant $k = 1.345$.
 
 ```{r}
 #| label: cs1c
-estr_robust <- MEstimator(
+estr_robust <- m_estimate(
   stacked_equations = function(theta) {
     ee_robust_regression(theta, X = X, y = y_out,
                          model = "linear", k = 1.345)
   },
   # Use OLS estimates as initial values for stability
   init = estr_outlier@theta
-) |>
-  estimate()
+)
 
 data.frame(
   Param = c("Intercept", "Height"),
@@ -142,7 +139,7 @@ The lower limit is fixed at zero. We estimate three log-logistic parameters
 
 ```{r}
 #| label: cs2-fit
-estr_dr <- MEstimator(
+estr_dr <- m_estimate(
   stacked_equations = function(theta) {
     lower_limit <- 0
 
@@ -158,9 +155,9 @@ estr_dr <- MEstimator(
     # Drop the first row (fixed lower limit) and stack
     rbind(pl3[2:4, , drop = FALSE], ed20)
   },
-  init = c(8, 3, 2, 2)
-) |>
-  estimate(solver = "nleqslv")
+  init = c(8, 3, 2, 2),
+  solver = "nleqslv"
+)
 
 data.frame(
   Param = c("Upper", "ED50", "Steepness", "ED20"),
@@ -235,7 +232,7 @@ sample (Kamat et al.). These may not generalize to the target population.
 # Subset to study data only
 d1_r <- d[d$S == 1, ]
 
-estr_naive <- MEstimator(
+estr_naive <- m_estimate(
 
   stacked_equations = function(theta) {
     rbind(
@@ -247,8 +244,7 @@ estr_naive <- MEstimator(
     )
   },
   init = rep(1, 5)
-) |>
-  estimate()
+)
 
 data.frame(
   Biomarker = c("IFN-a", "CXCL9", "CXCL10", "sIL-2R", "IL-12"),
@@ -272,7 +268,7 @@ match the target population's drug use distribution.
 x_mat <- as.matrix(d[, c("constant", "drug_use")])
 s <- d$S
 
-estr_iosw <- MEstimator(
+estr_iosw <- m_estimate(
   stacked_equations = function(theta) {
     # Logistic regression for study membership
     nuisance <- ee_regression(theta[1:2], X = x_mat, y = s,
@@ -292,8 +288,7 @@ estr_iosw <- MEstimator(
     rbind(nuisance, ee_ifn, ee_cxcl9, ee_cxcl10, ee_sil2r, ee_il12)
   },
   init = c(0, 0, rep(1, 5))
-) |>
-  estimate()
+)
 
 data.frame(
   Biomarker = c("IFN-a", "CXCL9", "CXCL10", "sIL-2R", "IL-12"),

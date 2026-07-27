@@ -89,7 +89,7 @@ takes the ratio (equivalently, the difference on the log-scale).
 
 ```{r}
 #| label: full-data-rr
-estr <- MEstimator(
+estr <- m_estimate(
 
   stacked_equations = function(theta) {
     a <- d$placebo
@@ -105,8 +105,7 @@ estr <- MEstimator(
     rbind(ee_rr, ee_r1, ee_r0)
   },
   init = c(0, 0.5, 0.5)
-) |>
-  estimate()
+)
 
 exp(c(rr = coef(estr)[[1]], confint(estr)[1, ]))
 ```
@@ -121,7 +120,7 @@ $Y$).
 
 ```{r}
 #| label: log-binomial
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     ee_glm(
       theta = theta,
@@ -132,8 +131,7 @@ estr <- MEstimator(
     )
   },
   init = c(log(0.08), 0)
-) |>
-  estimate()
+)
 
 exp(c(rr = coef(estr)[[2]], confint(estr)[2, ]))
 ```
@@ -158,7 +156,7 @@ y_no_nan <- ifelse(is.na(d$preterm1), -999, d$preterm1)
 
 ```{r}
 #| label: scenario-a-cc
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     ee_glm(
       theta = theta,
@@ -170,8 +168,7 @@ estr <- MEstimator(
     )
   },
   init = c(log(0.09), 0)
-) |>
-  estimate()
+)
 
 exp(c(rr = coef(estr)[[2]], confint(estr)[2, ]))
 ```
@@ -184,7 +181,7 @@ effective sample size.
 
 ```{r}
 #| label: scenario-a-gcomp
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     beta1 <- theta[4:5]
     beta0 <- theta[6:7]
@@ -210,8 +207,7 @@ estr <- MEstimator(
     rbind(ee_rr, ee_r1, ee_r0, ee_reg1, ee_reg0)
   },
   init = c(0, 0.5, 0.5, 0, 0, 0, 0)
-) |>
-  estimate()
+)
 
 exp(c(rr = coef(estr)[[1]], confint(estr)[1, ]))
 ```
@@ -236,7 +232,7 @@ y_no_nan <- ifelse(is.na(d$preterm2), -999, d$preterm2)
 
 ```{r}
 #| label: scenario-b-cc
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     ee_glm(
       theta = theta,
@@ -248,8 +244,7 @@ estr <- MEstimator(
     )
   },
   init = c(log(0.09), 0)
-) |>
-  estimate()
+)
 
 exp(c(rr = coef(estr)[[2]], confint(estr)[2, ]))
 ```
@@ -258,7 +253,7 @@ exp(c(rr = coef(estr)[[2]], confint(estr)[2, ]))
 
 ```{r}
 #| label: scenario-b-gcomp
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     beta1 <- theta[4:5]
     beta0 <- theta[6:7]
@@ -284,8 +279,7 @@ estr <- MEstimator(
     rbind(ee_rr, ee_r1, ee_r0, ee_reg1, ee_reg0)
   },
   init = c(0, 0.5, 0.5, 0, 0, 0, 0)
-) |>
-  estimate()
+)
 
 exp(c(rr = coef(estr)[[1]], confint(estr)[1, ]))
 ```

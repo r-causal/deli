@@ -65,7 +65,7 @@ psi_mean <- function(theta) {
   matrix(r * (y_filled - theta), nrow = 1)
 }
 
-estr <- MEstimator(stacked_equations = psi_mean, init = c(300)) |> estimate()
+estr <- m_estimate(stacked_equations = psi_mean, init = c(300))
 
 c(mu = coef(estr)[[1]], confint(estr)[1, ])
 ```
@@ -130,8 +130,7 @@ alpha <- 0.01
 qy <- q_function(y_vals = y, alpha = alpha)
 
 # Estimate
-estr <- MEstimator(stacked_equations = psi_sens, init = c(300, 0)) |>
-  estimate()
+estr <- m_estimate(stacked_equations = psi_sens, init = c(300, 0))
 
 c(mu = coef(estr)[[1]], confint(estr)[1, ])
 ```
@@ -159,8 +158,7 @@ psi_robins <- function(theta) {
   )
 }
 
-estr <- MEstimator(stacked_equations = psi_robins, init = c(300, 0)) |>
-  estimate()
+estr <- m_estimate(stacked_equations = psi_robins, init = c(300, 0))
 
 c(mu = coef(estr)[[1]], confint(estr)[1, ])
 ```
@@ -196,8 +194,7 @@ for (alphas in list(alpha_l, alpha_u)) {
     qy <- q_function(y_vals = y, alpha = alpha)
 
     # Applying M-estimator
-    estr <- MEstimator(stacked_equations = psi_robins, init = init_vals) |>
-      estimate()
+    estr <- m_estimate(stacked_equations = psi_robins, init = init_vals)
     ci <- confint(estr)
 
     # Extracting output
@@ -261,8 +258,7 @@ psi_bounds <- function(theta) {
   rbind(ee_lower, ee_upper)
 }
 
-estr <- MEstimator(stacked_equations = psi_bounds, init = c(400, 700)) |>
-  estimate()
+estr <- m_estimate(stacked_equations = psi_bounds, init = c(400, 700))
 ci <- confint(estr)
 
 # Bounds, with the interval running from the lower limit of the lower bound

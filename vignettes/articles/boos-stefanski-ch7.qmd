@@ -49,7 +49,7 @@ psi <- function(theta) {
   )
 }
 
-estr <- MEstimator(stacked_equations = psi, init = c(0, 0)) |> estimate()
+estr <- m_estimate(stacked_equations = psi, init = c(0, 0))
 estr@theta
 confint(estr)
 ```
@@ -62,7 +62,7 @@ psi <- function(theta) {
   ee_mean_variance(theta, y = y_mv)
 }
 
-estr <- MEstimator(stacked_equations = psi, init = c(0, 0)) |> estimate()
+estr <- m_estimate(stacked_equations = psi, init = c(0, 0))
 estr@theta
 confint(estr)
 ```
@@ -80,7 +80,7 @@ psi <- function(theta) {
   matrix(y_mv - theta[1] * x_mv, nrow = 1)
 }
 
-estr <- MEstimator(stacked_equations = psi, init = c(1)) |> estimate()
+estr <- m_estimate(stacked_equations = psi, init = c(1))
 estr@theta
 confint(estr)
 ```
@@ -99,7 +99,7 @@ psi <- function(theta) {
   )
 }
 
-estr <- MEstimator(stacked_equations = psi, init = c(10, 5, 2)) |> estimate()
+estr <- m_estimate(stacked_equations = psi, init = c(10, 5, 2))
 estr@theta
 confint(estr)
 ```
@@ -121,8 +121,7 @@ psi <- function(theta) {
   )
 }
 
-estr <- MEstimator(stacked_equations = psi, init = c(10, 2, 1, 1)) |>
-  estimate()
+estr <- m_estimate(stacked_equations = psi, init = c(10, 2, 1, 1))
 estr@theta
 confint(estr)
 ```
@@ -161,7 +160,7 @@ psi <- function(theta) {
   )
 }
 
-estr <- MEstimator(stacked_equations = psi, init = c(0, 0)) |> estimate()
+estr <- m_estimate(stacked_equations = psi, init = c(0, 0))
 estr@theta
 confint(estr)
 ```
@@ -182,8 +181,7 @@ psi <- function(theta) {
   )
 }
 
-estr <- MEstimator(stacked_equations = psi, init = c(0, 0, 0, 0)) |>
-  estimate()
+estr <- m_estimate(stacked_equations = psi, init = c(0, 0, 0, 0))
 estr@theta
 confint(estr)
 ```
@@ -215,7 +213,7 @@ psi <- function(theta) {
   matrix(clipped, nrow = 1)
 }
 
-estr <- MEstimator(stacked_equations = psi, init = c(0)) |> estimate()
+estr <- m_estimate(stacked_equations = psi, init = c(0))
 estr@theta
 confint(estr)
 ```
@@ -228,7 +226,7 @@ psi <- function(theta) {
   ee_mean_robust(theta, y = y_rob, k = 3, loss = "huber")
 }
 
-estr <- MEstimator(stacked_equations = psi, init = c(0)) |> estimate()
+estr <- m_estimate(stacked_equations = psi, init = c(0))
 estr@theta
 confint(estr)
 ```
@@ -260,7 +258,7 @@ psi <- function(theta) {
   t(X_lm * as.numeric(resid))            # score: p-by-n
 }
 
-estr <- MEstimator(stacked_equations = psi, init = c(0, 0, 0)) |> estimate()
+estr <- m_estimate(stacked_equations = psi, init = c(0, 0, 0))
 estr@theta
 confint(estr)
 ```
@@ -273,7 +271,7 @@ psi <- function(theta) {
   ee_regression(theta, X = X_lm, y = y_lm, model = "linear")
 }
 
-estr <- MEstimator(stacked_equations = psi, init = c(0, 0, 0)) |> estimate()
+estr <- m_estimate(stacked_equations = psi, init = c(0, 0, 0))
 estr@theta
 confint(estr)
 ```
@@ -297,8 +295,11 @@ psi <- function(theta) {
   t(X_lm * clipped)
 }
 
-estr <- MEstimator(stacked_equations = psi, init = c(0, 0, 0)) |>
-  estimate(solver = "nleqslv")
+estr <- m_estimate(
+  stacked_equations = psi,
+  init = c(0, 0, 0),
+  solver = "nleqslv"
+)
 estr@theta
 confint(estr)
 ```
@@ -312,8 +313,11 @@ psi <- function(theta) {
                        model = "linear", k = 1.345, loss = "huber")
 }
 
-estr <- MEstimator(stacked_equations = psi, init = c(0, 0, 0)) |>
-  estimate(solver = "nleqslv")
+estr <- m_estimate(
+  stacked_equations = psi,
+  init = c(0, 0, 0),
+  solver = "nleqslv"
+)
 estr@theta
 confint(estr)
 ```
@@ -344,7 +348,7 @@ psi <- function(theta) {
          distribution = "binomial", link = "logit")
 }
 
-estr <- MEstimator(stacked_equations = psi, init = c(0, 0)) |> estimate()
+estr <- m_estimate(stacked_equations = psi, init = c(0, 0))
 estr@theta
 confint(estr)
 ```
@@ -358,7 +362,7 @@ psi <- function(theta) {
          distribution = "binomial", link = "log")
 }
 
-estr <- MEstimator(stacked_equations = psi, init = c(-1, 0)) |> estimate()
+estr <- m_estimate(stacked_equations = psi, init = c(-1, 0))
 estr@theta
 confint(estr)
 ```
@@ -372,7 +376,7 @@ psi <- function(theta) {
          distribution = "binomial", link = "identity")
 }
 
-estr <- MEstimator(stacked_equations = psi, init = c(0.3, 0)) |> estimate()
+estr <- m_estimate(stacked_equations = psi, init = c(0.3, 0))
 estr@theta
 confint(estr)
 ```

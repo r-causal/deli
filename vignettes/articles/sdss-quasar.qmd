@@ -59,8 +59,7 @@ psi <- function(theta) {
 
 # Estimate the model
 init_vals <- rep(0, 12)
-estr <- MEstimator(stacked_equations = psi, init = init_vals) |>
-  estimate()
+estr <- m_estimate(stacked_equations = psi, init = init_vals)
 ```
 
 Looking at the coefficients of a generalized additive model is not always the most informative. It can be difficult to translate from the coefficients into their meaning. Instead, we will plot the function across a range of values. The following code creates a range of redshift values and then generates predictions according to the estimated model.
@@ -158,8 +157,7 @@ psi <- function(theta) {
 
 # Estimation
 init_vals <- rep(0, 12)
-estr <- MEstimator(stacked_equations = psi, init = init_vals) |>
-  estimate()
+estr <- m_estimate(stacked_equations = psi, init = init_vals)
 
 # Prediction
 p <- data.frame(
@@ -222,8 +220,7 @@ psi <- function(theta) {
 
 # Estimation
 init_vals <- rep(0, 12)
-estr <- MEstimator(stacked_equations = psi, init = init_vals) |>
-  estimate()
+estr <- m_estimate(stacked_equations = psi, init = init_vals)
 
 # Prediction
 p <- data.frame(

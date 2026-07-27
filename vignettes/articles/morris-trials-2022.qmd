@@ -118,7 +118,7 @@ $A_i, W_i$.
 #| label: standardization
 n_beta_oc <- ncol(oc_mat)
 
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     # Extracting parameters from theta
     risk_diff <- theta[1]
@@ -160,8 +160,7 @@ estr <- MEstimator(
     )
   },
   init = c(0, 0, 0.5, 0.5, rep(0, n_beta_oc))
-) |>
-  estimate()
+)
 
 # Results
 se <- sqrt(diag(estr@variance))
@@ -199,7 +198,7 @@ model and is used to generate the propensity scores given $W_i$.
 #| label: ipw
 n_beta_ps <- ncol(ps_mat)
 
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     # Extracting parameters from theta
     risk_diff <- theta[1]
@@ -238,8 +237,7 @@ estr <- MEstimator(
     )
   },
   init = c(0, 0, 0.5, 0.5, rep(0, n_beta_ps))
-) |>
-  estimate()
+)
 
 # Results
 se <- sqrt(diag(estr@variance))

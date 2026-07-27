@@ -54,13 +54,12 @@ model with a linear relationship between the variables.
 ```{r}
 #| label: linear
 # Define estimating equation for linear regression
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     ee_regression(theta, X = X, y = y, model = "linear")
   },
   init = c(0, 0)
-) |>
-  estimate()
+)
 
 # Predicted values and confidence intervals
 pred_y <- regression_predictions(Xp, estr@theta, estr@variance)
@@ -108,7 +107,7 @@ specs <- list(
 )
 
 # Define estimating equation for additive regression
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     ee_additive_regression(
       theta, X = X, y = y,
@@ -117,8 +116,7 @@ estr <- MEstimator(
     )
   },
   init = rep(0, 12)
-) |>
-  estimate()
+)
 
 # Build the additive design matrix for predictions
 Xpa <- additive_design_matrix(Xp, specifications = specs)
@@ -159,7 +157,7 @@ specs_strong <- list(
   list(knots = knot_locs, penalty = 1000000, power = 3)
 )
 
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     ee_additive_regression(
       theta, X = X, y = y,
@@ -168,8 +166,7 @@ estr <- MEstimator(
     )
   },
   init = rep(0, 12)
-) |>
-  estimate()
+)
 
 # Build additive design matrix and predict
 Xpa <- additive_design_matrix(Xp, specifications = specs_strong)
@@ -203,7 +200,7 @@ specs_vstrong <- list(
   list(knots = knot_locs, penalty = 1e11, power = 3)
 )
 
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     ee_additive_regression(
       theta, X = X, y = y,
@@ -212,8 +209,7 @@ estr <- MEstimator(
     )
   },
   init = rep(0, 12)
-) |>
-  estimate()
+)
 
 # Build additive design matrix and predict
 Xpa <- additive_design_matrix(Xp, specifications = specs_vstrong)

@@ -114,7 +114,7 @@ and `wt82_71` (12.1). We will do this by fitting a linear regression model.
 
 ```{r}
 #| label: ch12-1
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     ee_regression(theta = theta,
                   X = as.matrix(dc[, c("I", "qsmk")]),
@@ -122,8 +122,7 @@ estr <- MEstimator(
                   model = "linear")
   },
   init = c(0, 0)
-) |>
-  estimate()
+)
 
 # The crude estimate of qsmk
 crude <- cbind(estimate = coef(estr), confint(estr))
@@ -173,7 +172,7 @@ init_ps <- unname(coef(glm(a ~ W - 1, family = binomial())))
 
 ```{r}
 #| label: ch12-2-byhand
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     # Dividing parameters into corresponding estimation equations
     alpha <- theta[1:2]
@@ -195,9 +194,10 @@ estr <- MEstimator(
     # Stacking the estimating equations and returning
     rbind(ee_msm, ee_ps)
   },
-  init = c(0, 0, init_ps)
-) |>
-  estimate(solver = "nleqslv", maxiter = 5000)
+  init = c(0, 0, init_ps),
+  solver = "nleqslv",
+  maxiter = 5000
+)
 
 msm_est <- cbind(estimate = coef(estr), confint(estr))[1:2, ]
 rownames(msm_est) <- c("alpha_0", "alpha_1 (ACE)")
@@ -213,16 +213,17 @@ probability weights, as done above.
 
 ```{r}
 #| label: ch12-2-builtin
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     # Built-in estimating equation
     ee_ipw_msm(theta, y = y, A = a, W = W, V = msm,
                distribution = "normal",
                link = "identity")
   },
-  init = c(0, 0, init_ps)
-) |>
-  estimate(solver = "nleqslv", maxiter = 5000)
+  init = c(0, 0, init_ps),
+  solver = "nleqslv",
+  maxiter = 5000
+)
 
 msm_est <- cbind(estimate = coef(estr), confint(estr))[1:2, ]
 rownames(msm_est) <- c("alpha_0", "alpha_1 (ACE)")
@@ -244,7 +245,7 @@ equation is for an intercept-only model for the probability of `qsmk`.
 # Likewise, start the numerator model from its own intercept-only fit
 init_num <- unname(coef(glm(a ~ 1, family = binomial())))
 
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     # Dividing parameters into corresponding estimation equations
     alpha <- theta[1:2]                    # MSM parameters
@@ -275,9 +276,10 @@ estr <- MEstimator(
     # Stacking the estimating equations and returning
     rbind(ee_msm, ee_num, ee_ps)
   },
-  init = c(0, 0, init_num, init_ps)
-) |>
-  estimate(solver = "nleqslv", maxiter = 5000)
+  init = c(0, 0, init_num, init_ps),
+  solver = "nleqslv",
+  maxiter = 5000
+)
 
 msm_est <- cbind(estimate = coef(estr), confint(estr))[1:2, ]
 rownames(msm_est) <- c("alpha_0", "alpha_1 (ACE)")
@@ -314,7 +316,7 @@ y_ds <- ds$wt82_71
 
 ```{r}
 #| label: ch12-4
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     # Dividing parameters into corresponding estimation equations
     alpha <- theta[1:3]                  # Marginal structural model
@@ -353,9 +355,11 @@ estr <- MEstimator(
     # Stacking the estimating equations and returning
     rbind(ee_msm, ee_num, ee_ps)
   },
-  init = c(0, 0, 0, 0, rep(0, ncol(W_ds)))
-) |>
-  estimate(solver = "nleqslv", tolerance = 1e-12, maxiter = 5000)
+  init = c(0, 0, 0, 0, rep(0, ncol(W_ds))),
+  solver = "nleqslv",
+  tolerance = 1e-12,
+  maxiter = 5000
+)
 
 # MSM coefficients
 round(cbind(estimate = coef(estr), confint(estr))[1:3, ], 3)
@@ -404,7 +408,7 @@ y_death <- dc$death
 
 ```{r}
 #| label: ch12-4-binary
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     # Dividing parameters into corresponding estimation equations
     alpha <- theta[1:2]              # Marginal structural model
@@ -437,9 +441,10 @@ estr <- MEstimator(
     # Stacking the estimating equations and returning
     rbind(ee_msm, ee_num, ee_ps)
   },
-  init = c(0, 0, 0, rep(0, ncol(W)))
-) |>
-  estimate(solver = "nleqslv", maxiter = 5000)
+  init = c(0, 0, 0, rep(0, ncol(W))),
+  solver = "nleqslv",
+  maxiter = 5000
+)
 
 # Causal odds ratio for qsmk
 causal_or <- exp(cbind(estimate = coef(estr), confint(estr))[2, , drop = FALSE])
@@ -455,16 +460,17 @@ We can replicate this approach using the built-in `ee_ipw_msm`.
 
 ```{r}
 #| label: ch12-4-binary-builtin
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     # Built-in estimating equation
     ee_ipw_msm(theta, y = y_death, A = a, W = W, V = msm,
                distribution = "binomial",
                link = "logit")
   },
-  init = c(0, 0, init_ps)
-) |>
-  estimate(solver = "nleqslv", maxiter = 5000)
+  init = c(0, 0, init_ps),
+  solver = "nleqslv",
+  maxiter = 5000
+)
 
 # Causal odds ratio for qsmk
 causal_or <- exp(cbind(estimate = coef(estr), confint(estr))[2, , drop = FALSE])
@@ -489,7 +495,7 @@ msm_em <- as.matrix(dc[, c("I", "qsmk", "sex", "qsmk_sex")])
 a <- dc$qsmk
 y <- dc$wt82_71
 
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     # Dividing parameters into corresponding estimation equations
     alpha <- theta[1:4]              # Marginal structural model
@@ -521,9 +527,10 @@ estr <- MEstimator(
     # Stacking the estimating equations and returning
     rbind(ee_msm, ee_num, ee_ps)
   },
-  init = c(0, 0, 0, 0, init_num, init_ps)
-) |>
-  estimate(solver = "nleqslv", maxiter = 5000)
+  init = c(0, 0, 0, 0, init_num, init_ps),
+  solver = "nleqslv",
+  maxiter = 5000
+)
 
 # MSM with effect modification by sex
 round(cbind(estimate = coef(estr), confint(estr))[1:4, ], 2)
@@ -563,7 +570,7 @@ r <- ifelse(is.na(df$wt82_71), 0, 1)
 
 ```{r}
 #| label: ch12-6
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     # Dividing parameters up for their corresponding estimation equations
     alpha <- theta[1:2]                              # MSM
@@ -614,9 +621,9 @@ estr <- MEstimator(
     # Stacking the estimating equations and returning
     rbind(ee_msm, ee_num, ee_sms, ee_ps, ee_ms)
   },
-  init = c(0, 0, 0, 0, rep(0, ncol(W_full)), rep(0, ncol(X_miss)))
-) |>
-  estimate(maxiter = 5000)
+  init = c(0, 0, 0, 0, rep(0, ncol(W_full)), rep(0, ncol(X_miss))),
+  maxiter = 5000
+)
 
 msm_est <- cbind(estimate = coef(estr), confint(estr))[1:2, ]
 rownames(msm_est) <- c("alpha_0", "alpha_1 (ACE)")
@@ -660,13 +667,14 @@ y <- dc$wt82_71
 
 ```{r}
 #| label: ch13-2
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     ee_regression(theta = theta, X = X_out, y = y, model = "linear")
   },
-  init = rep(0, ncol(X_out))
-) |>
-  estimate(solver = "nleqslv", maxiter = 5000)
+  init = rep(0, ncol(X_out)),
+  solver = "nleqslv",
+  maxiter = 5000
+)
 
 # Save starting values for later use
 init_reg <- estr@theta
@@ -698,7 +706,7 @@ X0 <- as.matrix(dca[, X_out_cols])
 
 ```{r}
 #| label: ch13-3
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     # Dividing parameters into corresponding estimation equations
     rd <- theta[1]
@@ -727,9 +735,10 @@ estr <- MEstimator(
     # Stacking the estimating equations and returning
     rbind(ee_rd, ee_r1, ee_r0, ee_reg)
   },
-  init = c(0, 0, 0, init_reg)
-) |>
-  estimate(solver = "nleqslv", maxiter = 5000)
+  init = c(0, 0, 0, init_reg),
+  solver = "nleqslv",
+  maxiter = 5000
+)
 
 gcomp <- cbind(estimate = coef(estr), confint(estr))[1:3, ]
 rownames(gcomp) <- c("ACE", "E[Y^1]", "E[Y^0]")
@@ -745,14 +754,15 @@ estimating equations.
 
 ```{r}
 #| label: ch13-3-builtin
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     # Built-in g-formula estimating equation
     ee_gformula(theta, y = y, X = X_out, X1 = X1, X0 = X0)
   },
-  init = c(0, 0, 0, init_reg)
-) |>
-  estimate(solver = "nleqslv", maxiter = 5000)
+  init = c(0, 0, 0, init_reg),
+  solver = "nleqslv",
+  maxiter = 5000
+)
 
 gcomp <- cbind(estimate = coef(estr), confint(estr))[1:3, ]
 rownames(gcomp) <- c("ACE", "E[Y^1]", "E[Y^0]")
@@ -781,7 +791,7 @@ a <- dc$qsmk
 ```{r}
 #| label: ch13-fp-byhand
 # The default solver converges reliably for the AIPW stacks in this section
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     # Dividing parameters into corresponding estimation equations
     ndim_X <- ncol(X_out)
@@ -822,9 +832,9 @@ estr <- MEstimator(
     # Stacking the estimating equations and returning
     rbind(ee_rd, ee_r1, ee_r0, ee_reg, ee_ps)
   },
-  init = c(0, 0, 0, init_reg, init_ps)
-) |>
-  estimate(maxiter = 5000)
+  init = c(0, 0, 0, init_reg, init_ps),
+  maxiter = 5000
+)
 
 # AIPW (by-hand)
 aipw <- cbind(estimate = coef(estr), confint(estr))[1:3, ]
@@ -841,14 +851,14 @@ estimator (`ee_aipw`).
 ```{r}
 #| label: ch13-fp-builtin
 # The default solver again, as above
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     ee_aipw(theta = theta, y = y, A = a, W = W,
             X = X_out, X1 = X1, X0 = X0)
   },
-  init = c(0, 0, 0, init_ps, init_reg)
-) |>
-  estimate(maxiter = 5000)
+  init = c(0, 0, 0, init_ps, init_reg),
+  maxiter = 5000
+)
 
 # AIPW (built-in)
 aipw <- cbind(estimate = coef(estr), confint(estr))[1:3, ]
@@ -867,7 +877,7 @@ AIPW.
 ```{r}
 #| label: ch13-fp-wregaipw
 # The default solver again, as above
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     # Dividing parameters into corresponding estimation equations
     ndim_X <- ncol(X_out)
@@ -904,9 +914,9 @@ estr <- MEstimator(
     # Stacking the estimating equations and returning
     rbind(ee_rd, ee_r1, ee_r0, ee_reg, ee_ps)
   },
-  init = c(0, 0, 0, init_reg, init_ps)
-) |>
-  estimate(maxiter = 5000)
+  init = c(0, 0, 0, init_reg, init_ps),
+  maxiter = 5000
+)
 
 # Weighted-regression AIPW
 aipw <- cbind(estimate = coef(estr), confint(estr))[1:3, ]
@@ -962,7 +972,7 @@ r_ge <- ifelse(is.na(df$wt82_71), 0, 1)
 
 ```{r}
 #| label: ch14-5-byhand
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     # Dividing parameters into corresponding estimation equations
     n_snm <- ncol(snm)
@@ -995,9 +1005,9 @@ estr <- MEstimator(
 
     rbind(ee_snm, ee_log, ee_ms)
   },
-  init = c(0, rep(0, ncol(W_ge)), rep(0, ncol(X_ge)))
-) |>
-  estimate(maxiter = 5000)
+  init = c(0, rep(0, ncol(W_ge)), rep(0, ncol(X_ge))),
+  maxiter = 5000
+)
 
 # Save theta for later use
 snm1_init <- as.numeric(estr@theta)
@@ -1014,7 +1024,7 @@ Now consider how we can use the built-in g-estimation functionality,
 
 ```{r}
 #| label: ch14-5-builtin
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     # Dividing parameters into corresponding estimation equations
     n_snm <- ncol(snm)
@@ -1039,9 +1049,9 @@ estr <- MEstimator(
 
     rbind(ee_snm_val, ee_ms)
   },
-  init = c(0, rep(0, ncol(W_ge)), rep(0, ncol(X_ge)))
-) |>
-  estimate(maxiter = 5000)
+  init = c(0, rep(0, ncol(W_ge)), rep(0, ncol(X_ge))),
+  maxiter = 5000
+)
 
 snm_est <- cbind(estimate = coef(estr), confint(estr))[1, , drop = FALSE]
 rownames(snm_est) <- "SNM phi_0 (built-in)"
@@ -1060,7 +1070,7 @@ structural nested model, adding `smokeintensity` as an effect modifier.
 # Update the structural nested model design matrix
 snm2 <- as.matrix(df[, c("I", "smokeintensity")])
 
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     # Dividing parameters into corresponding estimation equations
     n_snm <- ncol(snm2)
@@ -1093,9 +1103,9 @@ estr <- MEstimator(
 
     rbind(ee_snm_val, ee_log, ee_ms)
   },
-  init = c(0, 0, rep(0, ncol(W_ge)), rep(0, ncol(X_ge)))
-) |>
-  estimate(maxiter = 5000)
+  init = c(0, 0, rep(0, ncol(W_ge)), rep(0, ncol(X_ge))),
+  maxiter = 5000
+)
 
 snm_est <- cbind(estimate = coef(estr), confint(estr))[1:2, ]
 rownames(snm_est) <- c("SNM phi_0", "SNM phi_1")
@@ -1138,7 +1148,7 @@ equations for $\Pr(A=1 | Z=1) - \Pr(A=1 | Z=0)$.
 
 ```{r}
 #| label: ch16-1
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     n <- length(a_iv)
     ee_az1 <- matrix(z_iv * (a_iv - theta[1]), nrow = 1)
@@ -1147,8 +1157,7 @@ estr <- MEstimator(
     rbind(ee_az1, ee_az0, ee_rd)
   },
   init = c(0.5, 0.5, 0)
-) |>
-  estimate()
+)
 
 iv_cond <- cbind(estimate = coef(estr), confint(estr))
 rownames(iv_cond) <- c("Pr(A=1|Z=1)", "Pr(A=1|Z=0)", "Risk difference")
@@ -1169,7 +1178,7 @@ equations. The first is to estimate each of the pieces and combine them.
 
 ```{r}
 #| label: ch16-2
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     n <- length(y_iv)
     ee_uiv <- matrix(rep((theta[2] - theta[3]) - theta[1] * (theta[4] - theta[5]), n),
@@ -1180,9 +1189,10 @@ estr <- MEstimator(
     ee_az0 <- matrix((1 - z_iv) * (a_iv - theta[5]), nrow = 1)
     rbind(ee_uiv, ee_yz1, ee_yz0, ee_az1, ee_az0)
   },
-  init = c(1, 2, 2, 0.3, 0.2)
-) |>
-  estimate(solver = "nleqslv", maxiter = 5000)
+  init = c(1, 2, 2, 0.3, 0.2),
+  solver = "nleqslv",
+  maxiter = 5000
+)
 
 iv_est <- cbind(estimate = coef(estr), confint(estr))[1, , drop = FALSE]
 rownames(iv_est) <- "IV estimate"
@@ -1197,15 +1207,14 @@ expressed as a simpler pair of estimating equations.
 
 ```{r}
 #| label: ch16-2-alt
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     ee_uiv <- matrix((y_iv - a_iv * theta[1]) * (z_iv - theta[2]), nrow = 1)
     ee_z <- matrix(z_iv - theta[2], nrow = 1)
     rbind(ee_uiv, ee_z)
   },
   init = c(0, 0.5)
-) |>
-  estimate()
+)
 
 iv_est <- cbind(estimate = coef(estr), confint(estr))[1, , drop = FALSE]
 rownames(iv_est) <- "IV estimate"
@@ -1216,13 +1225,12 @@ There is also a built-in version of the usual IV estimator.
 
 ```{r}
 #| label: ch16-2-builtin
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     ee_iv_causal(theta, y = y_iv, A = a_iv, Z = z_iv)
   },
   init = c(0, 0.5)
-) |>
-  estimate()
+)
 
 iv_est <- cbind(estimate = coef(estr), confint(estr))[1, , drop = FALSE]
 rownames(iv_est) <- "IV estimate (built-in)"
@@ -1245,7 +1253,7 @@ Z_iv <- as.matrix(df_iv[, c("I", "highprice")])
 
 ```{r}
 #| label: ch16-2-2sls
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     beta <- theta[1:2]
     alpha <- theta[3:4]
@@ -1261,9 +1269,10 @@ estr <- MEstimator(
     # Returning stacked estimating equations
     rbind(ee_stage2, ee_stage1)
   },
-  init = c(2, 2, 0.2, 0.1)
-) |>
-  estimate(solver = "nleqslv", maxiter = 5000)
+  init = c(2, 2, 0.2, 0.1),
+  solver = "nleqslv",
+  maxiter = 5000
+)
 
 iv_est <- cbind(estimate = coef(estr), confint(estr))[1, , drop = FALSE]
 rownames(iv_est) <- "2SLS IV estimate"
@@ -1280,15 +1289,16 @@ There is also a built-in procedure for 2SLS.
 
 ```{r}
 #| label: ch16-2-2sls-builtin
-estr <- MEstimator(
+estr <- m_estimate(
   stacked_equations = function(theta) {
     ee_2sls(theta, y = df_iv$wt82_71, A = df_iv$qsmk,
             Z = as.matrix(df_iv[, "highprice", drop = FALSE]),
             W = as.matrix(df_iv[, "I", drop = FALSE]))
   },
-  init = c(2, 2, 0.2, 0.1)
-) |>
-  estimate(solver = "nleqslv", maxiter = 5000)
+  init = c(2, 2, 0.2, 0.1),
+  solver = "nleqslv",
+  maxiter = 5000
+)
 
 iv_est <- cbind(estimate = coef(estr), confint(estr))[1, , drop = FALSE]
 rownames(iv_est) <- "2SLS (built-in) IV estimate"
@@ -1316,15 +1326,16 @@ by_cutoff <- data.frame(
 
 for (i in seq_along(cutoffs)) {
   z_new <- as.integer(df_iv$price82 >= cutoffs[i])
-  estr <- MEstimator(
+  estr <- m_estimate(
     stacked_equations = function(theta) {
       ee_2sls(theta, y = df_iv$wt82_71, A = df_iv$qsmk,
               Z = matrix(z_new, ncol = 1),
               W = as.matrix(df_iv[, "I", drop = FALSE]))
     },
-    init = c(2, 2, 0.2, 0.1)
-  ) |>
-    estimate(solver = "nleqslv", maxiter = 5000)
+    init = c(2, 2, 0.2, 0.1),
+    solver = "nleqslv",
+    maxiter = 5000
+  )
   by_cutoff[i, c("iv", "lower", "upper")] <- c(coef(estr)[1], confint(estr)[1, ])
 }
 
