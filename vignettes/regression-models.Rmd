@@ -144,6 +144,7 @@ psi <- function(theta) {
                        penalty = 0.1)
 }
 
+# Not differentiable, so the sandwich variance should not be trusted here
 m <- MEstimator(stacked_equations = psi, init = c(0, 0, 0)) |> estimate()
 m@theta
 ```
@@ -158,6 +159,7 @@ psi <- function(theta) {
                             penalty = 0.1, ratio = 0.5)
 }
 
+# The L1 half is not differentiable, so again distrust the sandwich variance
 m <- MEstimator(stacked_equations = psi, init = c(0, 0, 0)) |> estimate()
 m@theta
 ```
@@ -182,7 +184,9 @@ psi <- function(theta) {
                         loss = "huber", k = 1.345)
 }
 
-m <- MEstimator(stacked_equations = psi, init = c(0, 0)) |> estimate()
+# Robust losses can have several roots, so seed the search from least squares
+start <- coef(lm(y ~ x))
+m <- MEstimator(stacked_equations = psi, init = start) |> estimate()
 
 # Compare with OLS (affected by outliers)
 psi_ols <- function(theta) {

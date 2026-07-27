@@ -159,6 +159,9 @@ a <- dc$qsmk
 
 # Outcome variable
 y <- dc$wt82_71
+
+# Good practice: start the solver from the standalone propensity score fit
+init_ps <- unname(coef(glm(a ~ W - 1, family = binomial())))
 ```
 
 ```{r}
@@ -185,7 +188,7 @@ estr <- MEstimator(
     # Stacking the estimating equations and returning
     rbind(ee_msm, ee_ps)
   },
-  init = c(0, 0, rep(0, ncol(W)))
+  init = c(0, 0, init_ps)
 ) |>
   estimate(solver = "nleqslv", maxiter = 5000)
 
@@ -210,7 +213,7 @@ estr <- MEstimator(
                distribution = "normal",
                link = "identity")
   },
-  init = c(0, 0, rep(0, ncol(W)))
+  init = c(0, 0, init_ps)
 ) |>
   estimate(solver = "nleqslv", maxiter = 5000)
 
@@ -231,6 +234,9 @@ equation is for an intercept-only model for the probability of `qsmk`.
 
 ```{r}
 #| label: ch12-3
+# Likewise, start the numerator model from its own intercept-only fit
+init_num <- unname(coef(glm(a ~ 1, family = binomial())))
+
 estr <- MEstimator(
   stacked_equations = function(theta) {
     # Dividing parameters into corresponding estimation equations
@@ -262,7 +268,7 @@ estr <- MEstimator(
     # Stacking the estimating equations and returning
     rbind(ee_msm, ee_num, ee_ps)
   },
-  init = c(0, 0, 0, rep(0, ncol(W)))
+  init = c(0, 0, init_num, init_ps)
 ) |>
   estimate(solver = "nleqslv", maxiter = 5000)
 
@@ -449,7 +455,7 @@ estr <- MEstimator(
                distribution = "binomial",
                link = "logit")
   },
-  init = c(0, 0, rep(0, ncol(W)))
+  init = c(0, 0, init_ps)
 ) |>
   estimate(solver = "nleqslv", maxiter = 5000)
 
@@ -508,7 +514,7 @@ estr <- MEstimator(
     # Stacking the estimating equations and returning
     rbind(ee_msm, ee_num, ee_ps)
   },
-  init = c(0, 0, 0, 0, 0, rep(0, ncol(W)))
+  init = c(0, 0, 0, 0, init_num, init_ps)
 ) |>
   estimate(solver = "nleqslv", maxiter = 5000)
 
@@ -767,6 +773,7 @@ a <- dc$qsmk
 
 ```{r}
 #| label: ch13-fp-byhand
+# The default solver converges reliably for the AIPW stacks in this section
 estr <- MEstimator(
   stacked_equations = function(theta) {
     # Dividing parameters into corresponding estimation equations
@@ -808,9 +815,9 @@ estr <- MEstimator(
     # Stacking the estimating equations and returning
     rbind(ee_rd, ee_r1, ee_r0, ee_reg, ee_ps)
   },
-  init = c(0, 0, 0, rep(0, ncol(X_out)), rep(0, ncol(W)))
+  init = c(0, 0, 0, init_reg, init_ps)
 ) |>
-  estimate(solver = "nleqslv", maxiter = 5000)
+  estimate(maxiter = 5000)
 
 # AIPW (by-hand)
 aipw <- cbind(estimate = coef(estr), confint(estr))[1:3, ]
@@ -826,14 +833,15 @@ estimator (`ee_aipw`).
 
 ```{r}
 #| label: ch13-fp-builtin
+# The default solver again, as above
 estr <- MEstimator(
   stacked_equations = function(theta) {
     ee_aipw(theta = theta, y = y, A = a, W = W,
             X = X_out, X1 = X1, X0 = X0)
   },
-  init = c(0, 0, 0, rep(0, ncol(W)), -1.5, rep(0, ncol(X_out) - 1))
+  init = c(0, 0, 0, init_ps, init_reg)
 ) |>
-  estimate(solver = "nleqslv", maxiter = 5000)
+  estimate(maxiter = 5000)
 
 # AIPW (built-in)
 aipw <- cbind(estimate = coef(estr), confint(estr))[1:3, ]
@@ -851,6 +859,7 @@ AIPW.
 
 ```{r}
 #| label: ch13-fp-wregaipw
+# The default solver again, as above
 estr <- MEstimator(
   stacked_equations = function(theta) {
     # Dividing parameters into corresponding estimation equations
@@ -888,9 +897,9 @@ estr <- MEstimator(
     # Stacking the estimating equations and returning
     rbind(ee_rd, ee_r1, ee_r0, ee_reg, ee_ps)
   },
-  init = c(0, 0, 0, rep(0, ncol(X_out)), rep(0, ncol(W)))
+  init = c(0, 0, 0, init_reg, init_ps)
 ) |>
-  estimate(solver = "nleqslv", maxiter = 5000)
+  estimate(maxiter = 5000)
 
 # Weighted-regression AIPW
 aipw <- cbind(estimate = coef(estr), confint(estr))[1:3, ]
