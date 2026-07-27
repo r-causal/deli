@@ -32,3 +32,17 @@ appending spline basis terms according to per-column specifications. Each
 column in \code{X} keeps its linear term; columns with a non-\code{NULL} specification
 get additional spline basis columns appended.
 }
+\examples{
+set.seed(42)
+X <- cbind(rnorm(50), rnorm(50))
+
+# The first column stays linear; the second also gets penalized splines
+specs <- list(NULL, list(knots = c(-1, 0, 1), penalty = 5))
+out <- additive_design_matrix(X, specs, return_penalty = TRUE)
+
+# Linear terms are unpenalized, spline terms carry the requested penalty
+out$penalty
+
+dim(out$X)
+
+}

@@ -34,3 +34,13 @@ A p-by-2 matrix with columns \code{"lower"} and \code{"upper"}.
 \description{
 Compute confidence bands from theta and covariance
 }
+\examples{
+\dontshow{if (requireNamespace("MASS", quietly = TRUE)) withAutoprint(\{ # examplesIf}
+fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
+                  model = "linear")
+
+# Bands from the estimates and covariance alone, without the fitted object
+compute_confidence_bands(coef(fit), covariance = vcov(fit),
+                         method = "supt", seed = 1)
+\dontshow{\}) # examplesIf}
+}

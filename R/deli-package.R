@@ -4,7 +4,6 @@
 ## usethis namespace: start
 #' @import S7
 #' @importFrom stats dnorm plogis pnorm pt qlogis qnorm quantile qt
-#' @importFrom utils capture.output
 ## usethis namespace: end
 NULL
 

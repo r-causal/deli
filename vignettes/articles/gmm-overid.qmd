@@ -6,6 +6,13 @@ knitr:
     comment: '#>'
 ---
 
+::: {.callout-note}
+This article is translated from the
+[GMM for Over-Identified Parameters example](https://deli.readthedocs.io/en/latest/Examples/GMM-OverID.html)
+in the documentation of [delicatessen](https://deli.readthedocs.io/), deli's
+Python counterpart.
+:::
+
 ```{r}
 #| label: setup
 library(deli)
@@ -65,14 +72,14 @@ estr <- MEstimator(
     rbind(ee1, ee2)
   },
   init = c(0, 0)
-)
-estr <- estimate(estr)
+) |>
+  estimate()
 
 data.frame(
   Param = c("beta_1 (Z1)", "beta_2 (Z2)"),
   Coef = round(estr@theta, 4),
-  LCL = round(confidence_intervals(estr)[, 1], 4),
-  UCL = round(confidence_intervals(estr)[, 2], 4)
+  LCL = round(confint(estr)[, 1], 4),
+  UCL = round(confint(estr)[, 2], 4)
 )
 ```
 
@@ -104,8 +111,8 @@ estr_fail <- MEstimator(
     rbind(ee1, ee2)
   },
   init = c(0)
-)
-estr_fail <- estimate(estr_fail)
+) |>
+  estimate()
 ```
 
 ### GMMEstimator works
@@ -126,14 +133,14 @@ estr_gmm <- GMMEstimator(
     rbind(ee1, ee2)
   },
   init = c(0)
-)
-estr_gmm <- estimate(estr_gmm)
+) |>
+  estimate()
 
 data.frame(
   Param = "beta (combined)",
   Coef = round(estr_gmm@theta, 4),
-  LCL = round(confidence_intervals(estr_gmm)[, 1], 4),
-  UCL = round(confidence_intervals(estr_gmm)[, 2], 4)
+  LCL = round(confint(estr_gmm)[, 1], 4),
+  UCL = round(confint(estr_gmm)[, 2], 4)
 )
 ```
 
@@ -227,14 +234,14 @@ estr_transport <- GMMEstimator(
     rbind(ee1, ee2, ee_s)
   },
   init = c(0, 0, 0)
-)
-estr_transport <- estimate(estr_transport)
+) |>
+  estimate()
 
 data.frame(
   Param = c("beta (transported)", "alpha_0", "alpha_1"),
   Coef = round(estr_transport@theta, 4),
-  LCL = round(confidence_intervals(estr_transport)[, 1], 4),
-  UCL = round(confidence_intervals(estr_transport)[, 2], 4)
+  LCL = round(confint(estr_transport)[, 1], 4),
+  UCL = round(confint(estr_transport)[, 2], 4)
 )
 ```
 

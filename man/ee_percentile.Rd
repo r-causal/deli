@@ -27,3 +27,18 @@ used to estimate the variance. The function warns on each call for this
 reason. It is offered for completeness but is not generally recommended
 for applications.
 }
+\examples{
+y <- c(1, 2, 3, 1, 4, 5, 3, 2, 6, 7)
+psi <- function(theta) ee_percentile(theta, y = y, q = 0.5)
+
+# The estimating function is a step function of theta, so its derivative is
+# zero wherever it is defined and the root finder cannot search. Start at the
+# sample quantile, which is the solution.
+m <- MEstimator(stacked_equations = psi, init = median(y)) |>
+  estimate()
+
+# Each call warns for the same reason: the median estimating equation is not
+# differentiable, so the sandwich variance should not be trusted.
+coef(m)
+
+}

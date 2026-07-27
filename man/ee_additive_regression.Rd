@@ -43,3 +43,32 @@ using \code{\link[=additive_design_matrix]{additive_design_matrix()}} and delega
 with \code{gamma = 2} (ridge penalty). The penalty only applies to the spline
 basis terms, not to the original linear terms.
 }
+\examples{
+set.seed(42)
+n <- 200
+x <- runif(n, -3, 3)
+y <- sin(x) + rnorm(n, sd = 0.3)
+X <- cbind(1, x)
+
+# No spline on the intercept column, a penalized spline on x.
+specs <- list(NULL, list(knots = c(-2, -1, 0, 1, 2), penalty = 5))
+
+psi <- function(theta) {
+  ee_additive_regression(
+    theta,
+    X = X,
+    y = y,
+    specifications = specs,
+    model = "linear"
+  )
+}
+
+# One parameter per column of the expanded design matrix.
+m <- MEstimator(
+  stacked_equations = psi,
+  init = rep(0, ncol(additive_design_matrix(X, specs)))
+) |>
+  estimate()
+coef(m)
+
+}

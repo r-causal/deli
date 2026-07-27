@@ -6,6 +6,13 @@ knitr:
     comment: '#>'
 ---
 
+::: {.callout-note}
+This article is translated from the
+[Coffman et al. (2021): Causal Mediation Analysis example](https://deli.readthedocs.io/en/latest/Examples/Coffman-2021.html)
+in the documentation of [delicatessen](https://deli.readthedocs.io/), deli's
+Python counterpart.
+:::
+
 ```{r}
 #| label: setup
 library(deli)
@@ -81,12 +88,10 @@ psi_ace <- function(theta) {
 }
 
 init_vals <- c(0, 0.5, 0.5, rep(0, ncol(W_matrix)))
-estr <- MEstimator(stacked_equations = psi_ace, init = init_vals)
-estr <- estimate(estr)
-ci <- confidence_intervals(estr)
+estr <- MEstimator(stacked_equations = psi_ace, init = init_vals) |>
+  estimate()
 
-cat("ACE:   ", estr@theta[1], "\n")
-cat("95% CI:", ci[1, ], "\n")
+c(ace = coef(estr)[[1]], confint(estr)[1, ])
 ```
 
 These results suggest a disparity by sexual minority status in adult smoking
@@ -184,14 +189,12 @@ psi_cde <- function(theta) {
 init_vals <- c(0, 0, 0.5, 0.5, 0.5, 0.5,
                rep(0, ncol(W_matrix)),
                rep(0, ncol(X_matrix)))
-estr <- MEstimator(stacked_equations = psi_cde, init = init_vals)
-estr <- estimate(estr)
-ci <- confidence_intervals(estr)
+estr <- MEstimator(stacked_equations = psi_cde, init = init_vals) |>
+  estimate()
 
-cat("CDE(1):", estr@theta[1], "\n")
-cat("95% CI:", ci[1, ], "\n")
-cat("CDE(0):", estr@theta[2], "\n")
-cat("95% CI:", ci[2, ], "\n")
+cde <- cbind(estimate = coef(estr), confint(estr))[1:2, ]
+rownames(cde) <- c("CDE(1)", "CDE(0)")
+cde
 ```
 
 Note that the `twangMediation` documentation does not list the controlled
@@ -207,8 +210,8 @@ easily computed with the following functionality.
 ```{r}
 #| label: cde-bands
 cb <- confidence_bands(estr, subset = c(1, 2), seed = 4281014)
-cat("95% CB - CDE(1):", cb[1, ], "\n")
-cat("95% CB - CDE(0):", cb[2, ], "\n")
+rownames(cb) <- c("CDE(1)", "CDE(0)")
+cb
 ```
 
 As shown here, these are slightly wider than the confidence intervals. This is
@@ -289,12 +292,10 @@ psi_pde <- function(theta) {
 init_vals <- c(0, 0.5, 0.5,
                rep(0, ncol(W_matrix)),
                rep(0, ncol(X_matrix)))
-estr <- MEstimator(stacked_equations = psi_pde, init = init_vals)
-estr <- estimate(estr)
-ci <- confidence_intervals(estr)
+estr <- MEstimator(stacked_equations = psi_pde, init = init_vals) |>
+  estimate()
 
-cat("PDE:   ", estr@theta[1], "\n")
-cat("95% CI:", ci[1, ], "\n")
+c(pde = coef(estr)[[1]], confint(estr)[1, ])
 ```
 
 These results are fairly similar to those provided in `twangMediation` (but the
@@ -344,12 +345,10 @@ psi_pie <- function(theta) {
 init_vals <- c(0, 0.5, 0.5,
                rep(0, ncol(W_matrix)),
                rep(0, ncol(X_matrix)))
-estr <- MEstimator(stacked_equations = psi_pie, init = init_vals)
-estr <- estimate(estr)
-ci <- confidence_intervals(estr)
+estr <- MEstimator(stacked_equations = psi_pie, init = init_vals) |>
+  estimate()
 
-cat("PIE:   ", estr@theta[1], "\n")
-cat("95% CI:", ci[1, ], "\n")
+c(pie = coef(estr)[[1]], confint(estr)[1, ])
 ```
 
 That provides the pure indirect effect estimate. This is again similar to
@@ -400,14 +399,13 @@ psi_full <- function(theta) {
 init_vals <- c(0, 0, 0.5, 0.5, 0.5,
                rep(0, ncol(W_matrix)),
                rep(0, ncol(X_matrix)))
-estr <- MEstimator(stacked_equations = psi_full, init = init_vals)
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = psi_full, init = init_vals) |>
+  estimate()
 cb <- confidence_bands(estr, subset = c(1, 2), seed = 921453)
 
-cat("PDE:   ", estr@theta[1], "\n")
-cat("95% CB:", cb[1, ], "\n")
-cat("PIE:   ", estr@theta[2], "\n")
-cat("95% CB:", cb[2, ], "\n")
+pure <- cbind(estimate = coef(estr)[1:2], cb)
+rownames(pure) <- c("PDE", "PIE")
+pure
 ```
 
 This provides our results collected from before into a single estimating

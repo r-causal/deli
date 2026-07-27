@@ -25,13 +25,21 @@ The critical value \eqn{c_{\alpha/2}} comes from the standard normal
 distribution by default. When a \code{finite_correction} is set on the fit, it
 comes instead from the t-distribution with \eqn{n - p} degrees of freedom,
 matching the finite-sample adjustment of the variance.
+
+This function mirrors \code{m.confidence_intervals()} in Python delicatessen, so
+code translated from Python can keep its shape.
 }
 \examples{
 psi <- function(theta) {
   y <- c(1, 2, 3, 4, 5)
   matrix(y - theta[1], nrow = 1)
 }
-m <- MEstimator(stacked_equations = psi, init = c(0))
-m <- estimate(m)
+m <- MEstimator(stacked_equations = psi, init = c(0)) |>
+  estimate()
 confidence_intervals(m)
+}
+\seealso{
+\code{\link[=confint]{confint()}}, the standard R accessor for the same intervals. It
+returns identical values but is parameterized by \code{level = 0.95} where this
+function takes \code{alpha = 0.05}.
 }

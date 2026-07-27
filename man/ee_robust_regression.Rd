@@ -41,3 +41,20 @@ Returns a p-by-n matrix for robust regression using the specified loss
 function (linear regression only):
 \deqn{\psi_i(\theta) = f_k(Y_i - X_i^T \theta) X_i}
 }
+\examples{
+# Robust losses can have several roots, so seeding the search from a
+# least-squares fit is standard practice. Starting from zero stalls here.
+start <- coef(lm(weight ~ height, data = robust_regress))
+
+fit <- m_estimate(
+  weight ~ height,
+  data = robust_regress,
+  .ee = ee_robust_regression,
+  model = "linear",
+  k = 1.345,
+  loss = "huber",
+  init = start
+)
+coef(fit)
+
+}

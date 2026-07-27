@@ -6,9 +6,19 @@ knitr:
     comment: '#>'
 ---
 
+::: {.callout-note}
+This article is translated from the
+[Cole et al. (2023): Sensitivity Analysis for Missing Data example](https://deli.readthedocs.io/en/latest/Examples/Cole-EPID-2023.html)
+in the documentation of [delicatessen](https://deli.readthedocs.io/), deli's
+Python counterpart.
+:::
+
 ```{r}
 #| label: setup
 library(deli)
+library(ggplot2)
+
+theme_set(theme_minimal())
 ```
 
 Cole et al. (2023) reviewed a sensitivity analysis method for missing data
@@ -55,11 +65,9 @@ psi_mean <- function(theta) {
   matrix(r * (y_filled - theta), nrow = 1)
 }
 
-estr <- MEstimator(stacked_equations = psi_mean, init = c(300))
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = psi_mean, init = c(300)) |> estimate()
 
-cat("mu:    ", estr@theta[1], "\n")
-cat("95% CI:", confidence_intervals(estr)[1, ], "\n")
+c(mu = coef(estr)[[1]], confint(estr)[1, ])
 ```
 
 However, this complete-case analysis assumes missing data is non-informative
@@ -122,11 +130,10 @@ alpha <- 0.01
 qy <- q_function(y_vals = y, alpha = alpha)
 
 # Estimate
-estr <- MEstimator(stacked_equations = psi_sens, init = c(300, 0))
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = psi_sens, init = c(300, 0)) |>
+  estimate()
 
-cat("mu:    ", estr@theta[1], "\n")
-cat("95% CI:", confidence_intervals(estr)[1, ], "\n")
+c(mu = coef(estr)[[1]], confint(estr)[1, ])
 ```
 
 This is notably lower than the complete-case analysis.
@@ -152,11 +159,10 @@ psi_robins <- function(theta) {
   )
 }
 
-estr <- MEstimator(stacked_equations = psi_robins, init = c(300, 0))
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = psi_robins, init = c(300, 0)) |>
+  estimate()
 
-cat("mu:    ", estr@theta[1], "\n")
-cat("95% CI:", confidence_intervals(estr)[1, ], "\n")
+c(mu = coef(estr)[[1]], confint(estr)[1, ])
 ```
 
 This gives the same result as the by-hand version, as expected.
@@ -190,9 +196,9 @@ for (alphas in list(alpha_l, alpha_u)) {
     qy <- q_function(y_vals = y, alpha = alpha)
 
     # Applying M-estimator
-    estr <- MEstimator(stacked_equations = psi_robins, init = init_vals)
-    estr <- estimate(estr)
-    ci <- confidence_intervals(estr)
+    estr <- MEstimator(stacked_equations = psi_robins, init = init_vals) |>
+      estimate()
+    ci <- confint(estr)
 
     # Extracting output
     point <- c(point, estr@theta[1])
@@ -216,14 +222,12 @@ p <- p[order(p$alpha), ]
 
 ```{r}
 #| label: sens-grid-plot
-plot(p$alpha, p$point, type = "l",
-     xlab = expression(alpha), ylab = expression(hat(mu)),
-     ylim = c(300, 900))
-polygon(c(p$alpha, rev(p$alpha)),
-        c(p$lcl, rev(p$ucl)),
-        col = rgb(0, 0, 0, 0.2), border = NA)
-legend("topright", legend = "95% CI",
-       fill = rgb(0, 0, 0, 0.2), border = NA)
+ggplot(p, aes(x = alpha, y = point)) +
+  geom_ribbon(aes(ymin = lcl, ymax = ucl, fill = "95% CI"), alpha = 0.2) +
+  geom_line() +
+  scale_fill_manual(values = c("95% CI" = "black")) +
+  coord_cartesian(ylim = c(300, 900)) +
+  labs(x = expression(alpha), y = expression(hat(mu)), fill = NULL)
 ```
 
 Estimating $\mu$ across this grid of $\alpha$ takes a few seconds at most.
@@ -257,12 +261,18 @@ psi_bounds <- function(theta) {
   rbind(ee_lower, ee_upper)
 }
 
-estr <- MEstimator(stacked_equations = psi_bounds, init = c(400, 700))
-estr <- estimate(estr)
-ci <- confidence_intervals(estr)
+estr <- MEstimator(stacked_equations = psi_bounds, init = c(400, 700)) |>
+  estimate()
+ci <- confint(estr)
 
-cat("Bounds:", estr@theta, "\n")
-cat("95% CI:", ci[1, 1], ci[2, 2], "\n")
+# Bounds, with the interval running from the lower limit of the lower bound
+# to the upper limit of the upper bound
+c(
+  lower_bound = coef(estr)[[1]],
+  upper_bound = coef(estr)[[2]],
+  lower = ci[1, 1],
+  upper = ci[2, 2]
+)
 ```
 
 These are the nonparametric bounds for missingness of the mean. Note that these

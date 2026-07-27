@@ -19,4 +19,18 @@ A numeric vector of Z-scores.
 \description{
 Computes Wald-type Z-scores:
 \eqn{(\hat{\theta} - \theta_0) / \widehat{SE}(\hat{\theta})}.
+
+This function mirrors \code{m.z_scores()} in Python delicatessen, so code
+translated from Python can keep its shape.
+}
+\examples{
+fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
+                  model = "linear")
+
+z_scores(fit)
+
+}
+\seealso{
+\code{\link[=summary]{summary()}} and \code{\link[generics:tidy]{generics::tidy()}}, which report the same Z-scores
+in table form alongside the other parameter-level results.
 }

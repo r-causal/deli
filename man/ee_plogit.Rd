@@ -47,3 +47,29 @@ Returns a p-by-n matrix of estimating equation contributions for pooled
 logistic regression with discrete-time survival data. This implementation
 does not require creation of a long data set.
 }
+\examples{
+# Bladder tumor recurrence, comparing the novel treatment to placebo while
+# adjusting for the number and size of the initial tumors.
+d <- collett_bladder
+d$novel <- d$treat - 1
+W <- as.matrix(d[, c("novel", "init", "size")])
+
+# Time is modeled with disjoint indicators, one per distinct event time,
+# which ee_plogit builds by default.
+k <- length(unique(d$time[d$delta == 1]))
+
+psi <- function(theta) {
+  ee_plogit(theta, X = W, time = d$time, event = d$delta)
+}
+m <- MEstimator(
+  stacked_equations = psi,
+  init = c(rep(0, ncol(W)), -4, rep(0, k - 1))
+) |>
+  estimate()
+
+# The first three parameters are the covariate coefficients, which
+# approximate log hazard ratios. The remaining parameters are the
+# pooled-logistic time intercepts.
+summary(m, subset = 1:3)
+
+}

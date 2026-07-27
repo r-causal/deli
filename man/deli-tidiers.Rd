@@ -26,3 +26,14 @@
 pipelines. Requires the \pkg{generics} package (or \pkg{broom}) to be
 loaded.
 }
+\examples{
+fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
+                  model = "linear")
+
+# Attaching generics or broom makes the shorter tidy(fit) and glance(fit)
+# calls work as well
+generics::tidy(fit, conf.int = TRUE)
+
+generics::glance(fit)
+
+}

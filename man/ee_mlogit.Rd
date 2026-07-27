@@ -25,3 +25,27 @@ Supports unranked categorical outcomes. \code{y} must be an n-by-k indicator
 matrix where the first column is the reference category. Returns a
 \code{(b * (k-1))}-by-n matrix.
 }
+\examples{
+set.seed(123)
+n <- 50
+W <- rbinom(n, 1, 0.5)
+probs <- cbind(0.5 - 0.2 * W, 0.3 + 0.1 * W, 0.2 + 0.1 * W)
+y_cat <- sapply(seq_len(n), function(i) sample(1:3, 1, prob = probs[i, ]))
+
+# The outcome is an indicator matrix whose first column is the reference
+# category.
+y <- cbind(
+  as.integer(y_cat == 1),
+  as.integer(y_cat == 2),
+  as.integer(y_cat == 3)
+)
+X <- cbind(1, W)
+
+psi <- function(theta) ee_mlogit(theta, X = X, y = y)
+
+# Two columns of X and two non-reference categories give four parameters.
+m <- MEstimator(stacked_equations = psi, init = rep(0, 4)) |>
+  estimate()
+coef(m)
+
+}

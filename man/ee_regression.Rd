@@ -27,3 +27,22 @@ Returns a p-by-n matrix of estimating equation contributions for
 regression models. Supports linear, logistic, and Poisson regression:
 \deqn{\psi_i(\theta) = \{Y_i - g(X_i^T \theta)\} X_i}
 }
+\examples{
+fit <- m_estimate(
+  mpg ~ wt + hp,
+  data = mtcars,
+  .ee = ee_regression,
+  model = "linear"
+)
+summary(fit)
+
+# The same equation fits a logistic regression through the model argument.
+fit_logit <- m_estimate(
+  vs ~ mpg,
+  data = mtcars,
+  .ee = ee_regression,
+  model = "logistic"
+)
+coef(fit_logit)
+
+}

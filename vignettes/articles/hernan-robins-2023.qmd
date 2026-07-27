@@ -6,6 +6,13 @@ knitr:
     comment: '#>'
 ---
 
+::: {.callout-note}
+This article is translated from the
+[Hernan & Robins (2023): Causal Inference with Models example](https://deli.readthedocs.io/en/latest/Examples/Hernan-Robins-2023.html)
+in the documentation of [delicatessen](https://deli.readthedocs.io/), deli's
+Python counterpart.
+:::
+
 ```{r}
 #| label: setup
 library(deli)
@@ -115,13 +122,13 @@ estr <- MEstimator(
                   model = "linear")
   },
   init = c(0, 0)
-)
-estr <- estimate(estr)
+) |>
+  estimate()
 
 # The crude estimate of qsmk
-ci <- confidence_intervals(estr)
-cat("qsmk:", round(estr@theta[2], 2), "\n")
-cat("95% CI:", round(ci[2, 1], 2), "to", round(ci[2, 2], 2), "\n")
+crude <- cbind(estimate = coef(estr), confint(estr))
+rownames(crude) <- c("intercept", "qsmk")
+round(crude, 2)
 ```
 
 The book reports an unadjusted estimate of 2.5 (95% CI: 1.7, 3.4).
@@ -159,6 +166,9 @@ a <- dc$qsmk
 
 # Outcome variable
 y <- dc$wt82_71
+
+# Good practice: start the solver from the standalone propensity score fit
+init_ps <- unname(coef(glm(a ~ W - 1, family = binomial())))
 ```
 
 ```{r}
@@ -185,14 +195,13 @@ estr <- MEstimator(
     # Stacking the estimating equations and returning
     rbind(ee_msm, ee_ps)
   },
-  init = c(0, 0, rep(0, ncol(W)))
-)
-estr <- estimate(estr, solver = "nleqslv", maxiter = 5000)
+  init = c(0, 0, init_ps)
+) |>
+  estimate(solver = "nleqslv", maxiter = 5000)
 
-ci <- confidence_intervals(estr)
-cat("alpha_0:", round(estr@theta[1], 2), "\n")
-cat("alpha_1 (ACE):", round(estr@theta[2], 2),
-    "95% CI:", round(ci[2, 1], 2), "to", round(ci[2, 2], 2), "\n")
+msm_est <- cbind(estimate = coef(estr), confint(estr))[1:2, ]
+rownames(msm_est) <- c("alpha_0", "alpha_1 (ACE)")
+round(msm_est, 2)
 ```
 
 The book provides the point estimate for `qsmk` ($\hat{\alpha}_1$) as 3.4
@@ -211,14 +220,13 @@ estr <- MEstimator(
                distribution = "normal",
                link = "identity")
   },
-  init = c(0, 0, rep(0, ncol(W)))
-)
-estr <- estimate(estr, solver = "nleqslv", maxiter = 5000)
+  init = c(0, 0, init_ps)
+) |>
+  estimate(solver = "nleqslv", maxiter = 5000)
 
-ci <- confidence_intervals(estr)
-cat("alpha_0:", round(estr@theta[1], 2), "\n")
-cat("alpha_1 (ACE):", round(estr@theta[2], 2),
-    "95% CI:", round(ci[2, 1], 2), "to", round(ci[2, 2], 2), "\n")
+msm_est <- cbind(estimate = coef(estr), confint(estr))[1:2, ]
+rownames(msm_est) <- c("alpha_0", "alpha_1 (ACE)")
+round(msm_est, 2)
 ```
 
 As expected, this built-in functionality produces the same results as the
@@ -233,6 +241,9 @@ equation is for an intercept-only model for the probability of `qsmk`.
 
 ```{r}
 #| label: ch12-3
+# Likewise, start the numerator model from its own intercept-only fit
+init_num <- unname(coef(glm(a ~ 1, family = binomial())))
+
 estr <- MEstimator(
   stacked_equations = function(theta) {
     # Dividing parameters into corresponding estimation equations
@@ -264,14 +275,13 @@ estr <- MEstimator(
     # Stacking the estimating equations and returning
     rbind(ee_msm, ee_num, ee_ps)
   },
-  init = c(0, 0, 0, rep(0, ncol(W)))
-)
-estr <- estimate(estr, solver = "nleqslv", maxiter = 5000)
+  init = c(0, 0, init_num, init_ps)
+) |>
+  estimate(solver = "nleqslv", maxiter = 5000)
 
-ci <- confidence_intervals(estr)
-cat("alpha_0:", round(estr@theta[1], 2), "\n")
-cat("alpha_1 (ACE):", round(estr@theta[2], 2),
-    "95% CI:", round(ci[2, 1], 2), "to", round(ci[2, 2], 2), "\n")
+msm_est <- cbind(estimate = coef(estr), confint(estr))[1:2, ]
+rownames(msm_est) <- c("alpha_0", "alpha_1 (ACE)")
+round(msm_est, 2)
 ```
 
 The estimate is the same as in the previous section. This is expected
@@ -344,15 +354,11 @@ estr <- MEstimator(
     rbind(ee_msm, ee_num, ee_ps)
   },
   init = c(0, 0, 0, 0, rep(0, ncol(W_ds)))
-)
-estr <- estimate(estr, solver = "nleqslv", tolerance = 1e-12, maxiter = 5000)
+) |>
+  estimate(solver = "nleqslv", tolerance = 1e-12, maxiter = 5000)
 
-ci <- confidence_intervals(estr)
-cat("MSM coefficients:\n")
-for (i in 1:3) {
-  cat("  theta_", i, ":", round(estr@theta[i], 3),
-      "95% CI:", round(ci[i, 1], 3), "to", round(ci[i, 2], 3), "\n")
-}
+# MSM coefficients
+round(cbind(estimate = coef(estr), confint(estr))[1:3, ], 3)
 ```
 
 The book reports coefficients of: 2.005, -0.109, 0.003. These match the
@@ -371,13 +377,9 @@ vals <- matrix(c(1, 0, 0,
 pred_y <- regression_predictions(vals,
                                  estr@theta[1:3],
                                  estr@variance[1:3, 1:3])
+rownames(pred_y) <- c("no change in smoking", "+20 smoking intensity")
 
-cat("No change in smoking\n")
-cat(pred_y$predicted[1], "\n")
-cat("95% CI:", pred_y$lower[1], "to", pred_y$upper[1], "\n\n")
-cat("+20 smoking intensity\n")
-cat(pred_y$predicted[2], "\n")
-cat("95% CI:", pred_y$lower[2], "to", pred_y$upper[2], "\n")
+pred_y[, c("predicted", "lower", "upper")]
 ```
 
 Again, we get similar results to those reported in the book: 2.0
@@ -436,12 +438,13 @@ estr <- MEstimator(
     rbind(ee_msm, ee_num, ee_ps)
   },
   init = c(0, 0, 0, rep(0, ncol(W)))
-)
-estr <- estimate(estr, solver = "nleqslv", maxiter = 5000)
+) |>
+  estimate(solver = "nleqslv", maxiter = 5000)
 
-ci <- confidence_intervals(estr)
-cat("Causal OR for qsmk:", round(exp(estr@theta[2]), 4), "\n")
-cat("95% CI:", round(exp(ci[2, 1]), 4), "to", round(exp(ci[2, 2]), 4), "\n")
+# Causal odds ratio for qsmk
+causal_or <- exp(cbind(estimate = coef(estr), confint(estr))[2, , drop = FALSE])
+rownames(causal_or) <- "qsmk"
+round(causal_or, 4)
 ```
 
 The previous results are for the causal odds ratio. They are similar to
@@ -459,13 +462,14 @@ estr <- MEstimator(
                distribution = "binomial",
                link = "logit")
   },
-  init = c(0, 0, rep(0, ncol(W)))
-)
-estr <- estimate(estr, solver = "nleqslv", maxiter = 5000)
+  init = c(0, 0, init_ps)
+) |>
+  estimate(solver = "nleqslv", maxiter = 5000)
 
-ci <- confidence_intervals(estr)
-cat("Causal OR for qsmk:", round(exp(estr@theta[2]), 4), "\n")
-cat("95% CI:", round(exp(ci[2, 1]), 4), "to", round(exp(ci[2, 2]), 4), "\n")
+# Causal odds ratio for qsmk
+causal_or <- exp(cbind(estimate = coef(estr), confint(estr))[2, , drop = FALSE])
+rownames(causal_or) <- "qsmk"
+round(causal_or, 4)
 ```
 
 ### 12.5: Effect modification and marginal structural models
@@ -517,16 +521,12 @@ estr <- MEstimator(
     # Stacking the estimating equations and returning
     rbind(ee_msm, ee_num, ee_ps)
   },
-  init = c(0, 0, 0, 0, 0, rep(0, ncol(W)))
-)
-estr <- estimate(estr, solver = "nleqslv", maxiter = 5000)
+  init = c(0, 0, 0, 0, init_num, init_ps)
+) |>
+  estimate(solver = "nleqslv", maxiter = 5000)
 
-ci <- confidence_intervals(estr)
-cat("MSM with effect modification by sex:\n")
-for (i in 1:4) {
-  cat("  theta_", i, ":", round(estr@theta[i], 2),
-      "95% CI:", round(ci[i, 1], 2), "to", round(ci[i, 2], 2), "\n")
-}
+# MSM with effect modification by sex
+round(cbind(estimate = coef(estr), confint(estr))[1:4, ], 2)
 ```
 
 While not reported in the book, other online references report the
@@ -615,13 +615,12 @@ estr <- MEstimator(
     rbind(ee_msm, ee_num, ee_sms, ee_ps, ee_ms)
   },
   init = c(0, 0, 0, 0, rep(0, ncol(W_full)), rep(0, ncol(X_miss)))
-)
-estr <- estimate(estr, maxiter = 5000)
+) |>
+  estimate(maxiter = 5000)
 
-ci <- confidence_intervals(estr)
-cat("alpha_0:", round(estr@theta[1], 2), "\n")
-cat("alpha_1 (ACE):", round(estr@theta[2], 2),
-    "95% CI:", round(ci[2, 1], 2), "to", round(ci[2, 2], 2), "\n")
+msm_est <- cbind(estimate = coef(estr), confint(estr))[1:2, ]
+rownames(msm_est) <- c("alpha_0", "alpha_1 (ACE)")
+round(msm_est, 2)
 ```
 
 Here, the book reports 3.5 (95% CI: 2.5, 4.5). This concludes chapter 12.
@@ -666,8 +665,8 @@ estr <- MEstimator(
     ee_regression(theta = theta, X = X_out, y = y, model = "linear")
   },
   init = rep(0, ncol(X_out))
-)
-estr <- estimate(estr, solver = "nleqslv", maxiter = 5000)
+) |>
+  estimate(solver = "nleqslv", maxiter = 5000)
 
 # Save starting values for later use
 init_reg <- estr@theta
@@ -729,16 +728,12 @@ estr <- MEstimator(
     rbind(ee_rd, ee_r1, ee_r0, ee_reg)
   },
   init = c(0, 0, 0, init_reg)
-)
-estr <- estimate(estr, solver = "nleqslv", maxiter = 5000)
+) |>
+  estimate(solver = "nleqslv", maxiter = 5000)
 
-ci <- confidence_intervals(estr)
-cat("ACE:", round(estr@theta[1], 2),
-    "95% CI:", round(ci[1, 1], 2), "to", round(ci[1, 2], 2), "\n")
-cat("E[Y^1]:", round(estr@theta[2], 2),
-    "95% CI:", round(ci[2, 1], 2), "to", round(ci[2, 2], 2), "\n")
-cat("E[Y^0]:", round(estr@theta[3], 2),
-    "95% CI:", round(ci[3, 1], 2), "to", round(ci[3, 2], 2), "\n")
+gcomp <- cbind(estimate = coef(estr), confint(estr))[1:3, ]
+rownames(gcomp) <- c("ACE", "E[Y^1]", "E[Y^0]")
+round(gcomp, 2)
 ```
 
 The first estimate is for the average causal effect (the second and third
@@ -756,16 +751,12 @@ estr <- MEstimator(
     ee_gformula(theta, y = y, X = X_out, X1 = X1, X0 = X0)
   },
   init = c(0, 0, 0, init_reg)
-)
-estr <- estimate(estr, solver = "nleqslv", maxiter = 5000)
+) |>
+  estimate(solver = "nleqslv", maxiter = 5000)
 
-ci <- confidence_intervals(estr)
-cat("ACE:", round(estr@theta[1], 2),
-    "95% CI:", round(ci[1, 1], 2), "to", round(ci[1, 2], 2), "\n")
-cat("E[Y^1]:", round(estr@theta[2], 2),
-    "95% CI:", round(ci[2, 1], 2), "to", round(ci[2, 2], 2), "\n")
-cat("E[Y^0]:", round(estr@theta[3], 2),
-    "95% CI:", round(ci[3, 1], 2), "to", round(ci[3, 2], 2), "\n")
+gcomp <- cbind(estimate = coef(estr), confint(estr))[1:3, ]
+rownames(gcomp) <- c("ACE", "E[Y^1]", "E[Y^0]")
+round(gcomp, 2)
 ```
 
 Which provides the same answers (as we would expect).
@@ -789,6 +780,7 @@ a <- dc$qsmk
 
 ```{r}
 #| label: ch13-fp-byhand
+# The default solver converges reliably for the AIPW stacks in this section
 estr <- MEstimator(
   stacked_equations = function(theta) {
     # Dividing parameters into corresponding estimation equations
@@ -830,18 +822,14 @@ estr <- MEstimator(
     # Stacking the estimating equations and returning
     rbind(ee_rd, ee_r1, ee_r0, ee_reg, ee_ps)
   },
-  init = c(0, 0, 0, rep(0, ncol(X_out)), rep(0, ncol(W)))
-)
-estr <- estimate(estr, solver = "nleqslv", maxiter = 5000)
+  init = c(0, 0, 0, init_reg, init_ps)
+) |>
+  estimate(maxiter = 5000)
 
-ci <- confidence_intervals(estr)
-cat("AIPW (by-hand):\n")
-cat("ACE:", round(estr@theta[1], 2),
-    "95% CI:", round(ci[1, 1], 2), "to", round(ci[1, 2], 2), "\n")
-cat("E[Y^1]:", round(estr@theta[2], 2),
-    "95% CI:", round(ci[2, 1], 2), "to", round(ci[2, 2], 2), "\n")
-cat("E[Y^0]:", round(estr@theta[3], 2),
-    "95% CI:", round(ci[3, 1], 2), "to", round(ci[3, 2], 2), "\n")
+# AIPW (by-hand)
+aipw <- cbind(estimate = coef(estr), confint(estr))[1:3, ]
+rownames(aipw) <- c("ACE", "E[Y^1]", "E[Y^0]")
+round(aipw, 2)
 ```
 
 Here, the AIPW results are similar to the previous g-computation and IPW
@@ -852,23 +840,20 @@ estimator (`ee_aipw`).
 
 ```{r}
 #| label: ch13-fp-builtin
+# The default solver again, as above
 estr <- MEstimator(
   stacked_equations = function(theta) {
     ee_aipw(theta = theta, y = y, A = a, W = W,
             X = X_out, X1 = X1, X0 = X0)
   },
-  init = c(0, 0, 0, rep(0, ncol(W)), -1.5, rep(0, ncol(X_out) - 1))
-)
-estr <- estimate(estr, solver = "nleqslv", maxiter = 5000)
+  init = c(0, 0, 0, init_ps, init_reg)
+) |>
+  estimate(maxiter = 5000)
 
-ci <- confidence_intervals(estr)
-cat("AIPW (built-in):\n")
-cat("ACE:", round(estr@theta[1], 2),
-    "95% CI:", round(ci[1, 1], 2), "to", round(ci[1, 2], 2), "\n")
-cat("E[Y^1]:", round(estr@theta[2], 2),
-    "95% CI:", round(ci[2, 1], 2), "to", round(ci[2, 2], 2), "\n")
-cat("E[Y^0]:", round(estr@theta[3], 2),
-    "95% CI:", round(ci[3, 1], 2), "to", round(ci[3, 2], 2), "\n")
+# AIPW (built-in)
+aipw <- cbind(estimate = coef(estr), confint(estr))[1:3, ]
+rownames(aipw) <- c("ACE", "E[Y^1]", "E[Y^0]")
+round(aipw, 2)
 ```
 
 These results match the by-hand implementation, as expected.
@@ -881,6 +866,7 @@ AIPW.
 
 ```{r}
 #| label: ch13-fp-wregaipw
+# The default solver again, as above
 estr <- MEstimator(
   stacked_equations = function(theta) {
     # Dividing parameters into corresponding estimation equations
@@ -918,18 +904,14 @@ estr <- MEstimator(
     # Stacking the estimating equations and returning
     rbind(ee_rd, ee_r1, ee_r0, ee_reg, ee_ps)
   },
-  init = c(0, 0, 0, rep(0, ncol(X_out)), rep(0, ncol(W)))
-)
-estr <- estimate(estr, solver = "nleqslv", maxiter = 5000)
+  init = c(0, 0, 0, init_reg, init_ps)
+) |>
+  estimate(maxiter = 5000)
 
-ci <- confidence_intervals(estr)
-cat("Weighted-regression AIPW:\n")
-cat("ACE:", round(estr@theta[1], 2),
-    "95% CI:", round(ci[1, 1], 2), "to", round(ci[1, 2], 2), "\n")
-cat("E[Y^1]:", round(estr@theta[2], 2),
-    "95% CI:", round(ci[2, 1], 2), "to", round(ci[2, 2], 2), "\n")
-cat("E[Y^0]:", round(estr@theta[3], 2),
-    "95% CI:", round(ci[3, 1], 2), "to", round(ci[3, 2], 2), "\n")
+# Weighted-regression AIPW
+aipw <- cbind(estimate = coef(estr), confint(estr))[1:3, ]
+rownames(aipw) <- c("ACE", "E[Y^1]", "E[Y^0]")
+round(aipw, 2)
 ```
 
 Note that these estimates differ slightly, but this is expected since it
@@ -1014,15 +996,15 @@ estr <- MEstimator(
     rbind(ee_snm, ee_log, ee_ms)
   },
   init = c(0, rep(0, ncol(W_ge)), rep(0, ncol(X_ge)))
-)
-estr <- estimate(estr, maxiter = 5000)
-
-ci <- confidence_intervals(estr)
-cat("SNM phi_0:", round(estr@theta[1], 2),
-    "95% CI:", round(ci[1, 1], 2), "to", round(ci[1, 2], 2), "\n")
+) |>
+  estimate(maxiter = 5000)
 
 # Save theta for later use
 snm1_init <- as.numeric(estr@theta)
+
+snm_est <- cbind(estimate = coef(estr), confint(estr))[1, , drop = FALSE]
+rownames(snm_est) <- "SNM phi_0"
+round(snm_est, 2)
 ```
 
 The book reported 3.4 (95% CI: 2.5, 4.5).
@@ -1058,12 +1040,12 @@ estr <- MEstimator(
     rbind(ee_snm_val, ee_ms)
   },
   init = c(0, rep(0, ncol(W_ge)), rep(0, ncol(X_ge)))
-)
-estr <- estimate(estr, maxiter = 5000)
+) |>
+  estimate(maxiter = 5000)
 
-ci <- confidence_intervals(estr)
-cat("SNM phi_0 (built-in):", round(estr@theta[1], 2),
-    "95% CI:", round(ci[1, 1], 2), "to", round(ci[1, 2], 2), "\n")
+snm_est <- cbind(estimate = coef(estr), confint(estr))[1, , drop = FALSE]
+rownames(snm_est) <- "SNM phi_0 (built-in)"
+round(snm_est, 2)
 ```
 
 The structural nested model parameters match between implementations.
@@ -1112,14 +1094,12 @@ estr <- MEstimator(
     rbind(ee_snm_val, ee_log, ee_ms)
   },
   init = c(0, 0, rep(0, ncol(W_ge)), rep(0, ncol(X_ge)))
-)
-estr <- estimate(estr, maxiter = 5000)
+) |>
+  estimate(maxiter = 5000)
 
-ci <- confidence_intervals(estr)
-cat("SNM phi_0:", round(estr@theta[1], 2),
-    "95% CI:", round(ci[1, 1], 2), "to", round(ci[1, 2], 2), "\n")
-cat("SNM phi_1:", round(estr@theta[2], 2),
-    "95% CI:", round(ci[2, 1], 2), "to", round(ci[2, 2], 2), "\n")
+snm_est <- cbind(estimate = coef(estr), confint(estr))[1:2, ]
+rownames(snm_est) <- c("SNM phi_0", "SNM phi_1")
+round(snm_est, 2)
 ```
 
 This provides the same results as the book (2.86 and 0.03). Unlike the
@@ -1167,14 +1147,12 @@ estr <- MEstimator(
     rbind(ee_az1, ee_az0, ee_rd)
   },
   init = c(0.5, 0.5, 0)
-)
-estr <- estimate(estr)
+) |>
+  estimate()
 
-ci <- confidence_intervals(estr)
-cat("Pr(A=1|Z=1):", round(estr@theta[1], 3), "\n")
-cat("Pr(A=1|Z=0):", round(estr@theta[2], 3), "\n")
-cat("Risk difference:", round(estr@theta[3], 3),
-    "95% CI:", round(ci[3, 1], 3), "to", round(ci[3, 2], 3), "\n")
+iv_cond <- cbind(estimate = coef(estr), confint(estr))
+rownames(iv_cond) <- c("Pr(A=1|Z=1)", "Pr(A=1|Z=0)", "Risk difference")
+round(iv_cond, 3)
 ```
 
 These are the same (point) estimates as those reported in the book. Here,
@@ -1203,12 +1181,12 @@ estr <- MEstimator(
     rbind(ee_uiv, ee_yz1, ee_yz0, ee_az1, ee_az0)
   },
   init = c(1, 2, 2, 0.3, 0.2)
-)
-estr <- estimate(estr, solver = "nleqslv", maxiter = 5000)
+) |>
+  estimate(solver = "nleqslv", maxiter = 5000)
 
-ci <- confidence_intervals(estr)
-cat("IV estimate:", round(estr@theta[1], 3),
-    "95% CI:", round(ci[1, 1], 3), "to", round(ci[1, 2], 3), "\n")
+iv_est <- cbind(estimate = coef(estr), confint(estr))[1, , drop = FALSE]
+rownames(iv_est) <- "IV estimate"
+round(iv_est, 3)
 ```
 
 The $Z$ conditional means match those reported in the book (2.686, 2.536,
@@ -1226,12 +1204,12 @@ estr <- MEstimator(
     rbind(ee_uiv, ee_z)
   },
   init = c(0, 0.5)
-)
-estr <- estimate(estr)
+) |>
+  estimate()
 
-ci <- confidence_intervals(estr)
-cat("IV estimate:", round(estr@theta[1], 3),
-    "95% CI:", round(ci[1, 1], 3), "to", round(ci[1, 2], 3), "\n")
+iv_est <- cbind(estimate = coef(estr), confint(estr))[1, , drop = FALSE]
+rownames(iv_est) <- "IV estimate"
+round(iv_est, 3)
 ```
 
 There is also a built-in version of the usual IV estimator.
@@ -1243,12 +1221,12 @@ estr <- MEstimator(
     ee_iv_causal(theta, y = y_iv, A = a_iv, Z = z_iv)
   },
   init = c(0, 0.5)
-)
-estr <- estimate(estr)
+) |>
+  estimate()
 
-ci <- confidence_intervals(estr)
-cat("IV estimate (built-in):", round(estr@theta[1], 3),
-    "95% CI:", round(ci[1, 1], 3), "to", round(ci[1, 2], 3), "\n")
+iv_est <- cbind(estimate = coef(estr), confint(estr))[1, , drop = FALSE]
+rownames(iv_est) <- "IV estimate (built-in)"
+round(iv_est, 3)
 ```
 
 As expected, the built-in implementation provides the same result.
@@ -1284,12 +1262,12 @@ estr <- MEstimator(
     rbind(ee_stage2, ee_stage1)
   },
   init = c(2, 2, 0.2, 0.1)
-)
-estr <- estimate(estr, solver = "nleqslv", maxiter = 5000)
+) |>
+  estimate(solver = "nleqslv", maxiter = 5000)
 
-ci <- confidence_intervals(estr)
-cat("2SLS IV estimate:", round(estr@theta[1], 2),
-    "95% CI:", round(ci[1, 1], 2), "to", round(ci[1, 2], 2), "\n")
+iv_est <- cbind(estimate = coef(estr), confint(estr))[1, , drop = FALSE]
+rownames(iv_est) <- "2SLS IV estimate"
+round(iv_est, 2)
 ```
 
 The first element is the IV estimate. This matches the previous methods and
@@ -1309,12 +1287,12 @@ estr <- MEstimator(
             W = as.matrix(df_iv[, "I", drop = FALSE]))
   },
   init = c(2, 2, 0.2, 0.1)
-)
-estr <- estimate(estr, solver = "nleqslv", maxiter = 5000)
+) |>
+  estimate(solver = "nleqslv", maxiter = 5000)
 
-ci <- confidence_intervals(estr)
-cat("2SLS (built-in) IV estimate:", round(estr@theta[1], 2),
-    "95% CI:", round(ci[1, 1], 2), "to", round(ci[1, 2], 2), "\n")
+iv_est <- cbind(estimate = coef(estr), confint(estr))[1, , drop = FALSE]
+rownames(iv_est) <- "2SLS (built-in) IV estimate"
+round(iv_est, 2)
 ```
 
 The built-in procedure matches the by-hand implementation, as expected.
@@ -1328,8 +1306,16 @@ price' cut-off, as described in the book.
 
 ```{r}
 #| label: ch16-5
-for (c_val in c(1.60, 1.70, 1.80, 1.90)) {
-  z_new <- as.integer(df_iv$price82 >= c_val)
+cutoffs <- c(1.60, 1.70, 1.80, 1.90)
+by_cutoff <- data.frame(
+  cutoff = cutoffs,
+  iv = NA_real_,
+  lower = NA_real_,
+  upper = NA_real_
+)
+
+for (i in seq_along(cutoffs)) {
+  z_new <- as.integer(df_iv$price82 >= cutoffs[i])
   estr <- MEstimator(
     stacked_equations = function(theta) {
       ee_2sls(theta, y = df_iv$wt82_71, A = df_iv$qsmk,
@@ -1337,13 +1323,12 @@ for (c_val in c(1.60, 1.70, 1.80, 1.90)) {
               W = as.matrix(df_iv[, "I", drop = FALSE]))
     },
     init = c(2, 2, 0.2, 0.1)
-  )
-  estr <- estimate(estr, solver = "nleqslv", maxiter = 5000)
-  ci <- confidence_intervals(estr)
-  cat("Cutoff: $", c_val, "\n")
-  cat("  IV:", round(estr@theta[1], 3),
-      "95% CI:", round(ci[1, 1], 3), "to", round(ci[1, 2], 3), "\n")
+  ) |>
+    estimate(solver = "nleqslv", maxiter = 5000)
+  by_cutoff[i, c("iv", "lower", "upper")] <- c(coef(estr)[1], confint(estr)[1, ])
 }
+
+round(by_cutoff, 3)
 ```
 
 These results are the same as those reported in the book (41.3, -40.9,

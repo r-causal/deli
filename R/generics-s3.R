@@ -18,6 +18,18 @@
 #' - `confint()`: Matrix with columns `"lower"` and `"upper"`.
 #' - `nobs()`: Integer number of observations.
 #'
+#' @examples
+#' fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
+#'                   model = "linear")
+#'
+#' coef(fit)
+#'
+#' vcov(fit)
+#'
+#' confint(fit)
+#'
+#' nobs(fit)
+#'
 #' @name deli-generics
 #' @importFrom stats coef vcov confint nobs
 NULL

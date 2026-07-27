@@ -52,3 +52,23 @@ entire parameter vector, adjusting for multiple comparisons. The formula is:
 \deqn{\hat{\theta} \pm \hat{c}_{\alpha/2} \times \widehat{SE}(\hat{\theta})}
 where \eqn{\hat{c}} is the adjusted critical value.
 }
+\examples{
+\dontshow{if (requireNamespace("MASS", quietly = TRUE)) withAutoprint(\{ # examplesIf}
+# Two independent samples, each contributing one mean parameter
+set.seed(42)
+n <- 200
+y1 <- rnorm(n, 2)
+y2 <- rnorm(n, 3)
+
+psi <- function(theta) {
+  rbind(y1 - theta[1], y2 - theta[2])
+}
+
+m <- MEstimator(stacked_equations = psi, init = c(0, 0)) |>
+  estimate()
+
+# Simultaneous bands cover both means at once, so they are wider than the
+# pointwise intervals from confint(m)
+confidence_bands(m, method = "supt", seed = 1)
+\dontshow{\}) # examplesIf}
+}

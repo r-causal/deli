@@ -24,3 +24,16 @@ Returns a 1-by-n matrix of estimating equation contributions for the robust
 mean using the specified loss function:
 \eqn{\psi_i(\theta) = f_k(Y_i - \theta)}.
 }
+\examples{
+# Forty-nine standard normal observations plus one gross outlier.
+set.seed(1)
+y <- c(rnorm(49), 50)
+psi <- function(theta) ee_mean_robust(theta, y = y, k = 1.345, loss = "huber")
+m <- MEstimator(stacked_equations = psi, init = 0) |>
+  estimate()
+
+# The Huber estimate stays near the uncontaminated mean, unlike mean(y).
+coef(m)
+mean(y)
+
+}

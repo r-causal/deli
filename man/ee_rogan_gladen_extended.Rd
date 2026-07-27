@@ -29,3 +29,28 @@ A \code{(1+2*p)}-by-n matrix.
 Extended version that conditions sensitivity and specificity on covariates
 using logistic regression models.
 }
+\examples{
+# The same validation design as ee_rogan_gladen(), with sensitivity and
+# specificity now modeled by logistic regression. The design matrix here is
+# intercept only, so both models estimate a single log-odds.
+set.seed(123)
+n <- 500
+y_true <- rbinom(n, 1, 0.3)
+y_star <- ifelse(y_true == 1, rbinom(n, 1, 0.9), 1 - rbinom(n, 1, 0.85))
+r <- c(rep(0, 200), rep(1, 300))
+
+# Gold standard observed only in the validation sample (r == 0)
+y <- ifelse(r == 0, y_true, 0)
+X <- cbind(rep(1, n))
+
+psi <- function(theta) {
+  ee_rogan_gladen_extended(theta, y = y, y_star = y_star, r = r, X = X)
+}
+
+m <- MEstimator(stacked_equations = psi, init = c(0.5, 1, 1)) |>
+  estimate()
+
+# Corrected prevalence, then the sensitivity and specificity intercepts
+coef(m)
+
+}

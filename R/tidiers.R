@@ -16,6 +16,16 @@
 #'   `conf.low` and `conf.high`.
 #' - `glance()`: A single-row data.frame with model-level summaries.
 #'
+#' @examples
+#' fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
+#'                   model = "linear")
+#'
+#' # Attaching generics or broom makes the shorter tidy(fit) and glance(fit)
+#' # calls work as well
+#' generics::tidy(fit, conf.int = TRUE)
+#'
+#' generics::glance(fit)
+#'
 #' @name deli-tidiers
 #' @importFrom generics tidy glance
 NULL

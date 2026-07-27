@@ -227,14 +227,13 @@ finite_sample_correction <- function(meat, n, p, adjustment = NULL) {
 #' # Wrap the built-in estimating equation as a function of theta alone
 #' psi <- function(theta) ee_mean_variance(theta, y = y)
 #'
-#' # Compute the sandwich at the solved parameter values
-#' sandwich_asymp <- compute_sandwich(psi, theta = theta)
+#' # compute_sandwich() returns the asymptotic-scale variance, so dividing by
+#' # n puts it on the standard-error scale
+#' sandwich <- compute_sandwich(psi, theta = theta) / length(y)
+#' sandwich
 #'
-#' # The result is the asymptotic-scale variance. Dividing by n gives the
-#' # standard-error-scale variance, and its diagonal square roots are the
-#' # standard errors.
-#' sandwich <- sandwich_asymp / length(y)
-#' se <- sqrt(diag(sandwich))
+#' # The diagonal square roots are the standard errors
+#' sqrt(diag(sandwich))
 #'
 #' @references
 #' Boos DD, & Stefanski LA. (2013). M-estimation (estimating equations). In
@@ -302,6 +301,24 @@ compute_sandwich <- function(
 #' @param ... Additional arguments (currently unused).
 #'
 #' @returns A p-by-2 matrix with columns `"lower"` and `"upper"`.
+#'
+#' @examplesIf requireNamespace("MASS", quietly = TRUE)
+#' # Two independent samples, each contributing one mean parameter
+#' set.seed(42)
+#' n <- 200
+#' y1 <- rnorm(n, 2)
+#' y2 <- rnorm(n, 3)
+#'
+#' psi <- function(theta) {
+#'   rbind(y1 - theta[1], y2 - theta[2])
+#' }
+#'
+#' m <- MEstimator(stacked_equations = psi, init = c(0, 0)) |>
+#'   estimate()
+#'
+#' # Simultaneous bands cover both means at once, so they are wider than the
+#' # pointwise intervals from confint(m)
+#' confidence_bands(m, method = "supt", seed = 1)
 #'
 #' @export
 # n_draws defaults to 1e5, not the 1e6 Python uses on its estimator method. The
@@ -395,6 +412,14 @@ method(confidence_bands, class_numeric) <- function(
 #' @param seed RNG seed. Default `NULL`.
 #'
 #' @returns A p-by-2 matrix with columns `"lower"` and `"upper"`.
+#'
+#' @examplesIf requireNamespace("MASS", quietly = TRUE)
+#' fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
+#'                   model = "linear")
+#'
+#' # Bands from the estimates and covariance alone, without the fitted object
+#' compute_confidence_bands(coef(fit), covariance = vcov(fit),
+#'                          method = "supt", seed = 1)
 #'
 #' @export
 compute_confidence_bands <- function(
@@ -491,6 +516,17 @@ compute_confidence_bands <- function(
 #' @param ... Additional arguments (currently unused).
 #'
 #' @returns A covariance matrix for `transform(theta)`.
+#'
+#' @examples
+#' fit <- m_estimate(vs ~ mpg, data = mtcars, .ee = ee_regression,
+#'                   model = "logistic")
+#'
+#' # Variance of the odds ratio for mpg, exponentiating the log-odds coefficient
+#' delta_method(fit, transform = function(theta) exp(theta[2]))
+#'
+#' # The same variance from the estimates and covariance alone
+#' delta_method(coef(fit), transform = function(theta) exp(theta[2]),
+#'              covariance = vcov(fit))
 #'
 #' @export
 delta_method <- new_generic(

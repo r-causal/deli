@@ -25,3 +25,21 @@ Beta regression for outcomes in (0, 1) using mean-precision
 parameterization. The last element of theta is log(phi), the log
 precision parameter.
 }
+\examples{
+\dontshow{if (requireNamespace("nleqslv", quietly = TRUE)) withAutoprint(\{ # examplesIf}
+set.seed(42)
+n <- 50
+W <- rnorm(n)
+mu <- 1 / (1 + exp(-(0.5 + 0.3 * W)))
+y <- rbeta(n, shape1 = mu * 10, shape2 = (1 - mu) * 10)
+X <- cbind(1, W)
+
+psi <- function(theta) ee_beta_regression(theta, X = X, y = y)
+
+# The last parameter is log(phi), started here at a precision of 10. The
+# default solver diverges on this equation, so use nleqslv.
+m <- MEstimator(stacked_equations = psi, init = c(0, 0, log(10))) |>
+  estimate(solver = "nleqslv")
+coef(m)
+\dontshow{\}) # examplesIf}
+}

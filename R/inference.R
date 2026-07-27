@@ -1,5 +1,6 @@
 #' Confidence intervals for M-Estimator parameters
 #'
+#' @description
 #' Computes two-sided Wald-type \eqn{(1 - \alpha) \times 100\%} confidence
 #' intervals using the point estimates and sandwich variance:
 #' \eqn{\hat{\theta} \pm c_{\alpha/2} \times \widehat{SE}(\hat{\theta})}.
@@ -8,6 +9,9 @@
 #' comes instead from the t-distribution with \eqn{n - p} degrees of freedom,
 #' matching the finite-sample adjustment of the variance.
 #'
+#' This function mirrors `m.confidence_intervals()` in Python delicatessen, so
+#' code translated from Python can keep its shape.
+#'
 #' @param object A fitted `MEstimator` object (after calling [estimate()]).
 #' @param alpha Numeric significance level, between 0 and 1. Default `0.05`
 #'   for 95% confidence intervals.
@@ -15,14 +19,18 @@
 #'
 #' @returns A p-by-2 matrix with columns `"lower"` and `"upper"`.
 #'
+#' @seealso [confint()], the standard R accessor for the same intervals. It
+#'   returns identical values but is parameterized by `level = 0.95` where this
+#'   function takes `alpha = 0.05`.
+#'
 #' @export
 #' @examples
 #' psi <- function(theta) {
 #'   y <- c(1, 2, 3, 4, 5)
 #'   matrix(y - theta[1], nrow = 1)
 #' }
-#' m <- MEstimator(stacked_equations = psi, init = c(0))
-#' m <- estimate(m)
+#' m <- MEstimator(stacked_equations = psi, init = c(0)) |>
+#'   estimate()
 #' confidence_intervals(m)
 confidence_intervals <- new_generic(
   "confidence_intervals",
@@ -57,14 +65,27 @@ method(confidence_intervals, deli_estimator) <- function(
 
 #' Z-scores for M-Estimator parameters
 #'
+#' @description
 #' Computes Wald-type Z-scores:
 #' \eqn{(\hat{\theta} - \theta_0) / \widehat{SE}(\hat{\theta})}.
+#'
+#' This function mirrors `m.z_scores()` in Python delicatessen, so code
+#' translated from Python can keep its shape.
 #'
 #' @param object A fitted `MEstimator` object (after calling [estimate()]).
 #' @param null Numeric null hypothesis value(s). Default `0`.
 #' @param ... Additional arguments (currently unused).
 #'
 #' @returns A numeric vector of Z-scores.
+#'
+#' @seealso [summary()] and [generics::tidy()], which report the same Z-scores
+#'   in table form alongside the other parameter-level results.
+#'
+#' @examples
+#' fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
+#'                   model = "linear")
+#'
+#' z_scores(fit)
 #'
 #' @export
 z_scores <- new_generic("z_scores", "object", function(object, null = 0, ...) {
@@ -81,16 +102,29 @@ method(z_scores, deli_estimator) <- function(object, null = 0, ...) {
 
 #' P-values for M-Estimator parameters
 #'
+#' @description
 #' Computes two-sided Wald-type P-values from Z-scores. The Z-scores are
 #' compared to the standard normal distribution by default. When a
 #' `finite_correction` is set on the fit, they are compared instead to the
 #' t-distribution with \eqn{n - p} degrees of freedom.
+#'
+#' This function mirrors `m.p_values()` in Python delicatessen, so code
+#' translated from Python can keep its shape.
 #'
 #' @param object A fitted `MEstimator` object (after calling [estimate()]).
 #' @param null Numeric null hypothesis value(s). Default `0`.
 #' @param ... Additional arguments (currently unused).
 #'
 #' @returns A numeric vector of P-values.
+#'
+#' @seealso [summary()] and [generics::tidy()], which report the same P-values
+#'   in table form alongside the other parameter-level results.
+#'
+#' @examples
+#' fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
+#'                   model = "linear")
+#'
+#' p_values(fit)
 #'
 #' @export
 p_values <- new_generic("p_values", "object", function(object, null = 0, ...) {
@@ -104,14 +138,27 @@ method(p_values, deli_estimator) <- function(object, null = 0, ...) {
 
 #' S-values (surprisal) for M-Estimator parameters
 #'
+#' @description
 #' Computes Shannon Information values (S-values) as \eqn{S = -\log_2(P)},
 #' where \eqn{P} is the corresponding P-value.
+#'
+#' This function mirrors `m.s_values()` in Python delicatessen, so code
+#' translated from Python can keep its shape.
 #'
 #' @param object A fitted `MEstimator` object (after calling [estimate()]).
 #' @param null Numeric null hypothesis value(s). Default `0`.
 #' @param ... Additional arguments (currently unused).
 #'
 #' @returns A numeric vector of S-values.
+#'
+#' @seealso [summary()] and [generics::tidy()], which report the same S-values
+#'   in table form alongside the other parameter-level results.
+#'
+#' @examples
+#' fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
+#'                   model = "linear")
+#'
+#' s_values(fit)
 #'
 #' @export
 s_values <- new_generic("s_values", "object", function(object, null = 0, ...) {

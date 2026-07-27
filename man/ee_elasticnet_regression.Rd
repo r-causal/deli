@@ -45,3 +45,23 @@ A p-by-n matrix.
 Combines L1 (approximate LASSO via bridge) and L2 (ridge) penalties at
 a given ratio. When \code{ratio = 1}, this is LASSO; when \code{ratio = 0}, ridge.
 }
+\examples{
+# A penalty vector gives one value per column of the design matrix. A scalar
+# penalty would shrink the intercept along with the slopes.
+#
+# The L1 half of the penalty enters the estimating equation as its own
+# derivative, and that derivative has unbounded slope at the penalty center.
+# The estimating equation is therefore not differentiable there, so the
+# bread matrix is undefined and every evaluation warns that the sandwich
+# variance should not be trusted here.
+fit <- m_estimate(
+  mpg ~ wt + hp,
+  data = mtcars,
+  .ee = ee_elasticnet_regression,
+  model = "linear",
+  penalty = c(0, 5, 5),
+  ratio = 0.5
+)
+coef(fit)
+
+}

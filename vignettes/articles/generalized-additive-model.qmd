@@ -6,9 +6,19 @@ knitr:
     comment: '#>'
 ---
 
+::: {.callout-note}
+This article is translated from the
+[Silverman (1985): Generalized Additive Model example](https://deli.readthedocs.io/en/latest/Examples/Generalized-Additive-Model.html)
+in the documentation of [delicatessen](https://deli.readthedocs.io/), deli's
+Python counterpart.
+:::
+
 ```{r}
 #| label: setup
 library(deli)
+library(ggplot2)
+
+theme_set(theme_minimal())
 ```
 
 The following is a brief illustrative example of how generalized additive
@@ -49,21 +59,25 @@ estr <- MEstimator(
     ee_regression(theta, X = X, y = y, model = "linear")
   },
   init = c(0, 0)
-)
-estr <- estimate(estr)
+) |>
+  estimate()
 
 # Predicted values and confidence intervals
 pred_y <- regression_predictions(Xp, estr@theta, estr@variance)
 
 # Plot
-plot(d$times, d$accel, pch = 16, cex = 0.5,
-     xlab = "Time (ms)", ylab = "Acceleration (g)")
-lines(p_times, pred_y$predicted, col = "orange", lwd = 2)
-polygon(
-  c(p_times, rev(p_times)),
-  c(pred_y$lower, rev(pred_y$upper)),
-  col = adjustcolor("orange", alpha.f = 0.3), border = NA
+fit_curve <- data.frame(
+  times = p_times,
+  accel = pred_y$predicted,
+  lower = pred_y$lower,
+  upper = pred_y$upper
 )
+
+ggplot(fit_curve, aes(x = times, y = accel)) +
+  geom_point(data = d, size = 1) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), fill = "orange", alpha = 0.3) +
+  geom_line(color = "orange", linewidth = 1) +
+  labs(x = "Time (ms)", y = "Acceleration (g)")
 ```
 
 As we can clearly see, a linear relationship is very different from the
@@ -103,8 +117,8 @@ estr <- MEstimator(
     )
   },
   init = rep(0, 12)
-)
-estr <- estimate(estr)
+) |>
+  estimate()
 
 # Build the additive design matrix for predictions
 Xpa <- additive_design_matrix(Xp, specifications = specs)
@@ -113,14 +127,18 @@ Xpa <- additive_design_matrix(Xp, specifications = specs)
 pred_y <- regression_predictions(Xpa, estr@theta, estr@variance)
 
 # Plot
-plot(d$times, d$accel, pch = 16, cex = 0.5,
-     xlab = "Time (ms)", ylab = "Acceleration (g)")
-lines(p_times, pred_y$predicted, col = "orange", lwd = 2)
-polygon(
-  c(p_times, rev(p_times)),
-  c(pred_y$lower, rev(pred_y$upper)),
-  col = adjustcolor("orange", alpha.f = 0.3), border = NA
+fit_curve <- data.frame(
+  times = p_times,
+  accel = pred_y$predicted,
+  lower = pred_y$lower,
+  upper = pred_y$upper
 )
+
+ggplot(fit_curve, aes(x = times, y = accel)) +
+  geom_point(data = d, size = 1) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), fill = "orange", alpha = 0.3) +
+  geom_line(color = "orange", linewidth = 1) +
+  labs(x = "Time (ms)", y = "Acceleration (g)")
 ```
 
 The GAM does a much better job of following the shape of the scatterplot.
@@ -150,22 +168,26 @@ estr <- MEstimator(
     )
   },
   init = rep(0, 12)
-)
-estr <- estimate(estr)
+) |>
+  estimate()
 
 # Build additive design matrix and predict
 Xpa <- additive_design_matrix(Xp, specifications = specs_strong)
 pred_y <- regression_predictions(Xpa, estr@theta, estr@variance)
 
 # Plot
-plot(d$times, d$accel, pch = 16, cex = 0.5,
-     xlab = "Time (ms)", ylab = "Acceleration (g)")
-lines(p_times, pred_y$predicted, col = "orange", lwd = 2)
-polygon(
-  c(p_times, rev(p_times)),
-  c(pred_y$lower, rev(pred_y$upper)),
-  col = adjustcolor("orange", alpha.f = 0.3), border = NA
+fit_curve <- data.frame(
+  times = p_times,
+  accel = pred_y$predicted,
+  lower = pred_y$lower,
+  upper = pred_y$upper
 )
+
+ggplot(fit_curve, aes(x = times, y = accel)) +
+  geom_point(data = d, size = 1) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), fill = "orange", alpha = 0.3) +
+  geom_line(color = "orange", linewidth = 1) +
+  labs(x = "Time (ms)", y = "Acceleration (g)")
 ```
 
 The estimated function from the GAM is smoother than the previous GAM. Let's
@@ -190,22 +212,26 @@ estr <- MEstimator(
     )
   },
   init = rep(0, 12)
-)
-estr <- estimate(estr)
+) |>
+  estimate()
 
 # Build additive design matrix and predict
 Xpa <- additive_design_matrix(Xp, specifications = specs_vstrong)
 pred_y <- regression_predictions(Xpa, estr@theta, estr@variance)
 
 # Plot
-plot(d$times, d$accel, pch = 16, cex = 0.5,
-     xlab = "Time (ms)", ylab = "Acceleration (g)")
-lines(p_times, pred_y$predicted, col = "orange", lwd = 2)
-polygon(
-  c(p_times, rev(p_times)),
-  c(pred_y$lower, rev(pred_y$upper)),
-  col = adjustcolor("orange", alpha.f = 0.3), border = NA
+fit_curve <- data.frame(
+  times = p_times,
+  accel = pred_y$predicted,
+  lower = pred_y$lower,
+  upper = pred_y$upper
 )
+
+ggplot(fit_curve, aes(x = times, y = accel)) +
+  geom_point(data = d, size = 1) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), fill = "orange", alpha = 0.3) +
+  geom_line(color = "orange", linewidth = 1) +
+  labs(x = "Time (ms)", y = "Acceleration (g)")
 ```
 
 Here, the GAM is very similar to the linear regression we started with. This

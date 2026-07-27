@@ -28,3 +28,36 @@ A 1-by-n matrix.
 Computes the effective dose at level delta from the log-logistic model.
 Should be stacked with \code{\link[=ee_loglogistic]{ee_loglogistic()}}.
 }
+\examples{
+# The lower limit is held at zero instead of being estimated: root length
+# cannot fall below zero, and the five-parameter stack diverges on these
+# data. The lower-limit row of the log-logistic equation is therefore
+# dropped, leaving the upper limit, ED50, and steepness to be estimated
+# alongside the ED90.
+psi <- function(theta) {
+  loglogistic <- ee_loglogistic(
+    c(0, theta[1:3]),
+    dose = inderjit$dose,
+    response = inderjit$response
+  )
+  ed90 <- ee_loglogistic_ed(
+    theta[4],
+    dose = inderjit$dose,
+    delta = 0.9,
+    lower = 0,
+    upper = theta[1],
+    ed50 = theta[2],
+    steepness = theta[3]
+  )
+  rbind(loglogistic[-1, , drop = FALSE], ed90)
+}
+
+# This stacked system is sensitive to its starting values, so a reasonable
+# init matters more here than it does for most equations.
+m <- MEstimator(stacked_equations = psi, init = c(8, 2, 1, 5)) |>
+  estimate()
+
+# Upper limit, ED50, steepness, and the ED90
+coef(m)
+
+}

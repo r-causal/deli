@@ -8,3 +8,4 @@ vignettes/articles/*_files/
 .RData
 .Ruserdata
 .DS_Store
+.venv/

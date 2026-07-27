@@ -6,6 +6,13 @@ knitr:
     comment: '#>'
 ---
 
+::: {.callout-note}
+This article is translated from the
+[Bonate (2011): Pharmacokinetic-Pharmacodynamic Modeling example](https://deli.readthedocs.io/en/latest/Examples/Bonate-Pharmaco.html)
+in the documentation of [delicatessen](https://deli.readthedocs.io/), deli's
+Python counterpart.
+:::
+
 ```{r}
 #| label: setup
 library(deli)
@@ -47,13 +54,12 @@ psi <- function(theta) {
 }
 
 # Estimate the parameters
-estr <- MEstimator(stacked_equations = psi, init = c(-40, 5))
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = psi, init = c(-40, 5)) |> estimate()
 
 # View results
 estr@theta
 sqrt(diag(estr@variance))
-confidence_intervals(estr)
+confint(estr)
 ```
 
 These results are close to what is reported in the book (note that a different variance estimator is used).
@@ -73,13 +79,13 @@ psi_robust <- function(theta) {
 }
 
 # Estimate the parameters
-estr <- MEstimator(stacked_equations = psi_robust, init = c(-40, 5))
-estr <- estimate(estr, solver = "nleqslv")
+estr <- MEstimator(stacked_equations = psi_robust, init = c(-40, 5)) |>
+  estimate(solver = "nleqslv")
 
 # View results
 estr@theta
 sqrt(diag(estr@variance))
-confidence_intervals(estr)
+confint(estr)
 ```
 
 Here, we observe a minor change in the estimated coefficients. The dose-response curve estimated using the outlier-robust approach did not drop as low as the non-robust method. This is expected given the apparent outliers around doses of 15, 25, and 52.
@@ -111,13 +117,13 @@ psi <- function(theta) {
 }
 
 # Estimate the parameters
-estr <- MEstimator(stacked_equations = psi, init = c(0, 60, 0.5))
-estr <- estimate(estr, solver = "nleqslv")
+estr <- MEstimator(stacked_equations = psi, init = c(0, 60, 0.5)) |>
+  estimate(solver = "nleqslv")
 
 # View results
 estr@theta
 sqrt(diag(estr@variance))
-confidence_intervals(estr)
+confint(estr)
 ```
 
 #### Accounting for clustering
@@ -133,13 +139,13 @@ psi_c <- function(theta) {
 }
 
 # Estimate the parameters
-estr <- MEstimator(stacked_equations = psi_c, init = c(0, 60, 0.5))
-estr <- estimate(estr, solver = "nleqslv")
+estr <- MEstimator(stacked_equations = psi_c, init = c(0, 60, 0.5)) |>
+  estimate(solver = "nleqslv")
 
 # View results
 estr@theta
 sqrt(diag(estr@variance))
-confidence_intervals(estr)
+confint(estr)
 ```
 
 As seen here, the point estimates are similar but the variance changes.
@@ -155,13 +161,13 @@ estr <- MEstimator(
   stacked_equations = psi_c,
   init = c(0, 60, 0.5),
   finite_correction = "HC1"
-)
-estr <- estimate(estr, solver = "nleqslv")
+) |>
+  estimate(solver = "nleqslv")
 
 # View results
 estr@theta
 sqrt(diag(estr@variance))
-confidence_intervals(estr)
+confint(estr)
 ```
 
 Here, we see the variance increase a bit further (due to the additional correction). This concludes the case study showing how to account for non-independent observations and small sample sizes.
@@ -199,8 +205,7 @@ psi <- function(theta) {
 }
 
 # Estimate the parameters
-estr_null <- MEstimator(stacked_equations = psi, init = c(0))
-estr_null <- estimate(estr_null)
+estr_null <- MEstimator(stacked_equations = psi, init = c(0)) |> estimate()
 estr_null@theta
 ```
 
@@ -220,8 +225,8 @@ psi <- function(theta) {
 }
 
 # Estimate the parameters
-estr_full <- MEstimator(stacked_equations = psi, init = c(0, 0, 0, 0, 0))
-estr_full <- estimate(estr_full)
+estr_full <- MEstimator(stacked_equations = psi, init = c(0, 0, 0, 0, 0)) |>
+  estimate()
 estr_full@theta
 ```
 
@@ -241,8 +246,8 @@ psi <- function(theta) {
 }
 
 # Estimate the parameters
-estr_redu <- MEstimator(stacked_equations = psi, init = c(0, 0, 0))
-estr_redu <- estimate(estr_redu)
+estr_redu <- MEstimator(stacked_equations = psi, init = c(0, 0, 0)) |>
+  estimate()
 estr_redu@theta
 ```
 
@@ -262,8 +267,8 @@ psi <- function(theta) {
 }
 
 # Estimate the parameters
-estr_prob <- MEstimator(stacked_equations = psi, init = c(0, 0, 0))
-estr_prob <- estimate(estr_prob)
+estr_prob <- MEstimator(stacked_equations = psi, init = c(0, 0, 0)) |>
+  estimate()
 estr_prob@theta
 ```
 
@@ -283,8 +288,8 @@ psi <- function(theta) {
 }
 
 # Estimate the parameters
-estr_clog <- MEstimator(stacked_equations = psi, init = c(0, 0, 0))
-estr_clog <- estimate(estr_clog)
+estr_clog <- MEstimator(stacked_equations = psi, init = c(0, 0, 0)) |>
+  estimate()
 estr_clog@theta
 ```
 

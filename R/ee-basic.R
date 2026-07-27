@@ -10,6 +10,13 @@
 #'
 #' @returns A 1-by-n matrix.
 #'
+#' @examples
+#' y <- c(1, 2, 3, 1, 4, 5, 3, 2, 6, 7)
+#' psi <- function(theta) ee_mean(theta, y = y)
+#' m <- MEstimator(stacked_equations = psi, init = 0) |>
+#'   estimate()
+#' coef(m)
+#'
 #' @export
 ee_mean <- function(theta, y, weights = NULL) {
   y <- as.numeric(y)
@@ -28,6 +35,13 @@ ee_mean <- function(theta, y, weights = NULL) {
 #' @param y Numeric vector of observed values.
 #'
 #' @returns A 2-by-n matrix.
+#'
+#' @examples
+#' y <- c(1, 2, 3, 1, 4, 5, 3, 2, 6, 7)
+#' psi <- function(theta) ee_mean_variance(theta, y = y)
+#' m <- MEstimator(stacked_equations = psi, init = c(0, 1)) |>
+#'   estimate()
+#' coef(m)
 #'
 #' @export
 ee_mean_variance <- function(theta, y) {
@@ -52,6 +66,18 @@ ee_mean_variance <- function(theta, y) {
 #'
 #' @returns A 1-by-n matrix.
 #'
+#' @examples
+#' # Forty-nine standard normal observations plus one gross outlier.
+#' set.seed(1)
+#' y <- c(rnorm(49), 50)
+#' psi <- function(theta) ee_mean_robust(theta, y = y, k = 1.345, loss = "huber")
+#' m <- MEstimator(stacked_equations = psi, init = 0) |>
+#'   estimate()
+#'
+#' # The Huber estimate stays near the uncontaminated mean, unlike mean(y).
+#' coef(m)
+#' mean(y)
+#'
 #' @export
 ee_mean_robust <- function(theta, y, k, loss = "huber") {
   y <- as.numeric(y)
@@ -73,6 +99,13 @@ ee_mean_robust <- function(theta, y, k, loss = "huber") {
 #'   theta. Default `TRUE`.
 #'
 #' @returns A 1-by-n matrix.
+#'
+#' @examples
+#' y <- c(1, 2, 3, 1, 4, 5, 3, 2, 6, 7)
+#' psi <- function(theta) ee_mean_geometric(theta, y = y)
+#' m <- MEstimator(stacked_equations = psi, init = 1) |>
+#'   estimate()
+#' coef(m)
 #'
 #' @export
 ee_mean_geometric <- function(theta, y, weights = NULL, log_theta = TRUE) {
@@ -101,6 +134,20 @@ ee_mean_geometric <- function(theta, y, weights = NULL, log_theta = TRUE) {
 #' @param q Numeric percentile, must be in `(0, 1)`.
 #'
 #' @returns A 1-by-n matrix.
+#'
+#' @examples
+#' y <- c(1, 2, 3, 1, 4, 5, 3, 2, 6, 7)
+#' psi <- function(theta) ee_percentile(theta, y = y, q = 0.5)
+#'
+#' # The estimating function is a step function of theta, so its derivative is
+#' # zero wherever it is defined and the root finder cannot search. Start at the
+#' # sample quantile, which is the solution.
+#' m <- MEstimator(stacked_equations = psi, init = median(y)) |>
+#'   estimate()
+#'
+#' # Each call warns for the same reason: the median estimating equation is not
+#' # differentiable, so the sandwich variance should not be trusted.
+#' coef(m)
 #'
 #' @export
 ee_percentile <- function(theta, y, q) {
@@ -131,6 +178,21 @@ ee_percentile <- function(theta, y, q) {
 #' @param y Numeric vector of observed values.
 #'
 #' @returns A 2-by-n matrix.
+#'
+#' @examplesIf requireNamespace("minpack.lm", quietly = TRUE)
+#' y <- c(1, 2, 3, 1, 4, 5, 3, 2, 6, 7)
+#' psi <- function(theta) ee_positive_mean_deviation(theta, y = y)
+#'
+#' # The median equation is a step function of theta, so the Jacobian is
+#' # singular and the default solver cannot move. Start the median at the sample
+#' # median, which is the solution, and use the Levenberg-Marquardt solver to
+#' # fit the remaining parameter.
+#' m <- MEstimator(stacked_equations = psi, init = c(0, median(y))) |>
+#'   estimate(solver = "lm")
+#'
+#' # Each call warns for the same reason: the median estimating equation is not
+#' # differentiable, so the sandwich variance should not be trusted.
+#' coef(m)
 #'
 #' @export
 ee_positive_mean_deviation <- function(theta, y) {

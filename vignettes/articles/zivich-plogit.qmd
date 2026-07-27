@@ -6,9 +6,19 @@ knitr:
     comment: '#>'
 ---
 
+::: {.callout-note}
+This article is translated from the
+[Zivich (2026): Pooled Logistic Regression for Survival Analysis example](https://deli.readthedocs.io/en/latest/Examples/Zivich-PLogit.html)
+in the documentation of [delicatessen](https://deli.readthedocs.io/), deli's
+Python counterpart.
+:::
+
 ```{r}
 #| label: setup
 library(deli)
+library(ggplot2)
+
+theme_set(theme_minimal())
 ```
 
 In the corresponding pre-print, Zivich et al. propose a novel implementation
@@ -71,8 +81,8 @@ inits <- c(rep(0, ncol(W)),    # Coefs for baseline vars
            rep(0, params_plr - 1))  # Coefs for time terms
 
 # Fit the model
-estr <- MEstimator(psi_plogit, init = inits)
-estr <- estimate(estr)
+estr <- MEstimator(psi_plogit, init = inits) |>
+  estimate()
 
 # Print results for baseline covariate parameters
 summary(estr, subset = seq_len(ncol(W)))
@@ -110,8 +120,8 @@ inits <- c(rep(0, ncol(W)),    # Coefs for baseline vars
            rep(0, 4))           # Coefs for time terms (intercept + t + 3 spline terms)
 
 # Fit the model
-estr <- MEstimator(psi_plogit_spline, init = inits)
-estr <- estimate(estr)
+estr <- MEstimator(psi_plogit_spline, init = inits) |>
+  estimate()
 
 # Print results for baseline covariate parameters
 summary(estr, subset = seq_len(ncol(W)))
@@ -200,8 +210,8 @@ inits <- c(rep(0, params_rd),
 # Fit the model. The stratified pooled logistic models separate in some time
 # intervals, so we use the Levenberg-Marquardt solver ("lm"), which handles
 # the near-singular Jacobian these fits produce.
-estr <- MEstimator(psi_rd, init = inits)
-estr <- estimate(estr, solver = "lm")
+estr <- MEstimator(psi_rd, init = inits) |>
+  estimate(solver = "lm")
 ```
 
 We can then examine the table for the causal risk difference at 59 months.
@@ -232,18 +242,30 @@ rd_results <- data.frame(
   ucb = c(0, cb[, 2])
 )
 
+# Confidence band shading (step function). Each interval between adjacent
+# times holds the limits from its left-hand endpoint, so these are the corners
+# of a stepped region matching the shape of the risk difference curve.
+band_interval <- seq_len(nrow(rd_results) - 1)
+band_corner <- as.vector(rbind(band_interval, band_interval + 1))
+band_value <- rep(band_interval, each = 2)
+rd_band <- data.frame(
+  time = rd_results$time[band_corner],
+  lcb = rd_results$lcb[band_value],
+  ucb = rd_results$ucb[band_value]
+)
+
 # Plot the risk difference function
-plot(NULL, xlim = c(0, 60), ylim = c(-1, 1),
-     xlab = "Time (months)", ylab = "Risk Difference")
-abline(h = 0, lty = 3)
-# Confidence band shading (step function)
-for (i in seq_len(nrow(rd_results) - 1)) {
-  rect(rd_results$time[i], rd_results$lcb[i],
-       rd_results$time[i + 1], rd_results$ucb[i],
-       col = rgb(0, 0, 0, 0.1), border = NA)
-}
-# Step function for RD
-lines(rd_results$time, rd_results$rd, type = "s")
+ggplot(rd_results, aes(x = time, y = rd)) +
+  geom_hline(yintercept = 0, linetype = 3) +
+  geom_ribbon(
+    data = rd_band,
+    aes(x = time, ymin = lcb, ymax = ucb),
+    inherit.aes = FALSE,
+    alpha = 0.1
+  ) +
+  geom_step() +
+  coord_cartesian(xlim = c(0, 60), ylim = c(-1, 1)) +
+  labs(x = "Time (months)", y = "Risk Difference")
 ```
 
 The same process can also be done when modeling time using splines. The
@@ -297,8 +319,8 @@ inits <- c(rep(0, params_rd),
            0, 0, -4, rep(0, 4))
 
 # Fit the model with the Levenberg-Marquardt solver, as above
-estr <- MEstimator(psi_rd_spline, init = inits)
-estr <- estimate(estr, solver = "lm")
+estr <- MEstimator(psi_rd_spline, init = inits) |>
+  estimate(solver = "lm")
 
 # Compute confidence bands
 cb <- confidence_bands(estr, method = "supt",
@@ -316,14 +338,12 @@ rd_results <- data.frame(
 )
 
 # Plot the risk difference function
-plot(rd_results$time, rd_results$rd, type = "l",
-     xlim = c(0, 60), ylim = c(-1, 1),
-     xlab = "Time (months)", ylab = "Risk Difference")
-abline(h = 0, lty = 3)
-polygon(c(rd_results$time, rev(rd_results$time)),
-        c(rd_results$lcl, rev(rd_results$ucl)),
-        col = rgb(0, 0, 0, 0.1), border = NA)
-lines(rd_results$time, rd_results$rd)
+ggplot(rd_results, aes(x = time, y = rd)) +
+  geom_hline(yintercept = 0, linetype = 3) +
+  geom_ribbon(aes(ymin = lcl, ymax = ucl), alpha = 0.1) +
+  geom_line() +
+  coord_cartesian(xlim = c(0, 60), ylim = c(-1, 1)) +
+  labs(x = "Time (months)", y = "Risk Difference")
 ```
 
 The results between the two approaches are largely the same. These examples

@@ -40,8 +40,8 @@
 #'   y <- c(1, 2, 3, 4, 5)
 #'   matrix(y - theta[1], nrow = 1)
 #' }
-#' m <- MEstimator(stacked_equations = psi, init = c(0))
-#' m <- estimate(m)
+#' m <- MEstimator(stacked_equations = psi, init = c(0)) |>
+#'   estimate()
 #' m@theta
 estimate <- new_generic(
   "estimate",
@@ -216,6 +216,27 @@ method(estimate, MEstimator) <- function(
 # warn_if_not_root compare against this floor, so it lives in one place.
 score_floor <- 1e-4
 
+#' Evaluate an expression with anything printed to stdout discarded
+#'
+#' Returns the value of `expr`, unlike [utils::capture.output()], which returns
+#' the captured output and so forces the value to be assigned from inside the
+#' call.
+#'
+#' @keywords internal
+#' @noRd
+without_output <- function(expr) {
+  null_con <- file(nullfile(), open = "wt")
+  sink(null_con)
+  on.exit(
+    {
+      sink()
+      close(null_con)
+    },
+    add = TRUE
+  )
+  force(expr)
+}
+
 #' Internal root-finding dispatcher
 #' @keywords internal
 #' @noRd
@@ -230,14 +251,14 @@ solve_equations <- function(
   if (method == "rootSolve") {
     # rootSolve's Fortran code prints diagnostic messages to stdout
     # and may emit warnings such as a singular matrix. Suppress both.
-    suppressWarnings(invisible(capture.output({
-      result <- rootSolve::multiroot(
+    result <- suppressWarnings(without_output(
+      rootSolve::multiroot(
         f = func,
         start = init,
         maxiter = maxiter,
         atol = tolerance
       )
-    })))
+    ))
     # rootSolve::multiroot reports success even when it does not reach a root,
     # and the suppression above discards its own "steady-state not reached"
     # warning. Two distinct failure modes are surfaced here, matching the lm and

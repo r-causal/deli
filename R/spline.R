@@ -26,6 +26,14 @@
 #' @returns A matrix with `length(x)` rows. Number of columns is
 #'   `length(knots)` for unrestricted or `length(knots) - 1` for restricted.
 #'
+#' @examples
+#' # Restricted quadratic splines at four knots, so three basis columns
+#' s <- deli_spline(1:59, knots = c(10, 20, 30, 40), power = 2)
+#' dim(s)
+#'
+#' # Each term stays at zero below its knot and grows above it
+#' s[c(5, 15, 25, 35, 45, 55), ]
+#'
 #' @export
 deli_spline <- function(
   x,
@@ -108,6 +116,19 @@ deli_spline <- function(
 #'
 #' @returns If `return_penalty = FALSE`, a numeric matrix. If `TRUE`, a list
 #'   with elements `X` (the design matrix) and `penalty` (numeric vector).
+#'
+#' @examples
+#' set.seed(42)
+#' X <- cbind(rnorm(50), rnorm(50))
+#'
+#' # The first column stays linear; the second also gets penalized splines
+#' specs <- list(NULL, list(knots = c(-1, 0, 1), penalty = 5))
+#' out <- additive_design_matrix(X, specs, return_penalty = TRUE)
+#'
+#' # Linear terms are unpenalized, spline terms carry the requested penalty
+#' out$penalty
+#'
+#' dim(out$X)
 #'
 #' @export
 additive_design_matrix <- function(X, specifications, return_penalty = FALSE) {

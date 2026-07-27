@@ -31,3 +31,23 @@ corresponding parametric survival model, accounting for right censoring.
 For event observations, the contribution comes from the log-density; for
 censored observations, the contribution comes from the log-survival function.
 }
+\examples{
+\dontshow{if (requireNamespace("nleqslv", quietly = TRUE)) withAutoprint(\{ # examplesIf}
+# Weibull survival times for 45 women with breast cancer, with no covariates.
+# The default rootSolve solver does not converge here, so nleqslv is used.
+psi <- function(theta) {
+  ee_survival_model(
+    theta,
+    time = breast_cancer$times,
+    event = breast_cancer$delta,
+    distribution = "weibull"
+  )
+}
+m <- MEstimator(stacked_equations = psi, init = c(0.1, 0.1)) |>
+  estimate(solver = "nleqslv")
+
+# The first parameter is the scale, the second the shape. A shape near 1
+# means the Weibull fits about as well as the simpler exponential.
+coef(m)
+\dontshow{\}) # examplesIf}
+}

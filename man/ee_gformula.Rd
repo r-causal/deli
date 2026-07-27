@@ -32,3 +32,26 @@ Returns a stacked set of estimating equations for the g-formula. When
 \code{X1}. When \code{X0} is provided, estimates the average causal effect
 (difference between two plans).
 }
+\examples{
+# A binary treatment, two confounders, and a continuous outcome whose true
+# average causal effect is 1.5.
+set.seed(42)
+n <- 1000
+W1 <- rnorm(n)
+W2 <- rbinom(n, 1, 0.4)
+A <- rbinom(n, 1, inverse_logit(-0.5 + 0.5 * W1 + 0.3 * W2))
+Y <- 2 + 1.5 * A + W1 - 0.5 * W2 + rnorm(n)
+
+X <- cbind(1, A, W1, W2) # Observed design matrix
+X1 <- cbind(1, 1, W1, W2) # Everyone treated
+X0 <- cbind(1, 0, W1, W2) # Everyone untreated
+
+psi <- function(theta) ee_gformula(theta, y = Y, X = X, X1 = X1, X0 = X0)
+
+# theta holds the average causal effect, the mean under treatment, and the
+# mean under no treatment, followed by the four outcome model coefficients.
+m <- MEstimator(stacked_equations = psi, init = rep(0, 7)) |>
+  estimate()
+coef(m)[1:3]
+
+}

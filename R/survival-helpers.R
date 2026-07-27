@@ -11,6 +11,18 @@
 #'
 #' @return Numeric value or vector of the requested measure.
 #'
+#' @examples
+#' # Risk is the complement of survival
+#' convert_survival_measures(0.8, measure = "risk")
+#'
+#' # The density is the product of the hazard and the survival, so the
+#' # "density" and "hazard" measures need the hazard as well.
+#' convert_survival_measures(
+#'   c(0.9, 0.8, 0.6),
+#'   hazard = c(0.05, 0.06, 0.08),
+#'   measure = "density"
+#' )
+#'
 #' @export
 convert_survival_measures <- function(survival, hazard = NULL, measure) {
   if (measure == "survival") {

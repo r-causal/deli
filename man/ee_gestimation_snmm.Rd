@@ -47,3 +47,28 @@ g-estimation. Supports both inefficient (X = NULL) and efficient
 (X provided) g-estimators, and both linear and log-linear (Poisson)
 structural mean models.
 }
+\examples{
+# A confounded binary treatment whose true effect on the outcome is -2.
+set.seed(42)
+n <- 500
+W <- rbinom(n, 1, 0.5)
+A <- rbinom(n, 1, 0.25 + 0.5 * W)
+Y <- 5 + 2 * W - 2 * A + rnorm(n)
+
+W_ps <- cbind(1, W) # Propensity score design matrix
+
+# An intercept-only structural mean model gives a single causal contrast.
+# Build it with rep() so the column has one entry per observation.
+V <- cbind(rep(1, n))
+
+psi <- function(theta) {
+  ee_gestimation_snmm(theta, y = Y, A = A, W = W_ps, V = V, model = "linear")
+}
+
+# theta holds the structural mean model coefficient, which is the causal
+# effect, followed by the two propensity score coefficients.
+m <- MEstimator(stacked_equations = psi, init = rep(0, 3)) |>
+  estimate()
+coef(m)
+
+}

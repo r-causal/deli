@@ -6,6 +6,13 @@ knitr:
     comment: '#>'
 ---
 
+::: {.callout-note}
+This article is translated from the
+[Optimization Advice page](https://deli.readthedocs.io/en/latest/Optimization%20Advice.html)
+in the documentation of [delicatessen](https://deli.readthedocs.io/), deli's
+Python counterpart.
+:::
+
 ```{r}
 #| label: setup
 library(deli)
@@ -89,7 +96,8 @@ solver take more steps before giving up.
 ```{r}
 #| label: maxiter-example
 #| eval: false
-m <- estimate(m, maxiter = 20000)
+m <- MEstimator(psi_robust, init = c(mean(y), 0)) |>
+  estimate(maxiter = 20000)
 ```
 
 ## Try a different solver
@@ -120,10 +128,10 @@ Levenberg-Marquardt solver converges from the same seed.
 
 ```{r}
 #| label: solver-comparison
-m_newton <- estimate(MEstimator(psi_robust, init = c(mean(y), 0)),
-                     solver = "rootSolve")
-m_lm <- estimate(MEstimator(psi_robust, init = c(mean(y), 0)),
-                 solver = "lm")
+m_newton <- MEstimator(psi_robust, init = c(mean(y), 0)) |>
+  estimate(solver = "rootSolve")
+m_lm <- MEstimator(psi_robust, init = c(mean(y), 0)) |>
+  estimate(solver = "lm")
 
 coef(m_newton)
 coef(m_lm)
@@ -162,18 +170,20 @@ y_sim <- 1 + 0.5 * x1 + 1e-4 * x2 + rnorm(n)
 
 # Raw predictors, on wildly different scales
 X_raw <- cbind(1, x1, x2)
-fit_raw <- estimate(MEstimator(
+fit_raw <- MEstimator(
   function(theta) ee_regression(theta, X = X_raw, y = y_sim, model = "linear"),
   init = c(0, 0, 0)
-))
+) |>
+  estimate()
 kappa(fit_raw@bread, exact = TRUE)
 
 # Standardized predictors
 X_scaled <- cbind(1, scale(x1), scale(x2))
-fit_scaled <- estimate(MEstimator(
+fit_scaled <- MEstimator(
   function(theta) ee_regression(theta, X = X_scaled, y = y_sim, model = "linear"),
   init = c(0, 0, 0)
-))
+) |>
+  estimate()
 kappa(fit_scaled@bread, exact = TRUE)
 ```
 
@@ -212,8 +222,8 @@ operations.
 
 ```{r}
 #| label: deriv-example
-m_exact <- estimate(MEstimator(psi_robust, init = c(mean(y), 0)),
-                    solver = "lm", deriv_method = "exact")
+m_exact <- MEstimator(psi_robust, init = c(mean(y), 0)) |>
+  estimate(solver = "lm", deriv_method = "exact")
 sqrt(diag(vcov(m_exact)))
 ```
 

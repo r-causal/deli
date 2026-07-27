@@ -6,9 +6,19 @@ knitr:
     comment: '#>'
 ---
 
+::: {.callout-note}
+This article is translated from the
+[Astrostatistics - Quasar Colorshifts example](https://deli.readthedocs.io/en/latest/Examples/SDSS-Quasar.html)
+in the documentation of [delicatessen](https://deli.readthedocs.io/), deli's
+Python counterpart.
+:::
+
 ```{r}
 #| label: setup
 library(deli)
+library(ggplot2)
+
+theme_set(theme_minimal())
 ```
 
 # Astrostatistics - Quasar Colorshifts
@@ -49,8 +59,8 @@ psi <- function(theta) {
 
 # Estimate the model
 init_vals <- rep(0, 12)
-estr <- MEstimator(stacked_equations = psi, init = init_vals)
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = psi, init = init_vals) |>
+  estimate()
 ```
 
 Looking at the coefficients of a generalized additive model is not always the most informative. It can be difficult to translate from the coefficients into their meaning. Instead, we will plot the function across a range of values. The following code creates a range of redshift values and then generates predictions according to the estimated model.
@@ -76,9 +86,13 @@ yhat <- regression_predictions(Xa_pred, theta = estr@theta, covariance = estr@va
 ```{r}
 #| label: ug-plot
 # Plot observed data and fitted curve
-plot(d$z, d$u_mag - d$g_mag, pch = ".", col = adjustcolor("lightblue", alpha.f = 0.2),
-     xlab = "Redshift (z)", ylab = "u - g")
-lines(p$z, yhat$predicted, col = "black")
+observed <- data.frame(z = d$z, colorshift = d$u_mag - d$g_mag)
+fitted_curve <- data.frame(z = p$z, colorshift = yhat$predicted)
+
+ggplot(observed, aes(x = z, y = colorshift)) +
+  geom_point(shape = ".", color = "lightblue", alpha = 0.2) +
+  geom_line(data = fitted_curve) +
+  labs(x = "Redshift (z)", y = "u - g")
 ```
 
 The previous plot shows us a non-linear relationship between redshift and $u-g$ magnitudes. The model appears to agree with the observed data points. The appeal of the generalized additive models is that we can flexibly model quite generally. We see this here, as we did not need to manually specify where we thought the nonlinearity occurs.
@@ -100,11 +114,24 @@ cb <- compute_confidence_bands(y_vals, covariance = cov_p, method = "supt", seed
 ```{r}
 #| label: ug-bands-plot
 # Plot observed data with confidence bands
-plot(d$z, d$u_mag - d$g_mag, pch = ".", col = adjustcolor("lightblue", alpha.f = 0.2),
-     xlab = "Redshift (z)", ylab = "u - g")
-polygon(c(p$z, rev(p$z)), c(cb[, "lower"], rev(cb[, "upper"])),
-        col = adjustcolor("black", alpha.f = 0.4), border = NA)
-lines(p$z, yhat$predicted, col = "black")
+observed <- data.frame(z = d$z, colorshift = d$u_mag - d$g_mag)
+fitted_curve <- data.frame(
+  z = p$z,
+  colorshift = yhat$predicted,
+  lower = cb[, "lower"],
+  upper = cb[, "upper"]
+)
+
+ggplot(observed, aes(x = z, y = colorshift)) +
+  geom_point(shape = ".", color = "lightblue", alpha = 0.2) +
+  geom_ribbon(
+    data = fitted_curve,
+    aes(ymin = lower, ymax = upper),
+    fill = "black",
+    alpha = 0.4
+  ) +
+  geom_line(data = fitted_curve) +
+  labs(x = "Redshift (z)", y = "u - g")
 ```
 
 Despite the flexibility of the model, we see our model is quite certain. However, we do see a widening at the higher values of the redshift distribution. Note that these confidence regions only account for random error. They ignore all systematic errors (e.g., measurement error).
@@ -131,8 +158,8 @@ psi <- function(theta) {
 
 # Estimation
 init_vals <- rep(0, 12)
-estr <- MEstimator(stacked_equations = psi, init = init_vals)
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = psi, init = init_vals) |>
+  estimate()
 
 # Prediction
 p <- data.frame(
@@ -151,11 +178,24 @@ cov_p <- Xa_pred %*% estr@variance %*% t(Xa_pred)
 cb <- compute_confidence_bands(y_vals, covariance = cov_p, method = "supt", seed = 10177)
 
 # Plotting
-plot(d$z, bshift, pch = ".", col = adjustcolor("deeppink", alpha.f = 0.2),
-     xlab = "Redshift (z)", ylab = "g - r")
-polygon(c(p$z, rev(p$z)), c(cb[, "lower"], rev(cb[, "upper"])),
-        col = adjustcolor("black", alpha.f = 0.4), border = NA)
-lines(p$z, yhat$predicted, col = "black")
+observed <- data.frame(z = d$z, colorshift = bshift)
+fitted_curve <- data.frame(
+  z = p$z,
+  colorshift = yhat$predicted,
+  lower = cb[, "lower"],
+  upper = cb[, "upper"]
+)
+
+ggplot(observed, aes(x = z, y = colorshift)) +
+  geom_point(shape = ".", color = "deeppink", alpha = 0.2) +
+  geom_ribbon(
+    data = fitted_curve,
+    aes(ymin = lower, ymax = upper),
+    fill = "black",
+    alpha = 0.4
+  ) +
+  geom_line(data = fitted_curve) +
+  labs(x = "Redshift (z)", y = "g - r")
 ```
 
 Here, we see more of a hinge point around `z=3`. Note that we made no change to our generalized additive model specification, again highlighting their general flexibility in applications.
@@ -182,8 +222,8 @@ psi <- function(theta) {
 
 # Estimation
 init_vals <- rep(0, 12)
-estr <- MEstimator(stacked_equations = psi, init = init_vals)
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = psi, init = init_vals) |>
+  estimate()
 
 # Prediction
 p <- data.frame(
@@ -202,11 +242,24 @@ cov_p <- Xa_pred %*% estr@variance %*% t(Xa_pred)
 cb <- compute_confidence_bands(y_vals, covariance = cov_p, method = "supt", seed = 10177)
 
 # Plotting
-plot(d$z, bshift, pch = ".", col = adjustcolor("springgreen", alpha.f = 0.2),
-     xlab = "Redshift (z)", ylab = "g - i")
-polygon(c(p$z, rev(p$z)), c(cb[, "lower"], rev(cb[, "upper"])),
-        col = adjustcolor("black", alpha.f = 0.4), border = NA)
-lines(p$z, yhat$predicted, col = "black")
+observed <- data.frame(z = d$z, colorshift = bshift)
+fitted_curve <- data.frame(
+  z = p$z,
+  colorshift = yhat$predicted,
+  lower = cb[, "lower"],
+  upper = cb[, "upper"]
+)
+
+ggplot(observed, aes(x = z, y = colorshift)) +
+  geom_point(shape = ".", color = "springgreen", alpha = 0.2) +
+  geom_ribbon(
+    data = fitted_curve,
+    aes(ymin = lower, ymax = upper),
+    fill = "black",
+    alpha = 0.4
+  ) +
+  geom_line(data = fitted_curve) +
+  labs(x = "Redshift (z)", y = "g - i")
 ```
 
 These results are similar to $g-r$, but the hinge at `z=3` is slightly less dramatic. This completes the initial exploration of the quasar data and highlights the utility of flexible regression models.

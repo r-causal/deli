@@ -365,13 +365,16 @@ test_that("ee_lasso_regression matches Python Delicatessen", {
   X <- ref$X
   y <- ref$y
 
+  # The L1 penalty warns on every evaluation (see test-ee-penalized-regression.R)
   psi <- function(theta) {
-    ee_lasso_regression(
-      theta,
-      X = X,
-      y = y,
-      model = ref$model,
-      penalty = ref$penalty
+    suppressWarnings(
+      ee_lasso_regression(
+        theta,
+        X = X,
+        y = y,
+        model = ref$model,
+        penalty = ref$penalty
+      )
     )
   }
 
@@ -407,14 +410,17 @@ test_that("ee_elasticnet_regression matches Python Delicatessen", {
   X <- ref$X
   y <- ref$y
 
+  # The L1 component warns on every evaluation
   psi <- function(theta) {
-    ee_elasticnet_regression(
-      theta,
-      X = X,
-      y = y,
-      model = ref$model,
-      penalty = ref$penalty,
-      ratio = ref$ratio
+    suppressWarnings(
+      ee_elasticnet_regression(
+        theta,
+        X = X,
+        y = y,
+        model = ref$model,
+        penalty = ref$penalty,
+        ratio = ref$ratio
+      )
     )
   }
 

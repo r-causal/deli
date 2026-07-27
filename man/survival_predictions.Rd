@@ -66,3 +66,29 @@ otherwise applies the Weibull formulas, so a \code{"gompertz"} request there
 silently returns Weibull values.
 }
 
+\examples{
+\dontshow{if (requireNamespace("nleqslv", quietly = TRUE)) withAutoprint(\{ # examplesIf}
+# Weibull survival times for 45 women with breast cancer, with no covariates.
+# The default rootSolve solver does not converge here, so nleqslv is used.
+psi <- function(theta) {
+  ee_survival_model(
+    theta,
+    time = breast_cancer$times,
+    event = breast_cancer$delta,
+    distribution = "weibull"
+  )
+}
+m <- MEstimator(stacked_equations = psi, init = c(0.1, 0.1)) |>
+  estimate(solver = "nleqslv")
+
+# The survival function at three follow-up times, with delta-method
+# confidence intervals. Observed times run from 5 to 225 days.
+survival_predictions(
+  times = c(50, 100, 150),
+  theta = m@theta,
+  covariance = m@variance,
+  distribution = "weibull",
+  measure = "survival"
+)
+\dontshow{\}) # examplesIf}
+}

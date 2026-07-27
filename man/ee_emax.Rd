@@ -26,3 +26,17 @@ A 3-by-n matrix.
 Implements the hyperbolic E-max (Hill) model:
 \deqn{R_i = \theta_0 + \frac{\theta_{max} D_i}{\theta_{50} + D_i}}
 }
+\examples{
+# Dose-response of a herbicide on ryegrass root length. The response falls
+# with dose, so the maximum response parameter is initialized negative.
+psi <- function(theta) {
+  ee_emax(theta, dose = inderjit$dose, response = inderjit$response)
+}
+
+m <- MEstimator(stacked_equations = psi, init = c(8, -8, 2)) |>
+  estimate()
+
+# Zero-dose response, maximum change in response, and ED50
+coef(m)
+
+}

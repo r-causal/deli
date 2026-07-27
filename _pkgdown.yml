@@ -1,6 +1,7 @@
 url: https://r-causal.github.io/deli
 template:
   bootstrap: 5
+  math-rendering: katex
 
 articles:
   - title: Get Started

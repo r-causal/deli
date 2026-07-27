@@ -1,7 +1,13 @@
 #' Influence functions for M-Estimator
 #'
+#' @description
 #' Computes the influence function values for individual observations:
 #' \deqn{IF(O_i; \theta) = B_n(\theta)^{-1} \psi(O_i; \theta)}
+#'
+#' This function mirrors `m.influence_functions()` in Python delicatessen, so
+#' code translated from Python can keep its shape. There is no base R accessor
+#' for influence function values, so this is the interface for them in deli as
+#' well.
 #'
 #' @param object A fitted `MEstimator` object (after calling [estimate()]).
 #' @param allow_pinv Logical. Use pseudo-inverse if bread is singular? Default
@@ -10,6 +16,13 @@
 #'
 #' @returns An n-by-p matrix of influence function values, where n is the
 #'   number of observations and p is the number of parameters.
+#'
+#' @examples
+#' fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
+#'                   model = "linear")
+#'
+#' # One row per observation, showing its contribution to each estimate
+#' head(influence_functions(fit))
 #'
 #' @export
 influence_functions <- new_generic(

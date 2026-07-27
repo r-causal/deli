@@ -21,6 +21,22 @@
 #'   coerced with `as.vector()` to its character labels before sorting, so its
 #'   columns sort lexically by label rather than by factor-level order.
 #'
+#' @examples
+#' # Fifty clusters of four observations, sharing a cluster-level shift in y
+#' set.seed(42)
+#' n <- 200
+#' group <- rep(1:50, each = 4)
+#' cluster_effect <- rnorm(50, sd = 2)
+#' y <- cluster_effect[group] + rnorm(n)
+#'
+#' psi <- function(theta) aggregate_efuncs(ee_mean(theta, y = y), group = group)
+#'
+#' m <- MEstimator(stacked_equations = psi, init = mean(y)) |>
+#'   estimate()
+#'
+#' # Cluster-robust standard error, larger than the naive independence version
+#' sqrt(diag(vcov(m)))
+#'
 #' @export
 aggregate_efuncs <- function(est_funcs, group) {
   # A 1-D input is a single parameter observed across n units, matching the
