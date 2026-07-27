@@ -11,3 +11,4 @@
 ^README\.Rmd$
 ^scratch$
 ^\.git$
+^\.venv$

@@ -9,6 +9,10 @@ knitr:
 ```{r}
 #| label: setup
 library(deli)
+
+# The Python blocks below run against a project-local virtual environment
+# containing delicatessen and NumPy.
+reticulate::use_virtualenv("../../.venv", required = TRUE)
 ```
 
 deli is a faithful R port of the Python
@@ -287,12 +291,13 @@ matches; no recipe is needed.
 ## Worked example
 
 The following fits the same linear regression in both libraries and shows that
-the R code reproduces the Python numbers exactly. The Python block is shown for
-reference and is not executed here.
+the R code reproduces the Python numbers exactly. Both blocks run when this
+article is built, so the outputs below can be compared directly.
 
 The Python fit, using default settings (`solver='lm'`, `deriv_method='approx'`):
 
-```python
+```{python}
+#| label: example-fit-python
 import numpy as np
 from delicatessen import MEstimator
 from delicatessen.estimating_equations import ee_regression
@@ -307,11 +312,10 @@ def psi(theta):
 
 m = MEstimator(psi, init=[0.0, 0.0])
 m.estimate()
-m.theta                    # array([0.525014, 2.248242])
-np.sqrt(np.diag(m.variance))  # array([0.053054, 0.026662])
-m.confidence_intervals()
-# array([[0.421031, 0.628998],
-#        [2.195986, 2.300498]])
+
+print(m.theta)
+print(np.sqrt(np.diag(m.variance)))
+print(m.confidence_intervals())
 ```
 
 The equivalent deli fit, matching Python's default solver and forward-difference

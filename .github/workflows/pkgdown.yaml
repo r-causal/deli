@@ -32,6 +32,17 @@ jobs:
       # available before pkgdown builds the site.
       - uses: quarto-dev/quarto-actions/setup@v2
 
+      - uses: astral-sh/setup-uv@v5
+
+      # The translating-from-python article executes Python chunks through
+      # reticulate, which resolves .venv relative to the article directory.
+      # Bytecode is compiled at install time so that no compilation warning
+      # from an installed package can reach the rendered page.
+      - name: Create the Python environment for the Python article chunks
+        run: |
+          uv venv .venv
+          uv pip install --compile-bytecode --python .venv/bin/python delicatessen numpy
+
       - uses: r-lib/actions/setup-r@v2
         with:
           use-public-rspm: true
