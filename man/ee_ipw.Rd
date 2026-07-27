@@ -29,3 +29,25 @@ A \code{(3+b)}-by-n matrix of estimating equation contributions.
 Estimates the average causal effect using IPW with a logistic propensity
 score model.
 }
+\examples{
+# A binary treatment, two confounders, and a continuous outcome whose true
+# average causal effect is 1.5.
+set.seed(42)
+n <- 1000
+W1 <- rnorm(n)
+W2 <- rbinom(n, 1, 0.4)
+A <- rbinom(n, 1, inverse_logit(-0.5 + 0.5 * W1 + 0.3 * W2))
+Y <- 2 + 1.5 * A + W1 - 0.5 * W2 + rnorm(n)
+
+W_ps <- cbind(1, W1, W2) # Propensity score design matrix
+
+psi <- function(theta) ee_ipw(theta, y = Y, A = A, W = W_ps)
+
+# theta holds the average causal effect, the mean under treatment, and the
+# mean under no treatment, followed by the three propensity score
+# coefficients.
+m <- MEstimator(stacked_equations = psi, init = rep(0, 6)) |>
+  estimate()
+coef(m)[1:3]
+
+}

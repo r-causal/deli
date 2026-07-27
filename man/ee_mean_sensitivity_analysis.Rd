@@ -35,3 +35,37 @@ sensitivity analysis approach. Handles MCAR, MAR, and MNAR
 mechanisms by specifying a user-defined sensitivity function \code{q_eval}
 and a monotone increasing distribution function \code{H_function}.
 }
+\examples{
+# An outcome observed for only part of the sample, with missingness driven by
+# the measured covariate W.
+set.seed(42)
+n <- 500
+W <- rbinom(n, 1, 0.5)
+Y_full <- 200 - 35 * W + rnorm(n, sd = 5)
+delta <- rbinom(n, 1, plogis(2 + W))
+
+# Missing outcomes never enter the estimating equation, so any placeholder
+# value works; a zero keeps the arithmetic finite.
+Y <- ifelse(delta == 1, Y_full, 0)
+X <- cbind(1, W) # Missingness model design matrix
+
+# A sensitivity function of zero everywhere assumes the outcome is missing at
+# random given W. Nonzero values encode departures from that assumption.
+psi <- function(theta) {
+  ee_mean_sensitivity_analysis(
+    theta,
+    y = Y,
+    delta = delta,
+    X = X,
+    q_eval = rep(0, n),
+    H_function = inverse_logit
+  )
+}
+
+# theta holds the corrected mean, started near the observed outcomes,
+# followed by the two missingness model coefficients.
+m <- MEstimator(stacked_equations = psi, init = c(180, 0, 0)) |>
+  estimate()
+coef(m)
+
+}

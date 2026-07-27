@@ -37,3 +37,30 @@ A \code{(3+b+c)}-by-n matrix of estimating equation contributions.
 Estimates the average causal effect using AIPW, which combines a
 propensity score model and an outcome model for doubly-robust estimation.
 }
+\examples{
+# A binary treatment, two confounders, and a continuous outcome whose true
+# average causal effect is 1.5.
+set.seed(42)
+n <- 1000
+W1 <- rnorm(n)
+W2 <- rbinom(n, 1, 0.4)
+A <- rbinom(n, 1, inverse_logit(-0.5 + 0.5 * W1 + 0.3 * W2))
+Y <- 2 + 1.5 * A + W1 - 0.5 * W2 + rnorm(n)
+
+W_ps <- cbind(1, W1, W2) # Propensity score design matrix
+X <- cbind(1, A, W1, W2) # Outcome model, observed design matrix
+X1 <- cbind(1, 1, W1, W2) # Outcome model, everyone treated
+X0 <- cbind(1, 0, W1, W2) # Outcome model, everyone untreated
+
+psi <- function(theta) {
+  ee_aipw(theta, y = Y, A = A, W = W_ps, X = X, X1 = X1, X0 = X0)
+}
+
+# theta holds the average causal effect, the mean under treatment, and the
+# mean under no treatment, followed by the three propensity score
+# coefficients and the four outcome model coefficients.
+m <- MEstimator(stacked_equations = psi, init = rep(0, 10)) |>
+  estimate()
+summary(m, subset = 1:3)
+
+}

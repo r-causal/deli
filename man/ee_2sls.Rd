@@ -33,3 +33,38 @@ treatment on the instruments (and exogenous variables), and the
 second stage regresses the outcome on predicted treatment (and
 exogenous variables).
 }
+\examples{
+# A continuous treatment confounded by an unmeasured U, a strong instrument
+# Z, and one measured exogenous covariate. The true causal effect is 2.
+set.seed(42)
+n <- 500
+W1 <- rnorm(n)
+Z <- cbind(rbinom(n, 1, 0.5))
+U <- rnorm(n)
+A <- 1.5 * Z[, 1] + 0.3 * W1 + U + rnorm(n, sd = 0.5)
+Y <- 2 * A - U + 0.5 * W1 + rnorm(n)
+W <- cbind(1, W1)
+
+# Starting every parameter at zero leaves the two stages unidentified and the
+# solver stalls, so seed the starting values with the ordinary least squares
+# fit of each stage: the first stage regresses A on the instrument and the
+# exogenous covariates, the second regresses Y on the fitted A and the same
+# covariates.
+alpha_init <- as.numeric(coef(lm(A ~ cbind(Z, W) - 1)))
+a_hat <- as.numeric(cbind(Z, W) \%*\% alpha_init)
+beta_init <- as.numeric(coef(lm(Y ~ cbind(a_hat, W) - 1)))
+
+psi <- function(theta) ee_2sls(theta, y = Y, A = A, Z = Z, W = W)
+
+# theta holds the three second-stage coefficients followed by the three
+# first-stage coefficients.
+m <- MEstimator(
+  stacked_equations = psi,
+  init = c(beta_init, alpha_init)
+) |>
+  estimate()
+
+# theta_1 is the coefficient on the fitted treatment, the causal effect.
+coef(m)
+
+}

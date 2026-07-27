@@ -26,3 +26,21 @@ Estimates the causal effect using the usual IV / Wald estimator.
 The parameter of interest is the additive effect of treatment A on
 outcome Y leveraging instrument Z.
 }
+\examples{
+# An unmeasured confounder U biases the association between A and Y, but the
+# instrument Z affects Y only through A. The true causal effect is 3.
+set.seed(123)
+n <- 500
+Z <- rbinom(n, 1, 0.5)
+U <- rnorm(n)
+A <- rbinom(n, 1, plogis(-1 + 3 * Z + U))
+Y <- 3 * A - U + rnorm(n, sd = 0.5)
+
+psi <- function(theta) ee_iv_causal(theta, y = Y, A = A, Z = Z)
+
+# theta holds the causal effect followed by the mean of the instrument.
+m <- MEstimator(stacked_equations = psi, init = c(0, 0.5)) |>
+  estimate()
+coef(m)
+
+}

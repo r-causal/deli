@@ -59,3 +59,33 @@ A \code{(c+b)}-by-n matrix of estimating equation contributions.
 Estimates the parameters of a marginal structural model using inverse
 probability weighting with a logistic propensity score model.
 }
+\examples{
+# A confounded binary treatment whose true effect on the outcome is -2.
+set.seed(42)
+n <- 500
+W <- rbinom(n, 1, 0.5)
+A <- rbinom(n, 1, 0.25 + 0.5 * W)
+Y <- 5 + 2 * W - 2 * A + rnorm(n)
+
+W_ps <- cbind(1, W) # Propensity score design matrix
+V <- cbind(1, A) # Marginal structural model design matrix
+
+psi <- function(theta) {
+  ee_ipw_msm(
+    theta,
+    y = Y,
+    A = A,
+    W = W_ps,
+    V = V,
+    distribution = "normal",
+    link = "identity"
+  )
+}
+
+# theta holds the two marginal structural model coefficients, whose slope is
+# the causal effect, followed by the two propensity score coefficients.
+m <- MEstimator(stacked_equations = psi, init = rep(0, 4)) |>
+  estimate()
+coef(m)
+
+}

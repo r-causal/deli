@@ -18,6 +18,28 @@
 #'
 #' @returns A matrix of estimating equation contributions.
 #'
+#' @examples
+#' # A binary treatment, two confounders, and a continuous outcome whose true
+#' # average causal effect is 1.5.
+#' set.seed(42)
+#' n <- 1000
+#' W1 <- rnorm(n)
+#' W2 <- rbinom(n, 1, 0.4)
+#' A <- rbinom(n, 1, inverse_logit(-0.5 + 0.5 * W1 + 0.3 * W2))
+#' Y <- 2 + 1.5 * A + W1 - 0.5 * W2 + rnorm(n)
+#'
+#' X <- cbind(1, A, W1, W2) # Observed design matrix
+#' X1 <- cbind(1, 1, W1, W2) # Everyone treated
+#' X0 <- cbind(1, 0, W1, W2) # Everyone untreated
+#'
+#' psi <- function(theta) ee_gformula(theta, y = Y, X = X, X1 = X1, X0 = X0)
+#'
+#' # theta holds the average causal effect, the mean under treatment, and the
+#' # mean under no treatment, followed by the four outcome model coefficients.
+#' m <- MEstimator(stacked_equations = psi, init = rep(0, 7)) |>
+#'   estimate()
+#' coef(m)[1:3]
+#'
 #' @export
 ee_gformula <- function(theta, y, X, X1, X0 = NULL, force_continuous = FALSE) {
   X <- as.matrix(X)
@@ -97,6 +119,27 @@ ee_gformula <- function(theta, y, X, X1, X0 = NULL, force_continuous = FALSE) {
 #'
 #' @returns A `(3+b)`-by-n matrix of estimating equation contributions.
 #'
+#' @examples
+#' # A binary treatment, two confounders, and a continuous outcome whose true
+#' # average causal effect is 1.5.
+#' set.seed(42)
+#' n <- 1000
+#' W1 <- rnorm(n)
+#' W2 <- rbinom(n, 1, 0.4)
+#' A <- rbinom(n, 1, inverse_logit(-0.5 + 0.5 * W1 + 0.3 * W2))
+#' Y <- 2 + 1.5 * A + W1 - 0.5 * W2 + rnorm(n)
+#'
+#' W_ps <- cbind(1, W1, W2) # Propensity score design matrix
+#'
+#' psi <- function(theta) ee_ipw(theta, y = Y, A = A, W = W_ps)
+#'
+#' # theta holds the average causal effect, the mean under treatment, and the
+#' # mean under no treatment, followed by the three propensity score
+#' # coefficients.
+#' m <- MEstimator(stacked_equations = psi, init = rep(0, 6)) |>
+#'   estimate()
+#' coef(m)[1:3]
+#'
 #' @export
 ee_ipw <- function(theta, y, A, W, truncate = NULL, weights = NULL) {
   W <- as.matrix(W)
@@ -165,6 +208,32 @@ ee_ipw <- function(theta, y, A, W, truncate = NULL, weights = NULL) {
 #'   model? Default `FALSE`.
 #'
 #' @returns A `(3+b+c)`-by-n matrix of estimating equation contributions.
+#'
+#' @examples
+#' # A binary treatment, two confounders, and a continuous outcome whose true
+#' # average causal effect is 1.5.
+#' set.seed(42)
+#' n <- 1000
+#' W1 <- rnorm(n)
+#' W2 <- rbinom(n, 1, 0.4)
+#' A <- rbinom(n, 1, inverse_logit(-0.5 + 0.5 * W1 + 0.3 * W2))
+#' Y <- 2 + 1.5 * A + W1 - 0.5 * W2 + rnorm(n)
+#'
+#' W_ps <- cbind(1, W1, W2) # Propensity score design matrix
+#' X <- cbind(1, A, W1, W2) # Outcome model, observed design matrix
+#' X1 <- cbind(1, 1, W1, W2) # Outcome model, everyone treated
+#' X0 <- cbind(1, 0, W1, W2) # Outcome model, everyone untreated
+#'
+#' psi <- function(theta) {
+#'   ee_aipw(theta, y = Y, A = A, W = W_ps, X = X, X1 = X1, X0 = X0)
+#' }
+#'
+#' # theta holds the average causal effect, the mean under treatment, and the
+#' # mean under no treatment, followed by the three propensity score
+#' # coefficients and the four outcome model coefficients.
+#' m <- MEstimator(stacked_equations = psi, init = rep(0, 10)) |>
+#'   estimate()
+#' summary(m, subset = 1:3)
 #'
 #' @export
 ee_aipw <- function(
@@ -271,6 +340,35 @@ ee_aipw <- function(
 #'
 #' @returns A `(c+b)`-by-n matrix of estimating equation contributions.
 #'
+#' @examples
+#' # A confounded binary treatment whose true effect on the outcome is -2.
+#' set.seed(42)
+#' n <- 500
+#' W <- rbinom(n, 1, 0.5)
+#' A <- rbinom(n, 1, 0.25 + 0.5 * W)
+#' Y <- 5 + 2 * W - 2 * A + rnorm(n)
+#'
+#' W_ps <- cbind(1, W) # Propensity score design matrix
+#' V <- cbind(1, A) # Marginal structural model design matrix
+#'
+#' psi <- function(theta) {
+#'   ee_ipw_msm(
+#'     theta,
+#'     y = Y,
+#'     A = A,
+#'     W = W_ps,
+#'     V = V,
+#'     distribution = "normal",
+#'     link = "identity"
+#'   )
+#' }
+#'
+#' # theta holds the two marginal structural model coefficients, whose slope is
+#' # the causal effect, followed by the two propensity score coefficients.
+#' m <- MEstimator(stacked_equations = psi, init = rep(0, 4)) |>
+#'   estimate()
+#' coef(m)
+#'
 #' @export
 ee_ipw_msm <- function(
   theta,
@@ -362,6 +460,30 @@ ee_ipw_msm <- function(
 #' @param weights Optional numeric vector of n weights. Default `NULL`.
 #'
 #' @returns A matrix of estimating equation contributions.
+#'
+#' @examples
+#' # A confounded binary treatment whose true effect on the outcome is -2.
+#' set.seed(42)
+#' n <- 500
+#' W <- rbinom(n, 1, 0.5)
+#' A <- rbinom(n, 1, 0.25 + 0.5 * W)
+#' Y <- 5 + 2 * W - 2 * A + rnorm(n)
+#'
+#' W_ps <- cbind(1, W) # Propensity score design matrix
+#'
+#' # An intercept-only structural mean model gives a single causal contrast.
+#' # Build it with rep() so the column has one entry per observation.
+#' V <- cbind(rep(1, n))
+#'
+#' psi <- function(theta) {
+#'   ee_gestimation_snmm(theta, y = Y, A = A, W = W_ps, V = V, model = "linear")
+#' }
+#'
+#' # theta holds the structural mean model coefficient, which is the causal
+#' # effect, followed by the two propensity score coefficients.
+#' m <- MEstimator(stacked_equations = psi, init = rep(0, 3)) |>
+#'   estimate()
+#' coef(m)
 #'
 #' @export
 ee_gestimation_snmm <- function(
@@ -470,6 +592,23 @@ ee_gestimation_snmm <- function(
 #'
 #' @returns A 2-by-n matrix of estimating equation contributions.
 #'
+#' @examples
+#' # An unmeasured confounder U biases the association between A and Y, but the
+#' # instrument Z affects Y only through A. The true causal effect is 3.
+#' set.seed(123)
+#' n <- 500
+#' Z <- rbinom(n, 1, 0.5)
+#' U <- rnorm(n)
+#' A <- rbinom(n, 1, plogis(-1 + 3 * Z + U))
+#' Y <- 3 * A - U + rnorm(n, sd = 0.5)
+#'
+#' psi <- function(theta) ee_iv_causal(theta, y = Y, A = A, Z = Z)
+#'
+#' # theta holds the causal effect followed by the mean of the instrument.
+#' m <- MEstimator(stacked_equations = psi, init = c(0, 0.5)) |>
+#'   estimate()
+#' coef(m)
+#'
 #' @export
 ee_iv_causal <- function(theta, y, A, Z, weights = NULL) {
   # Coerce inputs
@@ -514,6 +653,40 @@ ee_iv_causal <- function(theta, y, A, Z, weights = NULL) {
 #' @param weights Optional numeric vector of n weights. Default `NULL`.
 #'
 #' @returns A `(1+b+2c)`-by-n matrix of estimating equation contributions.
+#'
+#' @examples
+#' # A continuous treatment confounded by an unmeasured U, a strong instrument
+#' # Z, and one measured exogenous covariate. The true causal effect is 2.
+#' set.seed(42)
+#' n <- 500
+#' W1 <- rnorm(n)
+#' Z <- cbind(rbinom(n, 1, 0.5))
+#' U <- rnorm(n)
+#' A <- 1.5 * Z[, 1] + 0.3 * W1 + U + rnorm(n, sd = 0.5)
+#' Y <- 2 * A - U + 0.5 * W1 + rnorm(n)
+#' W <- cbind(1, W1)
+#'
+#' # Starting every parameter at zero leaves the two stages unidentified and the
+#' # solver stalls, so seed the starting values with the ordinary least squares
+#' # fit of each stage: the first stage regresses A on the instrument and the
+#' # exogenous covariates, the second regresses Y on the fitted A and the same
+#' # covariates.
+#' alpha_init <- as.numeric(coef(lm(A ~ cbind(Z, W) - 1)))
+#' a_hat <- as.numeric(cbind(Z, W) %*% alpha_init)
+#' beta_init <- as.numeric(coef(lm(Y ~ cbind(a_hat, W) - 1)))
+#'
+#' psi <- function(theta) ee_2sls(theta, y = Y, A = A, Z = Z, W = W)
+#'
+#' # theta holds the three second-stage coefficients followed by the three
+#' # first-stage coefficients.
+#' m <- MEstimator(
+#'   stacked_equations = psi,
+#'   init = c(beta_init, alpha_init)
+#' ) |>
+#'   estimate()
+#'
+#' # theta_1 is the coefficient on the fitted treatment, the causal effect.
+#' coef(m)
 #'
 #' @export
 ee_2sls <- function(theta, y, A, Z, W = NULL, weights = NULL) {
@@ -591,6 +764,39 @@ ee_2sls <- function(theta, y, A, Z, W = NULL, weights = NULL) {
 #'   is monotone increasing (e.g., [inverse_logit()]).
 #'
 #' @returns A `(1+b)`-by-n matrix of estimating equation contributions.
+#'
+#' @examples
+#' # An outcome observed for only part of the sample, with missingness driven by
+#' # the measured covariate W.
+#' set.seed(42)
+#' n <- 500
+#' W <- rbinom(n, 1, 0.5)
+#' Y_full <- 200 - 35 * W + rnorm(n, sd = 5)
+#' delta <- rbinom(n, 1, plogis(2 + W))
+#'
+#' # Missing outcomes never enter the estimating equation, so any placeholder
+#' # value works; a zero keeps the arithmetic finite.
+#' Y <- ifelse(delta == 1, Y_full, 0)
+#' X <- cbind(1, W) # Missingness model design matrix
+#'
+#' # A sensitivity function of zero everywhere assumes the outcome is missing at
+#' # random given W. Nonzero values encode departures from that assumption.
+#' psi <- function(theta) {
+#'   ee_mean_sensitivity_analysis(
+#'     theta,
+#'     y = Y,
+#'     delta = delta,
+#'     X = X,
+#'     q_eval = rep(0, n),
+#'     H_function = inverse_logit
+#'   )
+#' }
+#'
+#' # theta holds the corrected mean, started near the observed outcomes,
+#' # followed by the two missingness model coefficients.
+#' m <- MEstimator(stacked_equations = psi, init = c(180, 0, 0)) |>
+#'   estimate()
+#' coef(m)
 #'
 #' @export
 ee_mean_sensitivity_analysis <- function(
