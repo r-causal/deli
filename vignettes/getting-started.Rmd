@@ -342,9 +342,9 @@ Use the finite-difference default for a transform that needs any of them.
 
 Five base R functions that look like natural choices inside a transform do not
 work under exact differentiation. Each hands its argument straight to compiled
-code that requires a plain number, so the call fails with `Non-numeric argument
-to mathematical function` instead of returning a derivative. deli exports a
-counterpart for each one:
+code that requires a plain number, so the call fails with a `non-numeric
+argument to mathematical function` error instead of returning a derivative.
+deli exports a counterpart for each one:
 
 | Use this deli function   | in place of                    | because base R |
 | ------------------------ | ------------------------------ | -------------- |
@@ -374,6 +374,12 @@ those helpers, and rely on the finite-difference default otherwise. Combining
 values with `c()` fails for a related reason: it returns a plain list rather
 than a differentiable vector, so a later `sum()` over the result errors. Index
 into `theta` directly instead.
+
+`mean()` is the quietest of these traps. It dispatches to `mean.default()`,
+which sits outside every group generic deli supports, so a tangent-carrying
+argument produces the warning `argument is not numeric or logical: returning
+NA` and a derivative of zero rather than an error. Write `sum(x) / length(x)`
+instead, which differentiates exactly because both `sum()` and `length()` do.
 
 ## Next steps
 - `vignette("custom-estimating-equations")`: Write your own estimating

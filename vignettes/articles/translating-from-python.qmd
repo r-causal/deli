@@ -76,12 +76,12 @@ offers an idiomatic R surface for the same work alongside them. The section
 | `digamma(z)` | `deli_digamma(z)` | Renamed to avoid masking base R `digamma()`. At the poles (non-positive integers) `deli_digamma()` returns `NaN`, matching base R `digamma()`; SciPy returns `-Inf`. `NA` and `NaN` inputs propagate unchanged. |
 | `standard_normal_cdf`, `standard_normal_pdf` | `standard_normal_cdf`, `standard_normal_pdf` | Required in place of `stats::pnorm()` and `stats::dnorm()` under `deriv_method = "exact"` (see below). |
 | `robust_loss_functions(residual, loss, k, a, b)` | `robust_loss_functions(residuals, loss, k)` | Hampel thresholds passed as `k = c(a, b, c)` (see below). |
-| `aggregate_efuncs(est_funcs, group)` | `aggregate_efuncs(est_funcs, group)` | Takes and returns the same p-by-g matrix; `group` may be any vector R can split on. |
-| `regression_predictions(...)` | `regression_predictions(...)` | Idiomatic replacement; returns a data frame rather than a NumPy array. |
-| `aft_predictions_individual(...)` | `aft_predictions_individual(...)` | Idiomatic replacement; returns a data frame rather than a NumPy array. |
-| `aft_predictions_function(...)` | `aft_predictions_function(...)` | Idiomatic replacement; returns a data frame rather than a NumPy array. R adds `deriv_method` and `dx`. |
+| `aggregate_efuncs(est_funcs, group)` | `aggregate_efuncs(est_funcs, group)` | Takes a p-by-n matrix, one column per observation, and returns a p-by-g matrix, one column per group; `group` may be any vector R can split on. |
+| `regression_predictions(...)` | `regression_predictions(...)` | Returns a data frame rather than a NumPy array. |
+| `aft_predictions_individual(...)` | `aft_predictions_individual(...)` | Returns a data frame rather than a NumPy array. |
+| `aft_predictions_function(...)` | `aft_predictions_function(...)` | Returns a data frame rather than a NumPy array. R adds `deriv_method` and `dx`. |
 | `spline(...)` | `deli_spline(...)` | Renamed to avoid masking `stats::spline()`. First argument renamed `variable` to `x`. |
-| `additive_design_matrix(...)` | `additive_design_matrix(...)` | Idiomatic replacement; `return_penalty = TRUE` gives a named list with `X` and `penalty` rather than a tuple. |
+| `additive_design_matrix(...)` | `additive_design_matrix(...)` | `return_penalty = TRUE` gives a named list with `X` and `penalty` rather than a tuple. |
 
 The forward-difference and autodiff helpers `approx_differentiation()` and
 `auto_differentiation()` are public in Python. In deli they back the
@@ -415,9 +415,9 @@ m_one_step <- m_estimate(
 all.equal(m@theta, m_one_step@theta)
 ```
 
-`m_estimate()` also accepts a formula and a data frame, as the previous chunk
-showed. That interface builds the design matrix and the initial values for you
-and has no Python counterpart at all.
+`m_estimate()` also accepts a formula and a data frame, the form shown at the
+end of [Worked example] above. That interface builds the design matrix and the
+initial values for you and has no Python counterpart at all.
 
 ### Inference
 
@@ -433,7 +433,8 @@ confidence_intervals(m, alpha = 0.05)
 confint(m, level = 0.95)
 ```
 
-Note the parameterization. Python states interval width as `alpha`, and deli's
+Note the parameterization. Python states the interval as an error rate,
+`alpha`, so a 95% interval is `alpha=0.05`, and deli's
 `confidence_intervals()` and `summary()` keep that argument. The R accessors
 take its complement: `confint()` uses `level` and `generics::tidy()` uses
 `conf.level`, each equal to `1 - alpha`. A Python `alpha=0.01` becomes
