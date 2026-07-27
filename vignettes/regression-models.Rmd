@@ -21,18 +21,25 @@ library(deli)
 ## Overview
 
 deli provides estimating equations for a wide range of regression models.
-All of them are fitted the same way: pass a formula, a data frame, and the
-estimating equation to `m_estimate()`, which builds the design matrix,
-constructs the estimator, and solves it in one call. Further arguments, such as
-`model` or `penalty`, go to the estimating equation. The sandwich variance
-estimator automatically provides robust standard errors, and the parameters are
-named after the design matrix columns.
+Every model in this vignette is fitted the same way: pass a formula, a data
+frame, and the estimating equation to `m_estimate()`, which builds the design
+matrix, constructs the estimator, and solves it in one call. Arguments belonging
+to the estimating equation, such as `model` or `penalty`, go in the same call
+and are forwarded to it, while `init`, `subset`, `solver`, and the other solver
+controls are arguments of `m_estimate()` itself. The sandwich variance estimator
+automatically provides robust standard errors, and the parameters are named
+after the design matrix columns.
+
+`init` defaults to a zero vector with one element per design matrix column. That
+is the right length for most estimating equations, but not for the few that
+estimate a parameter of their own on top of the coefficients; the gamma and
+negative binomial GLMs below are the cases you are likely to meet.
 
 Every model shown here can also be fitted through the function interface, where
 you write a `psi` function that supplies the design matrix and response
 yourself. That form is what you need for a design the formula notation cannot
-express, and for custom or stacked equations; see
-`vignette("custom-estimating-equations")`.
+express, for a response that is not a vector (`ee_mlogit()`), and for custom or
+stacked equations; see `vignette("custom-estimating-equations")`.
 
 ## Linear regression
 
@@ -103,11 +110,38 @@ m@theta
 ```
 
 Available distributions: `"normal"`, `"binomial"`, `"poisson"`, `"gamma"`,
-`"negative_binomial"`, `"inverse_gaussian"`, and `"tweedie"`.
-`"negative_binomial"` estimates an extra dispersion parameter and `"tweedie"`
-takes a variance-power `hyperparameter`; see `?ee_glm` for the details.
-Available links: `"identity"`, `"log"`, `"logit"`, `"probit"`, `"cauchy"`
-(alias `"cauchit"`), `"loglog"`, `"cloglog"`, `"inverse"`, and `"sqrt"`.
+`"negative_binomial"`, `"inverse_gaussian"`, and `"tweedie"`. `"tweedie"` takes
+a variance-power `hyperparameter`; see `?ee_glm` for the details. Available
+links: `"identity"`, `"log"`, `"logit"`, `"probit"`, `"cauchy"` (alias
+`"cauchit"`), `"loglog"`, `"cloglog"`, `"inverse"`, and `"sqrt"`.
+
+`"gamma"` and `"negative_binomial"` estimate one parameter beyond the
+regression coefficients: the log of the gamma shape, or the log of the negative
+binomial dispersion. The automatic `init` has one element per design matrix
+column and so is one element short for these two, which makes an explicit `init`
+necessary. Naming its elements also names the parameters in the output:
+
+```{r}
+set.seed(42)
+n <- 500
+x <- rnorm(n)
+mu <- exp(0.5 + 0.3 * x)
+y <- rgamma(n, shape = 2, scale = mu / 2)
+d <- data.frame(x, y)
+
+m <- m_estimate(
+  y ~ x,
+  data = d,
+  .ee = ee_glm,
+  distribution = "gamma",
+  link = "log",
+  init = c("(Intercept)" = 0, x = 0, log_shape = 0)
+)
+m@theta
+```
+
+The extra parameter is on the log scale, so `exp(m@theta[["log_shape"]])`
+recovers the shape, here close to the value of 2 used in the simulation.
 
 ## Penalized regression
 
