@@ -14,7 +14,7 @@
 #   logit(p)                 stats::qlogis(p)                 errors
 #   standard_normal_cdf(x)   stats::pnorm(x)                  errors
 #   standard_normal_pdf(x)   stats::dnorm(x)                  errors
-#   deli_polygamma(n, x)     stats::psigamma(x, deriv = n)    errors
+#   deli_polygamma(n, x)     base::psigamma(x, deriv = n)     errors
 #   deli_digamma(z)          base::digamma(z)                 works
 #   identity_transform(v)    base::identity(v)                works
 #

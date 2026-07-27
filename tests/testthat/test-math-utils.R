@@ -126,14 +126,17 @@ test_that("deli_digamma() keeps NaN at the poles alongside missing input", {
 
 test_that("deli_digamma() differs from base::digamma() only in the pole warning", {
   # The reference documentation states that the suppressed pole warning is the
-  # only difference between the two, so every returned value has to be identical:
-  # the regular values, the NaN at each pole, and the NA and NaN propagated from
-  # missing input, which waldo distinguishes from one another. The expected base R
-  # warning is caught explicitly rather than suppressed.
+  # only difference between the two, so every returned value has to agree: the
+  # regular values, the NaN at each pole, and the NA and NaN propagated from
+  # missing input. The comparison is `expect_identical()` rather than
+  # `expect_equal()` because edition 3 gives `expect_equal()` a default numeric
+  # tolerance, and waldo's tolerant path treats NA_real_ and NaN as equal, which
+  # would leave the missing-value axis unchecked. The expected base R warning is
+  # caught explicitly rather than suppressed.
   z <- c(-2.7, -1.5, 0.5, 1, 2.5, 10, 0, -1, -3, NA, NaN)
   expect_warning(base_values <- digamma(z), "NaNs produced")
   deli_values <- expect_no_warning(deli_digamma(z))
-  expect_equal(deli_values, base_values)
+  expect_identical(deli_values, base_values)
 })
 
 # ---- standard_normal_cdf() --------------------------------------------------
