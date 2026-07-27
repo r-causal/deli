@@ -51,14 +51,14 @@ estr_bench <- MEstimator(
     ee_regression(theta, X = cbind(1, x), y = y_no, model = "linear")
   },
   init = c(0, 0)
-)
-estr_bench <- estimate(estr_bench)
+) |>
+  estimate()
 
 data.frame(
   Param = c("Intercept", "Height"),
   Coef = round(estr_bench@theta, 3),
-  LCL = round(confidence_intervals(estr_bench)[, 1], 3),
-  UCL = round(confidence_intervals(estr_bench)[, 2], 3)
+  LCL = round(confint(estr_bench)[, 1], 3),
+  UCL = round(confint(estr_bench)[, 2], 3)
 )
 ```
 
@@ -71,14 +71,14 @@ estr_outlier <- MEstimator(
     ee_regression(theta, X = X, y = y_out, model = "linear")
   },
   init = c(0, 0)
-)
-estr_outlier <- estimate(estr_outlier)
+) |>
+  estimate()
 
 data.frame(
   Param = c("Intercept", "Height"),
   Coef = round(estr_outlier@theta, 3),
-  LCL = round(confidence_intervals(estr_outlier)[, 1], 3),
-  UCL = round(confidence_intervals(estr_outlier)[, 2], 3)
+  LCL = round(confint(estr_outlier)[, 1], 3),
+  UCL = round(confint(estr_outlier)[, 2], 3)
 )
 ```
 
@@ -96,14 +96,14 @@ estr_robust <- MEstimator(
   },
   # Use OLS estimates as initial values for stability
   init = estr_outlier@theta
-)
-estr_robust <- estimate(estr_robust)
+) |>
+  estimate()
 
 data.frame(
   Param = c("Intercept", "Height"),
   Coef = round(estr_robust@theta, 3),
-  LCL = round(confidence_intervals(estr_robust)[, 1], 3),
-  UCL = round(confidence_intervals(estr_robust)[, 2], 3)
+  LCL = round(confint(estr_robust)[, 1], 3),
+  UCL = round(confint(estr_robust)[, 2], 3)
 )
 ```
 
@@ -152,14 +152,14 @@ estr_dr <- MEstimator(
     rbind(pl3[2:4, , drop = FALSE], ed20)
   },
   init = c(8, 3, 2, 2)
-)
-estr_dr <- estimate(estr_dr, solver = "nleqslv")
+) |>
+  estimate(solver = "nleqslv")
 
 data.frame(
   Param = c("Upper", "ED50", "Steepness", "ED20"),
   Coef = round(estr_dr@theta, 3),
-  LCL = round(confidence_intervals(estr_dr)[, 1], 3),
-  UCL = round(confidence_intervals(estr_dr)[, 2], 3)
+  LCL = round(confint(estr_dr)[, 1], 3),
+  UCL = round(confint(estr_dr)[, 2], 3)
 )
 ```
 
@@ -240,14 +240,14 @@ estr_naive <- MEstimator(
     )
   },
   init = rep(1, 5)
-)
-estr_naive <- estimate(estr_naive)
+) |>
+  estimate()
 
 data.frame(
   Biomarker = c("IFN-a", "CXCL9", "CXCL10", "sIL-2R", "IL-12"),
   Mean = round(estr_naive@theta, 3),
-  LCL = round(confidence_intervals(estr_naive)[, 1], 3),
-  UCL = round(confidence_intervals(estr_naive)[, 2], 3)
+  LCL = round(confint(estr_naive)[, 1], 3),
+  UCL = round(confint(estr_naive)[, 2], 3)
 )
 ```
 
@@ -285,14 +285,14 @@ estr_iosw <- MEstimator(
     rbind(nuisance, ee_ifn, ee_cxcl9, ee_cxcl10, ee_sil2r, ee_il12)
   },
   init = c(0, 0, rep(1, 5))
-)
-estr_iosw <- estimate(estr_iosw)
+) |>
+  estimate()
 
 data.frame(
   Biomarker = c("IFN-a", "CXCL9", "CXCL10", "sIL-2R", "IL-12"),
   Mean = round(estr_iosw@theta[3:7], 3),
-  LCL = round(confidence_intervals(estr_iosw)[3:7, 1], 3),
-  UCL = round(confidence_intervals(estr_iosw)[3:7, 2], 3)
+  LCL = round(confint(estr_iosw)[3:7, 1], 3),
+  UCL = round(confint(estr_iosw)[3:7, 2], 3)
 )
 ```
 

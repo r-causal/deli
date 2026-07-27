@@ -50,15 +50,15 @@ estr <- MEstimator(
     ee_regression(theta, X = X, y = y, model = "logistic")
   },
   init = c(0, 0, 0)
-)
-estr <- estimate(estr)
+) |>
+  estimate()
 
 # Results
 data.frame(
   Param = c("beta_0", "beta_1", "beta_2"),
   Coef = round(estr@theta, 2),
-  LCL = round(confidence_intervals(estr)[, 1], 2),
-  UCL = round(confidence_intervals(estr)[, 2], 2)
+  LCL = round(confint(estr)[, 1], 2),
+  UCL = round(confint(estr)[, 2], 2)
 )
 ```
 
@@ -102,14 +102,14 @@ estr <- MEstimator(
     rbind(ee_logit, ee_r0, ee_r1, ee_rd)
   },
   init = c(0, 0, 0, 0.5, 0.5, 0)
-)
-estr <- estimate(estr)
+) |>
+  estimate()
 
 data.frame(
   Param = c("beta_0", "beta_1", "beta_2", "mu_0", "mu_1", "delta"),
   Coef = round(estr@theta, 2),
-  LCL = round(confidence_intervals(estr)[, 1], 2),
-  UCL = round(confidence_intervals(estr)[, 2], 2)
+  LCL = round(confint(estr)[, 1], 2),
+  UCL = round(confint(estr)[, 2], 2)
 )
 ```
 
@@ -146,14 +146,14 @@ estr <- MEstimator(
     rbind(ee_logit, ee_r0, ee_r1, ee_rd)
   },
   init = c(0, 0, 0.5, 0.5, 0)
-)
-estr <- estimate(estr)
+) |>
+  estimate()
 
 data.frame(
   Param = c("alpha_0", "alpha_1", "mu_0", "mu_1", "delta"),
   Coef = round(estr@theta, 2),
-  LCL = round(confidence_intervals(estr)[, 1], 2),
-  UCL = round(confidence_intervals(estr)[, 2], 2)
+  LCL = round(confint(estr)[, 1], 2),
+  UCL = round(confint(estr)[, 2], 2)
 )
 ```
 
@@ -183,14 +183,14 @@ estr <- MEstimator(
     ee_rogan_gladen(theta, y = d3$Y, y_star = d3$W, r = d3$R)
   },
   init = c(0.75, 0.75, 0.75, 0.75)
-)
-estr <- estimate(estr)
+) |>
+  estimate()
 
 data.frame(
   Param = c("Corrected", "Mismeasured", "Sensitivity", "Specificity"),
   Coef = round(estr@theta, 2),
-  LCL = round(confidence_intervals(estr)[, 1], 2),
-  UCL = round(confidence_intervals(estr)[, 2], 2)
+  LCL = round(confint(estr)[, 1], 2),
+  UCL = round(confint(estr)[, 2], 2)
 )
 ```
 

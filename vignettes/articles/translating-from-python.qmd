@@ -153,7 +153,8 @@ deli also provides the identical Levenberg-Marquardt solver under
 reproduce a default Python `MEstimator` fit, set the solver explicitly:
 
 ```r
-m <- estimate(m, solver = "lm")
+m <- MEstimator(psi, init = c(0, 0)) |>
+  estimate(solver = "lm")
 ```
 
 The `"lm"` solver is the recommended choice for problems where a Newton-type
@@ -191,7 +192,8 @@ To reproduce a default Python fit, match Python's defaults from R:
 
 ```r
 # Reproduce a default Python MEstimator run
-m <- estimate(m, solver = "lm", deriv_method = "fapprox")
+m <- MEstimator(psi, init = c(0, 0)) |>
+  estimate(solver = "lm", deriv_method = "fapprox")
 ```
 
 Because `"fapprox"` and SciPy's `"approx"` are both forward differences at the
@@ -327,8 +329,8 @@ psi <- function(theta) {
   ee_regression(theta, X = X, y = d$y, model = "linear")
 }
 
-m <- MEstimator(psi, init = c(0, 0))
-m <- estimate(m, solver = "lm", deriv_method = "fapprox")
+m <- MEstimator(psi, init = c(0, 0)) |>
+  estimate(solver = "lm", deriv_method = "fapprox")
 
 m@theta
 sqrt(diag(m@variance))

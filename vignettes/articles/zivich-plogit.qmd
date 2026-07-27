@@ -71,8 +71,8 @@ inits <- c(rep(0, ncol(W)),    # Coefs for baseline vars
            rep(0, params_plr - 1))  # Coefs for time terms
 
 # Fit the model
-estr <- MEstimator(psi_plogit, init = inits)
-estr <- estimate(estr)
+estr <- MEstimator(psi_plogit, init = inits) |>
+  estimate()
 
 # Print results for baseline covariate parameters
 summary(estr, subset = seq_len(ncol(W)))
@@ -110,8 +110,8 @@ inits <- c(rep(0, ncol(W)),    # Coefs for baseline vars
            rep(0, 4))           # Coefs for time terms (intercept + t + 3 spline terms)
 
 # Fit the model
-estr <- MEstimator(psi_plogit_spline, init = inits)
-estr <- estimate(estr)
+estr <- MEstimator(psi_plogit_spline, init = inits) |>
+  estimate()
 
 # Print results for baseline covariate parameters
 summary(estr, subset = seq_len(ncol(W)))
@@ -200,8 +200,8 @@ inits <- c(rep(0, params_rd),
 # Fit the model. The stratified pooled logistic models separate in some time
 # intervals, so we use the Levenberg-Marquardt solver ("lm"), which handles
 # the near-singular Jacobian these fits produce.
-estr <- MEstimator(psi_rd, init = inits)
-estr <- estimate(estr, solver = "lm")
+estr <- MEstimator(psi_rd, init = inits) |>
+  estimate(solver = "lm")
 ```
 
 We can then examine the table for the causal risk difference at 59 months.
@@ -297,8 +297,8 @@ inits <- c(rep(0, params_rd),
            0, 0, -4, rep(0, 4))
 
 # Fit the model with the Levenberg-Marquardt solver, as above
-estr <- MEstimator(psi_rd_spline, init = inits)
-estr <- estimate(estr, solver = "lm")
+estr <- MEstimator(psi_rd_spline, init = inits) |>
+  estimate(solver = "lm")
 
 # Compute confidence bands
 cb <- confidence_bands(estr, method = "supt",

@@ -49,8 +49,8 @@ estr <- MEstimator(
     ee_regression(theta, X = X, y = y, model = "linear")
   },
   init = c(0, 0)
-)
-estr <- estimate(estr)
+) |>
+  estimate()
 
 # Predicted values and confidence intervals
 pred_y <- regression_predictions(Xp, estr@theta, estr@variance)
@@ -102,8 +102,8 @@ estr <- MEstimator(
     )
   },
   init = rep(0, 12)
-)
-estr <- estimate(estr)
+) |>
+  estimate()
 
 # Build the additive design matrix for predictions
 Xpa <- additive_design_matrix(Xp, specifications = specs)
@@ -149,8 +149,8 @@ estr <- MEstimator(
     )
   },
   init = rep(0, 12)
-)
-estr <- estimate(estr)
+) |>
+  estimate()
 
 # Build additive design matrix and predict
 Xpa <- additive_design_matrix(Xp, specifications = specs_strong)
@@ -189,8 +189,8 @@ estr <- MEstimator(
     )
   },
   init = rep(0, 12)
-)
-estr <- estimate(estr)
+) |>
+  estimate()
 
 # Build additive design matrix and predict
 Xpa <- additive_design_matrix(Xp, specifications = specs_vstrong)

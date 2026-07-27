@@ -113,8 +113,8 @@ init_vals <- c(
 
 # M-Estimation with the Levenberg-Marquardt solver, matching the reference
 # analysis
-estr <- MEstimator(psi_edf, init = init_vals)
-estr <- estimate(estr, solver = "lm")
+estr <- MEstimator(psi_edf, init = init_vals) |>
+  estimate(solver = "lm")
 ```
 
 ## Confidence Bands
@@ -143,7 +143,7 @@ regions, we will also compute the confidence intervals here.
 ```{r}
 #| label: cints-mxz
 # Confidence intervals
-cints <- confidence_intervals(estr)
+cints <- confint(estr)
 cints <- cints[1:n_unique_mxz, ]
 ```
 
@@ -239,8 +239,8 @@ init_vals <- c(
   seq(0.99, 0.01, length.out = n_unique_srf),
   seq(0.99, 0.01, length.out = n_unique_srf)
 )
-estr <- MEstimator(psi_edf_srf, init = init_vals)
-estr <- estimate(estr, solver = "lm")
+estr <- MEstimator(psi_edf_srf, init = init_vals) |>
+  estimate(solver = "lm")
 
 # Confidence bands computation
 cbands <- confidence_bands(estr, method = "supt", seed = 2101101)
@@ -283,8 +283,8 @@ init_vals <- c(
   seq(0.99, 0.01, length.out = n_unique_icm),
   seq(0.99, 0.01, length.out = n_unique_icm)
 )
-estr <- MEstimator(psi_edf_icm, init = init_vals)
-estr <- estimate(estr, solver = "lm")
+estr <- MEstimator(psi_edf_icm, init = init_vals) |>
+  estimate(solver = "lm")
 
 # Confidence bands computation
 cbands <- confidence_bands(estr, method = "supt", seed = 2101101)

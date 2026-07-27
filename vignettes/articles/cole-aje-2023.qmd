@@ -83,14 +83,14 @@ estr <- MEstimator(
     rbind(ee_wprop, ee_nprop, ee_sm)
   },
   init = c(0.5, 0.5, 0., 0.)
-)
-estr <- estimate(estr)
+) |>
+  estimate()
 
 data.frame(
   Param = c("mu_weighted", "mu_naive", "beta_0", "beta_1"),
   Coef = round(estr@theta, 4),
-  LCL = round(confidence_intervals(estr)[, 1], 4),
-  UCL = round(confidence_intervals(estr)[, 2], 4)
+  LCL = round(confint(estr)[, 1], 4),
+  UCL = round(confint(estr)[, 2], 4)
 )
 ```
 
@@ -129,14 +129,14 @@ estr <- MEstimator(
     ee_rogan_gladen(theta, y = d2$Y, y_star = d2$Y_star, r = d2$R)
   },
   init = c(0.5, 0.5, 0.75, 0.75)
-)
-estr <- estimate(estr)
+) |>
+  estimate()
 
 data.frame(
   Param = c("Corrected", "Mismeasured", "Sensitivity", "Specificity"),
   Coef = round(estr@theta, 4),
-  LCL = round(confidence_intervals(estr)[, 1], 4),
-  UCL = round(confidence_intervals(estr)[, 2], 4)
+  LCL = round(confint(estr)[, 1], 4),
+  UCL = round(confint(estr)[, 2], 4)
 )
 ```
 
@@ -222,8 +222,8 @@ estr <- MEstimator(
     rbind(ee_rg, ee_sm)
   },
   init = c(0.5, 0.5, 0.75, 0.75, 0., 0.)
-)
-estr <- estimate(estr, solver = "lm")
+) |>
+  estimate(solver = "lm")
 
 se <- sqrt(diag(vcov(estr)))
 data.frame(
@@ -231,8 +231,8 @@ data.frame(
             "Sensitivity", "Specificity", "beta_0", "beta_1"),
   Coef = round(estr@theta, 4),
   SE = round(se, 4),
-  LCL = round(confidence_intervals(estr)[, 1], 4),
-  UCL = round(confidence_intervals(estr)[, 2], 4)
+  LCL = round(confint(estr)[, 1], 4),
+  UCL = round(confint(estr)[, 2], 4)
 )
 ```
 
