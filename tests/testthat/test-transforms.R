@@ -16,6 +16,9 @@ test_that("logit() handles edge cases", {
   expect_equal(logit(0), -Inf)
   expect_equal(logit(1), Inf)
   expect_equal(logit(0.5), 0)
+  # The documented correspondence with qlogis() has to hold at the boundaries
+  # too, where the log-odds are infinite.
+  expect_equal(logit(c(0, 0.5, 1)), qlogis(c(0, 0.5, 1)))
 })
 
 # ---- logit() autodiff compatibility -----------------------------
@@ -89,4 +92,17 @@ test_that("identity_transform() returns matrix unchanged", {
 
 test_that("identity_transform() preserves character input", {
   expect_equal(identity_transform("hello"), "hello")
+})
+
+test_that("identity_transform() matches base::identity()", {
+  # The documented counterpart of identity_transform() is base::identity(), which
+  # unlike most of the utility functions is usable everywhere, including under
+  # exact-mode autodiff. The two must be interchangeable on every input type.
+  expect_identical(identity_transform(42), identity(42))
+  expect_identical(identity_transform(c(1, 2, 3)), identity(c(1, 2, 3)))
+  expect_identical(
+    identity_transform(matrix(1:6, nrow = 2, ncol = 3)),
+    identity(matrix(1:6, nrow = 2, ncol = 3))
+  )
+  expect_identical(identity_transform("hello"), identity("hello"))
 })

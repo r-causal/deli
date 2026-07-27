@@ -35,6 +35,21 @@ test_that("deli_polygamma() handles large x values", {
   expect_equal(deli_polygamma(1, 1000), psigamma(1000, deriv = 1))
 })
 
+# deli_polygamma(n, x) takes the order first, following Python's
+# scipy.special.polygamma; psigamma(x, deriv = n) takes it second. A positional
+# find-and-replace between the two silently computes a different quantity, so the
+# correspondence is pinned in both directions with two distinct arguments, and
+# the swapped result is asserted to disagree.
+
+test_that("deli_polygamma() takes the order first where psigamma() takes it second", {
+  expect_equal(deli_polygamma(1, 3), psigamma(3, deriv = 1))
+  expect_equal(deli_polygamma(3, 1), psigamma(1, deriv = 3))
+  expect_false(isTRUE(all.equal(
+    psigamma(3, deriv = 1),
+    psigamma(1, deriv = 3)
+  )))
+})
+
 # ---- deli_digamma() ---------------------------------------------------------
 
 test_that("deli_digamma() matches base::digamma() for positive values", {
@@ -107,6 +122,18 @@ test_that("deli_digamma() keeps NaN at the poles alongside missing input", {
   expect_true(is.nan(r[2])) # pole at 0
   expect_true(is.nan(r[3])) # pole at -2
   expect_equal(r[4], digamma(2.5)) # regular value
+})
+
+test_that("deli_digamma() differs from base::digamma() only in the pole warning", {
+  # The reference documentation states that the suppressed pole warning is the
+  # only difference between the two, so every returned value has to be identical:
+  # the regular values, the NaN at each pole, and the NA and NaN propagated from
+  # missing input, which waldo distinguishes from one another. The expected base R
+  # warning is caught explicitly rather than suppressed.
+  z <- c(-2.7, -1.5, 0.5, 1, 2.5, 10, 0, -1, -3, NA, NaN)
+  expect_warning(base_values <- digamma(z), "NaNs produced")
+  deli_values <- expect_no_warning(deli_digamma(z))
+  expect_equal(deli_values, base_values)
 })
 
 # ---- standard_normal_cdf() --------------------------------------------------
