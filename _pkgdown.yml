@@ -55,12 +55,13 @@ reference:
   - title: Core
     desc: Primary estimator classes and estimation interface.
     contents:
+      - m_estimate
       - MEstimator
       - GMMEstimator
       - estimate
 
-  - title: Inference
-    desc: Tools for inference from fitted estimators.
+  - title: Statistical Inference
+    desc: Tools for statistical inference from fitted estimators.
     contents:
       - confidence_intervals
       - z_scores
@@ -156,7 +157,6 @@ reference:
       - deli_spline
       - additive_design_matrix
       - compute_confidence_bands
-      - m_estimate
       - gmm_estimate
       - deli-generics
       - deli-tidiers

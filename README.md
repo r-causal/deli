@@ -85,7 +85,8 @@ summary(fit)
 
 `vcov()` returns the sandwich variance-covariance matrix and `confint()`
 returns Wald confidence intervals. deli also supplies
-[broom](https://broom.tidymodels.org) tidiers, `tidy()` and `glance()`.
+[broom](https://broom.tidymodels.org) tidiers, `tidy()`, `augment()`,
+and `glance()`.
 
 ## Learn more
 
