@@ -204,10 +204,10 @@ treatment effect:
 ```{r}
 set.seed(42)
 n <- 500
-w <- rbinom(n, 1, 0.5)                         # Binary confounder
-A <- rbinom(n, 1, inverse_logit(-0.5 + w))      # Treatment depends on w
-Y <- 1 + 2 * A + w + rnorm(n)                   # Outcome
-W <- cbind(1, w)                                 # Propensity score design matrix
+w <- rbinom(n, 1, 0.5)               # Binary confounder
+A <- rbinom(n, 1, plogis(-0.5 + w))  # Treatment depends on w
+Y <- 1 + 2 * A + w + rnorm(n)        # Outcome
+W <- cbind(1, w)                     # Propensity score design matrix
 
 psi <- function(theta) {
   ee_ipw(theta, y = Y, A = A, W = W)
@@ -290,7 +290,7 @@ covariate pattern:
 set.seed(42)
 n <- 500
 x <- rnorm(n)
-pr <- inverse_logit(0.5 + x)
+pr <- plogis(0.5 + x)
 y <- rbinom(n, 1, pr)
 d <- data.frame(x, y)
 
@@ -302,26 +302,78 @@ transform <- function(theta) inverse_logit(theta[1] + theta[2])
 delta_method(m, transform = transform, deriv_method = "exact")
 ```
 
+That chunk computes the inverse logit twice with two different functions, and
+the difference is deliberate. The simulation uses `stats::plogis()`, because it
+is ordinary numeric work on plain doubles. The transform uses deli's
+`inverse_logit()`, because `plogis()` cannot be differentiated exactly and would
+stop the delta method with an error. The two functions return identical numbers;
+only one of them survives `deriv_method = "exact"`. The rest of this section
+explains where that line falls.
+
 Automatic differentiation works by carrying a derivative alongside each value
 through the computation, so the transform must be built from operations deli
-knows how to differentiate. The supported surface covers the arithmetic
-operators (`+`, `-`, `*`, `/`, `^`) and comparisons, the matrix product `%*%`,
-the transpose `t()`, indexing, the logistic transforms `inverse_logit()` and
-`logit()`, and these elementwise functions: `exp`, `log`, `sqrt`, the
-trigonometric and hyperbolic families (`sin`, `cos`, `tan`, `asin`, `acos`,
-`atan`, `sinh`, `cosh`, `tanh`, `asinh`, `acosh`, `atanh`), `abs`, `floor`,
-`ceiling`, `sign`, `cumsum`, and the `lgamma` / `digamma` / `trigamma`
-family. Other `Math` group members (`gamma`, `round`, `signif`,
-`trunc`, `cumprod`, `cummax`, `cummin`) and the modulo operators (`%%`, `%/%`)
-are not differentiated and error under `deriv_method = "exact"`; use the
-finite-difference default for a transform that needs them.
+knows how to differentiate. The supported surface covers:
+
+- the arithmetic operators (`+`, `-`, `*`, `/`, `^`) and the comparisons
+- the matrix product `%*%`, the transpose `t()`, indexing, and `length()`
+- `sum()`, `prod()`, `max()`, and `min()`
+- the exponential and logarithmic family (`exp`, `expm1`, `log`, `log1p`,
+  `log2`, `log10`, `sqrt`)
+- the trigonometric and hyperbolic families (`sin`, `cos`, `tan`, `asin`,
+  `acos`, `atan`, `sinh`, `cosh`, `tanh`, `asinh`, `acosh`, `atanh`)
+- `abs`, `floor`, `ceiling`, `sign`, `cumsum`, and the
+  `lgamma` / `digamma` / `trigamma` family
+- deli's own transforms `inverse_logit()`, `logit()`, `standard_normal_cdf()`,
+  `standard_normal_pdf()`, `deli_polygamma()`, `deli_digamma()`, and
+  `identity_transform()`
+
+Each of the three operator groups has gaps. Under `deriv_method = "exact"` the
+following error rather than returning a derivative:
+
+- from the `Math` group, `gamma`, `round`, `signif`, `trunc`, `cospi`, `sinpi`,
+  `tanpi`, `cumprod`, `cummax`, and `cummin`
+- from the `Summary` group, `range`, `any`, and `all`
+- from the `Ops` group, the modulo operators `%%` and `%/%`, the logical
+  operators `&` and `|`, and unary `!`
+
+Use the finite-difference default for a transform that needs any of them.
+
+### The base R functions that stop exact differentiation
+
+Five base R functions that look like natural choices inside a transform do not
+work under exact differentiation. Each hands its argument straight to compiled
+code that requires a plain number, so the call fails with `Non-numeric argument
+to mathematical function` instead of returning a derivative. deli exports a
+counterpart for each one:
+
+| Use this deli function   | in place of                    | because base R |
+| ------------------------ | ------------------------------ | -------------- |
+| `inverse_logit(x)`       | `stats::plogis(x)`             | errors         |
+| `logit(p)`               | `stats::qlogis(p)`             | errors         |
+| `standard_normal_cdf(x)` | `stats::pnorm(x)`              | errors         |
+| `standard_normal_pdf(x)` | `stats::dnorm(x)`              | errors         |
+| `deli_polygamma(n, x)`   | `base::psigamma(x, deriv = n)` | errors         |
+| `deli_digamma(z)`        | `base::digamma(z)`             | differentiates |
+| `identity_transform(v)`  | `base::identity(v)`            | differentiates |
+
+The rule follows from where the code runs. Inside a `psi` function and inside a
+transform passed to `delta_method()`, reach for the deli function in the first
+column. Everywhere else, including data simulation, post-fit display, and plain
+numeric work, the base R function is the better choice because it is the one
+your readers already know. The last two rows are exempt: `digamma()` and
+`identity()` differentiate exactly, so base R serves in any position. Note also
+that the polygamma pair takes its arguments in opposite orders, so the two are
+not interchangeable by position alone.
 
 One limitation applies to custom code. The reshaping and binding helpers
 `matrix()`, `rbind()`, and `cbind()` differentiate exactly only when they are
 called from within the package. A user-defined transform that calls them from
 the global environment reaches the base R versions, which do not carry
 derivatives, so use `deriv_method = "exact"` only when the transform avoids
-those helpers, and rely on the finite-difference default otherwise.
+those helpers, and rely on the finite-difference default otherwise. Combining
+values with `c()` fails for a related reason: it returns a plain list rather
+than a differentiable vector, so a later `sum()` over the result errors. Index
+into `theta` directly instead.
 
 ## Next steps
 - `vignette("custom-estimating-equations")`: Write your own estimating

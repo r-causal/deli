@@ -116,7 +116,7 @@ log-odds coefficient.
 set.seed(42)
 n <- 500
 x <- rnorm(n)
-pr <- inverse_logit(-0.5 + 0.8 * x)
+pr <- plogis(-0.5 + 0.8 * x)
 y <- rbinom(n, 1, pr)
 X <- cbind(1, x)
 

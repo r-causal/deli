@@ -67,7 +67,7 @@ For binary outcomes, use `model = "logistic"`:
 set.seed(42)
 n <- 500
 x <- rnorm(n)
-y <- rbinom(n, 1, inverse_logit(0.5 + x))
+y <- rbinom(n, 1, plogis(0.5 + x))
 d <- data.frame(x, y)
 
 m <- m_estimate(y ~ x, data = d, .ee = ee_regression, model = "logistic")

@@ -334,7 +334,7 @@ epidemiologic effect measures from binary data.
 set.seed(321)
 n_glm <- 500
 x_glm <- rnorm(n_glm)
-pr <- inverse_logit(-0.5 + x_glm)
+pr <- plogis(-0.5 + x_glm)
 y_glm <- rbinom(n_glm, 1, pr)
 X_glm <- cbind(1, x_glm)
 ```
