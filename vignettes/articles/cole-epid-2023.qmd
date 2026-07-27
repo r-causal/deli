@@ -55,11 +55,9 @@ psi_mean <- function(theta) {
   matrix(r * (y_filled - theta), nrow = 1)
 }
 
-estr <- MEstimator(stacked_equations = psi_mean, init = c(300))
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = psi_mean, init = c(300)) |> estimate()
 
-cat("mu:    ", estr@theta[1], "\n")
-cat("95% CI:", confidence_intervals(estr)[1, ], "\n")
+c(mu = coef(estr)[[1]], confint(estr)[1, ])
 ```
 
 However, this complete-case analysis assumes missing data is non-informative
@@ -122,11 +120,10 @@ alpha <- 0.01
 qy <- q_function(y_vals = y, alpha = alpha)
 
 # Estimate
-estr <- MEstimator(stacked_equations = psi_sens, init = c(300, 0))
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = psi_sens, init = c(300, 0)) |>
+  estimate()
 
-cat("mu:    ", estr@theta[1], "\n")
-cat("95% CI:", confidence_intervals(estr)[1, ], "\n")
+c(mu = coef(estr)[[1]], confint(estr)[1, ])
 ```
 
 This is notably lower than the complete-case analysis.
@@ -152,11 +149,10 @@ psi_robins <- function(theta) {
   )
 }
 
-estr <- MEstimator(stacked_equations = psi_robins, init = c(300, 0))
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = psi_robins, init = c(300, 0)) |>
+  estimate()
 
-cat("mu:    ", estr@theta[1], "\n")
-cat("95% CI:", confidence_intervals(estr)[1, ], "\n")
+c(mu = coef(estr)[[1]], confint(estr)[1, ])
 ```
 
 This gives the same result as the by-hand version, as expected.
@@ -190,9 +186,9 @@ for (alphas in list(alpha_l, alpha_u)) {
     qy <- q_function(y_vals = y, alpha = alpha)
 
     # Applying M-estimator
-    estr <- MEstimator(stacked_equations = psi_robins, init = init_vals)
-    estr <- estimate(estr)
-    ci <- confidence_intervals(estr)
+    estr <- MEstimator(stacked_equations = psi_robins, init = init_vals) |>
+      estimate()
+    ci <- confint(estr)
 
     # Extracting output
     point <- c(point, estr@theta[1])
@@ -257,12 +253,18 @@ psi_bounds <- function(theta) {
   rbind(ee_lower, ee_upper)
 }
 
-estr <- MEstimator(stacked_equations = psi_bounds, init = c(400, 700))
-estr <- estimate(estr)
-ci <- confidence_intervals(estr)
+estr <- MEstimator(stacked_equations = psi_bounds, init = c(400, 700)) |>
+  estimate()
+ci <- confint(estr)
 
-cat("Bounds:", estr@theta, "\n")
-cat("95% CI:", ci[1, 1], ci[2, 2], "\n")
+# Bounds, with the interval running from the lower limit of the lower bound
+# to the upper limit of the upper bound
+c(
+  lower_bound = coef(estr)[[1]],
+  upper_bound = coef(estr)[[2]],
+  lower = ci[1, 1],
+  upper = ci[2, 2]
+)
 ```
 
 These are the nonparametric bounds for missingness of the mean. Note that these

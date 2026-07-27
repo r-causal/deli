@@ -98,12 +98,10 @@ estr <- MEstimator(
     rbind(ee_rr, ee_r1, ee_r0)
   },
   init = c(0, 0.5, 0.5)
-)
-estr <- estimate(estr)
-ci <- confidence_intervals(estr)
+) |>
+  estimate()
 
-cat("RR:    ", exp(estr@theta[1]), "\n")
-cat("95% CI:", exp(ci[1, ]), "\n")
+exp(c(rr = coef(estr)[[1]], confint(estr)[1, ]))
 ```
 
 ### Log-binomial model
@@ -127,12 +125,10 @@ estr <- MEstimator(
     )
   },
   init = c(log(0.08), 0)
-)
-estr <- estimate(estr)
-ci <- confidence_intervals(estr)
+) |>
+  estimate()
 
-cat("RR:    ", exp(estr@theta[2]), "\n")
-cat("95% CI:", exp(ci[2, ]), "\n")
+exp(c(rr = coef(estr)[[2]], confint(estr)[2, ]))
 ```
 
 Both approaches give the same risk ratio to many decimal places.
@@ -167,12 +163,10 @@ estr <- MEstimator(
     )
   },
   init = c(log(0.09), 0)
-)
-estr <- estimate(estr)
-ci <- confidence_intervals(estr)
+) |>
+  estimate()
 
-cat("RR:    ", exp(estr@theta[2]), "\n")
-cat("95% CI:", exp(ci[2, ]), "\n")
+exp(c(rr = coef(estr)[[2]], confint(estr)[2, ]))
 ```
 
 As expected in this scenario, the complete-case results are similar to the
@@ -209,12 +203,10 @@ estr <- MEstimator(
     rbind(ee_rr, ee_r1, ee_r0, ee_reg1, ee_reg0)
   },
   init = c(0, 0.5, 0.5, 0, 0, 0, 0)
-)
-estr <- estimate(estr)
-ci <- confidence_intervals(estr)
+) |>
+  estimate()
 
-cat("RR:    ", exp(estr@theta[1]), "\n")
-cat("95% CI:", exp(ci[1, ]), "\n")
+exp(c(rr = coef(estr)[[1]], confint(estr)[1, ]))
 ```
 
 The g-computation results are similar to the complete-case results. Both are
@@ -249,12 +241,10 @@ estr <- MEstimator(
     )
   },
   init = c(log(0.09), 0)
-)
-estr <- estimate(estr)
-ci <- confidence_intervals(estr)
+) |>
+  estimate()
 
-cat("RR:    ", exp(estr@theta[2]), "\n")
-cat("95% CI:", exp(ci[2, ]), "\n")
+exp(c(rr = coef(estr)[[2]], confint(estr)[2, ]))
 ```
 
 ### G-computation
@@ -287,12 +277,10 @@ estr <- MEstimator(
     rbind(ee_rr, ee_r1, ee_r0, ee_reg1, ee_reg0)
   },
   init = c(0, 0.5, 0.5, 0, 0, 0, 0)
-)
-estr <- estimate(estr)
-ci <- confidence_intervals(estr)
+) |>
+  estimate()
 
-cat("RR:    ", exp(estr@theta[1]), "\n")
-cat("95% CI:", exp(ci[1, ]), "\n")
+exp(c(rr = coef(estr)[[1]], confint(estr)[1, ]))
 ```
 
 Here, the complete-case analysis indicates a spurious relationship between

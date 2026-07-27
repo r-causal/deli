@@ -60,8 +60,8 @@ estr <- MEstimator(
     ee_regression(theta, X = X, y = y, model = "linear")
   },
   init = c(0, 0, 0)
-)
-estr <- estimate(estr)
+) |>
+  estimate()
 
 # Save OLS estimates for use as initial values in robust regression
 ols_theta <- unname(estr@theta)
@@ -69,8 +69,8 @@ ols_theta <- unname(estr@theta)
 data.frame(
   Param = c("Intercept", "Poverty", "Single"),
   Coef = round(estr@theta, 2),
-  LCL = round(confidence_intervals(estr)[, 1], 2),
-  UCL = round(confidence_intervals(estr)[, 2], 2)
+  LCL = round(confint(estr)[, 1], 2),
+  UCL = round(confint(estr)[, 2], 2)
 )
 ```
 
@@ -116,14 +116,14 @@ estr <- MEstimator(
                          loss = "huber", k = 1)
   },
   init = c(0, 0, 0)
-)
-estr <- estimate(estr)
+) |>
+  estimate()
 
 data.frame(
   Param = c("Intercept", "Poverty", "Single"),
   Coef = round(estr@theta, 2),
-  LCL = round(confidence_intervals(estr)[, 1], 2),
-  UCL = round(confidence_intervals(estr)[, 2], 2)
+  LCL = round(confint(estr)[, 1], 2),
+  UCL = round(confint(estr)[, 2], 2)
 )
 ```
 
@@ -140,14 +140,14 @@ estr <- MEstimator(
                          loss = "fair", k = 1)
   },
   init = c(0, 0, 0)
-)
-estr <- estimate(estr)
+) |>
+  estimate()
 
 data.frame(
   Param = c("Intercept", "Poverty", "Single"),
   Coef = round(estr@theta, 2),
-  LCL = round(confidence_intervals(estr)[, 1], 2),
-  UCL = round(confidence_intervals(estr)[, 2], 2)
+  LCL = round(confint(estr)[, 1], 2),
+  UCL = round(confint(estr)[, 2], 2)
 )
 ```
 
@@ -166,14 +166,14 @@ estr <- MEstimator(
                          loss = "cauchy", k = 1)
   },
   init = ols_theta
-)
-estr <- estimate(estr)
+) |>
+  estimate()
 
 data.frame(
   Param = c("Intercept", "Poverty", "Single"),
   Coef = round(estr@theta, 2),
-  LCL = round(confidence_intervals(estr)[, 1], 2),
-  UCL = round(confidence_intervals(estr)[, 2], 2)
+  LCL = round(confint(estr)[, 1], 2),
+  UCL = round(confint(estr)[, 2], 2)
 )
 ```
 
@@ -196,14 +196,14 @@ estr <- MEstimator(
                          loss = "andrew", k = 1)
   },
   init = c(0, 0, 0)
-)
-estr <- estimate(estr, solver = "lm", deriv_method = "exact")
+) |>
+  estimate(solver = "lm", deriv_method = "exact")
 
 data.frame(
   Param = c("Intercept", "Poverty", "Single"),
   Coef = round(estr@theta, 2),
-  LCL = round(confidence_intervals(estr)[, 1], 2),
-  UCL = round(confidence_intervals(estr)[, 2], 2)
+  LCL = round(confint(estr)[, 1], 2),
+  UCL = round(confint(estr)[, 2], 2)
 )
 ```
 
@@ -220,14 +220,14 @@ estr <- MEstimator(
                          loss = "welsch", k = 1)
   },
   init = c(0, 0, 0)
-)
-estr <- estimate(estr)
+) |>
+  estimate()
 
 data.frame(
   Param = c("Intercept", "Poverty", "Single"),
   Coef = round(estr@theta, 2),
-  LCL = round(confidence_intervals(estr)[, 1], 2),
-  UCL = round(confidence_intervals(estr)[, 2], 2)
+  LCL = round(confint(estr)[, 1], 2),
+  UCL = round(confint(estr)[, 2], 2)
 )
 ```
 
@@ -246,14 +246,14 @@ estr <- MEstimator(
                          loss = "ullah", k = 1)
   },
   init = c(0, 0, 0)
-)
-estr <- estimate(estr, solver = "lm", deriv_method = "exact")
+) |>
+  estimate(solver = "lm", deriv_method = "exact")
 
 data.frame(
   Param = c("Intercept", "Poverty", "Single"),
   Coef = round(estr@theta, 2),
-  LCL = round(confidence_intervals(estr)[, 1], 2),
-  UCL = round(confidence_intervals(estr)[, 2], 2)
+  LCL = round(confint(estr)[, 1], 2),
+  UCL = round(confint(estr)[, 2], 2)
 )
 ```
 
@@ -270,14 +270,14 @@ estr <- MEstimator(
                          loss = "tukey", k = 5)
   },
   init = c(0, 0, 0)
-)
-estr <- estimate(estr)
+) |>
+  estimate()
 
 data.frame(
   Param = c("Intercept", "Poverty", "Single"),
   Coef = round(estr@theta, 2),
-  LCL = round(confidence_intervals(estr)[, 1], 2),
-  UCL = round(confidence_intervals(estr)[, 2], 2)
+  LCL = round(confint(estr)[, 1], 2),
+  UCL = round(confint(estr)[, 2], 2)
 )
 ```
 
@@ -301,14 +301,14 @@ estr <- MEstimator(
                          loss = "hampel", k = c(1/3, 4/3, 2))
   },
   init = c(0, 0, 0)
-)
-estr <- estimate(estr, solver = "lm", deriv_method = "exact")
+) |>
+  estimate(solver = "lm", deriv_method = "exact")
 
 data.frame(
   Param = c("Intercept", "Poverty", "Single"),
   Coef = round(estr@theta, 2),
-  LCL = round(confidence_intervals(estr)[, 1], 2),
-  UCL = round(confidence_intervals(estr)[, 2], 2)
+  LCL = round(confint(estr)[, 1], 2),
+  UCL = round(confint(estr)[, 2], 2)
 )
 ```
 

@@ -42,10 +42,9 @@ psi <- function(theta) {
   )
 }
 
-estr <- MEstimator(stacked_equations = psi, init = c(0, 0))
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = psi, init = c(0, 0)) |> estimate()
 estr@theta
-confidence_intervals(estr)
+confint(estr)
 ```
 
 ### Built-in `ee_mean_variance`
@@ -56,10 +55,9 @@ psi <- function(theta) {
   ee_mean_variance(theta, y = y_mv)
 }
 
-estr <- MEstimator(stacked_equations = psi, init = c(0, 0))
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = psi, init = c(0, 0)) |> estimate()
 estr@theta
-confidence_intervals(estr)
+confint(estr)
 ```
 
 ## 7.2.3 Ratio Estimator
@@ -75,10 +73,9 @@ psi <- function(theta) {
   matrix(y_mv - theta[1] * x_mv, nrow = 1)
 }
 
-estr <- MEstimator(stacked_equations = psi, init = c(1))
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = psi, init = c(1)) |> estimate()
 estr@theta
-confidence_intervals(estr)
+confint(estr)
 ```
 
 ### Three-equation version
@@ -95,10 +92,9 @@ psi <- function(theta) {
   )
 }
 
-estr <- MEstimator(stacked_equations = psi, init = c(10, 5, 2))
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = psi, init = c(10, 5, 2)) |> estimate()
 estr@theta
-confidence_intervals(estr)
+confint(estr)
 ```
 
 ## 7.2.4 Delta Method via Stacking
@@ -118,10 +114,10 @@ psi <- function(theta) {
   )
 }
 
-estr <- MEstimator(stacked_equations = psi, init = c(10, 2, 1, 1))
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = psi, init = c(10, 2, 1, 1)) |>
+  estimate()
 estr@theta
-confidence_intervals(estr)
+confint(estr)
 ```
 
 ## 7.2.6 Instrumental Variable
@@ -158,10 +154,9 @@ psi <- function(theta) {
   )
 }
 
-estr <- MEstimator(stacked_equations = psi, init = c(0, 0))
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = psi, init = c(0, 0)) |> estimate()
 estr@theta
-confidence_intervals(estr)
+confint(estr)
 ```
 
 ### IV estimator: four-equation formulation
@@ -180,10 +175,10 @@ psi <- function(theta) {
   )
 }
 
-estr <- MEstimator(stacked_equations = psi, init = c(0, 0, 0, 0))
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = psi, init = c(0, 0, 0, 0)) |>
+  estimate()
 estr@theta
-confidence_intervals(estr)
+confint(estr)
 ```
 
 ## 7.4.1 Robust Location (Huber)
@@ -213,10 +208,9 @@ psi <- function(theta) {
   matrix(clipped, nrow = 1)
 }
 
-estr <- MEstimator(stacked_equations = psi, init = c(0))
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = psi, init = c(0)) |> estimate()
 estr@theta
-confidence_intervals(estr)
+confint(estr)
 ```
 
 ### Built-in `ee_mean_robust`
@@ -227,10 +221,9 @@ psi <- function(theta) {
   ee_mean_robust(theta, y = y_rob, k = 3, loss = "huber")
 }
 
-estr <- MEstimator(stacked_equations = psi, init = c(0))
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = psi, init = c(0)) |> estimate()
 estr@theta
-confidence_intervals(estr)
+confint(estr)
 ```
 
 ## 7.5.1 Linear Regression
@@ -260,10 +253,9 @@ psi <- function(theta) {
   t(X_lm * as.numeric(resid))            # score: p-by-n
 }
 
-estr <- MEstimator(stacked_equations = psi, init = c(0, 0, 0))
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = psi, init = c(0, 0, 0)) |> estimate()
 estr@theta
-confidence_intervals(estr)
+confint(estr)
 ```
 
 ### Built-in `ee_regression`
@@ -274,10 +266,9 @@ psi <- function(theta) {
   ee_regression(theta, X = X_lm, y = y_lm, model = "linear")
 }
 
-estr <- MEstimator(stacked_equations = psi, init = c(0, 0, 0))
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = psi, init = c(0, 0, 0)) |> estimate()
 estr@theta
-confidence_intervals(estr)
+confint(estr)
 ```
 
 ## 7.5.4 Robust Regression
@@ -299,10 +290,10 @@ psi <- function(theta) {
   t(X_lm * clipped)
 }
 
-estr <- MEstimator(stacked_equations = psi, init = c(0, 0, 0))
-estr <- estimate(estr, solver = "nleqslv")
+estr <- MEstimator(stacked_equations = psi, init = c(0, 0, 0)) |>
+  estimate(solver = "nleqslv")
 estr@theta
-confidence_intervals(estr)
+confint(estr)
 ```
 
 ### Built-in `ee_robust_regression`
@@ -314,10 +305,10 @@ psi <- function(theta) {
                        model = "linear", k = 1.345, loss = "huber")
 }
 
-estr <- MEstimator(stacked_equations = psi, init = c(0, 0, 0))
-estr <- estimate(estr, solver = "nleqslv")
+estr <- MEstimator(stacked_equations = psi, init = c(0, 0, 0)) |>
+  estimate(solver = "nleqslv")
 estr@theta
-confidence_intervals(estr)
+confint(estr)
 ```
 
 ## 7.5.5 Generalized Linear Models
@@ -346,10 +337,9 @@ psi <- function(theta) {
          distribution = "binomial", link = "logit")
 }
 
-estr <- MEstimator(stacked_equations = psi, init = c(0, 0))
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = psi, init = c(0, 0)) |> estimate()
 estr@theta
-confidence_intervals(estr)
+confint(estr)
 ```
 
 ### Log-binomial regression (risk ratio)
@@ -361,10 +351,9 @@ psi <- function(theta) {
          distribution = "binomial", link = "log")
 }
 
-estr <- MEstimator(stacked_equations = psi, init = c(-1, 0))
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = psi, init = c(-1, 0)) |> estimate()
 estr@theta
-confidence_intervals(estr)
+confint(estr)
 ```
 
 ### Identity-binomial regression (risk difference)
@@ -376,8 +365,7 @@ psi <- function(theta) {
          distribution = "binomial", link = "identity")
 }
 
-estr <- MEstimator(stacked_equations = psi, init = c(0.3, 0))
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = psi, init = c(0.3, 0)) |> estimate()
 estr@theta
-confidence_intervals(estr)
+confint(estr)
 ```

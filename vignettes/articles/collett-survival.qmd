@@ -50,15 +50,14 @@ psi <- function(theta) {
 }
 
 # Fit the M-estimator
-estr <- MEstimator(stacked_equations = psi, init = c(0.01))
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = psi, init = c(0.01)) |> estimate()
 
 # Display the results
 results <- data.frame(
   Est = estr@theta,
   SE = sqrt(diag(estr@variance)),
-  LCL = confidence_intervals(estr)[, 1],
-  UCL = confidence_intervals(estr)[, 2],
+  LCL = confint(estr)[, 1],
+  UCL = confint(estr)[, 2],
   row.names = c("Lambda")
 )
 round(results, 3)
@@ -105,15 +104,14 @@ psi <- function(theta) {
 }
 
 # Fit the M-estimator
-estr <- MEstimator(stacked_equations = psi, init = c(0.01, 1.0))
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = psi, init = c(0.01, 1.0)) |> estimate()
 
 # Display the results
 results <- data.frame(
   Est = estr@theta,
   SE = sqrt(diag(estr@variance)),
-  LCL = confidence_intervals(estr)[, 1],
-  UCL = confidence_intervals(estr)[, 2],
+  LCL = confint(estr)[, 1],
+  UCL = confint(estr)[, 2],
   row.names = c("Lambda", "Gamma")
 )
 round(results, 3)
@@ -175,15 +173,14 @@ psi <- function(theta) {
 }
 
 # Fit the M-estimator
-estr <- MEstimator(stacked_equations = psi, init = c(6.0, 0.0))
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = psi, init = c(6.0, 0.0)) |> estimate()
 
 # Display the results
 results <- data.frame(
   Est = estr@theta,
   SE = sqrt(diag(estr@variance)),
-  LCL = confidence_intervals(estr)[, 1],
-  UCL = confidence_intervals(estr)[, 2],
+  LCL = confint(estr)[, 1],
+  UCL = confint(estr)[, 2],
   row.names = c("Intercept", "Stain")
 )
 round(results, 3)
@@ -240,15 +237,15 @@ psi <- function(theta) {
 }
 
 # Fit the M-estimator
-estr <- MEstimator(stacked_equations = psi, init = c(5.0, 0.0, 0.0))
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = psi, init = c(5.0, 0.0, 0.0)) |>
+  estimate()
 
 # Display the results
 results <- data.frame(
   Est = estr@theta,
   SE = sqrt(diag(estr@variance)),
-  LCL = confidence_intervals(estr)[, 1],
-  UCL = confidence_intervals(estr)[, 2],
+  LCL = confint(estr)[, 1],
+  UCL = confint(estr)[, 2],
   row.names = c("Intercept", "Stain", "Shape")
 )
 round(results, 3)
@@ -334,15 +331,15 @@ psi <- function(theta) {
 }
 
 # Fit the M-estimator
-estr <- MEstimator(stacked_equations = psi, init = c(5.0, 0.0, 0.0))
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = psi, init = c(5.0, 0.0, 0.0)) |>
+  estimate()
 
 # Display the results
 results <- data.frame(
   Est = estr@theta,
   SE = sqrt(diag(estr@variance)),
-  LCL = confidence_intervals(estr)[, 1],
-  UCL = confidence_intervals(estr)[, 2],
+  LCL = confint(estr)[, 1],
+  UCL = confint(estr)[, 2],
   row.names = c("Intercept", "Stain", "Shape")
 )
 round(results, 3)
@@ -391,15 +388,15 @@ psi <- function(theta) {
 }
 
 # Fit the M-estimator
-estr <- MEstimator(stacked_equations = psi, init = c(5.0, 0.0, 0.0))
-estr <- estimate(estr)
+estr <- MEstimator(stacked_equations = psi, init = c(5.0, 0.0, 0.0)) |>
+  estimate()
 
 # Display the results
 results <- data.frame(
   Est = estr@theta,
   SE = sqrt(diag(estr@variance)),
-  LCL = confidence_intervals(estr)[, 1],
-  UCL = confidence_intervals(estr)[, 2],
+  LCL = confint(estr)[, 1],
+  UCL = confint(estr)[, 2],
   row.names = c("Intercept", "Stain", "Shape")
 )
 round(results, 3)
