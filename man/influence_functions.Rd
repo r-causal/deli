@@ -21,6 +21,11 @@ number of observations and p is the number of parameters.
 \description{
 Computes the influence function values for individual observations:
 \deqn{IF(O_i; \theta) = B_n(\theta)^{-1} \psi(O_i; \theta)}
+
+This function mirrors \code{m.influence_functions()} in Python delicatessen, so
+code translated from Python can keep its shape. There is no base R accessor
+for influence function values, so this is the interface for them in deli as
+well.
 }
 \examples{
 fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,

@@ -21,6 +21,9 @@ Computes two-sided Wald-type P-values from Z-scores. The Z-scores are
 compared to the standard normal distribution by default. When a
 \code{finite_correction} is set on the fit, they are compared instead to the
 t-distribution with \eqn{n - p} degrees of freedom.
+
+This function mirrors \code{m.p_values()} in Python delicatessen, so code
+translated from Python can keep its shape.
 }
 \examples{
 fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
@@ -28,4 +31,8 @@ fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
 
 p_values(fit)
 
+}
+\seealso{
+\code{\link[=summary]{summary()}} and \code{\link[generics:tidy]{generics::tidy()}}, which report the same P-values
+in table form alongside the other parameter-level results.
 }

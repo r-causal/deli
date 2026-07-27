@@ -19,6 +19,9 @@ A numeric vector of S-values.
 \description{
 Computes Shannon Information values (S-values) as \eqn{S = -\log_2(P)},
 where \eqn{P} is the corresponding P-value.
+
+This function mirrors \code{m.s_values()} in Python delicatessen, so code
+translated from Python can keep its shape.
 }
 \examples{
 fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
@@ -26,4 +29,8 @@ fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
 
 s_values(fit)
 
+}
+\seealso{
+\code{\link[=summary]{summary()}} and \code{\link[generics:tidy]{generics::tidy()}}, which report the same S-values
+in table form alongside the other parameter-level results.
 }
