@@ -33,3 +33,17 @@ matrix. This is a post-processing utility meant to be used after
 No transformations are applied. For logistic models this returns
 log-odds (not probabilities). Apply \code{\link[=inverse_logit]{inverse_logit()}} to transform.
 }
+\examples{
+set.seed(1)
+n <- 200
+dat <- data.frame(x = rnorm(n), z = rbinom(n, 1, 0.5))
+dat$y <- 1 + 0.5 * dat$x + 2 * dat$z + rnorm(n)
+
+m <- m_estimate(y ~ x + z, data = dat, .ee = ee_regression, model = "linear")
+
+# Predict along a small grid of x, holding z at 1. The columns of the grid
+# must match the order of the coefficients, intercept first.
+X_new <- cbind(1, x = c(-1, 0, 1), z = 1)
+regression_predictions(X_new, theta = coef(m), covariance = vcov(m))
+
+}

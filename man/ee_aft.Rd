@@ -37,3 +37,31 @@ The AFT model uses the parameterization where
 \eqn{Z_i = (\log(t_i) - X_i \beta) / \sigma} and the last element of
 theta is \eqn{\log(1/\sigma)}.
 }
+\examples{
+\dontshow{if (requireNamespace("nleqslv", quietly = TRUE)) withAutoprint(\{ # examplesIf}
+# A Weibull AFT model for times generated from one binary covariate, with
+# some of the times right censored by an independent exponential.
+set.seed(1)
+n <- 200
+x <- rbinom(n, 1, 0.5)
+Xd <- cbind(1, x)
+eps <- log(-log(runif(n)))
+t_event <- exp(2 + 0.5 * x + 0.8 * eps)
+t_censor <- rexp(n, rate = 0.02)
+t_obs <- pmin(t_event, t_censor)
+delta <- as.numeric(t_event <= t_censor)
+
+psi <- function(theta) {
+  ee_aft(theta, X = Xd, time = t_obs, event = delta, distribution = "weibull")
+}
+
+# The default rootSolve solver does not converge here, so nleqslv is used.
+# The last parameter is log(1/sigma), not a regression coefficient.
+m <- MEstimator(
+  stacked_equations = psi,
+  init = c(mean(log(t_obs)), 0, 0)
+) |>
+  estimate(solver = "nleqslv")
+coef(m)
+\dontshow{\}) # examplesIf}
+}

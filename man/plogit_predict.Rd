@@ -47,3 +47,28 @@ Computes predicted survival analysis measures from a pooled logistic
 regression model at specified time points. Meant to be used after
 fitting \code{\link[=ee_plogit]{ee_plogit()}} with \code{\link[=MEstimator]{MEstimator()}}.
 }
+\examples{
+# Bladder tumor recurrence, fit with disjoint indicators for time
+d <- collett_bladder
+d$novel <- d$treat - 1
+W <- as.matrix(d[, c("novel", "init", "size")])
+k <- length(unique(d$time[d$delta == 1]))
+
+psi <- function(theta) {
+  ee_plogit(theta, X = W, time = d$time, event = d$delta)
+}
+m <- MEstimator(
+  stacked_equations = psi,
+  init = c(rep(0, ncol(W)), -4, rep(0, k - 1))
+) |>
+  estimate()
+
+# Rows are the requested times and columns are individuals, so this shows
+# disease-free survival at 12, 24, and 59 months for the first five people.
+plogit_predict(
+  m@theta,
+  time = d$time, event = d$delta, X = W,
+  times_to_predict = c(12, 24, 59), measure = "survival"
+)[, 1:5]
+
+}

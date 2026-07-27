@@ -21,6 +21,32 @@
 #'
 #' @returns A p-by-n matrix where p is the number of parameters.
 #'
+#' @examplesIf requireNamespace("nleqslv", quietly = TRUE)
+#' # A Weibull AFT model for times generated from one binary covariate, with
+#' # some of the times right censored by an independent exponential.
+#' set.seed(1)
+#' n <- 200
+#' x <- rbinom(n, 1, 0.5)
+#' Xd <- cbind(1, x)
+#' eps <- log(-log(runif(n)))
+#' t_event <- exp(2 + 0.5 * x + 0.8 * eps)
+#' t_censor <- rexp(n, rate = 0.02)
+#' t_obs <- pmin(t_event, t_censor)
+#' delta <- as.numeric(t_event <= t_censor)
+#'
+#' psi <- function(theta) {
+#'   ee_aft(theta, X = Xd, time = t_obs, event = delta, distribution = "weibull")
+#' }
+#'
+#' # The default rootSolve solver does not converge here, so nleqslv is used.
+#' # The last parameter is log(1/sigma), not a regression coefficient.
+#' m <- MEstimator(
+#'   stacked_equations = psi,
+#'   init = c(mean(log(t_obs)), 0, 0)
+#' ) |>
+#'   estimate(solver = "nleqslv")
+#' coef(m)
+#'
 #' @export
 ee_aft <- function(
   theta,
@@ -124,6 +150,24 @@ ee_aft <- function(
 #'
 #' @returns A p-by-n matrix where p is the number of parameters.
 #'
+#' @examplesIf requireNamespace("nleqslv", quietly = TRUE)
+#' # Weibull survival times for 45 women with breast cancer, with no covariates.
+#' # The default rootSolve solver does not converge here, so nleqslv is used.
+#' psi <- function(theta) {
+#'   ee_survival_model(
+#'     theta,
+#'     time = breast_cancer$times,
+#'     event = breast_cancer$delta,
+#'     distribution = "weibull"
+#'   )
+#' }
+#' m <- MEstimator(stacked_equations = psi, init = c(0.1, 0.1)) |>
+#'   estimate(solver = "nleqslv")
+#'
+#' # The first parameter is the scale, the second the shape. A shape near 1
+#' # means the Weibull fits about as well as the simpler exponential.
+#' coef(m)
+#'
 #' @export
 ee_survival_model <- function(theta, time, event, distribution) {
   time <- as.numeric(time)
@@ -201,6 +245,31 @@ ee_survival_model <- function(theta, time, event, distribution) {
 #' @param offset Optional numeric vector of n offsets. Default `NULL`.
 #'
 #' @returns A p-by-n matrix where p = b + K.
+#'
+#' @examples
+#' # Bladder tumor recurrence, comparing the novel treatment to placebo while
+#' # adjusting for the number and size of the initial tumors.
+#' d <- collett_bladder
+#' d$novel <- d$treat - 1
+#' W <- as.matrix(d[, c("novel", "init", "size")])
+#'
+#' # Time is modeled with disjoint indicators, one per distinct event time,
+#' # which ee_plogit builds by default.
+#' k <- length(unique(d$time[d$delta == 1]))
+#'
+#' psi <- function(theta) {
+#'   ee_plogit(theta, X = W, time = d$time, event = d$delta)
+#' }
+#' m <- MEstimator(
+#'   stacked_equations = psi,
+#'   init = c(rep(0, ncol(W)), -4, rep(0, k - 1))
+#' ) |>
+#'   estimate()
+#'
+#' # The first three parameters are the covariate coefficients, which
+#' # approximate log hazard ratios. The remaining parameters are the
+#' # pooled-logistic time intercepts.
+#' summary(m, subset = 1:3)
 #'
 #' @export
 ee_plogit <- function(

@@ -19,6 +19,19 @@
 #' @returns A data frame with n rows and columns: `predicted`, `variance`,
 #'   `lower`, `upper`.
 #'
+#' @examples
+#' set.seed(1)
+#' n <- 200
+#' dat <- data.frame(x = rnorm(n), z = rbinom(n, 1, 0.5))
+#' dat$y <- 1 + 0.5 * dat$x + 2 * dat$z + rnorm(n)
+#'
+#' m <- m_estimate(y ~ x + z, data = dat, .ee = ee_regression, model = "linear")
+#'
+#' # Predict along a small grid of x, holding z at 1. The columns of the grid
+#' # must match the order of the coefficients, intercept first.
+#' X_new <- cbind(1, x = c(-1, 0, 1), z = 1)
+#' regression_predictions(X_new, theta = coef(m), covariance = vcov(m))
+#'
 #' @export
 regression_predictions <- function(
   X,
@@ -87,6 +100,30 @@ regression_predictions <- function(
 #'
 #' @returns A data frame with columns: `time`, `predicted`, `variance`,
 #'   `lower`, `upper`.
+#'
+#' @examplesIf requireNamespace("nleqslv", quietly = TRUE)
+#' # Weibull survival times for 45 women with breast cancer, with no covariates.
+#' # The default rootSolve solver does not converge here, so nleqslv is used.
+#' psi <- function(theta) {
+#'   ee_survival_model(
+#'     theta,
+#'     time = breast_cancer$times,
+#'     event = breast_cancer$delta,
+#'     distribution = "weibull"
+#'   )
+#' }
+#' m <- MEstimator(stacked_equations = psi, init = c(0.1, 0.1)) |>
+#'   estimate(solver = "nleqslv")
+#'
+#' # The survival function at three follow-up times, with delta-method
+#' # confidence intervals. Observed times run from 5 to 225 days.
+#' survival_predictions(
+#'   times = c(50, 100, 150),
+#'   theta = m@theta,
+#'   covariance = m@variance,
+#'   distribution = "weibull",
+#'   measure = "survival"
+#' )
 #'
 #' @export
 survival_predictions <- function(
@@ -172,6 +209,35 @@ survival_predictions <- function(
 #'   `"hazard"`, or `"cumulative_hazard"`. Default `"survival"`.
 #'
 #' @returns A data frame with n rows and one column per time point.
+#'
+#' @examplesIf requireNamespace("nleqslv", quietly = TRUE)
+#' # Weibull AFT fit, then individual-level survival for the first four people
+#' set.seed(1)
+#' n <- 200
+#' x <- rbinom(n, 1, 0.5)
+#' Xd <- cbind(1, x)
+#' eps <- log(-log(runif(n)))
+#' t_event <- exp(2 + 0.5 * x + 0.8 * eps)
+#' t_censor <- rexp(n, rate = 0.02)
+#' t_obs <- pmin(t_event, t_censor)
+#' delta <- as.numeric(t_event <= t_censor)
+#'
+#' psi <- function(theta) {
+#'   ee_aft(theta, X = Xd, time = t_obs, event = delta, distribution = "weibull")
+#' }
+#' m <- MEstimator(
+#'   stacked_equations = psi,
+#'   init = c(mean(log(t_obs)), 0, 0)
+#' ) |>
+#'   estimate(solver = "nleqslv")
+#'
+#' # Rows are individuals and columns are the requested times. The first two
+#' # people share a covariate pattern, as do the third and fourth, so their
+#' # predictions agree.
+#' aft_predictions_individual(
+#'   X = Xd[1:4, ], times = c(5, 10, 20),
+#'   theta = m@theta, distribution = "weibull", measure = "survival"
+#' )
 #'
 #' @export
 aft_predictions_individual <- function(
@@ -442,6 +508,30 @@ aft_predictions_function <- function(
 #'
 #' @returns A K-by-n matrix (or selected subset of rows if
 #'   `times_to_predict` is specified).
+#'
+#' @examples
+#' # Bladder tumor recurrence, fit with disjoint indicators for time
+#' d <- collett_bladder
+#' d$novel <- d$treat - 1
+#' W <- as.matrix(d[, c("novel", "init", "size")])
+#' k <- length(unique(d$time[d$delta == 1]))
+#'
+#' psi <- function(theta) {
+#'   ee_plogit(theta, X = W, time = d$time, event = d$delta)
+#' }
+#' m <- MEstimator(
+#'   stacked_equations = psi,
+#'   init = c(rep(0, ncol(W)), -4, rep(0, k - 1))
+#' ) |>
+#'   estimate()
+#'
+#' # Rows are the requested times and columns are individuals, so this shows
+#' # disease-free survival at 12, 24, and 59 months for the first five people.
+#' plogit_predict(
+#'   m@theta,
+#'   time = d$time, event = d$delta, X = W,
+#'   times_to_predict = c(12, 24, 59), measure = "survival"
+#' )[, 1:5]
 #'
 #' @export
 plogit_predict <- function(
