@@ -21,18 +21,27 @@ deviation, and returns identical values for numeric input, except that it
 carries derivatives. Exact differentiation (\code{deriv_method = "exact"})
 propagates a tangent alongside each value, and \code{standard_normal_cdf()}
 recognizes a tangent-carrying argument and applies the analytic rule itself,
-the standard normal density. \code{pnorm()} is a compiled primitive and errors on
-such an argument. Use \code{standard_normal_cdf()} inside estimating equations and
-inside transforms passed to \code{\link[=delta_method]{delta_method()}}, and \code{pnorm()} for ordinary
-numeric work.
+the standard normal density. \code{pnorm()} hands its argument to compiled code
+without dispatching, and errors on such an argument. Use
+\code{standard_normal_cdf()} inside estimating equations and inside transforms
+passed to \code{\link[=delta_method]{delta_method()}}, and \code{pnorm()} for ordinary numeric work.
 }
 \section{Exact differentiation}{
 
-\code{deriv_method = "exact"} is forward-mode automatic differentiation. It
-carries a tangent alongside each value and dispatches through the arithmetic
-(\code{Ops}) and \code{Math} group generics. A compiled base R primitive outside those
-groups cannot accept a tangent-carrying argument and stops with
-\verb{Non-numeric argument to mathematical function}.
+\code{deriv_method = "exact"} is forward-mode automatic differentiation: it
+replaces each value with an object carrying both the value and its
+derivative. deli registers \code{Ops}, \code{Math}, and \code{Summary} group generic methods
+for those objects, and a function differentiates exactly only if it
+dispatches to one of them. \code{plogis()}, \code{qlogis()}, \code{pnorm()}, \code{dnorm()}, and
+\code{psigamma()} never dispatch: each hands its argument straight to compiled
+code through \code{.Call()} or \code{.Internal()}, which requires a plain number, so
+the call stops with \verb{Non-numeric argument to mathematical function}.
+
+Group membership is necessary but not sufficient. deli's \code{Math} method
+implements tangent rules for part of the group and raises an error for the
+rest: \code{gamma()}, \code{round()}, \code{signif()}, \code{trunc()}, \code{cumprod()}, \code{cummax()},
+and \code{cummin()}. \code{vignette("getting-started")} lists the whole supported
+surface.
 
 Each deli utility below returns the same values as its base R counterpart for
 numeric input. What separates them is whether the counterpart survives exact

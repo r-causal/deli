@@ -36,9 +36,22 @@ from Python can keep its shape. Despite the name it has nothing to do with
 \code{\link[stats:spline]{stats::spline()}}, which interpolates a curve through data points and returns
 the interpolated values. \code{deli_spline()} builds a truncated power basis, a
 matrix of design columns to be used as covariates in a regression. The \code{deli_}
-prefix is there so that the two names do not collide. No base R function
-builds this basis, so this is the interface for it in deli as well.
+prefix is there so that the two names do not collide.
 
+No base R function returns these truncated power columns, but the \code{splines}
+package, which installs with every copy of R, builds the same spline spaces
+in a B-spline parameterization. \code{\link[splines:bs]{splines::bs()}} is the counterpart to
+\code{restricted = FALSE}: for knots \code{k},
+\code{cbind(1, x, x^2, x^3, deli_spline(x, k, restricted = FALSE))} and
+\code{cbind(1, splines::bs(x, knots = k))} span the same space and give identical
+fitted values. \code{\link[splines:ns]{splines::ns()}} is the nearest counterpart to
+\code{restricted = TRUE} but not an exact one, since it also constrains the fit to
+be linear beyond the boundary knots and so spans a subspace of the columns
+here. \code{deli_spline()} is what deli offers for parity with Python
+delicatessen, for the truncated power form itself, and because
+\code{\link[=additive_design_matrix]{additive_design_matrix()}} builds on it.
+}
+\details{
 Unrestricted splines for knot \eqn{k} are:
 \deqn{s_k(X) = I(X > k) (X - k)^a}
 

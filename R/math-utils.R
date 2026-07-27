@@ -8,9 +8,10 @@
 #' (`deriv_method = "exact"`) propagates a tangent alongside each value, and
 #' `deli_polygamma()` recognizes a tangent-carrying argument and applies the
 #' analytic rule itself, the polygamma function of order `n + 1`. `psigamma()`
-#' is a compiled primitive and errors on such an argument. Use
-#' `deli_polygamma()` inside estimating equations and inside transforms passed
-#' to [delta_method()], and `psigamma()` for ordinary numeric work.
+#' hands its argument to compiled code without dispatching, and errors on such
+#' an argument. Use `deli_polygamma()` inside estimating equations and inside
+#' transforms passed to [delta_method()], and `psigamma()` for ordinary numeric
+#' work.
 #'
 #' **The two take their arguments in opposite orders.** `deli_polygamma(n, x)`
 #' takes the derivative order first, matching Python's
@@ -164,10 +165,10 @@ deli_digamma <- function(z) {
 #' carries derivatives. Exact differentiation (`deriv_method = "exact"`)
 #' propagates a tangent alongside each value, and `standard_normal_cdf()`
 #' recognizes a tangent-carrying argument and applies the analytic rule itself,
-#' the standard normal density. `pnorm()` is a compiled primitive and errors on
-#' such an argument. Use `standard_normal_cdf()` inside estimating equations and
-#' inside transforms passed to [delta_method()], and `pnorm()` for ordinary
-#' numeric work.
+#' the standard normal density. `pnorm()` hands its argument to compiled code
+#' without dispatching, and errors on such an argument. Use
+#' `standard_normal_cdf()` inside estimating equations and inside transforms
+#' passed to [delta_method()], and `pnorm()` for ordinary numeric work.
 #'
 #' @param x Numeric value or vector of quantiles.
 #'
@@ -234,10 +235,10 @@ standard_normal_cdf <- function(x) {
 #' carries derivatives. Exact differentiation (`deriv_method = "exact"`)
 #' propagates a tangent alongside each value, and `standard_normal_pdf()`
 #' recognizes a tangent-carrying argument and applies the analytic rule itself,
-#' \eqn{-x} times the density. `dnorm()` is a compiled primitive and errors on
-#' such an argument. Use `standard_normal_pdf()` inside estimating equations and
-#' inside transforms passed to [delta_method()], and `dnorm()` for ordinary
-#' numeric work.
+#' \eqn{-x} times the density. `dnorm()` hands its argument to compiled code
+#' without dispatching, and errors on such an argument. Use
+#' `standard_normal_pdf()` inside estimating equations and inside transforms
+#' passed to [delta_method()], and `dnorm()` for ordinary numeric work.
 #'
 #' @param x Numeric value or vector of quantiles.
 #'

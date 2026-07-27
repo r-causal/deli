@@ -10,6 +10,7 @@
 #' operates on estimating function contributions, so this is the interface for
 #' them in deli as well.
 #'
+#' @details
 #' This function should be called inside the `psi` function after computing
 #' unit-level estimating equations but before returning them to
 #' [MEstimator()]. This changes the effective sample size used by the

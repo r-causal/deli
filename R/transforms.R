@@ -7,8 +7,9 @@
 #' numeric input, except that it carries derivatives. Exact differentiation
 #' (`deriv_method = "exact"`) propagates a tangent alongside each value through
 #' the arithmetic and `Math` group generics. `logit()` is written as
-#' `log(prob / (1 - prob))`, so a tangent passes through it; `qlogis()` is a
-#' compiled primitive and errors on a tangent-carrying argument. Use `logit()`
+#' `log(prob / (1 - prob))`, so those group generic methods carry a tangent
+#' through it; `qlogis()` hands its argument to compiled code without
+#' dispatching, and errors on a tangent-carrying argument. Use `logit()`
 #' inside estimating equations and inside transforms passed to [delta_method()],
 #' and `qlogis()` for ordinary numeric work.
 #'
@@ -61,8 +62,9 @@ logit <- function(prob) {
 #' numeric input, except that it carries derivatives. Exact differentiation
 #' (`deriv_method = "exact"`) propagates a tangent alongside each value through
 #' the arithmetic and `Math` group generics. `inverse_logit()` is written as
-#' `1 / (1 + exp(-logodds))`, so a tangent passes through it; `plogis()` is a
-#' compiled primitive and errors on a tangent-carrying argument. Use
+#' `1 / (1 + exp(-logodds))`, so those group generic methods carry a tangent
+#' through it; `plogis()` hands its argument to compiled code without
+#' dispatching, and errors on a tangent-carrying argument. Use
 #' `inverse_logit()` inside estimating equations and inside transforms passed to
 #' [delta_method()], and `plogis()` for ordinary numeric work.
 #'
@@ -71,11 +73,20 @@ logit <- function(prob) {
 #' @returns Numeric probability values.
 #'
 #' @section Exact differentiation:
-#' `deriv_method = "exact"` is forward-mode automatic differentiation. It
-#' carries a tangent alongside each value and dispatches through the arithmetic
-#' (`Ops`) and `Math` group generics. A compiled base R primitive outside those
-#' groups cannot accept a tangent-carrying argument and stops with
-#' `Non-numeric argument to mathematical function`.
+#' `deriv_method = "exact"` is forward-mode automatic differentiation: it
+#' replaces each value with an object carrying both the value and its
+#' derivative. deli registers `Ops`, `Math`, and `Summary` group generic methods
+#' for those objects, and a function differentiates exactly only if it
+#' dispatches to one of them. `plogis()`, `qlogis()`, `pnorm()`, `dnorm()`, and
+#' `psigamma()` never dispatch: each hands its argument straight to compiled
+#' code through `.Call()` or `.Internal()`, which requires a plain number, so
+#' the call stops with `Non-numeric argument to mathematical function`.
+#'
+#' Group membership is necessary but not sufficient. deli's `Math` method
+#' implements tangent rules for part of the group and raises an error for the
+#' rest: `gamma()`, `round()`, `signif()`, `trunc()`, `cumprod()`, `cummax()`,
+#' and `cummin()`. `vignette("getting-started")` lists the whole supported
+#' surface.
 #'
 #' Each deli utility below returns the same values as its base R counterpart for
 #' numeric input. What separates them is whether the counterpart survives exact
