@@ -6,6 +6,13 @@ knitr:
     comment: '#>'
 ---
 
+::: {.callout-note}
+This article is translated from the
+[Morris et al. (2022): Precision in Randomized Trials example](https://deli.readthedocs.io/en/latest/Examples/Morris-Trials-2022.html)
+in the documentation of [delicatessen](https://deli.readthedocs.io/), deli's
+Python counterpart.
+:::
+
 ```{r}
 #| label: setup
 library(deli)

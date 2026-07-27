@@ -6,6 +6,13 @@ knitr:
     comment: '#>'
 ---
 
+::: {.callout-note}
+This article is translated from the
+[Hernan & Robins (2023): Causal Inference with Models example](https://deli.readthedocs.io/en/latest/Examples/Hernan-Robins-2023.html)
+in the documentation of [delicatessen](https://deli.readthedocs.io/), deli's
+Python counterpart.
+:::
+
 ```{r}
 #| label: setup
 library(deli)

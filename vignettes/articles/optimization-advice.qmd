@@ -6,6 +6,13 @@ knitr:
     comment: '#>'
 ---
 
+::: {.callout-note}
+This article is translated from the
+[Optimization Advice page](https://deli.readthedocs.io/en/latest/Optimization%20Advice.html)
+in the documentation of [delicatessen](https://deli.readthedocs.io/), deli's
+Python counterpart.
+:::
+
 ```{r}
 #| label: setup
 library(deli)

@@ -6,6 +6,13 @@ knitr:
     comment: '#>'
 ---
 
+::: {.callout-note}
+This article is translated from the
+[Cole et al. (2023): Sensitivity Analysis for Missing Data example](https://deli.readthedocs.io/en/latest/Examples/Cole-EPID-2023.html)
+in the documentation of [delicatessen](https://deli.readthedocs.io/), deli's
+Python counterpart.
+:::
+
 ```{r}
 #| label: setup
 library(deli)

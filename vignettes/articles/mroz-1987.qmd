@@ -6,6 +6,13 @@ knitr:
     comment: '#>'
 ---
 
+::: {.callout-note}
+This article is translated from the
+[Mroz 1987: Regression and Instrumental Variables example](https://deli.readthedocs.io/en/latest/Examples/Mroz-1987.html)
+in the documentation of [delicatessen](https://deli.readthedocs.io/), deli's
+Python counterpart.
+:::
+
 ```{r}
 #| label: setup
 library(deli)
