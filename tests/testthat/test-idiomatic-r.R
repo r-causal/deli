@@ -551,15 +551,21 @@ m_argument_sets <- list(
 # GMM minimizes rather than root-finds, so the solver names are stats::optim
 # methods. "Nelder-Mead" is a poor minimizer for this badly scaled objective
 # and wanders far from the least-squares answer, which is the point: it is a
-# deterministic, warning-free fit that the default "BFGS" cannot reproduce, so
-# a solver that stopped reaching estimate() would show up immediately.
+# deterministic fit that the default "BFGS" cannot reproduce, so a solver that
+# stopped reaching estimate() would show up immediately. Wandering that far is
+# also a failed solve, so the case declares the moment-quality warning; the
+# alternative would be picking a solver that happens not to trip it, which would
+# leave the grid testing less than it does now.
 # Minimizing is iterative even for a linear system, so unlike the M grid the
 # GMM grid can hold maxiter and tolerance here.
 gmm_argument_sets <- list(
   "defaults" = arg_case(list(), differs = FALSE),
   "solver = NULL" = arg_case(list(solver = NULL), differs = FALSE),
   "solver = BFGS" = arg_case(list(solver = "BFGS"), differs = FALSE),
-  "solver = Nelder-Mead" = arg_case(list(solver = "Nelder-Mead")),
+  "solver = Nelder-Mead" = arg_case(
+    list(solver = "Nelder-Mead"),
+    warning = "not solved at the estimated values"
+  ),
   "deriv_method = capprox" = arg_case(
     list(deriv_method = "capprox"),
     differs = FALSE
@@ -664,10 +670,17 @@ test_that("the combined M argument set exercises every argument it carries", {
 
 test_that("the combined GMM argument set exercises every argument it carries", {
   psi <- mtcars_regression_psi()
+  # The combined set holds "Nelder-Mead", which wanders far enough from the
+  # least-squares answer to be a failed solve, and dropping "subset" puts that
+  # fit back in front of the moment-quality check. This test compares fits, not
+  # conditions; the warning itself is asserted in test-estimate-solvers.R.
   fit_with <- function(args) {
-    do.call(
-      gmm_estimate,
-      c(list(stacked_equations = psi, init = mtcars_regression_init), args)
+    suppressWarnings(
+      do.call(
+        gmm_estimate,
+        c(list(stacked_equations = psi, init = mtcars_regression_init), args)
+      ),
+      classes = "deli_solver_not_converged"
     )
   }
   expect_every_argument_felt(
