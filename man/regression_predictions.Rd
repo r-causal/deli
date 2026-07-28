@@ -30,8 +30,10 @@ matrix. This is a post-processing utility meant to be used after
 \code{\link[=MEstimator]{MEstimator()}} has been fitted.
 }
 \details{
-No transformations are applied. For logistic models this returns
-log-odds (not probabilities). Apply \code{\link[=inverse_logit]{inverse_logit()}} to transform.
+No transformations are applied. For logistic models this returns log-odds
+(not probabilities). Apply \code{\link[stats:plogis]{stats::plogis()}} for the probability scale, or
+\code{\link[=inverse_logit]{inverse_logit()}} if the values feed a transform passed to \code{\link[=delta_method]{delta_method()}}
+with \code{deriv_method = "exact"}.
 }
 \examples{
 set.seed(1)

@@ -5,8 +5,10 @@
 #' matrix. This is a post-processing utility meant to be used after
 #' [MEstimator()] has been fitted.
 #'
-#' No transformations are applied. For logistic models this returns
-#' log-odds (not probabilities). Apply [inverse_logit()] to transform.
+#' No transformations are applied. For logistic models this returns log-odds
+#' (not probabilities). Apply [stats::plogis()] for the probability scale, or
+#' [inverse_logit()] if the values feed a transform passed to [delta_method()]
+#' with `deriv_method = "exact"`.
 #'
 #' @param X Numeric n-by-p design matrix of covariate values for prediction.
 #' @param theta Numeric vector of p estimated coefficients (from
