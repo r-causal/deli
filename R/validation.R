@@ -247,25 +247,67 @@ check_estimator_subset <- function(subset, n_params) {
   invisible(NULL)
 }
 
+# ---- initial-value failure conditions ---------------------------------------
+# The aborts raised while judging the estimating function at the initial values
+# carry condition classes, so a calling function or a test can match on the
+# class rather than on the prose, as the solver warnings in `R/estimate.R` and
+# the exact-mode aborts in `R/autodiff.R` do.
+#
+#   deli_psi_shape_error
+#     The estimating function returned a number of equations that cannot be
+#     solved against the number of parameters: any mismatch under M-estimation,
+#     a shortfall under GMM. It is the one failure raised here that a short
+#     automatic `init` can explain, which is why eval_psi_at_init() catches
+#     this class alone rather than every error.
+#
+#   deli_formula_auto_init_error
+#     A failure at an `init` the formula interface generated itself, reframed
+#     as a problem with the automatic length rather than reported against an
+#     argument the user never supplied. Raised only by
+#     abort_formula_auto_init(), and so only on the formula path.
+
 #' Check the estimating-function return at the initial values
 #'
 #' Evaluates the value of `stacked_equations(init)` and rejects returns that
 #' would otherwise fail deep inside the solver with an unhelpful message: a
-#' `NULL` or non-numeric return, a non-finite value at the starting values, or
-#' (for M-estimation) a number of estimating equations that does not match the
-#' number of parameters. This mirrors the up-front validation Python
-#' Delicatessen performs before solving.
+#' `NULL` or non-numeric return, a number of estimating equations that cannot be
+#' solved against the number of parameters, or a non-finite value at the
+#' starting values. This mirrors the up-front validation Python Delicatessen
+#' performs before solving.
+#'
+#' The order the checks are judged in is load-bearing, because a single return
+#' can fail more than one of them and only the first is reported. The shape is
+#' two branches with different guards, an exact match under M-estimation and a
+#' shortfall under GMM, and each holds its position for its own reason. Both sit
+#' behind the `NULL` and numeric checks and ahead of the finite one, so a return
+#' whose shape cannot be solved is reported in preference to a non-finite value
+#' at the starting values, under GMM as much as under M-estimation. See the
+#' comments in the body for why each check sits where it does.
 #'
 #' @param vals The value of `stacked_equations(init)`, evaluated once by the
 #'   caller.
 #' @param init The initial parameter vector.
 #' @param allow_over_identification Logical. When `TRUE`, the number of
 #'   estimating equations may exceed the number of parameters (the GMM case) and
-#'   the dimension check is skipped. Default `FALSE`.
+#'   only a shortfall is rejected. Default `FALSE`.
 #'
-#' @return Invisible `NULL`. Raises an error if the return is invalid.
+#' @return Invisible `NULL`. Raises an error if the return is invalid. A
+#'   mismatch between the number of estimating equations and the number of
+#'   parameters carries the class `deli_psi_shape_error`, which is the one
+#'   failure here that an automatically generated `init` can explain.
 #' @keywords internal
 check_psi_at_init <- function(vals, init, allow_over_identification = FALSE) {
+  # `NULL` first. What it has to clear is the numeric check immediately below,
+  # which is what would otherwise catch it, because `is.numeric(NULL)` is
+  # `FALSE`. That check diagnoses by naming the type of the offending return,
+  # and `NULL` is the absence of a return rather than a type of one, so the
+  # clause degenerates into contrasting a valid return with nothing; the branch
+  # here names the return in the headline instead and keeps the hint describing
+  # what a valid one holds. It has to clear both shape branches too, for a
+  # separate reason: a dimensionless value counts as one estimating equation
+  # there, so a `NULL` reaching them is reported as a count of one against the
+  # length of `init`, which is not the problem. The finite check is the only
+  # one it is unordered against, since `all(is.finite(NULL))` is `TRUE`.
   if (is.null(vals)) {
     cli::cli_abort(c(
       "{.arg stacked_equations} returned {.val NULL} at the initial values.",
@@ -273,12 +315,56 @@ check_psi_at_init <- function(vals, init, allow_over_identification = FALSE) {
              contributions."
     ))
   }
+  # The type next, ahead of both shape branches. No length of `init`, short or
+  # long, turns a numeric return into a character one, so a non-numeric return
+  # is never a symptom of either count below it and counting rows on a character
+  # matrix would misdirect. This also has to precede the finite check, which
+  # accepts a character vector and calls every element non-finite.
   if (!is.numeric(vals)) {
     cli::cli_abort(
       "{.arg stacked_equations} must return a numeric vector or matrix at the
        initial values, not {.obj_type_of {vals}}."
     )
   }
+  # The shape ahead of the values. This is two branches under different guards,
+  # never both live in one call, so their order relative to each other is free.
+  # Where the pair sits relative to the other three checks is not free, and the
+  # two have separate reasons for sitting here, so a maintainer moving one is
+  # not free to carry the other along with it.
+  n_eqs <- if (is.null(dim(vals))) 1L else nrow(vals)
+  n_params <- length(init)
+  # Under M-estimation, judging the values first would bury the commonest
+  # length mismatch there is. An estimating function that appends a parameter
+  # beyond the coefficients reads `theta[n_params + 1]`, which is `NA` when
+  # `init` is one short, so its return is both the wrong number of rows and full
+  # of `NA`. The row count is the accurate diagnosis of that pair, and it is the
+  # one a formula fit can reframe as the automatic `init` being too short;
+  # reporting the `NA`s instead names a symptom and loses the cause.
+  if (!allow_over_identification && n_eqs != n_params) {
+    cli::cli_abort(
+      c(
+        "{.arg stacked_equations} returned {n_eqs} estimating equation{?s} at
+         the initial values, but {.arg init} has {n_params} parameter{?s}.",
+        "i" = "M-estimation requires one estimating equation per parameter (a
+               {n_params}-by-n matrix)."
+      ),
+      class = "deli_psi_shape_error"
+    )
+  }
+  # Under GMM, a shortfall of equations is a property of the system rather than
+  # of the point it was evaluated at: there is no starting value that makes an
+  # under-identified system solvable. A non-finite value usually is fixable by
+  # starting somewhere else, so reporting it first would send the user tuning
+  # `init` against a system that has no solution to find.
+  if (allow_over_identification && n_eqs < n_params) {
+    cli::cli_abort(
+      "The number of initial values ({n_params}) must be less than or equal to
+       the number of estimating equations ({n_eqs}).",
+      class = "deli_psi_shape_error"
+    )
+  }
+  # Last, so it reports a non-finite value only once the return is the right
+  # shape and the value is the remaining explanation.
   if (!all(is.finite(vals))) {
     cli::cli_abort(c(
       "{.arg stacked_equations} returned non-finite values at the initial
@@ -288,92 +374,108 @@ check_psi_at_init <- function(vals, init, allow_over_identification = FALSE) {
              undefined value in the estimating equations."
     ))
   }
-  if (!allow_over_identification) {
-    n_eqs <- if (is.null(dim(vals))) 1L else nrow(vals)
-    n_params <- length(init)
-    if (n_eqs != n_params) {
-      cli::cli_abort(c(
-        "{.arg stacked_equations} returned {n_eqs} estimating equation{?s} at
-         the initial values, but {.arg init} has {n_params} parameter{?s}.",
-        "i" = "M-estimation requires one estimating equation per parameter (a
-               {n_params}-by-n matrix)."
-      ))
-    }
-  }
   invisible(NULL)
 }
 
-#' Check an auto-generated formula-interface init against the estimating function
+#' Evaluate and validate the estimating function at the initial values
 #'
-#' The formula interface builds `init` as a zero vector with one entry per
-#' model-matrix column. Some estimating equations append parameters beyond the
+#' Performs the single evaluation of the estimating function at `init` that
+#' [estimate()] needs, and validates the return with [check_psi_at_init()].
+#'
+#' When the formula interface generated `init` itself it records the vector on
+#' the closure as the `deli_auto_init` attribute, and this reframes a failure at
+#' exactly those starting values as a problem with the automatic length, which
+#' the user never chose. Some estimating equations append parameters beyond the
 #' regression coefficients (for example [ee_glm()] with `"gamma"` or
 #' `"negative_binomial"`, which add a scale or dispersion parameter), so the
-#' automatic `init` is too short and the estimating function fails deep in the
-#' solver with an opaque message. This evaluates the estimating function once at
-#' the automatic `init` and reports the problem before solving: a wrong-shaped
-#' return is described as a length mismatch, while an evaluation error is
-#' surfaced with its own cause chained as the parent, since the failure is not
-#' necessarily a length problem.
+#' automatic `init` is one short and the estimating function either fails
+#' outright or returns the wrong number of rows.
 #'
-#' @param psi The estimating-function closure built by the formula interface.
-#' @param init The automatically generated initial parameter vector.
+#' Only those two failures are reframed. A `NULL` or non-numeric return keeps
+#' its own message, because an `init` one element short cannot cause either. A
+#' non-finite return keeps its own message when the number of rows fits the
+#' automatic length, and is reframed when it does not, because an estimating
+#' function reading a parameter the automatic `init` does not reach returns
+#' `NA`s and the wrong number of rows together, and the row count is the more
+#' accurate of the two. Every failure raised after this point, in the solver or
+#' the sandwich components, keeps its own message as well.
+#'
+#' @param psi The estimating-function closure.
+#' @param init The initial parameter vector.
 #' @param allow_over_identification Logical. When `TRUE` (the GMM case), the
 #'   estimating function may return more equations than parameters, so only a
 #'   shortfall is rejected. Default `FALSE`.
 #'
-#' @return Invisible `NULL`. Raises an error if the automatic `init` does not fit
-#'   the estimating function.
+#' @return The value of `psi(init)`. Raises an error if it is not a valid
+#'   estimating-function return. A failure reframed as a problem with the
+#'   automatic length carries the class `deli_formula_auto_init_error`, so a
+#'   caller can recognize it without matching the message.
 #' @keywords internal
-check_formula_auto_init <- function(
-  psi,
-  init,
-  allow_over_identification = FALSE
-) {
-  vals <- tryCatch(psi(init), error = function(cnd) cnd)
-  errored <- rlang::is_condition(vals)
+eval_psi_at_init <- function(psi, init, allow_over_identification = FALSE) {
+  if (!identical(attr(psi, "deli_auto_init", exact = TRUE), init)) {
+    vals <- psi(init)
+    check_psi_at_init(vals, init, allow_over_identification)
+    return(vals)
+  }
+
+  # The handler covers a single call, the estimating function itself, so
+  # nothing raised later can reach it.
+  vals <- rlang::try_fetch(
+    psi(init),
+    error = function(cnd) abort_formula_auto_init(init, parent = cnd)
+  )
+  # Of the four returns check_psi_at_init() rejects, only a shape mismatch is a
+  # length problem, so catch that class alone rather than every error.
+  rlang::try_fetch(
+    check_psi_at_init(vals, init, allow_over_identification),
+    deli_psi_shape_error = function(cnd) abort_formula_auto_init(init)
+  )
+  vals
+}
+
+#' Abort with the automatic-`init` diagnostic
+#'
+#' @param init The automatically generated initial parameter vector.
+#' @param parent The error raised while evaluating the estimating function, or
+#'   `NULL` when the estimating function returned a wrong-shaped value instead
+#'   of failing.
+#'
+#' @return Never returns; always raises an error carrying the class
+#'   `deli_formula_auto_init_error`.
+#' @noRd
+abort_formula_auto_init <- function(init, parent = NULL) {
   n_params <- length(init)
-  mismatch <- if (errored) {
-    TRUE
+  # An error means the estimating function did not even evaluate at the
+  # automatic init, so its cause is unknown; do not assert it is a length
+  # problem. A clean return that simply has the wrong shape is a genuine length
+  # mismatch and is described as such.
+  errored <- !is.null(parent)
+  header <- if (errored) {
+    "Evaluating the estimating function at the automatic zero {.arg init} of
+     length {n_params} (the number of model-matrix columns) failed."
   } else {
-    # Match check_psi_at_init's treatment of a dimensionless vector: a plain
-    # numeric vector counts as a single estimating equation rather than one per
-    # element (which as.matrix() would imply by making it a one-column matrix).
-    n_eqs <- if (is.null(dim(vals))) 1L else nrow(vals)
-    if (allow_over_identification) n_eqs < n_params else n_eqs != n_params
+    "The automatic zero {.arg init} has length {n_params}, the number of
+     model-matrix columns, which does not fit the estimating function."
   }
-  if (mismatch) {
-    # An error means the estimating function did not even evaluate at the
-    # automatic init, so its cause is unknown; do not assert it is a length
-    # problem. A clean return that simply has the wrong shape is a genuine
-    # length mismatch and is described as such.
-    header <- if (errored) {
-      "Evaluating the estimating function at the automatic zero {.arg init} of
-       length {n_params} (the number of model-matrix columns) failed."
-    } else {
-      "The automatic zero {.arg init} has length {n_params}, the number of
-       model-matrix columns, which does not fit the estimating function."
-    }
-    hint <- if (errored) {
-      "A length mismatch is the most common cause. Estimating equations such as
-       {.fn ee_glm} with {.val gamma} or {.val negative_binomial} append an
-       extra parameter and need an {.arg init} one longer than the
-       coefficients."
-    } else {
-      "Estimating equations such as {.fn ee_glm} with {.val gamma} or
-       {.val negative_binomial} append an extra parameter and need an
-       {.arg init} one longer than the coefficients."
-    }
-    cli::cli_abort(
-      c(
-        header,
-        "i" = hint,
-        "i" = "Supply an explicit {.arg init} of the correct length."
-      ),
-      parent = if (errored) vals else NULL
-    )
+  hint <- if (errored) {
+    "A length mismatch is the most common cause. Estimating equations such as
+     {.fn ee_glm} with {.val gamma} or {.val negative_binomial} append an extra
+     parameter and need an {.arg init} one longer than the coefficients."
+  } else {
+    "Estimating equations such as {.fn ee_glm} with {.val gamma} or
+     {.val negative_binomial} append an extra parameter and need an
+     {.arg init} one longer than the coefficients."
   }
-  invisible(NULL)
+  cli::cli_abort(
+    c(
+      header,
+      "i" = hint,
+      "i" = "Supply an explicit {.arg init} of the correct length."
+    ),
+    parent = parent,
+    call = NULL,
+    class = "deli_formula_auto_init_error"
+  )
 }
 
 #' Check the return of a custom solver

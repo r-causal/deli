@@ -73,6 +73,16 @@ test_that("check_psi_at_init rejects a NULL return", {
   expect_error(check_psi_at_init(NULL, init = c(0)), "NULL")
 })
 
+test_that("check_psi_at_init reports a NULL return as NULL, not as a row count", {
+  # `NULL` has no dimensions and so counts as one estimating equation, which
+  # reads as a row-count mismatch against any `init` longer than one. The test
+  # above supplies a length-one `init`, where the counts agree and the shape
+  # branch stays quiet, so this is what pins the `NULL` check above it.
+  err <- expect_error(check_psi_at_init(NULL, init = c(0, 0)))
+  expect_match(conditionMessage(err), "\"NULL\"", fixed = TRUE)
+  expect_false(inherits(err, "deli_psi_shape_error"))
+})
+
 test_that("check_psi_at_init rejects a non-numeric return", {
   expect_error(
     check_psi_at_init(matrix("a", nrow = 1), init = c(0)),
@@ -102,7 +112,16 @@ test_that("check_psi_at_init rejects a dimension mismatch for M-estimation", {
   )
 })
 
-test_that("check_psi_at_init skips the dimension check when over-identified", {
+test_that("check_psi_at_init classes a dimension mismatch as a shape error", {
+  # The formula interface catches this class alone, so that a NULL,
+  # non-numeric, or non-finite return keeps its own more accurate message.
+  expect_error(
+    check_psi_at_init(matrix(1:5, nrow = 1), init = c(0, 0)),
+    class = "deli_psi_shape_error"
+  )
+})
+
+test_that("check_psi_at_init allows more equations than parameters when over-identified", {
   # GMM allows more estimating equations than parameters.
   expect_no_error(
     check_psi_at_init(
@@ -111,6 +130,101 @@ test_that("check_psi_at_init skips the dimension check when over-identified", {
       allow_over_identification = TRUE
     )
   )
+})
+
+test_that("check_psi_at_init rejects fewer equations than parameters when over-identified", {
+  expect_error(
+    check_psi_at_init(
+      matrix(1:5, nrow = 1),
+      init = c(0, 0),
+      allow_over_identification = TRUE
+    ),
+    "less than or equal"
+  )
+  expect_error(
+    check_psi_at_init(
+      matrix(1:5, nrow = 1),
+      init = c(0, 0),
+      allow_over_identification = TRUE
+    ),
+    class = "deli_psi_shape_error"
+  )
+})
+
+# The two shape branches are guarded separately and are separately movable, so
+# each is pinned against the neighbors it sits above. The M-estimation one is
+# pinned below the `NULL` check by a test further up; the finite check is what
+# remains, and the GMM one is pinned against all three of its neighbors in turn.
+
+test_that("check_psi_at_init reports an M-estimation mismatch ahead of a non-finite value", {
+  # An estimating function reading a parameter beyond a short `init` returns
+  # both the wrong number of rows and `NA`s, so the two failures arrive
+  # together and the row count is the accurate diagnosis of the pair. This pins
+  # the M-estimation branch above the finite check.
+  err <- expect_error(
+    check_psi_at_init(matrix(c(1, NaN, 3), nrow = 1), init = c(0, 0)),
+    class = "deli_psi_shape_error"
+  )
+  expect_false(grepl("non-finite", conditionMessage(err), fixed = TRUE))
+})
+
+test_that("check_psi_at_init reports a GMM shortfall ahead of a non-finite value", {
+  # An under-identified system has no solution at any starting values, so the
+  # shortfall is the durable diagnosis and a non-finite value at the ones
+  # supplied is not. This pins the GMM branch above the finite check.
+  err <- expect_error(
+    check_psi_at_init(
+      matrix(c(1, NaN, 3), nrow = 1),
+      init = c(0, 0),
+      allow_over_identification = TRUE
+    ),
+    class = "deli_psi_shape_error"
+  )
+  expect_false(grepl("non-finite", conditionMessage(err), fixed = TRUE))
+})
+
+test_that("check_psi_at_init reports a NULL GMM return as NULL, not as a shortfall", {
+  # `NULL` is dimensionless and so counts as one estimating equation, which
+  # reads as a shortfall against any longer `init`. This pins the GMM branch
+  # below the `NULL` check.
+  err <- expect_error(
+    check_psi_at_init(NULL, init = c(0, 0), allow_over_identification = TRUE)
+  )
+  expect_match(conditionMessage(err), "\"NULL\"", fixed = TRUE)
+  expect_false(inherits(err, "deli_psi_shape_error"))
+})
+
+test_that("check_psi_at_init reports a non-numeric GMM return by its type, not as a shortfall", {
+  # An `init` longer than the return cannot turn a numeric return into a
+  # character one, so the type is never a symptom of the shortfall and counting
+  # rows on a character matrix would misdiagnose it. This pins the GMM branch
+  # below the numeric check.
+  err <- expect_error(
+    check_psi_at_init(
+      matrix("a", nrow = 1),
+      init = c(0, 0),
+      allow_over_identification = TRUE
+    ),
+    "numeric"
+  )
+  expect_false(inherits(err, "deli_psi_shape_error"))
+})
+
+# eval_psi_at_init --------------------------------------------------------
+
+test_that("eval_psi_at_init returns the estimating-function value", {
+  psi <- function(theta) matrix(1:5 - theta[1], nrow = 1)
+  expect_equal(eval_psi_at_init(psi, init = c(0)), matrix(1:5, nrow = 1))
+})
+
+test_that("eval_psi_at_init reframes only at the recorded automatic init", {
+  psi <- function(theta) matrix(1:5 - theta[1], nrow = 1)
+  attr(psi, "deli_auto_init") <- c(0, 0)
+  expect_error(eval_psi_at_init(psi, init = c(0, 0)), "automatic zero")
+  # Any other starting values were the caller's own choice, so the failure is
+  # described in its own terms.
+  err <- expect_error(eval_psi_at_init(psi, init = c(1, 1)))
+  expect_false(grepl("automatic zero", conditionMessage(err), fixed = TRUE))
 })
 
 # check_solver_return -----------------------------------------------------

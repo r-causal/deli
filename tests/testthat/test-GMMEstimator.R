@@ -506,6 +506,24 @@ test_that("GMMEstimator errors on under-identified equations", {
   expect_error(estimate(g), "less than or equal")
 })
 
+test_that("GMMEstimator reports under-identification ahead of non-finite moments", {
+  # 3 parameters against 2 equations, and non-finite at the starting values
+  # because log(theta[2]) is -Inf there. No starting values make an
+  # under-identified system solvable, so the shortfall is what gets reported.
+  y <- c(1, 2, 3, 4, 5)
+
+  psi <- function(theta) {
+    rbind(
+      y - theta[1],
+      (y - theta[1])^2 - log(theta[2])
+    )
+  }
+
+  g <- GMMEstimator(stacked_equations = psi, init = c(0, 0, 0))
+  err <- expect_error(estimate(g), class = "deli_psi_shape_error")
+  expect_false(grepl("non-finite", conditionMessage(err), fixed = TRUE))
+})
+
 # The two solver diagnostics below are cli warnings (rlang_warning), matching the
 # other convergence conditions in estimate(). The message substrings are the
 # stable part callers and tests key on.

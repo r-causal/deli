@@ -14,17 +14,30 @@ caller.}
 
 \item{allow_over_identification}{Logical. When \code{TRUE}, the number of
 estimating equations may exceed the number of parameters (the GMM case) and
-the dimension check is skipped. Default \code{FALSE}.}
+only a shortfall is rejected. Default \code{FALSE}.}
 }
 \value{
-Invisible \code{NULL}. Raises an error if the return is invalid.
+Invisible \code{NULL}. Raises an error if the return is invalid. A
+mismatch between the number of estimating equations and the number of
+parameters carries the class \code{deli_psi_shape_error}, which is the one
+failure here that an automatically generated \code{init} can explain.
 }
 \description{
 Evaluates the value of \code{stacked_equations(init)} and rejects returns that
 would otherwise fail deep inside the solver with an unhelpful message: a
-\code{NULL} or non-numeric return, a non-finite value at the starting values, or
-(for M-estimation) a number of estimating equations that does not match the
-number of parameters. This mirrors the up-front validation Python
-Delicatessen performs before solving.
+\code{NULL} or non-numeric return, a number of estimating equations that cannot be
+solved against the number of parameters, or a non-finite value at the
+starting values. This mirrors the up-front validation Python Delicatessen
+performs before solving.
+}
+\details{
+The order the checks are judged in is load-bearing, because a single return
+can fail more than one of them and only the first is reported. The shape is
+two branches with different guards, an exact match under M-estimation and a
+shortfall under GMM, and each holds its position for its own reason. Both sit
+behind the \code{NULL} and numeric checks and ahead of the finite one, so a return
+whose shape cannot be solved is reported in preference to a non-finite value
+at the starting values, under GMM as much as under M-estimation. See the
+comments in the body for why each check sits where it does.
 }
 \keyword{internal}

@@ -92,7 +92,7 @@ method(estimate, MEstimator) <- function(
   # Validate the estimating-function return at the initial values before
   # handing off to the solver, so a malformed return produces an informative
   # error instead of an opaque failure inside the solver.
-  check_psi_at_init(stacked_equations(init), init)
+  eval_psi_at_init(stacked_equations, init)
 
   # Build the summed EE function for root-finding
   summed_ee <- function(theta) {
@@ -739,9 +739,13 @@ method(estimate, GMMEstimator) <- function(
   finite_correction <- object@finite_correction
 
   # Evaluate stacked equations at init to determine dimensions, validating the
-  # return before it reaches the objective and the sandwich components.
-  vals_at_init <- stacked_equations(init)
-  check_psi_at_init(vals_at_init, init, allow_over_identification = TRUE)
+  # return before it reaches the objective and the sandwich components. The
+  # validation also rejects an under-identified system.
+  vals_at_init <- eval_psi_at_init(
+    stacked_equations,
+    init,
+    allow_over_identification = TRUE
+  )
   if (is.null(dim(vals_at_init))) {
     # 1D case: single estimating equation
     n_eqs <- 1L
@@ -751,17 +755,8 @@ method(estimate, GMMEstimator) <- function(
     n_obs <- ncol(vals_at_init)
   }
 
-  # Check for under-identification
-  n_init <- length(init)
-  if (n_init > n_eqs) {
-    cli::cli_abort(
-      "The number of initial values ({n_init}) must be less than or equal to
-       the number of estimating equations ({n_eqs})."
-    )
-  }
-
   # Determine if problem is over-identified
-  over_identified <- n_init < n_eqs
+  over_identified <- length(init) < n_eqs
 
   # Initialize weight matrix as identity
 

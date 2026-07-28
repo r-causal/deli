@@ -857,10 +857,12 @@ test_that("every wrapper interface forwards allow_pinv to the bread", {
 # observable in the fit.
 #
 # The moment conditions are written against a design matrix and a response so
-# that the same function serves as the .ee of a formula fit.
-# prepare_formula_psi() passes allow_over_identification = TRUE on the GMM path,
-# so a .ee returning more rows than the design has columns reaches the updating
-# loop from a formula as readily as from a closure.
+# that the same function serves as the .ee of a formula fit. The permission to
+# return more rows than there are parameters comes from estimate() on a
+# GMMEstimator, which calls eval_psi_at_init() with
+# allow_over_identification = TRUE. prepare_formula_psi() builds the same
+# closure whichever wrapper called it, so an over-identified .ee reaches the
+# updating loop from a formula as readily as from a closure.
 
 make_iv_data <- function() {
   set.seed(42)

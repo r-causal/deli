@@ -245,8 +245,7 @@ gmm_estimate.formula <- function(
     data = data,
     .ee = .ee,
     dots = rlang::enquos(...),
-    init = init,
-    allow_over_identification = TRUE
+    init = init
   )
 
   obj <- GMMEstimator(
@@ -318,18 +317,10 @@ gmm_estimate.default <- function(
 #' @param .ee The estimating-equation function.
 #' @param dots A list of quosures captured from `...`.
 #' @param init The user-supplied `init`, or `NULL` to auto-generate it.
-#' @param allow_over_identification Logical, passed to the auto-init check.
 #'
 #' @return A list with `psi` (the closure) and `init` (the resolved vector).
 #' @noRd
-prepare_formula_psi <- function(
-  formula,
-  data,
-  .ee,
-  dots,
-  init,
-  allow_over_identification = FALSE
-) {
+prepare_formula_psi <- function(formula, data, .ee, dots, init) {
   mf <- stats::model.frame(formula, data = data)
   y <- coerce_formula_response(stats::model.response(mf))
   X <- stats::model.matrix(formula, data = mf)
@@ -370,7 +361,10 @@ prepare_formula_psi <- function(
   }
 
   if (init_auto) {
-    check_formula_auto_init(psi, init, allow_over_identification)
+    # Record the starting values the user never chose. estimate() evaluates the
+    # estimating function at them anyway, and reads this attribute to recognize
+    # a failure there as one the automatic length may explain.
+    attr(psi, "deli_auto_init") <- init
   }
 
   list(psi = psi, init = init)
