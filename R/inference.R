@@ -15,7 +15,8 @@
 #' @param object A fitted `MEstimator` object (after calling [estimate()]).
 #' @param alpha Numeric significance level, between 0 and 1. Default `0.05`
 #'   for 95% confidence intervals.
-#' @param ... Additional arguments (currently unused).
+#' @param ... Not used. Must be empty, so a name that is not one of the
+#'   documented arguments is an error rather than silently ignored.
 #'
 #' @returns A p-by-2 matrix with columns `"lower"` and `"upper"`.
 #'
@@ -44,6 +45,7 @@ method(confidence_intervals, deli_estimator) <- function(
   alpha = 0.05,
   ...
 ) {
+  rlang::check_dots_empty(call = rlang::caller_env())
   check_estimated(object)
   check_alpha(alpha)
 
@@ -73,7 +75,8 @@ method(confidence_intervals, deli_estimator) <- function(
 #'
 #' @param object A fitted `MEstimator` object (after calling [estimate()]).
 #' @param null Numeric null hypothesis value(s). Default `0`.
-#' @param ... Additional arguments (currently unused).
+#' @param ... Not used. Must be empty, so a name that is not one of the
+#'   documented arguments is an error rather than silently ignored.
 #'
 #' @returns A numeric vector of Z-scores.
 #'
@@ -92,6 +95,7 @@ z_scores <- new_generic("z_scores", "object", function(object, null = 0, ...) {
 })
 
 method(z_scores, deli_estimator) <- function(object, null = 0, ...) {
+  rlang::check_dots_empty(call = rlang::caller_env())
   check_estimated(object)
   check_null_length(null, length(object@theta))
 
@@ -112,7 +116,8 @@ method(z_scores, deli_estimator) <- function(object, null = 0, ...) {
 #'
 #' @param object A fitted `MEstimator` object (after calling [estimate()]).
 #' @param null Numeric null hypothesis value(s). Default `0`.
-#' @param ... Additional arguments (currently unused).
+#' @param ... Not used. Must be empty, so a name that is not one of the
+#'   documented arguments is an error rather than silently ignored.
 #'
 #' @returns A numeric vector of P-values.
 #'
@@ -131,6 +136,7 @@ p_values <- new_generic("p_values", "object", function(object, null = 0, ...) {
 })
 
 method(p_values, deli_estimator) <- function(object, null = 0, ...) {
+  rlang::check_dots_empty(call = rlang::caller_env())
   z <- z_scores(object, null = null)
   tail_probability(object, z)
 }
@@ -146,7 +152,8 @@ method(p_values, deli_estimator) <- function(object, null = 0, ...) {
 #'
 #' @param object A fitted `MEstimator` object (after calling [estimate()]).
 #' @param null Numeric null hypothesis value(s). Default `0`.
-#' @param ... Additional arguments (currently unused).
+#' @param ... Not used. Must be empty, so a name that is not one of the
+#'   documented arguments is an error rather than silently ignored.
 #'
 #' @returns A numeric vector of S-values.
 #'
@@ -165,6 +172,7 @@ s_values <- new_generic("s_values", "object", function(object, null = 0, ...) {
 })
 
 method(s_values, deli_estimator) <- function(object, null = 0, ...) {
+  rlang::check_dots_empty(call = rlang::caller_env())
   p <- p_values(object, null = null)
   -log2(p)
 }

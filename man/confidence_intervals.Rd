@@ -12,7 +12,8 @@ confidence_intervals(object, alpha = 0.05, ...)
 \item{alpha}{Numeric significance level, between 0 and 1. Default \code{0.05}
 for 95\% confidence intervals.}
 
-\item{...}{Additional arguments (currently unused).}
+\item{...}{Not used. Must be empty, so a name that is not one of the
+documented arguments is an error rather than silently ignored.}
 }
 \value{
 A p-by-2 matrix with columns \code{"lower"} and \code{"upper"}.

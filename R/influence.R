@@ -12,7 +12,8 @@
 #' @param object A fitted `MEstimator` object (after calling [estimate()]).
 #' @param allow_pinv Logical. Use pseudo-inverse if bread is singular? Default
 #'   `TRUE`.
-#' @param ... Additional arguments (currently unused).
+#' @param ... Not used. Must be empty, so a name that is not one of the
+#'   documented arguments is an error rather than silently ignored.
 #'
 #' @returns An n-by-p matrix of influence function values, where n is the
 #'   number of observations and p is the number of parameters.
@@ -38,6 +39,7 @@ method(influence_functions, deli_estimator) <- function(
   allow_pinv = TRUE,
   ...
 ) {
+  rlang::check_dots_empty(call = rlang::caller_env())
   check_estimated(object)
 
   # Evaluate estimating equations at theta-hat

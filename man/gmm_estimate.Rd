@@ -50,12 +50,13 @@ response is converted to a 0/1 indicator against its first level; an
 \code{offset()} term in the formula is passed to \code{.ee} through its \code{offset}
 argument.}
 
-\item{...}{Additional arguments passed to \code{.ee}. When using the formula
-interface, these are evaluated with tidy evaluation in the context of
-\code{data}, so column names can be used directly (e.g., \code{event = status}). If
-the model frame drops rows for missing data, any such argument that spans
-the full data is subset to the same rows so it stays aligned with the
-design matrix and response.}
+\item{...}{For the formula interface, additional arguments passed to \code{.ee}.
+These are evaluated with tidy evaluation in the context of \code{data}, so
+column names can be used directly (e.g., \code{event = status}). If the model
+frame drops rows for missing data, any such argument that spans the full
+data is subset to the same rows so it stays aligned with the design matrix
+and response. The function interface forwards nothing, so it requires \code{...}
+to be empty.}
 
 \item{data}{A data frame (required when \code{stacked_equations} is a formula).}
 
@@ -108,6 +109,19 @@ A fitted \code{GMMEstimator} object.
 \description{
 Creates a \code{GMMEstimator} and estimates it in one call. Supports both a
 formula interface and a function interface, parallel to \code{\link[=m_estimate]{m_estimate()}}.
+}
+\details{
+Both interfaces place \code{...} ahead of \code{init}, \code{subset}, \code{tolerance}, and the
+rest of the settings, so each of those must be named in full: R does not
+partially match a supplied name against an argument that follows \code{...}.
+\code{\link[=estimate]{estimate()}} and the inference generics take \code{...} last, so they still accept
+R's usual abbreviations.
+
+What becomes of a name that matches no argument depends on the interface. The
+function interface has no estimating equation to forward \code{...} to, so it
+requires \code{...} to be empty and reports an unrecognized name as an error
+rather than silently ignoring it. The formula interface forwards \code{...} to
+\code{.ee}, which raises its own error for a name it does not take.
 }
 \examples{
 # Two instruments for a single treatment effect, confounded by an

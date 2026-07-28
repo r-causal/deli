@@ -30,7 +30,11 @@ the Jacobian of \code{transform}. One of \code{"capprox"} (central difference),
 \item{dx}{Numeric step size for the finite-difference methods; ignored when
 \code{deriv_method = "exact"}. Default \code{1e-9}.}
 
-\item{...}{Additional arguments (currently unused).}
+\item{...}{Not used. Must be empty, so a name that is not one of the
+documented arguments is an error rather than silently ignored. Exact names
+matter here because \code{deriv_method} selects how the Jacobian is built, and a
+dropped misspelling would leave the default in place and return a different
+variance with nothing to signal the substitution.}
 }
 \value{
 A covariance matrix for \code{transform(theta)}.

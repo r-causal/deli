@@ -41,7 +41,8 @@ Default \code{NULL} (all parameters).}
 
 \item{covariance}{Numeric covariance matrix (only when \code{object} is numeric).}
 
-\item{...}{Additional arguments (currently unused).}
+\item{...}{Not used. Must be empty, so a name that is not one of the
+documented arguments is an error rather than silently ignored.}
 }
 \value{
 A p-by-2 matrix with columns \code{"lower"} and \code{"upper"}.

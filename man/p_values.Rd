@@ -11,7 +11,8 @@ p_values(object, null = 0, ...)
 
 \item{null}{Numeric null hypothesis value(s). Default \code{0}.}
 
-\item{...}{Additional arguments (currently unused).}
+\item{...}{Not used. Must be empty, so a name that is not one of the
+documented arguments is an error rather than silently ignored.}
 }
 \value{
 A numeric vector of P-values.

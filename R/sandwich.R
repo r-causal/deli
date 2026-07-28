@@ -298,7 +298,8 @@ compute_sandwich <- function(
 #' @param subset Integer vector of parameter indices to compute bands for.
 #'   Default `NULL` (all parameters).
 #' @param covariance Numeric covariance matrix (only when `object` is numeric).
-#' @param ... Additional arguments (currently unused).
+#' @param ... Not used. Must be empty, so a name that is not one of the
+#'   documented arguments is an error rather than silently ignored.
 #'
 #' @returns A p-by-2 matrix with columns `"lower"` and `"upper"`.
 #'
@@ -352,6 +353,7 @@ method(confidence_bands, deli_estimator) <- function(
   covariance = NULL,
   ...
 ) {
+  rlang::check_dots_empty(call = rlang::caller_env())
   check_estimated(object)
 
   if (!is.null(subset)) {
@@ -382,6 +384,7 @@ method(confidence_bands, class_numeric) <- function(
   covariance = NULL,
   ...
 ) {
+  rlang::check_dots_empty(call = rlang::caller_env())
   if (!is.null(subset)) {
     object <- object[subset]
     if (!is.null(covariance)) {
@@ -512,7 +515,11 @@ compute_confidence_bands <- function(
 #'   `"exact"` (forward-mode automatic differentiation). Default `"capprox"`.
 #' @param dx Numeric step size for the finite-difference methods; ignored when
 #'   `deriv_method = "exact"`. Default `1e-9`.
-#' @param ... Additional arguments (currently unused).
+#' @param ... Not used. Must be empty, so a name that is not one of the
+#'   documented arguments is an error rather than silently ignored. Exact names
+#'   matter here because `deriv_method` selects how the Jacobian is built, and a
+#'   dropped misspelling would leave the default in place and return a different
+#'   variance with nothing to signal the substitution.
 #'
 #' @returns A covariance matrix for `transform(theta)`.
 #'
@@ -551,6 +558,7 @@ method(delta_method, deli_estimator) <- function(
   dx = 1e-9,
   ...
 ) {
+  rlang::check_dots_empty(call = rlang::caller_env())
   check_estimated(object)
   delta_method_impl(object@theta, transform, object@variance, deriv_method, dx)
 }
@@ -563,6 +571,7 @@ method(delta_method, class_numeric) <- function(
   dx = 1e-9,
   ...
 ) {
+  rlang::check_dots_empty(call = rlang::caller_env())
   delta_method_impl(object, transform, covariance, deriv_method, dx)
 }
 

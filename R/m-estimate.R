@@ -5,6 +5,19 @@
 #' formula interface (for regression-family estimating equations) and a
 #' function interface (for custom estimating equations).
 #'
+#' @details
+#' Both interfaces place `...` ahead of `init`, `subset`, `tolerance`, and the
+#' rest of the settings, so each of those must be named in full: R does not
+#' partially match a supplied name against an argument that follows `...`.
+#' [estimate()] and the inference generics take `...` last, so they still accept
+#' R's usual abbreviations.
+#'
+#' What becomes of a name that matches no argument depends on the interface. The
+#' function interface has no estimating equation to forward `...` to, so it
+#' requires `...` to be empty and reports an unrecognized name as an error
+#' rather than silently ignoring it. The formula interface forwards `...` to
+#' `.ee`, which raises its own error for a name it does not take.
+#'
 #' @param stacked_equations A formula or a function. When a formula, `data` and
 #'   `.ee` must also be provided. When a function, it should take a numeric
 #'   vector `theta` and return a p-by-n matrix. A two-level factor or character
@@ -17,12 +30,13 @@
 #'   (required when `stacked_equations` is a formula). The formula response is
 #'   passed positionally, so it reaches whatever the function calls that
 #'   argument (`y` for [ee_regression] or [ee_glm], `time` for [ee_aft]).
-#' @param ... Additional arguments passed to `.ee`. When using the formula
-#'   interface, these are evaluated with tidy evaluation in the context of
-#'   `data`, so column names can be used directly (e.g., `event = status`). If
-#'   the model frame drops rows for missing data, any such argument that spans
-#'   the full data is subset to the same rows so it stays aligned with the
-#'   design matrix and response.
+#' @param ... For the formula interface, additional arguments passed to `.ee`.
+#'   These are evaluated with tidy evaluation in the context of `data`, so
+#'   column names can be used directly (e.g., `event = status`). If the model
+#'   frame drops rows for missing data, any such argument that spans the full
+#'   data is subset to the same rows so it stays aligned with the design matrix
+#'   and response. The function interface forwards nothing, so it requires `...`
+#'   to be empty.
 #' @param init Numeric vector of initial parameter values. When `NULL`
 #'   (default) and using the formula interface, a zero vector with names from
 #'   the model matrix columns is generated automatically.
@@ -126,6 +140,7 @@ m_estimate.default <- function(
   dx = 1e-9,
   allow_pinv = TRUE
 ) {
+  rlang::check_dots_empty()
   obj <- MEstimator(
     stacked_equations = stacked_equations,
     init = init,
@@ -147,6 +162,19 @@ m_estimate.default <- function(
 #'
 #' Creates a `GMMEstimator` and estimates it in one call. Supports both a
 #' formula interface and a function interface, parallel to [m_estimate()].
+#'
+#' @details
+#' Both interfaces place `...` ahead of `init`, `subset`, `tolerance`, and the
+#' rest of the settings, so each of those must be named in full: R does not
+#' partially match a supplied name against an argument that follows `...`.
+#' [estimate()] and the inference generics take `...` last, so they still accept
+#' R's usual abbreviations.
+#'
+#' What becomes of a name that matches no argument depends on the interface. The
+#' function interface has no estimating equation to forward `...` to, so it
+#' requires `...` to be empty and reports an unrecognized name as an error
+#' rather than silently ignoring it. The formula interface forwards `...` to
+#' `.ee`, which raises its own error for a name it does not take.
 #'
 #' @inheritParams m_estimate
 #' @param overid_maxiter Integer maximum iterations for the two-step iterative
@@ -255,6 +283,7 @@ gmm_estimate.default <- function(
   overid_maxiter = 10L,
   overid_tolerance = 1e-9
 ) {
+  rlang::check_dots_empty()
   obj <- GMMEstimator(
     stacked_equations = stacked_equations,
     init = init,

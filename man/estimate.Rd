@@ -61,7 +61,8 @@ through \code{\link[=delta_method]{delta_method()}}.}
 \item{allow_pinv}{Logical. Use pseudo-inverse if bread is singular? Default
 \code{TRUE}.}
 
-\item{...}{Additional arguments (currently unused).}
+\item{...}{Not used. Must be empty, so a name that is not one of the
+documented arguments is an error rather than silently ignored.}
 }
 \value{
 A modified \code{MEstimator} object with populated \code{theta}, \code{bread},

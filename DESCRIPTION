@@ -17,7 +17,7 @@ Depends:
 Imports:
     cli,
     generics,
-    rlang,
+    rlang (>= 1.0.0),
     rootSolve,
     S7
 Suggests:
