@@ -20,6 +20,280 @@ primal_tangent <- function(primal, tangent) {
 #' @noRd
 is_pt <- function(x) inherits(x, "PrimalTangent")
 
+# ---- exact-mode failure conditions ------------------------------------------
+# The aborts raised while differentiating carry condition classes, so a test or
+# a calling function can match on the class rather than on the prose. These are
+# the first custom condition classes in the package; every other abort in deli
+# is classless and matched by message.
+#
+#   deli_exact_tangent_lost
+#     Derivative information is gone or would be. Either a tangent-carrying
+#     value was asked to become a plain double, or a result arrived with no
+#     tangent to read and evidence that one had been dropped on the way.
+#
+#   deli_exact_unsupported_function
+#     A function reached with a tangent-carrying argument has no rule under
+#     exact differentiation, either because it hands its argument to compiled
+#     code without dispatching or because deli declines to differentiate it.
+#
+#   deli_exact_unsupported_shape
+#     A result still carries its tangents but arrives in a container the
+#     summing step has no rule for. Nothing was lost; the shape is the problem.
+
+# The remedy every exact-mode abort ends on. Finite differences carry no
+# tangents, so switching the derivative method resolves all of them.
+#' @noRd
+pt_capprox_hint <- function() {
+  c(
+    "i" = "Or pass {.val capprox} to {.arg deriv_method} to differentiate with
+           finite differences, which need no tangent support."
+  )
+}
+
+# Why deli declines to differentiate a selection among order statistics. Shared
+# by the `median()` and `quantile()` methods and by the trimmed `mean()`.
+#' @noRd
+pt_order_statistic_hint <- function() {
+  c(
+    "i" = "Selecting among the order statistics of a tangent-carrying value
+           differentiates whichever order statistic the current values happen to
+           select. That derivative does not estimate the derivative of the
+           population quantity, so a sandwich or delta-method variance built
+           from it would not be valid. It is the same reason
+           {.fn ee_percentile} has no usable bread."
+  )
+}
+
+#' @noRd
+pt_order_statistic_abort <- function(fname) {
+  cli::cli_abort(
+    c(
+      "{.fn {fname}} cannot be differentiated when {.arg deriv_method} is
+       {.val exact}.",
+      pt_order_statistic_hint(),
+      pt_capprox_hint()
+    ),
+    class = "deli_exact_unsupported_function",
+    call = NULL
+  )
+}
+
+# Raised when a result arrives with no tangents at all. The hint names only
+# operations that carry tangents from any environment, which means the
+# registered S3 methods. It deliberately does not recommend matrix(), rbind(),
+# cbind(), or ifelse(), which are masked inside the namespace and so are
+# unavailable to a user working in the global environment.
+#' @noRd
+pt_tangent_lost_abort <- function() {
+  cli::cli_abort(
+    c(
+      "Automatic differentiation received a result that carries no tangents.",
+      "i" = "A reshaping, binding, or selection function such as {.fn rbind},
+             {.fn cbind}, {.fn matrix}, or {.fn ifelse} was likely reached from
+             outside the package namespace, which strips the derivative
+             information.",
+      "i" = "Arithmetic, {.code %*%}, {.fn t}, and {.code [} are S3 methods, so
+             they carry tangents from any environment. Build a p-by-n return as
+             {.code t(X * resid)}.",
+      "i" = "For a conditional, write {.code ind * yes + (1 - ind) * no} rather
+             than using {.fn ifelse}.",
+      pt_capprox_hint()
+    ),
+    class = "deli_exact_tangent_lost",
+    call = NULL
+  )
+}
+
+# Raised when a result keeps its tangents but arrives in a container the summing
+# step has no reduction for. The derivatives are intact, so the remedy is to
+# reshape the return rather than to give up on exact differentiation, which is
+# why this is a different condition from a tangent loss.
+#' @noRd
+pt_unsupported_shape_abort <- function() {
+  cli::cli_abort(
+    c(
+      "Automatic differentiation received tangents in a container shape it
+       cannot sum across observations.",
+      "i" = "A list holding one tangent-carrying value per equation, such as an
+             {.fn lapply} over several equations, keeps its derivatives but has
+             no supported reduction.",
+      "i" = "Return a single tangent-carrying value instead, either built with
+             {.code t()} and arithmetic or concatenated with
+             {.code do.call(c, ...)}.",
+      pt_capprox_hint()
+    ),
+    class = "deli_exact_unsupported_shape",
+    call = NULL
+  )
+}
+
+# Raised when a plain numeric result holds an NA. A function that does not
+# recognize a tangent-carrying argument returns NA for it, and the NA then
+# flows through the plain numeric arithmetic that follows, so an NA is the
+# evidence separating a dropped tangent from a genuinely constant output.
+#' @noRd
+pt_na_tangent_abort <- function() {
+  cli::cli_abort(
+    c(
+      "Automatic differentiation received a plain numeric result that contains
+       {.code NA} and carries no tangents.",
+      "i" = "A function that does not recognize a tangent-carrying argument
+             returned {.code NA} for it, so the derivative was lost before the
+             result was assembled.",
+      "i" = "The operations deli differentiates are listed in
+             {.code vignette(\"getting-started\")}.",
+      pt_capprox_hint()
+    ),
+    class = "deli_exact_tangent_lost",
+    call = NULL
+  )
+}
+
+# base R functions that hand a tangent-carrying argument to compiled code,
+# paired with the deli function computing the same quantity through the group
+# generics. Every distribution function in stats fails the same way, so this is
+# a lookup rather than the whole set: a function absent from it is still named
+# in the abort, with the generic remedy.
+#' @noRd
+pt_exact_replacements <- list(
+  plogis = "inverse_logit",
+  qlogis = "logit",
+  pnorm = "standard_normal_cdf",
+  dnorm = "standard_normal_pdf",
+  psigamma = "deli_polygamma"
+)
+
+# The name of the function a failing call invoked, or NULL when the call is not
+# a simple or namespace-qualified function call. `stats::plogis(x)` puts the
+# `::` call in the function position, so the name is that call's third element.
+#' @noRd
+pt_failing_function <- function(call) {
+  if (!is.call(call)) {
+    return(NULL)
+  }
+  fn <- call[[1]]
+  if (is.call(fn) && identical(fn[[1]], as.name("::"))) {
+    fn <- fn[[3]]
+  }
+  if (!is.name(fn)) {
+    return(NULL)
+  }
+  as.character(fn)
+}
+
+# The members of the S3 `Math` group generic. They dispatch on class, so a
+# tangent-carrying argument to any of them reaches `Math.PrimalTangent`, which
+# either applies the rule or raises its own abort. A member that got as far as
+# compiled code was therefore handed non-numeric data, not a tangent, and the
+# rewrite below would misdiagnose it as a function deli cannot differentiate.
+#
+# Only `Math` is listed. An `Ops` member reports "non-numeric argument to binary
+# operator" and a `Summary` member "invalid 'type' of argument", so neither can
+# reach the message test the rewrite is gated on. The names are written out
+# rather than read from `methods::getGroupMembers()`, which describes the S4
+# groups and puts `round()` and `signif()` in `Math2` even though both dispatch
+# S3 `Math` methods. `psigamma()` and every stats distribution function fall
+# outside the group and keep their rewrite.
+#' @noRd
+pt_math_group_members <- c(
+  "abs",
+  "sign",
+  "sqrt",
+  "floor",
+  "ceiling",
+  "trunc",
+  "round",
+  "signif",
+  "exp",
+  "log",
+  "expm1",
+  "log1p",
+  "log2",
+  "log10",
+  "cos",
+  "sin",
+  "tan",
+  "cospi",
+  "sinpi",
+  "tanpi",
+  "acos",
+  "asin",
+  "atan",
+  "cosh",
+  "sinh",
+  "tanh",
+  "acosh",
+  "asinh",
+  "atanh",
+  "lgamma",
+  "gamma",
+  "digamma",
+  "trigamma",
+  "cumsum",
+  "cumprod",
+  "cummax",
+  "cummin"
+)
+
+# Rewrite the compiled-code error a base R function raises when it receives a
+# tangent-carrying argument, naming the offender and its deli replacement. The
+# name is read off the failing call rather than matched against a fixed list,
+# because every stats distribution function fails identically and a fixed list
+# would leave most of them unnamed. Any other error is re-raised unchanged, so
+# an unrelated failure inside a differentiated function propagates byte for
+# byte, keeping its own class and message.
+#' @noRd
+pt_rethrow_exact_error <- function(cnd) {
+  fname <- pt_failing_function(conditionCall(cnd))
+  compiled <- grepl(
+    "^[Nn]on-numeric argument to mathematical function",
+    conditionMessage(cnd)
+  )
+  if (!compiled || is.null(fname) || fname %in% pt_math_group_members) {
+    stop(cnd)
+  }
+  replacement <- pt_exact_replacements[[fname]]
+  hints <- c(
+    "i" = "It hands its argument to compiled code without dispatching, so it
+           never sees the tangent that carries the derivative."
+  )
+  if (is.null(replacement)) {
+    hints <- c(
+      hints,
+      "i" = "deli has no drop-in replacement for it. Rebuild the expression from
+             arithmetic and the {.code Math} group functions deli
+             differentiates."
+    )
+  } else {
+    hints <- c(
+      hints,
+      "i" = "Use {.fn {replacement}} instead, which returns the same values and
+             differentiates exactly."
+    )
+  }
+  if (identical(fname, "psigamma")) {
+    # The one replacement whose arguments do not line up, so a positional
+    # substitution computes a different quantity and raises no error.
+    hints <- c(
+      hints,
+      "i" = "The two take their arguments in opposite orders:
+             {.code deli_polygamma(n, x)} against
+             {.code psigamma(x, deriv = n)}."
+    )
+  }
+  cli::cli_abort(
+    c(
+      "{.fn {fname}} cannot be differentiated when {.arg deriv_method} is
+       {.val exact}.",
+      hints,
+      pt_capprox_hint()
+    ),
+    parent = cnd,
+    class = "deli_exact_unsupported_function",
+    call = NULL
+  )
+}
+
 # ---- PrimalTangentVector: indexable collection of PrimalTangent objects ------
 # This allows user functions to use x[1], x[2] syntax.
 
@@ -188,9 +462,16 @@ Math.PrimalTangentVector <- function(x, ...) {
 # `use.names` applies to the primal only. The tangent is a parallel derivative
 # array read positionally by `extract_tangent_column()`, so names on it would
 # serve nothing and would leak into the Jacobian's dimnames. `recursive` has no
-# analogue here and is accepted and ignored: every operand is already flattened
-# to a numeric vector by `pt_flatten()`, so the result is flat either way and
-# both settings give the same value.
+# analogue here and is accepted and ignored: `unlist()` is unconditionally
+# recursive, so the method always behaves as `recursive = TRUE` for a list
+# operand and both settings give the same value.
+#
+# The primal's names diverge from `base::c()` when an operand carries names of
+# its own: `c(a = pair, b = c(u = 1, v = 2))` yields `"a" "b1" "b2"` where base
+# gives `"a" "b.u" "b.v"`, because `pt_flatten()` and the `as.vector()` fallback
+# strip an operand's inner names before the two slots are concatenated. The
+# divergence is cosmetic and intended. Names on a tangent-carrying value are
+# carried for display only, and the Jacobian is read positionally.
 #' @noRd
 pt_concat <- function(..., recursive = FALSE, use.names = TRUE) {
   slots <- lapply(list(...), function(a) {
@@ -564,22 +845,116 @@ Summary.PrimalTangentArray <- Summary.PrimalTangent
 #' @export
 Summary.PrimalTangentVector <- Summary.PrimalTangent
 
+# ---- mean, median, and quantile ---------------------------------------------
+# These three are ordinary S3 generics rather than members of a group generic,
+# so a tangent-carrying argument reaches them only through a registered method.
+# Without one, `mean.default()` warns and returns NA, and the sample-quantile
+# methods index into the pair's two slots as though they were the data. Each of
+# the three tangent surfaces is given the same method object, as the Summary
+# methods are.
+
+# `mean()` is linear, so both slots take the same average. A scalar-broadcast
+# tangent is recycled to the primal's length first, mirroring `pt_concat()`, so
+# a scalar pair holding a vector primal averages one tangent per element rather
+# than dividing a single derivative by the number of elements.
+#
+# `na.rm = TRUE` decides which elements to drop from the primal and applies the
+# same mask to the tangent, keeping the two slots aligned. This follows
+# `pt_summary()`, where dropping from each slot independently would keep a
+# tangent whose primal had been removed.
+#
+# A nonzero `trim` is not linear: it sorts and discards a fraction of the order
+# statistics, which puts it in the same class as `median()` and `quantile()`
+# below, so it aborts rather than quietly differentiating the untrimmed mean.
+#' @noRd
+pt_mean <- function(x, trim = 0, na.rm = FALSE, ...) {
+  if (!isTRUE(trim == 0)) {
+    cli::cli_abort(
+      c(
+        "{.fn mean} with a nonzero {.arg trim} cannot be differentiated when
+         {.arg deriv_method} is {.val exact}.",
+        "i" = "An untrimmed {.fn mean} is linear and differentiates exactly.",
+        pt_order_statistic_hint(),
+        pt_capprox_hint()
+      ),
+      class = "deli_exact_unsupported_function",
+      call = NULL
+    )
+  }
+  parts <- pt_flatten(x)
+  primal <- parts$primal
+  tangent <- pt_recycle_tangent(primal, parts$tangent)
+  if (na.rm) {
+    keep <- !is.na(primal)
+    primal <- primal[keep]
+    tangent <- tangent[keep]
+  }
+  # The primal goes through `mean()` so that it matches base R value for value:
+  # `mean()` makes a second pass to correct the rounding error `sum(x) / n`
+  # leaves, which the two disagree on around the tenth significant digit for a
+  # cancellation-heavy vector. The tangent divides by the primal's length
+  # because the recycled tangent tracks the primal element for element.
+  primal_tangent(mean(primal), sum(tangent) / length(primal))
+}
+
+#' @export
+mean.PrimalTangent <- pt_mean
+
+#' @export
+mean.PrimalTangentArray <- pt_mean
+
+#' @export
+mean.PrimalTangentVector <- pt_mean
+
+# `median()` and `quantile()` select among the order statistics of their
+# argument, which `pt_order_statistic_abort()` explains deli declines to
+# differentiate. Registering methods that abort replaces two outcomes that were
+# worse than an error: `median()` returned an empty container, so the Jacobian
+# came back with no rows at all and the delta method with a 0-by-0 matrix, and
+# `quantile()` read the pair's two slots as though they were the data,
+# returning the primal of one element beside the tangent of another.
+#' @noRd
+pt_median <- function(x, na.rm = FALSE, ...) pt_order_statistic_abort("median")
+
+#' @noRd
+pt_quantile <- function(x, ...) pt_order_statistic_abort("quantile")
+
+#' @export
+median.PrimalTangent <- pt_median
+
+#' @export
+median.PrimalTangentArray <- pt_median
+
+#' @export
+median.PrimalTangentVector <- pt_median
+
+#' @export
+quantile.PrimalTangent <- pt_quantile
+
+#' @export
+quantile.PrimalTangentArray <- pt_quantile
+
+#' @export
+quantile.PrimalTangentVector <- pt_quantile
+
 # ---- Boolean coercion (for if/else) -----------------------------------------
 
+# Coercion to logical stays, where coercion to double aborts. A live tangent does
+# reach this method, and dropping it is the right answer: a logical coercion is a
+# step function, zero everywhere except at the jump, so the derivative it carries
+# is zero almost everywhere. That is the same ground `ee_percentile()` stands on,
+# where an indicator built from comparisons has an identically zero bread. A
+# double is different, because it is the type the tangent flows through, so
+# returning one would truncate a derivative that is still doing work.
 #' @export
 as.logical.PrimalTangent <- function(x, ...) as.logical(x$primal)
 
-# A scalar pair carries a vector or matrix payload whenever a single parameter
-# scales a data vector (`theta[k] * X`), so it is as much a tangent-carrying
-# vector as a PrimalTangentArray is and coercing it aborts on the same grounds.
-# Only a genuinely scalar payload still coerces, returning its primal.
+# Every tangent-carrying value aborts, a genuinely scalar pair included. The
+# scalar payload was the one shape a coercion could satisfy, since its primal is
+# already a plain double, and satisfying it dropped a live derivative with no
+# NA and no warning for any later rule to catch.
 #' @export
-as.double.PrimalTangent <- function(x, ...) {
-  if (!pt_is_scalar(x)) {
-    pt_coercion_abort()
-  }
-  as.double(x$primal)
-}
+as.double.PrimalTangent <- function(x, ...) pt_coercion_abort()
 
 # R dispatches `as.numeric()` through the `as.double()` method table, so this
 # method is never reached and the rule above governs both spellings. Changing
@@ -587,13 +962,13 @@ as.double.PrimalTangent <- function(x, ...) {
 #' @export
 as.numeric.PrimalTangent <- function(x, ...) as.numeric(x$primal)
 
-# A tangent-carrying vector, matrix, or parameter vector has no plain-double
-# representation that keeps its derivative, and `as.double()` must return a
-# double, so coercing one aborts rather than losing the tangents. Base R would
-# otherwise report `'list' object cannot be coerced to type 'double'` for an
-# array and return `NA` with a coercion warning for a parameter vector, neither
-# of which points at the cause or at the remedy. `as.numeric()` dispatches
-# through `as.double()`, so one method covers both spellings.
+# No tangent-carrying value has a plain-double representation that keeps its
+# derivative, and `as.double()` must return a double, so coercing one aborts
+# rather than losing the tangents. Base R would otherwise report `'list' object
+# cannot be coerced to type 'double'` for an array and return `NA` with a
+# coercion warning for a parameter vector, neither of which points at the cause
+# or at the remedy. `as.numeric()` dispatches through `as.double()`, so one
+# method covers both spellings.
 #' @noRd
 pt_coercion_abort <- function() {
   cli::cli_abort(
@@ -601,11 +976,13 @@ pt_coercion_abort <- function() {
       "A tangent-carrying value cannot be coerced to a plain {.cls numeric}.",
       "i" = "{.fn as.numeric} and {.fn as.double} must return a double, so they
              cannot preserve the derivative information.",
-      "i" = "Use {.fn c} to flatten a tangent-carrying matrix such as
+      "i" = "A tangent-carrying value needs no coercion: the arithmetic
+             operators and the {.code Math} group functions take it directly.",
+      "i" = "Use {.fn c} to flatten a tangent-carrying vector or matrix such as
              {.code X %*% theta} down to a vector; it keeps the derivative.",
-      "i" = "Or pass {.val capprox} to {.arg deriv_method} to differentiate with
-             finite differences, which need no tangent support."
+      pt_capprox_hint()
     ),
+    class = "deli_exact_tangent_lost",
     call = NULL
   )
 }
@@ -1118,8 +1495,8 @@ pt_where <- function(test, yes, no) {
 #'   vector (or scalar). The function may use standard arithmetic operators and
 #'   math functions (`+`, `-`, `*`, `/`, `^`, `exp`, `log`, `sqrt`, `sin`,
 #'   `cos`, etc.). The matrix product `%*%`, the transpose `t()`, the
-#'   concatenation `c()`, and two-dimensional indexing differentiate exactly in
-#'   any function, because each is a registered S3 method. The
+#'   concatenation `c()`, `mean()`, and two-dimensional indexing differentiate
+#'   exactly in any function, because each is a registered S3 method. The
 #'   reshaping, binding, and reduction operations `matrix()`, `rbind()`,
 #'   `cbind()`, `rep()`, and `colSums()` differentiate exactly for functions
 #'   evaluated within the package (such as the built-in estimating equations),
@@ -1128,16 +1505,28 @@ pt_where <- function(test, yes, no) {
 #'   environment reaches the base versions, and the differentiation aborts
 #'   rather than returning a silent approximation. Coercion cannot preserve a
 #'   derivative: `as.numeric()` and `as.double()` must return a plain double, so
-#'   they abort on the parameter vector and on any tangent-carrying value that
-#'   holds a vector or a matrix, rather than dropping the tangents silently.
-#'   Use `c()` to flatten a matrix-shaped result such as `X %*% theta` to a
-#'   vector instead. `log(x, base)` differentiates
+#'   they abort on any tangent-carrying value rather than dropping the tangents
+#'   silently. Use `c()` to flatten a matrix-shaped result such as
+#'   `X %*% theta` to a vector instead. `log(x, base)` differentiates
 #'   with respect to `x` only; the `base` argument is treated as a constant, and
 #'   a `base` that itself carries a tangent (a value derived from `theta`) is not
 #'   supported and aborts rather than dropping the base's contribution.
+#'   `median()`, `quantile()`, and `mean(x, trim)` select among the order
+#'   statistics of their argument, whose derivative is that of whichever order
+#'   statistic the current values select rather than that of the population
+#'   quantity, so each aborts as well.
 #'
 #' @returns A matrix where element `[i, j]` is the partial derivative of
 #'   the `i`-th output with respect to the `j`-th parameter.
+#'
+#' @section Conditions:
+#' The aborts raised under exact differentiation carry condition classes, which
+#' are the first in the package: `deli_exact_tangent_lost` when derivative
+#' information is gone or a coercion would discard it,
+#' `deli_exact_unsupported_function` when a function reached with a
+#' tangent-carrying argument has no rule under exact differentiation, and
+#' `deli_exact_unsupported_shape` when a result keeps its tangents but arrives
+#' in a container that summing the estimating equations has no reduction for.
 #'
 #' @keywords internal
 auto_differentiation <- function(theta, f) {
@@ -1146,18 +1535,26 @@ auto_differentiation <- function(theta, f) {
 
   jacobian_cols <- vector("list", p)
 
-  for (j in seq_len(p)) {
-    # Create PrimalTangent input for direction j (scalar tangents)
-    elements <- vector("list", p)
-    for (i in seq_len(p)) {
-      elements[[i]] <- primal_tangent(theta[i], if (i == j) 1 else 0)
-    }
-    pt_input <- primal_tangent_vector(elements)
+  # One handler around the whole sweep rather than one per direction. The
+  # rewrite depends only on which function failed, not on which direction was
+  # being evaluated, and installing the handler once leaves the per-direction
+  # cost unchanged. `tryCatch()` evaluates its expression in this frame, so the
+  # loop still fills `jacobian_cols` here.
+  tryCatch(
+    for (j in seq_len(p)) {
+      # Create PrimalTangent input for direction j (scalar tangents)
+      elements <- vector("list", p)
+      for (i in seq_len(p)) {
+        elements[[i]] <- primal_tangent(theta[i], if (i == j) 1 else 0)
+      }
+      pt_input <- primal_tangent_vector(elements)
 
-    # Evaluate the function with PrimalTangent inputs and read off direction j
-    result <- f(pt_input)
-    jacobian_cols[[j]] <- extract_tangent_column(result)
-  }
+      # Evaluate the function with PrimalTangent inputs and read off direction j
+      result <- f(pt_input)
+      jacobian_cols[[j]] <- extract_tangent_column(result)
+    },
+    error = pt_rethrow_exact_error
+  )
 
   do.call(cbind, jacobian_cols)
 }
@@ -1189,29 +1586,8 @@ extract_tangent_column <- function(result) {
     # reached from outside the package namespace and stripped the tangents.
     # Aborting keeps the documented safety property rather than returning a
     # silent all-zero column.
-    #
-    # The hint names only operations that carry tangents from any environment,
-    # which means the registered S3 methods. It deliberately does not recommend
-    # matrix(), rbind(), cbind(), or ifelse(), which are masked inside the
-    # namespace and so are unavailable to a user working in the global
-    # environment.
     if (!any(vapply(result, is_pt, logical(1)))) {
-      cli::cli_abort(
-        c(
-          "Automatic differentiation received a result that carries no tangents.",
-          "i" = "A reshaping, binding, or selection function such as
-                 {.fn rbind}, {.fn cbind}, {.fn matrix}, or {.fn ifelse} was
-                 likely reached from outside the package namespace, which strips
-                 the derivative information.",
-          "i" = "Arithmetic, {.code %*%}, {.fn t}, and {.code [} are S3 methods,
-                 so they carry tangents from any environment. Build a p-by-n
-                 return as {.code t(X * resid)}.",
-          "i" = "For a conditional, write {.code ind * yes + (1 - ind) * no}
-                 rather than using {.fn ifelse}.",
-          "i" = "Or pass {.val capprox} to {.arg deriv_method} to differentiate
-                 with finite differences, which need no tangent support."
-        )
-      )
+      pt_tangent_lost_abort()
     }
     # One output per list element
     return(vapply(
@@ -1220,6 +1596,24 @@ extract_tangent_column <- function(result) {
       numeric(1)
     ))
   }
-  # Plain numeric: constant output, all derivatives are 0
+  # Plain numeric: either a genuinely constant output, whose derivatives are all
+  # zero, or a result whose tangents were dropped before it was assembled. An NA
+  # separates the two. A function that does not recognize a tangent-carrying
+  # argument returns NA for it (base R's `mean.default()` was the canonical
+  # case), and that NA flows through the plain numeric arithmetic that follows.
+  # A tangent-free result with no NA is a genuine constant, which both
+  # `function(x) 5` and `ee_percentile()`'s indicator score rely on: comparisons
+  # return primal logicals by design, so that score carries no tangent and its
+  # bread is identically zero under every derivative method.
+  #
+  # `NaN` is excluded rather than folded in with `anyNA()`, which counts it as
+  # missing. A `NaN` is what arithmetic on numbers produces, `0 / 0` and
+  # `log(-1)` among them, so it is evidence of a numerical problem in the
+  # differentiated function rather than of a dropped tangent. Reporting a lost
+  # derivative for one would be a false diagnosis, and a constant carrying a
+  # `NaN` is still a constant.
+  if (any(is.na(result) & !is.nan(result))) {
+    pt_na_tangent_abort()
+  }
   rep(0, length(result))
 }

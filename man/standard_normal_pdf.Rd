@@ -32,17 +32,20 @@ passed to \code{\link[=delta_method]{delta_method()}}, and \code{dnorm()} for or
 replaces each value with an object carrying both the value and its
 derivative. deli supports those objects through S3 methods: the \code{Ops},
 \code{Math}, and \code{Summary} group generics, plus non-group methods such as \code{[},
-\code{\%*\%}, and \code{t()}. \code{\link[=standard_normal_cdf]{standard_normal_cdf()}}, \code{\link[=standard_normal_pdf]{standard_normal_pdf()}},
-\code{\link[=deli_polygamma]{deli_polygamma()}}, and \code{\link[=deli_digamma]{deli_digamma()}} recognize a tangent-carrying
-argument themselves and apply their own analytic rule. Support within the
-group generics is partial; see \code{vignette("getting-started")} for the
-operations deli differentiates.
+\code{\%*\%}, \code{t()}, \code{c()}, and \code{mean()}. \code{\link[=standard_normal_cdf]{standard_normal_cdf()}},
+\code{\link[=standard_normal_pdf]{standard_normal_pdf()}}, \code{\link[=deli_polygamma]{deli_polygamma()}}, and \code{\link[=deli_digamma]{deli_digamma()}} recognize a
+tangent-carrying argument themselves and apply their own analytic rule.
+Support within the group generics is partial; see
+\code{vignette("getting-started")} for the operations deli differentiates.
 
 \code{plogis()}, \code{qlogis()}, \code{pnorm()}, \code{dnorm()}, and \code{psigamma()} take none of
 these paths. Each hands its argument straight to compiled code through
 \code{.Call()} or \code{.Internal()} without dispatching, so the tangent reaches C code
-that requires a plain number and the call stops with a
-\verb{non-numeric argument to mathematical function} error.
+that requires a plain number. deli catches the resulting failure and raises
+its own error, naming the function that stopped the computation and the deli
+function to write in its place. The same applies to every other distribution
+function in \code{stats}, such as \code{qnorm()}, which is named in the error even
+though deli exports no counterpart for it.
 
 Each deli utility below returns the same values as its base R counterpart for
 numeric input. What separates them is whether the counterpart survives exact

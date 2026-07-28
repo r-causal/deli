@@ -316,7 +316,7 @@ knows how to differentiate. The supported surface covers:
 
 - the arithmetic operators (`+`, `-`, `*`, `/`, `^`) and the comparisons
 - the matrix product `%*%`, the transpose `t()`, indexing, and `length()`
-- `sum()`, `prod()`, `max()`, and `min()`
+- `sum()`, `prod()`, `max()`, `min()`, and `mean()`
 - the exponential and logarithmic family (`exp`, `expm1`, `log`, `log1p`,
   `log2`, `log10`, `sqrt`)
 - the trigonometric and hyperbolic families (`sin`, `cos`, `tan`, `asin`,
@@ -338,13 +338,22 @@ following error rather than returning a derivative:
 
 Use the finite-difference default for a transform that needs any of them.
 
+`median()`, `quantile()`, and a trimmed `mean(x, trim)` error too, for a reason
+worth separating from the others. Each selects among the order statistics of
+its argument, so its derivative follows whichever order statistics the current
+values happen to select. That is not the derivative of the population quantity,
+so a variance built from it would not be valid. It is the same reason
+`ee_percentile()` has no usable bread under any derivative method. The
+finite-difference methods do return a number for these, but the number inherits
+the same problem.
+
 ### The base R functions that stop exact differentiation
 
 Five base R functions that look like natural choices inside a transform do not
 work under exact differentiation. Each hands its argument straight to compiled
-code that requires a plain number, so the call fails with a `non-numeric
-argument to mathematical function` error instead of returning a derivative.
-deli exports a counterpart for each one:
+code that requires a plain number. deli catches the resulting failure and
+raises its own error, naming the function that stopped the computation and the
+deli function to write instead. deli exports a counterpart for each one:
 
 | Use this deli function   | in place of                    | because base R |
 | ------------------------ | ------------------------------ | -------------- |
@@ -365,6 +374,11 @@ your readers already know. The last two rows are exempt: `digamma()` and
 that the polygamma pair takes its arguments in opposite orders, so the two are
 not interchangeable by position alone.
 
+The table lists the five functions with a deli counterpart, but the rule reaches
+further. Every distribution function in `stats` fails the same way, `qnorm()`
+and `dbinom()` among them. The error names whichever one stopped the
+computation, whether or not deli has a replacement for it.
+
 One limitation applies to custom code. The reshaping and binding helpers
 `matrix()`, `rbind()`, and `cbind()`, along with `ifelse()`, differentiate
 exactly only when they are called from within the package. A user-defined
@@ -375,25 +389,21 @@ default otherwise. Where you would reach for `ifelse()`, write
 `ind * yes + (1 - ind) * no`, which is ordinary arithmetic and differentiates
 exactly.
 
-Arithmetic, `%*%`, `t()`, `[`, and `c()` are the operations that always carry
-derivatives, because deli registers each as an S3 method and S3 dispatch does
-not depend on where the call is written. Build a p-by-n return with
-`t(X * resid)`, the idiom `ee_regression()` itself uses. Use `c()` to flatten a
-matrix-shaped result such as `X %*% theta` down to a vector; `as.numeric()`
-cannot do that job under exact differentiation, because it has to return a
-plain double and so cannot carry a derivative, and it aborts rather than
-silently returning a zero one.
+Arithmetic, `%*%`, `t()`, `[`, `c()`, and `mean()` are the operations that
+always carry derivatives, because deli registers each as an S3 method and S3
+dispatch does not depend on where the call is written. Build a p-by-n return
+with `t(X * resid)`, the idiom `ee_regression()` itself uses. Use `c()` to
+flatten a matrix-shaped result such as `X %*% theta` down to a vector;
+`as.numeric()` cannot do that job under exact differentiation, because it has
+to return a plain double and so cannot carry a derivative. It aborts on any
+value that carries one rather than silently handing back a zero derivative,
+including a single parameter such as `as.numeric(theta[1])`, where the primal
+is already a plain double and returning it would have looked harmless.
 
 `c()` has one wrinkle worth knowing. R dispatches it on its first argument
 alone, so a call that starts with a plain number never reaches deli's method:
 write `c(theta[1], 0)` rather than `c(0, theta[1])`. The wrong order fails
 loudly rather than returning a zero derivative, so it is not a silent trap.
-
-`mean()` is the quietest of these traps. It dispatches to `mean.default()`,
-which sits outside every group generic deli supports, so a tangent-carrying
-argument produces the warning `argument is not numeric or logical: returning
-NA` and a derivative of zero rather than an error. Write `sum(x) / length(x)`
-instead, which differentiates exactly because both `sum()` and `length()` do.
 
 ## Next steps
 - `vignette("custom-estimating-equations")`: Write your own estimating

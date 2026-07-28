@@ -3,7 +3,7 @@
 
 ## usethis namespace: start
 #' @import S7
-#' @importFrom stats dnorm plogis pnorm pt qlogis qnorm quantile qt
+#' @importFrom stats dnorm median plogis pnorm pt qlogis qnorm quantile qt
 ## usethis namespace: end
 NULL
 

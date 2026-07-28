@@ -14,8 +14,8 @@ Jacobian.}
 vector (or scalar). The function may use standard arithmetic operators and
 math functions (\code{+}, \code{-}, \code{*}, \code{/}, \code{^}, \code{exp}, \code{log}, \code{sqrt}, \code{sin},
 \code{cos}, etc.). The matrix product \code{\%*\%}, the transpose \code{t()}, the
-concatenation \code{c()}, and two-dimensional indexing differentiate exactly in
-any function, because each is a registered S3 method. The
+concatenation \code{c()}, \code{mean()}, and two-dimensional indexing differentiate
+exactly in any function, because each is a registered S3 method. The
 reshaping, binding, and reduction operations \code{matrix()}, \code{rbind()},
 \code{cbind()}, \code{rep()}, and \code{colSums()} differentiate exactly for functions
 evaluated within the package (such as the built-in estimating equations),
@@ -24,13 +24,16 @@ scope there; a user-defined function that calls them from the global
 environment reaches the base versions, and the differentiation aborts
 rather than returning a silent approximation. Coercion cannot preserve a
 derivative: \code{as.numeric()} and \code{as.double()} must return a plain double, so
-they abort on the parameter vector and on any tangent-carrying value that
-holds a vector or a matrix, rather than dropping the tangents silently.
-Use \code{c()} to flatten a matrix-shaped result such as \code{X \%*\% theta} to a
-vector instead. \code{log(x, base)} differentiates
+they abort on any tangent-carrying value rather than dropping the tangents
+silently. Use \code{c()} to flatten a matrix-shaped result such as
+\code{X \%*\% theta} to a vector instead. \code{log(x, base)} differentiates
 with respect to \code{x} only; the \code{base} argument is treated as a constant, and
 a \code{base} that itself carries a tangent (a value derived from \code{theta}) is not
-supported and aborts rather than dropping the base's contribution.}
+supported and aborts rather than dropping the base's contribution.
+\code{median()}, \code{quantile()}, and \code{mean(x, trim)} select among the order
+statistics of their argument, whose derivative is that of whichever order
+statistic the current values select rather than that of the population
+quantity, so each aborts as well.}
 }
 \value{
 A matrix where element \verb{[i, j]} is the partial derivative of
@@ -42,4 +45,15 @@ differentiation via primal-tangent pairs. Uses one forward pass per
 parameter direction with scalar tangents, which correctly handles
 interactions between parameters and data vectors.
 }
+\section{Conditions}{
+
+The aborts raised under exact differentiation carry condition classes, which
+are the first in the package: \code{deli_exact_tangent_lost} when derivative
+information is gone or a coercion would discard it,
+\code{deli_exact_unsupported_function} when a function reached with a
+tangent-carrying argument has no rule under exact differentiation, and
+\code{deli_exact_unsupported_shape} when a result keeps its tangents but arrives
+in a container that summing the estimating equations has no reduction for.
+}
+
 \keyword{internal}

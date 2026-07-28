@@ -52,6 +52,25 @@ compute_bread <- function(
       # takes the branch above instead.
       return(lapply(ef, sum))
     }
+    # Under the exact pass, any other list shape is one this step cannot sum.
+    # `base::rbind()` on a single tangent-carrying value, which is what a psi
+    # written in the global environment reaches, builds a 1-by-2 list matrix
+    # holding one slot per cell. Its first element is a numeric slot rather than
+    # a pair, which is why it misses the list-of-pairs branch above; its `dim` is
+    # why it would go on to reach `rowSums()` below, which fails with the opaque
+    # `'x' must be numeric or complex`. Route it to a diagnostic instead.
+    #
+    # The two ways a list can arrive here are different failures. A list whose
+    # elements still carry tangents, such as an `lapply()` returning one tangent
+    # array per equation, has lost nothing and only its container shape is
+    # unsupported, so it gets its own condition rather than being told the
+    # derivatives are gone.
+    if (deriv_method == "exact" && is.list(ef)) {
+      if (any(vapply(ef, is_tangent_container, logical(1)))) {
+        pt_unsupported_shape_abort()
+      }
+      pt_tangent_lost_abort()
+    }
     if (is.null(dim(ef))) {
       return(sum(ef))
     }

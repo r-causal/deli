@@ -24,10 +24,13 @@
 # `plogis`, or the `Math` group rules change, the documentation becomes wrong and
 # a failure here is what says so.
 #
-# The error the base R primitives raise ("Non-numeric argument to mathematical
-# function", whose capitalization varies between primitives) comes from base R
-# rather than from deli, so these tests assert only that an error is raised and
-# never match its text.
+# The base R primitives raise "Non-numeric argument to mathematical function"
+# from compiled code, with capitalization that varies between primitives. deli
+# catches that error inside auto_differentiation(), reads the offending function
+# off the failing call, and re-raises its own abort naming both the function and
+# its deli replacement, with the class deli_exact_unsupported_function. These
+# tests therefore assert on the class and on the two function names, which is
+# what the documentation promises, rather than on the surrounding prose.
 #
 # Numeric agreement between each deli function and its counterpart on plain
 # numeric input lives with the functions themselves, in test-transforms.R and
@@ -62,6 +65,11 @@ positive_scale <- function(theta) exp(theta[2])
 #     so exact mode is the discriminator rather than the function itself;
 #   * under exact mode the base R transform either errors or matches the deli
 #     result, according to `base_exact_works`.
+#
+# When it errors, the abort must carry the deli_exact_unsupported_function class
+# and name both halves of the pair, so a user reading it learns which call
+# failed and what to write instead. Both names come from `pair`, which is
+# written as "<deli function> / <base R function>".
 #
 # The strictly positive variance keeps the comparisons from passing vacuously
 # against a zero Jacobian. The 1e-5 tolerance follows the package convention for
@@ -114,9 +122,16 @@ expect_exact_mode_split <- function(
       label = paste0(pair, ": base R exact vs deli exact")
     )
   } else {
-    testthat::expect_error(
-      delta_method(fit, transform = base_transform, deriv_method = "exact")
+    err <- testthat::expect_error(
+      delta_method(fit, transform = base_transform, deriv_method = "exact"),
+      class = "deli_exact_unsupported_function"
     )
+    # cli wraps the bullets, so runs of whitespace collapse to a single space
+    # before the two names are matched.
+    pair_names <- strsplit(pair, " / ", fixed = TRUE)[[1]]
+    flat <- gsub("[[:space:]]+", " ", conditionMessage(err))
+    testthat::expect_match(flat, pair_names[2], fixed = TRUE)
+    testthat::expect_match(flat, pair_names[1], fixed = TRUE)
   }
   invisible(deli_exact)
 }
@@ -222,7 +237,8 @@ test_that("inverse_logit() in a psi solves under exact mode where plogis() error
   expect_equal(vcov(m_base), vcov(m), tolerance = 1e-6)
 
   expect_error(
-    m_estimate(stacked_equations = psi_base, init = 0, deriv_method = "exact")
+    m_estimate(stacked_equations = psi_base, init = 0, deriv_method = "exact"),
+    class = "deli_exact_unsupported_function"
   )
 })
 
@@ -253,6 +269,7 @@ test_that("standard_normal_cdf() in a psi solves under exact mode where pnorm() 
   expect_equal(vcov(m_base), vcov(m), tolerance = 1e-6)
 
   expect_error(
-    m_estimate(stacked_equations = psi_base, init = 0, deriv_method = "exact")
+    m_estimate(stacked_equations = psi_base, init = 0, deriv_method = "exact"),
+    class = "deli_exact_unsupported_function"
   )
 })

@@ -77,17 +77,20 @@ logit <- function(prob) {
 #' replaces each value with an object carrying both the value and its
 #' derivative. deli supports those objects through S3 methods: the `Ops`,
 #' `Math`, and `Summary` group generics, plus non-group methods such as `[`,
-#' `%*%`, and `t()`. [standard_normal_cdf()], [standard_normal_pdf()],
-#' [deli_polygamma()], and [deli_digamma()] recognize a tangent-carrying
-#' argument themselves and apply their own analytic rule. Support within the
-#' group generics is partial; see `vignette("getting-started")` for the
-#' operations deli differentiates.
+#' `%*%`, `t()`, `c()`, and `mean()`. [standard_normal_cdf()],
+#' [standard_normal_pdf()], [deli_polygamma()], and [deli_digamma()] recognize a
+#' tangent-carrying argument themselves and apply their own analytic rule.
+#' Support within the group generics is partial; see
+#' `vignette("getting-started")` for the operations deli differentiates.
 #'
 #' `plogis()`, `qlogis()`, `pnorm()`, `dnorm()`, and `psigamma()` take none of
 #' these paths. Each hands its argument straight to compiled code through
 #' `.Call()` or `.Internal()` without dispatching, so the tangent reaches C code
-#' that requires a plain number and the call stops with a
-#' `non-numeric argument to mathematical function` error.
+#' that requires a plain number. deli catches the resulting failure and raises
+#' its own error, naming the function that stopped the computation and the deli
+#' function to write in its place. The same applies to every other distribution
+#' function in `stats`, such as `qnorm()`, which is named in the error even
+#' though deli exports no counterpart for it.
 #'
 #' Each deli utility below returns the same values as its base R counterpart for
 #' numeric input. What separates them is whether the counterpart survives exact

@@ -2272,3 +2272,478 @@ test_that("c() ports the as.numeric linear-predictor idiom to exact mode", {
   approx <- compute_bread(psi, beta, deriv_method = "capprox")
   expect_equal(exact, approx, tolerance = 1e-5)
 })
+
+# ---- mean() as a linear reduction -------------------------------------------
+
+test_that("mean() on a PrimalTangentVector averages both slots", {
+  vec <- primal_tangent_vector(list(
+    primal_tangent(2, 1),
+    primal_tangent(4, 0),
+    primal_tangent(6, 0)
+  ))
+  result <- mean(vec)
+  expect_s3_class(result, "PrimalTangent")
+  expect_equal(result$primal, 4)
+  expect_equal(result$tangent, 1 / 3)
+})
+
+test_that("mean() on a tangent array averages both slots", {
+  arr <- primal_tangent_array(c(1, 2, 3, 4), c(1, 1, 0, 0))
+  result <- mean(arr)
+  expect_equal(result$primal, 2.5)
+  expect_equal(result$tangent, 0.5)
+})
+
+test_that("mean() on a vector-payload scalar pair recycles the broadcast tangent", {
+  # `theta[k] * X` leaves a scalar pair whose primal is a vector and whose
+  # tangent is a single broadcast value. The mean has to average the tangent
+  # over the primal's length rather than over the length-1 tangent slot, which
+  # would divide a single derivative by the number of observations.
+  pair <- primal_tangent(c(2, 4, 6), 2)
+  result <- mean(pair)
+  expect_equal(result$primal, 4)
+  expect_equal(result$tangent, 2)
+})
+
+test_that("mean() raises no condition and agrees with sum(x) / length(x)", {
+  # A tangent-carrying argument used to reach mean.default(), which warned
+  # "argument is not numeric or logical: returning NA" and returned NA. The NA
+  # then flowed into plain numeric arithmetic, so the Jacobian column read zero
+  # and the standard error came back as zero.
+  vec <- primal_tangent_vector(list(primal_tangent(1, 1), primal_tangent(3, 0)))
+  expect_no_warning(mean(vec))
+  by_hand <- sum(vec) / length(vec)
+  expect_equal(mean(vec)$primal, by_hand$primal)
+  expect_equal(mean(vec)$tangent, by_hand$tangent)
+})
+
+test_that("mean() with na.rm drops by primal NA and masks the tangent", {
+  arr <- primal_tangent_array(c(1, NA, 3), c(1, 5, 0))
+  result <- mean(arr, na.rm = TRUE)
+  expect_equal(result$primal, 2)
+  expect_equal(result$tangent, 0.5)
+  expect_true(is.na(mean(arr)$primal))
+})
+
+test_that("mean() with a nonzero trim aborts", {
+  arr <- primal_tangent_array(c(1, 2, 3, 4), c(1, 0, 0, 0))
+  expect_error(
+    mean(arr, trim = 0.25),
+    class = "deli_exact_unsupported_function"
+  )
+})
+
+test_that("mean() in a delta-method transform matches the finite difference", {
+  covariance <- base::matrix(c(0.04, 0.01, 0.01, 0.09), 2, 2)
+  transform <- function(theta) mean(theta)
+  expect_equal(
+    delta_method(
+      c(1.5, 2.5),
+      transform = transform,
+      covariance = covariance,
+      deriv_method = "exact"
+    ),
+    delta_method(
+      c(1.5, 2.5),
+      transform = transform,
+      covariance = covariance,
+      deriv_method = "capprox"
+    ),
+    tolerance = 1e-5
+  )
+})
+
+test_that("mean() in a psi gives the same variance as the finite-difference bread", {
+  y <- c(1, 2, 3, 4, 5)
+  psi <- function(theta) rbind(y - mean(theta))
+  m <- m_estimate(stacked_equations = psi, init = 0, deriv_method = "exact")
+  expect_equal(unname(coef(m)), mean(y))
+  expect_gt(unname(sqrt(diag(vcov(m)))), 0)
+  m_cap <- m_estimate(
+    stacked_equations = psi,
+    init = 0,
+    deriv_method = "capprox"
+  )
+  expect_equal(vcov(m), vcov(m_cap), tolerance = 1e-6)
+})
+
+test_that("a base::rbind psi around mean() aborts instead of reporting a zero variance", {
+  # deli's tangent-aware rbind() is masked inside the package namespace only,
+  # and testthat::test_env() clones that namespace, so a bare rbind() in a test
+  # resolves to a function a user in the global environment never reaches.
+  # base:: is named explicitly to pin the resolution a user actually gets.
+  #
+  # Giving mean() a tangent rule turns this repro from a silent zero standard
+  # error into a loud abort, which is an improvement but a different claim: a
+  # base::rbind() of one tangent-carrying value builds a 1-by-2 list matrix, one
+  # cell per slot, so the derivative is gone before the bread is summed.
+  y <- c(1, 2, 3, 4, 5)
+  psi <- function(theta) base::rbind(y - mean(theta))
+  expect_error(
+    m_estimate(stacked_equations = psi, init = 0, deriv_method = "exact"),
+    class = "deli_exact_tangent_lost"
+  )
+})
+
+# ---- median() and quantile() decline order-statistic selection ---------------
+
+test_that("median() aborts on every tangent surface", {
+  vec <- primal_tangent_vector(list(primal_tangent(1, 1), primal_tangent(3, 0)))
+  arr <- primal_tangent_array(c(1, 3), c(1, 0))
+  pair <- primal_tangent(c(1, 3), 1)
+  expect_error(median(vec), class = "deli_exact_unsupported_function")
+  expect_error(median(arr), class = "deli_exact_unsupported_function")
+  expect_error(median(pair), class = "deli_exact_unsupported_function")
+})
+
+test_that("quantile() aborts on every tangent surface", {
+  vec <- primal_tangent_vector(list(primal_tangent(1, 1), primal_tangent(3, 0)))
+  arr <- primal_tangent_array(c(1, 3), c(1, 0))
+  pair <- primal_tangent(c(1, 3), 1)
+  expect_error(quantile(vec, 0.5), class = "deli_exact_unsupported_function")
+  expect_error(quantile(arr, 0.5), class = "deli_exact_unsupported_function")
+  expect_error(quantile(pair, 0.5), class = "deli_exact_unsupported_function")
+})
+
+test_that("a median transform aborts rather than returning a 0-by-0 variance", {
+  # median() on a tangent-carrying value used to return an empty
+  # PrimalTangentVector, and delta_method handed back a 0-by-0 matrix with no
+  # error and no NA to signal that anything had gone wrong.
+  expect_error(
+    delta_method(
+      c(1.5, 2.5),
+      transform = function(theta) median(theta),
+      covariance = diag(2),
+      deriv_method = "exact"
+    ),
+    class = "deli_exact_unsupported_function"
+  )
+})
+
+test_that("a quantile transform aborts rather than differentiating an order statistic", {
+  expect_error(
+    delta_method(
+      c(1.5, 2.5),
+      transform = function(theta) quantile(theta, 0.5),
+      covariance = diag(2),
+      deriv_method = "exact"
+    ),
+    class = "deli_exact_unsupported_function"
+  )
+})
+
+test_that("the order-statistic abort names the function and offers capprox", {
+  arr <- primal_tangent_array(c(1, 3), c(1, 0))
+  flat <- gsub(
+    "[[:space:]]+",
+    " ",
+    tryCatch(median(arr), error = conditionMessage)
+  )
+  expect_match(flat, "`median()`", fixed = TRUE)
+  expect_match(flat, "capprox", fixed = TRUE)
+})
+
+test_that("median() and quantile() on plain numeric data are unchanged", {
+  y <- c(3, 1, 2, 5, 4)
+  expect_equal(median(y), 3)
+  expect_equal(unname(quantile(y, 0.25)), 2)
+})
+
+# ---- compiled base R functions name themselves under exact mode -------------
+
+test_that("a compiled base R function names itself and its deli replacement", {
+  err <- expect_error(
+    auto_differentiation(0.5, function(theta) plogis(theta[1])),
+    class = "deli_exact_unsupported_function"
+  )
+  flat <- gsub("[[:space:]]+", " ", conditionMessage(err))
+  expect_match(flat, "`plogis()`", fixed = TRUE)
+  expect_match(flat, "inverse_logit", fixed = TRUE)
+})
+
+test_that("a namespace-qualified call is named without its namespace", {
+  err <- expect_error(
+    auto_differentiation(0.5, function(theta) stats::pnorm(theta[1])),
+    class = "deli_exact_unsupported_function"
+  )
+  flat <- gsub("[[:space:]]+", " ", conditionMessage(err))
+  expect_match(flat, "`pnorm()`", fixed = TRUE)
+  expect_match(flat, "standard_normal_cdf", fixed = TRUE)
+})
+
+test_that("a compiled function with no deli replacement is still named", {
+  # Every distribution function raises the same compiled-code error, so the
+  # abort reads the offender off the failing call and looks it up in a
+  # replacement table rather than matching a fixed list of five names. qnorm()
+  # has no deli counterpart and still has to be named, with the generic remedy.
+  err <- expect_error(
+    auto_differentiation(0.5, function(theta) qnorm(theta[1])),
+    class = "deli_exact_unsupported_function"
+  )
+  flat <- gsub("[[:space:]]+", " ", conditionMessage(err))
+  expect_match(flat, "`qnorm()`", fixed = TRUE)
+  expect_match(flat, "capprox", fixed = TRUE)
+})
+
+test_that("the psigamma abort records the reversed argument order", {
+  err <- expect_error(
+    auto_differentiation(1.5, function(theta) psigamma(theta[1], deriv = 1)),
+    class = "deli_exact_unsupported_function"
+  )
+  flat <- gsub("[[:space:]]+", " ", conditionMessage(err))
+  expect_match(flat, "deli_polygamma", fixed = TRUE)
+  expect_match(flat, "deriv", fixed = TRUE)
+})
+
+test_that("an unrelated error inside a differentiated function propagates unchanged", {
+  boom <- function(theta) stop("a deliberate failure")
+  err <- tryCatch(auto_differentiation(1, boom), error = function(e) e)
+  expect_s3_class(err, "simpleError")
+  expect_equal(conditionMessage(err), "a deliberate failure")
+})
+
+test_that("the tangent-loss abort keeps its class through the compiled-error handler", {
+  strip <- function(theta) base::rbind(theta[1], theta[2])
+  expect_error(
+    auto_differentiation(c(1, 2), strip),
+    class = "deli_exact_tangent_lost"
+  )
+})
+
+# ---- coercing a genuinely scalar pair ---------------------------------------
+
+test_that("as.numeric() on a genuinely scalar pair aborts", {
+  # The last coercion hole. A scalar pair's primal is already a plain double, so
+  # as.numeric() could hand it back and did, dropping the tangent with no NA and
+  # no warning for any later rule to catch.
+  pair <- primal_tangent(1.5, 1)
+  expect_error(as.numeric(pair), class = "deli_exact_tangent_lost")
+  expect_error(as.double(pair), class = "deli_exact_tangent_lost")
+})
+
+test_that("coercing a scalar pair aborts instead of zeroing the Jacobian", {
+  transform <- function(theta) 2 * as.numeric(theta[1])
+  expect_error(
+    delta_method(
+      c(1.5, 2.5),
+      transform = transform,
+      covariance = diag(2),
+      deriv_method = "exact"
+    ),
+    class = "deli_exact_tangent_lost"
+  )
+  # The finite-difference reference is unaffected and returns the variance the
+  # exact pass used to report as zero.
+  expect_equal(
+    delta_method(
+      c(1.5, 2.5),
+      transform = transform,
+      covariance = diag(2),
+      deriv_method = "capprox"
+    ),
+    base::matrix(4),
+    tolerance = 1e-5
+  )
+})
+
+test_that("as.logical() on a scalar pair still returns the primal logical", {
+  # Coercion to logical stays, because a logical is not a type a derivative can
+  # flow through: every value that reaches it has already dropped its tangent by
+  # design, since comparisons return primal logicals and sign() has a zero
+  # tangent rule. A double is different, because it is the type the tangent does
+  # flow through, so returning one silently truncates a live derivative.
+  expect_true(as.logical(primal_tangent(1, 1)))
+  expect_false(as.logical(primal_tangent(0, 1)))
+})
+
+# ---- NA-scoped tangent-loss abort in extract_tangent_column ------------------
+
+test_that("a plain numeric result containing NA aborts", {
+  f <- function(theta) c(1, NA_real_)
+  expect_error(auto_differentiation(1, f), class = "deli_exact_tangent_lost")
+})
+
+test_that("a tangent-free plain numeric result with no NA still reports zeros", {
+  # A genuinely constant output has derivative zero and has to keep reporting
+  # it. ee_percentile depends on the same rule: its indicator score carries no
+  # tangent by construction, because comparisons return primal logicals by
+  # design, and its identically zero bread is pinned in
+  # test-exact-mode-acceptance.R.
+  f <- function(x) 5
+  expect_equal(auto_differentiation(1, f)[1, 1], 0)
+})
+
+test_that("a list matrix from base::rbind aborts rather than failing inside rowSums", {
+  # base::rbind() on one tangent-carrying value builds a 1-by-2 list matrix, one
+  # cell per slot. It carries a dim, so it misses compute_bread's list-of-pairs
+  # branch and used to reach rowSums(), which failed with the opaque
+  # "'x' must be numeric or complex" before any diagnostic could run.
+  y <- c(1, 2, 3)
+  psi <- function(theta) base::rbind(y - theta[1])
+  expect_error(
+    compute_bread(psi, 0, deriv_method = "exact"),
+    class = "deli_exact_tangent_lost"
+  )
+})
+
+# ---- a length-1 payload that carries a dim ----------------------------------
+
+test_that("a length-1 payload with a dim is not treated as a scalar pair", {
+  # pt_is_scalar() rejects a payload that carries dimensions even when it holds
+  # a single value, which is the clause a naive length-1 test would drop. With
+  # the dim clause the pair takes the array paths, so `[` subsets the payload
+  # and returns a dimensionless scalar pair; without it the pair would
+  # self-select and hand back a primal that is still a 1-by-1 matrix.
+  pair <- primal_tangent(base::matrix(5, 1, 1), 1)
+  expect_false(pt_is_scalar(pair))
+  expect_equal(dim(pair), c(1L, 1L))
+  selected <- pair[1]
+  expect_s3_class(selected, "PrimalTangent")
+  expect_null(dim(selected$primal))
+  expect_equal(selected$primal, 5)
+  expect_equal(selected$tangent, 1)
+  expect_error(as.numeric(pair), class = "deli_exact_tangent_lost")
+})
+
+# ---- the compiled-error rewrite is scoped to functions that never dispatch ---
+
+test_that("the Math group listing separates dispatching members from stats functions", {
+  # Every entry in the replacement table has to stay outside the group, or its
+  # rewrite would be skipped.
+  expect_true(all(c("log", "sqrt", "round") %in% pt_math_group_members))
+  expect_false(any(
+    c("psigamma", "plogis", "qlogis", "pnorm", "dnorm", "qnorm") %in%
+      pt_math_group_members
+  ))
+  # Every member listed dispatches, which is what makes the compiled-code
+  # message from one of them a statement about its data rather than about deli.
+  # A primal of 1 is inside the domain of every member, so none of them warns
+  # about producing a NaN.
+  pair <- primal_tangent(1, 1)
+  dispatches <- vapply(
+    pt_math_group_members,
+    function(fname) {
+      result <- tryCatch(do.call(fname, list(pair)), error = conditionMessage)
+      is_pt(result) || grepl("is not supported for a", result)
+    },
+    logical(1)
+  )
+  expect_true(all(dispatches))
+})
+
+test_that("a Math group member failing on its data keeps the base error", {
+  # log() dispatches, so a tangent-carrying argument reaches deli's own method
+  # and never gets as far as compiled code. The same message raised from a
+  # character column is a data problem, and rewriting it would claim deli
+  # cannot differentiate a function it differentiates.
+  dose <- c("low", "high")
+  psi <- function(theta) t(log(dose) - theta[1])
+  err <- tryCatch(
+    compute_bread(psi, 0, deriv_method = "exact"),
+    error = function(e) e
+  )
+  expect_false(inherits(err, "deli_exact_unsupported_function"))
+  expect_match(
+    conditionMessage(err),
+    "non-numeric argument to mathematical function"
+  )
+})
+
+test_that("a compiled function outside the group generics is still rewritten", {
+  err <- expect_error(
+    auto_differentiation(0.5, function(theta) plogis(theta[1])),
+    class = "deli_exact_unsupported_function"
+  )
+  flat <- gsub("[[:space:]]+", " ", conditionMessage(err))
+  expect_match(flat, "`plogis()`", fixed = TRUE)
+})
+
+test_that("a compiled call reached indirectly keeps the base error", {
+  # The failing call is `get("plogis")(theta[1])`, whose function position is a
+  # call rather than a name, so no offender can be read off it. Naming the
+  # wrong function would be worse than handing back what base R said.
+  err <- tryCatch(
+    auto_differentiation(0.5, function(theta) get("plogis")(theta[1])),
+    error = function(e) e
+  )
+  expect_false(inherits(err, "deli_exact_unsupported_function"))
+  expect_match(
+    conditionMessage(err),
+    "[Nn]on-numeric argument to mathematical function"
+  )
+})
+
+# ---- NaN is a constant, not evidence of a dropped tangent -------------------
+
+test_that("a tangent-free NaN reports zero derivatives rather than aborting", {
+  # anyNA() counts NaN as missing, which would report a lost derivative for a
+  # value arithmetic on numbers produces. The NA rule is about a function that
+  # returned NA for an argument it did not recognize.
+  f <- function(theta) c(1, NaN)
+  expect_no_error(auto_differentiation(1, f))
+  expect_equal(auto_differentiation(1, f)[, 1], c(0, 0))
+})
+
+# ---- mean() over a matrix payload -------------------------------------------
+
+test_that("mean() on a matrix-payload tangent array averages every cell", {
+  arr <- primal_tangent_array(
+    base::matrix(c(1, 2, 3, 4), 2, 2),
+    base::matrix(c(1, 1, 0, 0), 2, 2)
+  )
+  result <- mean(arr)
+  expect_s3_class(result, "PrimalTangent")
+  expect_equal(result$primal, 2.5)
+  expect_equal(result$tangent, 0.5)
+  expect_null(dim(result$primal))
+})
+
+test_that("mean() on a tangent array matches base mean() on the primal", {
+  # sum(x) / n and mean(x) disagree around the tenth significant digit on a
+  # cancellation-heavy vector, because mean() makes a second pass to correct the
+  # rounding error. The primal slot follows base R.
+  values <- c(1e16, 1, -1e16, 2, 3)
+  arr <- primal_tangent_array(values, rep(1, 5))
+  expect_identical(mean(arr)$primal, mean(values))
+})
+
+# ---- intact tangents in an unsupported container ----------------------------
+
+test_that("a list of tangent arrays reports an unsupported shape", {
+  # An lapply() over several equations returns a list whose elements each still
+  # carry their tangents. Nothing was lost, so reporting a lost tangent would
+  # send the reader looking for a stripping function that is not there.
+  X <- base::matrix(c(1, 1, 1, 2), 2, 2)
+  psi <- function(theta) lapply(1:2, function(k) (X %*% theta) * k)
+  err <- expect_error(
+    compute_bread(psi, c(0, 0), deriv_method = "exact"),
+    class = "deli_exact_unsupported_shape"
+  )
+  flat <- gsub("[[:space:]]+", " ", conditionMessage(err))
+  expect_match(flat, "container shape", fixed = TRUE)
+})
+
+test_that("a list matrix with no tangents still reports a lost tangent", {
+  # base::rbind() on one tangent-carrying value builds a list matrix of plain
+  # numeric slots, so the derivative really is gone and the two conditions stay
+  # distinguishable.
+  y <- c(1, 2, 3)
+  psi <- function(theta) base::rbind(y - theta[1])
+  expect_error(
+    compute_bread(psi, 0, deriv_method = "exact"),
+    class = "deli_exact_tangent_lost"
+  )
+})
+
+test_that("a list-shaped return under capprox is left alone", {
+  # The list guard is scoped to the exact pass. A data.frame return is
+  # list-shaped and carries a dim, so rowSums() reduces it as intended under
+  # finite differences, and the guard must not intercept it.
+  y <- c(1, 2, 3, 4)
+  psi <- function(theta) as.data.frame(base::rbind(y - theta[1]))
+  expect_equal(
+    compute_bread(psi, 2, deriv_method = "capprox"),
+    base::matrix(4),
+    tolerance = 1e-6
+  )
+})
