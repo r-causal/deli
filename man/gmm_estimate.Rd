@@ -83,7 +83,9 @@ matrix is rescaled and inference switches to the t-distribution with
 constructor.}
 
 \item{solver}{Character string or function for the solver. Default \code{NULL}
-uses \code{"rootSolve"}.}
+uses \code{"rootSolve"} for M-estimation and \code{"BFGS"} for GMM. See \code{\link[=estimate]{estimate()}}
+for the full list of solvers and for how the returned point is judged
+against the estimating equations.}
 
 \item{maxiter}{Integer maximum iterations (default 5000).}
 

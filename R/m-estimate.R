@@ -51,7 +51,9 @@
 #'   `df = n_obs - n_params`. Passed straight through to the estimator
 #'   constructor.
 #' @param solver Character string or function for the solver. Default `NULL`
-#'   uses `"rootSolve"`.
+#'   uses `"rootSolve"` for M-estimation and `"BFGS"` for GMM. See [estimate()]
+#'   for the full list of solvers and for how the returned point is judged
+#'   against the estimating equations.
 #' @param maxiter Integer maximum iterations (default 5000).
 #' @param tolerance Numeric convergence tolerance (default 1e-9).
 #' @param deriv_method Character string for numerical differentiation method

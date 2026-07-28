@@ -1,5 +1,12 @@
 # ---- Helper ------------------------------------------------------------------
 
+# The reading of a returned point that uses nothing but the contributions of the
+# equations there, which is one of the two readings unsolved_point() combines.
+# Naming it separately is what lets the tests below pin each reading on its own.
+is_root <- function(ef, theta) {
+  is.null(unsolved_equation(ef, theta))
+}
+
 make_fitted_mean <- function(solver = "rootSolve") {
   ref <- load_fixture("ee_mean")
   y <- ref$y
@@ -345,6 +352,67 @@ test_that("a diverging rootSolve solve raises exactly one warning", {
   )
   expect_length(seen, 1L)
   expect_s3_class(seen[[1]], "deli_solver_not_converged")
+})
+
+test_that("a diverging rootSolve solve whose point is also unsolved warns once", {
+  set.seed(42)
+  n <- 50
+  w <- stats::rnorm(n)
+  mu <- stats::plogis(0.5 + 0.3 * w)
+  y <- stats::rbeta(n, mu * 10, (1 - mu) * 10)
+  x <- cbind(1, w)
+  # The runaway beta stack with a fourth equation no parameter value solves, so
+  # the returned point fails the readings as well as leaving multiroot
+  # reporting its convergence test failed. Both paths would report this solve
+  # and only one of them may.
+  psi <- function(theta) {
+    rbind(
+      ee_beta_regression(theta[1:3], X = x, y = y),
+      rep(theta[4]^2 + 1, n)
+    )
+  }
+  seen <- collect_warnings({
+    m <- estimate(MEstimator(
+      stacked_equations = psi,
+      init = c(0, 0, log(10), 1)
+    ))
+  })
+  expect_length(seen, 1L)
+  expect_match(
+    conditionMessage(seen[[1]]),
+    "did not converge to a root",
+    fixed = TRUE
+  )
+  theta <- unname(m@theta)
+  bread <- compute_bread(psi, theta, "capprox", 1e-9) / n
+  expect_false(is.null(unsolved_point(psi(theta), theta, bread)))
+})
+
+test_that("an exhausted rootSolve budget warns once and is not judged again", {
+  set.seed(3)
+  y1 <- stats::rnorm(200, mean = 4)
+  y2 <- stats::rnorm(200, mean = 2)
+  psi <- function(theta) {
+    rbind(
+      y1 - theta[1],
+      y2 - theta[2],
+      rep(theta[1] / theta[2] - theta[3], 200)
+    )
+  }
+  seen <- collect_warnings({
+    m <- estimate(
+      MEstimator(stacked_equations = psi, init = c(1, 1, 1)),
+      maxiter = 1
+    )
+  })
+  expect_length(seen, 1L)
+  expect_match(conditionMessage(seen[[1]]), "within 1 iteration", fixed = TRUE)
+  # One iteration leaves the ratio row far from solved, so the returned point
+  # would be reported a second time if the exhausted budget did not already
+  # count as a warning about this solve.
+  theta <- unname(m@theta)
+  bread <- compute_bread(psi, theta, "capprox", 1e-9) / 200
+  expect_false(is.null(unsolved_point(psi(theta), theta, bread)))
 })
 
 test_that("the same beta regression stays quiet from starting values that converge", {
@@ -699,6 +767,27 @@ test_that("an over-identified GMM fit is not judged by the size of its moments",
   expect_gt(max(abs(rowSums(psi(m@theta)))), 1)
 })
 
+test_that("a subset M fit is judged only on the equations it solves", {
+  set.seed(19)
+  y <- stats::rnorm(200, mean = 5)
+  psi <- function(theta) {
+    rbind(y - theta[1], (y - theta[1])^2 - theta[2])
+  }
+  # theta[1] is held at zero, far from the mean of y, so the first equation
+  # cannot vanish however well the fit went. Only the second is solved, so only
+  # the second may be judged.
+  expect_no_warning({
+    m <- estimate(
+      MEstimator(stacked_equations = psi, init = c(0, 1), subset = 2L)
+    )
+  })
+  expect_equal(unname(m@theta), c(0, mean(y^2)), tolerance = 1e-6)
+  # Judging the whole stack instead would report the first equation.
+  theta <- unname(m@theta)
+  bread <- compute_bread(psi, theta, "capprox", 1e-9) / 200
+  expect_equal(unsolved_point(psi(theta), theta, bread)$row, 1L)
+})
+
 test_that("a subset GMM fit is not judged by the size of its moments", {
   design <- cbind(1, mtcars$wt, mtcars$hp)
   psi <- function(theta) {
@@ -869,17 +958,19 @@ test_that("is_root() rejects an equation with no variation that does not vanish"
 })
 
 test_that("unsolved_equation() names the equation that failed", {
-  # Row 1's contributions all point the same way, so row 1 is what fails. Row 2
-  # leaves a far larger summed score but cancels well, so it passes. The number
-  # reported must be row 1's, not the largest score in the stack.
+  # Row 1's contributions all point the same way, so it cannot cancel and is
+  # judged on its size against the scale of the stack, which it misses. Row 2
+  # leaves a summed score three hundred times larger but cancels well, so it
+  # passes. The number reported must be row 1's, not the largest score in the
+  # stack.
   ef <- rbind(
-    c(0.1, 0.2, 0.15, 0.3, 0.25),
+    c(100, 200, 150, 300, 250),
     c(1e6, -1e6, 1e6, -1e6, 3e5)
   )
   found <- unsolved_equation(ef, c(1, 1))
   expect_equal(found$row, 1L)
   expect_false(found$constant)
-  expect_equal(found$score, 1)
+  expect_equal(found$score, 1000)
   expect_gt(max(abs(rowSums(ef))), 1e5)
 })
 
@@ -956,4 +1047,326 @@ test_that("GMM still warns on a tobit fit that stops far from the solution", {
   bread <- compute_bread(psi, g@theta, "capprox", 1e-9) / 200
   step <- relative_newton_step(bread, rowSums(psi(g@theta)) / 200, g@theta)
   expect_lt(step, newton_step_ceiling)
+})
+
+# ---- equations whose contributions all carry one sign -------------------------
+#
+# The share of an equation's contributions that fails to cancel is exactly one
+# whenever they all carry the same sign, whatever else varies across
+# observations, so for such an equation the share says nothing about how close
+# the point is to a root. An equation with no variation is only one way to reach
+# that state. The relation rows of the ratio stack and of the causal estimators
+# multiplied by an observation weight are another: they are not n copies of one
+# value, so an exact-equality test does not recognise them, yet they cannot
+# cancel and their share is one at a point that solves them to the last
+# representable digit.
+
+# The ratio of two weighted means, written as the ratio stack of
+# vignette("custom-estimating-equations") with an observation weight on every
+# row, including the relation row.
+weighted_ratio_psi <- function(seed, n = 200, scale = 1e10) {
+  set.seed(seed)
+  y1 <- stats::rnorm(n, mean = 4, sd = 1)
+  y2 <- stats::rnorm(n, mean = 2, sd = 1)
+  wt <- stats::runif(n, 0.5, 2)
+  function(theta) {
+    scale *
+      rbind(
+        wt * (y1 - theta[1]),
+        wt * (y2 - theta[2]),
+        wt * (theta[1] / theta[2] - theta[3])
+      )
+  }
+}
+
+# The solution of that stack in closed form.
+weighted_ratio_theta <- function(seed, n = 200) {
+  set.seed(seed)
+  y1 <- stats::rnorm(n, mean = 4, sd = 1)
+  y2 <- stats::rnorm(n, mean = 2, sd = 1)
+  wt <- stats::runif(n, 0.5, 2)
+  means <- c(sum(wt * y1), sum(wt * y2)) / sum(wt)
+  c(means, means[[1]] / means[[2]])
+}
+
+test_that("is_root() judges a one-sided equation by its size, not by its share", {
+  y <- c(3, 5, 7, 9)
+  wt <- c(0.7, 1.3, 0.9, 1.1)
+  theta <- c(6, 6 - 1e-9)
+  # A mean equation solved exactly and a weighted contrast solved to within a
+  # billionth, which is a root by any reasonable reading. The contrast row takes
+  # a different value at every observation, so no exact-equality test sees it,
+  # and every contribution carries the same sign, so its share is exactly one.
+  stack <- function(scale) {
+    rbind(scale * (y - theta[1]), scale * wt * (theta[1] - theta[2]))
+  }
+  for (scale in c(1e6, 1e9, 1e12)) {
+    ef <- stack(scale)
+    expect_gt(max(abs(rowSums(ef))), score_floor)
+    expect_false(isTRUE(all(ef[2, ] == ef[2, 1L])))
+    expect_equal(abs(sum(ef[2, ])) / sum(abs(ef[2, ])), 1)
+    expect_true(is_root(ef, theta))
+  }
+})
+
+test_that("is_root() rejects a one-sided equation that does not vanish", {
+  y <- c(3, 5, 7, 9)
+  wt <- c(0.7, 1.3, 0.9, 1.1)
+  theta <- c(6, 5)
+  # The weighted contrast demands theta[1] == theta[2] and is out by a unit.
+  stack <- function(scale) {
+    rbind(scale * (y - theta[1]), scale * wt * (theta[1] - theta[2]))
+  }
+  for (scale in c(1, 1e6, 1e12)) {
+    expect_false(is_root(stack(scale), theta))
+  }
+})
+
+test_that("a weighted ratio stack solved to the last digit does not warn", {
+  skip_if_not_installed("nleqslv")
+  for (seed in 1:6) {
+    for (solver in c("rootSolve", "nleqslv")) {
+      expect_no_warning({
+        m <- estimate(
+          MEstimator(
+            stacked_equations = weighted_ratio_psi(seed),
+            init = c(1, 1, 1)
+          ),
+          solver = solver
+        )
+      })
+      expect_equal(
+        unname(m@theta),
+        weighted_ratio_theta(seed),
+        tolerance = 1e-12
+      )
+    }
+  }
+})
+
+test_that("a weighted ratio stack is judged when its relation does not vanish", {
+  # The same stack with a relation no parameter value can satisfy: a ratio of
+  # two positive means cannot equal minus one times a square plus one.
+  set.seed(4)
+  n <- 200
+  y1 <- stats::rnorm(n, mean = 4, sd = 1)
+  y2 <- stats::rnorm(n, mean = 2, sd = 1)
+  wt <- stats::runif(n, 0.5, 2)
+  psi <- function(theta) {
+    rbind(
+      wt * (y1 - theta[1]),
+      wt * (y2 - theta[2]),
+      wt * (theta[1] / theta[2] + theta[3]^2 + 1)
+    )
+  }
+  seen <- collect_warnings(
+    estimate(GMMEstimator(stacked_equations = psi, init = c(1, 1, 1)))
+  )
+  expect_length(seen, 1L)
+  expect_s3_class(seen[[1]], "deli_solver_not_converged")
+  # The relation row is one-signed but not constant, so it is judged on its mean
+  # against the scale of the problem. The message must name that reading rather
+  # than the share reading, which did not judge this row.
+  expect_match(
+    conditionMessage(seen[[1]]),
+    "contributions of moment condition 3 all carry one sign",
+    fixed = TRUE
+  )
+  expect_no_match(conditionMessage(seen[[1]]), "do not cancel", fixed = TRUE)
+})
+
+# ---- solver reports that are judged rather than trusted -----------------------
+#
+# Every convergence test a solver applies is relative to something of its own:
+# the residuals it started from, the step it last took, or an absolute bound on
+# the function values. None of them is a statement that the estimating equations
+# are solved, so a report of success is judged against the returned point rather
+# than accepted. The judgement is made after the bread, because the Jacobian is
+# what measures the distance still to travel and it is computed for the sandwich
+# regardless.
+
+test_that("the lm solver warns when a met convergence test leaves the equations unsolved", {
+  skip_if_not_installed("minpack.lm")
+  set.seed(42)
+  n <- 400
+  w1 <- stats::rnorm(n)
+  w2 <- stats::rbinom(n, 1, 0.4)
+  a <- stats::rbinom(n, 1, stats::plogis(-0.5 + 0.5 * w1 + 0.3 * w2))
+  y <- 2 + 1.5 * a + w1 - 0.5 * w2 + stats::rnorm(n)
+  x <- cbind(1, a, w1, w2)
+  x1 <- cbind(1, 1, w1, w2)
+  x0 <- cbind(1, 0, w1, w2)
+  # Multiplying by 1e8 leaves the solution untouched and puts the residuals
+  # where nls.lm reports its relative sum-of-squares test met at the starting
+  # values, which is code 1 rather than the stall code 4.
+  psi <- function(theta) {
+    1e8 * ee_gformula(theta, y = y, X = x, X1 = x1, X0 = x0)
+  }
+  seen <- collect_warnings({
+    m <- estimate(
+      MEstimator(stacked_equations = psi, init = rep(0, 7)),
+      solver = "lm"
+    )
+  })
+  expect_length(seen, 1L)
+  expect_s3_class(seen[[1]], "deli_solver_not_converged")
+  # It never left the starting values, against a solution near (1.5, 1.9, 1.5).
+  expect_lt(max(abs(m@theta)), 1e-6)
+})
+
+test_that("nleqslv is judged when its function criterion is met without moving", {
+  skip_if_not_installed("nleqslv")
+  set.seed(4)
+  y <- stats::rnorm(200, mean = 5)
+  # Scaling a mean equation down by 1e-12 puts every function value under
+  # nleqslv's ftol, an absolute bound with a default of 1e-8, at the starting
+  # values. nleqslv therefore reports code 1, its function criterion met,
+  # without moving at all. The code is a statement about the size of the
+  # function values rather than about the parameters, so the point is judged.
+  psi <- function(theta) matrix(1e-12 * (y - theta[1]), nrow = 1)
+  seen <- collect_warnings({
+    m <- estimate(
+      MEstimator(stacked_equations = psi, init = 0),
+      solver = "nleqslv"
+    )
+  })
+  expect_length(seen, 1L)
+  expect_s3_class(seen[[1]], "deli_solver_not_converged")
+  expect_match(conditionMessage(seen[[1]]), "(code 1)", fixed = TRUE)
+  # It never left zero, against a solution of 5.01.
+  expect_equal(unname(m@theta), 0)
+  expect_gt(mean(y), 5)
+  # The contributions alone cannot see this one: the summed score is 1e-9, well
+  # under the floor. Only the Newton step measures the distance still to travel.
+  expect_true(is_root(psi(0), 0))
+})
+
+test_that("a custom M solver has its returned point judged", {
+  set.seed(7)
+  w <- stats::rnorm(200)
+  y <- 1 + 2 * w + stats::rnorm(200)
+  # A stack whose third row demands theta[3] == 7, handed to a solver that
+  # returns the starting values and reports nothing at all.
+  psi <- function(theta) {
+    rbind(
+      ee_regression(theta[1:2], X = cbind(1, w), y = y, model = "linear"),
+      rep(theta[3] - 7, length(y))
+    )
+  }
+  stalled <- function(stacked_equations, init) init
+  seen <- collect_warnings({
+    m <- estimate(
+      MEstimator(stacked_equations = psi, init = c(0, 0, 0)),
+      solver = stalled
+    )
+  })
+  expect_length(seen, 1L)
+  expect_s3_class(seen[[1]], "deli_solver_not_converged")
+  expect_match(
+    conditionMessage(seen[[1]]),
+    "The solver returned values that do not solve the estimating equations",
+    fixed = TRUE
+  )
+  # No built-in solver is named, because none was used, and no message may send
+  # a user to rootSolve in any case.
+  expect_no_match(conditionMessage(seen[[1]]), "rootSolve", fixed = TRUE)
+  expect_equal(unname(m@theta), c(0, 0, 0))
+})
+
+test_that("a custom M solver that solves the equations stays quiet", {
+  set.seed(7)
+  w <- stats::rnorm(200)
+  y <- 1 + 2 * w + stats::rnorm(200)
+  psi <- function(theta) {
+    rbind(
+      ee_regression(theta[1:2], X = cbind(1, w), y = y, model = "linear"),
+      rep(theta[3] - 7, length(y))
+    )
+  }
+  # The same stack and a solver that also reports nothing, but reaches the
+  # root. Judging a custom solver's point must not cost this fit its silence.
+  minimizing <- function(stacked_equations, init) {
+    stats::optim(
+      init,
+      function(theta) sum(stacked_equations(theta)^2),
+      method = "BFGS",
+      control = list(reltol = 1e-14, maxit = 2000)
+    )$par
+  }
+  expect_no_warning({
+    m <- estimate(
+      MEstimator(stacked_equations = psi, init = c(0, 0, 0)),
+      solver = minimizing
+    )
+  })
+  expect_equal(unname(m@theta)[[3]], 7)
+})
+
+test_that("rootSolve warns when it never leaves starting values that do not solve the equations", {
+  set.seed(42)
+  n <- 200
+  w <- stats::rnorm(n)
+  # A response large enough to defeat multiroot's own Jacobian, centred so that
+  # every row's contributions are mixed-sign and the non-cancellation share
+  # cannot see the failure. multiroot returns the starting values, which is the
+  # one case its own report of a failed convergence test cannot be taken at face
+  # value, because a non-differentiable equation legitimately returns them.
+  #
+  # deriv_method = "exact" is load-bearing rather than incidental. At this data
+  # scale the default finite-difference bread collapses to a matrix of zeros,
+  # dx being far smaller than the resolution of the contributions, and a bread
+  # that cannot be solved leaves the point unjudged. The default path therefore
+  # does not catch this fit.
+  y <- 1e9 * (0.7 * w + stats::rnorm(n))
+  x <- cbind(1, w)
+  psi <- function(theta) ee_regression(theta, X = x, y = y, model = "linear")
+  seen <- collect_warnings({
+    m <- estimate(
+      MEstimator(stacked_equations = psi, init = c(0, 0)),
+      deriv_method = "exact"
+    )
+  })
+  expect_length(seen, 1L)
+  expect_s3_class(seen[[1]], "deli_solver_not_converged")
+  expect_equal(unname(m@theta), c(0, 0))
+  # Neither reading of the contributions alone can see this one.
+  expect_true(is_root(psi(m@theta), unname(m@theta)))
+})
+
+test_that("a fit whose Jacobian does not exist is left unjudged", {
+  set.seed(2024)
+  y <- 0.6 + stats::rnorm(200)
+  psi <- function(theta) {
+    suppressWarnings(ee_positive_mean_deviation(theta, y = y))
+  }
+  init <- c(1, stats::median(y))
+  # multiroot reports its convergence test failing here and returns the starting
+  # values, which is the right answer for a median. The bread is singular, so the
+  # distance to a root cannot be measured with it and the point stays unjudged.
+  expect_no_warning({
+    m <- estimate(MEstimator(stacked_equations = psi, init = init))
+  })
+  expect_equal(unname(m@theta), unname(init))
+  expect_true(is.na(relative_newton_step(
+    m@bread,
+    rowSums(psi(unname(m@theta))) / 200,
+    unname(m@theta)
+  )))
+})
+
+test_that("a moment condition that does not sum to a finite value is named as such", {
+  # A minimizer that stops where the first moment condition is undefined. It
+  # reports nothing, so its point is judged like one a built-in minimizer
+  # declared solved.
+  psi <- function(theta) {
+    matrix(c(1 / (theta[1] - 2), rep(theta[1] - 1, 9)), nrow = 1)
+  }
+  stalled <- function(stacked_equations, init) 2
+  seen <- collect_warnings(
+    estimate(GMMEstimator(stacked_equations = psi, init = 0), solver = stalled)
+  )
+  expect_length(seen, 1L)
+  expect_s3_class(seen[[1]], "deli_solver_not_converged")
+  expect_match(conditionMessage(seen[[1]]), "is not finite", fixed = TRUE)
+  expect_no_match(conditionMessage(seen[[1]]), "do not cancel", fixed = TRUE)
 })

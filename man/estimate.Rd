@@ -28,7 +28,7 @@ estimate(
 )
 }
 \arguments{
-\item{object}{An \code{MEstimator} object.}
+\item{object}{An \code{MEstimator} or \code{GMMEstimator} object.}
 
 \item{solver}{Character string specifying the solver algorithm, or a custom
 function. When \code{NULL} (default), uses \code{"rootSolve"} for \code{MEstimator}
@@ -39,7 +39,15 @@ default solver of Python \code{delicatessen}
 (\code{scipy.optimize.root(method = "lm")}); and \code{"nleqslv"} (uses
 \code{\link[nleqslv:nleqslv]{nleqslv::nleqslv()}}). A custom function must accept
 \code{stacked_equations} and \code{init} arguments and return the solved theta
-vector.}
+vector. Whichever solver is used, the point it returns is judged against
+the estimating equations themselves and a warning is raised when they are
+not solved there. A custom function reports no status of its own, so its
+point is judged exactly as a built-in solver's is. Two \code{GMMEstimator}
+fits are exceptions: an over-identified one cannot drive every moment to
+zero, and a \code{subset} one holds some parameters fixed while still summing
+every equation into the objective, so neither is judged either way and
+neither warns. For those, inspect \code{rowSums()} of the estimating functions
+at the returned values.}
 
 \item{maxiter}{Integer maximum iterations for the solver (default 5000).}
 
