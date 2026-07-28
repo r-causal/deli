@@ -366,14 +366,28 @@ that the polygamma pair takes its arguments in opposite orders, so the two are
 not interchangeable by position alone.
 
 One limitation applies to custom code. The reshaping and binding helpers
-`matrix()`, `rbind()`, and `cbind()` differentiate exactly only when they are
-called from within the package. A user-defined transform that calls them from
-the global environment reaches the base R versions, which do not carry
-derivatives, so use `deriv_method = "exact"` only when the transform avoids
-those helpers, and rely on the finite-difference default otherwise. Combining
-values with `c()` fails for a related reason: it returns a plain list rather
-than a differentiable vector, so a later `sum()` over the result errors. Index
-into `theta` directly instead.
+`matrix()`, `rbind()`, and `cbind()`, along with `ifelse()`, differentiate
+exactly only when they are called from within the package. A user-defined
+transform that calls them from the global environment reaches the base R
+versions, which do not carry derivatives, so use `deriv_method = "exact"` only
+when the transform avoids those helpers, and rely on the finite-difference
+default otherwise. Where you would reach for `ifelse()`, write
+`ind * yes + (1 - ind) * no`, which is ordinary arithmetic and differentiates
+exactly.
+
+Arithmetic, `%*%`, `t()`, `[`, and `c()` are the operations that always carry
+derivatives, because deli registers each as an S3 method and S3 dispatch does
+not depend on where the call is written. Build a p-by-n return with
+`t(X * resid)`, the idiom `ee_regression()` itself uses. Use `c()` to flatten a
+matrix-shaped result such as `X %*% theta` down to a vector; `as.numeric()`
+cannot do that job under exact differentiation, because it has to return a
+plain double and so cannot carry a derivative, and it aborts rather than
+silently returning a zero one.
+
+`c()` has one wrinkle worth knowing. R dispatches it on its first argument
+alone, so a call that starts with a plain number never reaches deli's method:
+write `c(theta[1], 0)` rather than `c(0, theta[1])`. The wrong order fails
+loudly rather than returning a zero derivative, so it is not a silent trap.
 
 `mean()` is the quietest of these traps. It dispatches to `mean.default()`,
 which sits outside every group generic deli supports, so a tangent-carrying

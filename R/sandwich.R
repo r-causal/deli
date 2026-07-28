@@ -33,6 +33,13 @@ compute_bread <- function(
     # the exact pass): sum across observations within each equation, carrying
     # the tangents in parallel. Checked before the list branch because a
     # PrimalTangentArray is structurally a list whose `[[` yields scalar pairs.
+    #
+    # A dimensionless tangent array (a psi built with `c()`, or any vector
+    # return) sums every element into one value, whereas the list branch below
+    # sums within each element. The two agree only when there is a single
+    # equation, which is the only case either shape can reach: `estimate()`
+    # treats a vector return as one 1-by-n equation, so a p > 1 fit whose psi
+    # returns a vector fails on the resulting 1-by-p Jacobian regardless.
     if (is_pt_array(ef)) {
       if (is.null(dim(ef$primal))) {
         return(primal_tangent(sum(ef$primal), sum(ef$tangent)))
@@ -40,7 +47,9 @@ compute_bread <- function(
       return(primal_tangent_array(rowSums(ef$primal), rowSums(ef$tangent)))
     }
     if (is.list(ef) && length(ef) > 0 && is_pt(ef[[1]])) {
-      # Multiple equations: list of PTs from c.PrimalTangent
+      # A plain list of scalar pairs, one per equation, from an `lapply()` or
+      # `sapply()` inside the psi. `c()` returns a PrimalTangentArray and so
+      # takes the branch above instead.
       return(lapply(ef, sum))
     }
     if (is.null(dim(ef))) {

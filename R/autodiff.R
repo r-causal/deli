@@ -153,12 +153,68 @@ Math.PrimalTangentVector <- function(x, ...) {
   get(.Generic)(arr, ...)
 }
 
-# ---- c() method for combining PrimalTangent objects -------------------------
+# ---- c() for combining tangent-carrying values -------------------------------
+# `c()` is a base internal generic, so a registered S3 method resolves from any
+# environment. That makes `c()` the one portable way to assemble a
+# tangent-carrying vector: the masked reshaping helpers (`matrix`, `rbind`,
+# `cbind`) are in scope only inside the package namespace, so a transform
+# defined in a user's global environment reaches the base versions and loses its
+# derivatives.
+#
+# Every operand is normalized to parallel primal/tangent vectors and the two
+# slots are concatenated independently, so the result is a PrimalTangentArray
+# that dispatches to the Ops, Math, and Summary methods. Returning a bare list
+# instead left the result outside every group generic, so arithmetic and
+# reductions over it failed.
+#
+# `c()` dispatches on its first argument only, so a call that leads with a plain
+# numeric reaches the internal default and unpacks each pair into its two slots.
+# No mask could fix that portably, since a mask applies only to code evaluated
+# inside the namespace. The resulting bare list carries no tangents, and
+# `extract_tangent_column()` aborts on it rather than returning a silent
+# all-zero Jacobian.
+
+# Concatenate operands by flattening each to parallel primal/tangent vectors and
+# joining the two slots separately. A scalar-broadcast tangent is recycled to its
+# primal's length first, mirroring `pt_bind()`, so a scalar pair holding a vector
+# primal contributes one tangent per element. A numeric constant contributes a
+# zero tangent per element.
+#
+# `recursive` and `use.names` are declared, as they are on every base `c` method,
+# so that a caller writing `c(a, b, use.names = FALSE)` matches them to these
+# formals. Without them both fall into `...` and are concatenated as ordinary
+# operands, lengthening the result and adding a spurious row to the Jacobian.
+#
+# `use.names` applies to the primal only. The tangent is a parallel derivative
+# array read positionally by `extract_tangent_column()`, so names on it would
+# serve nothing and would leak into the Jacobian's dimnames. `recursive` has no
+# analogue here and is accepted and ignored: every operand is already flattened
+# to a numeric vector by `pt_flatten()`, so the result is flat either way and
+# both settings give the same value.
+#' @noRd
+pt_concat <- function(..., recursive = FALSE, use.names = TRUE) {
+  slots <- lapply(list(...), function(a) {
+    if (is_tangent_container(a)) {
+      parts <- pt_flatten(a)
+      parts$tangent <- pt_recycle_tangent(parts$primal, parts$tangent)
+      return(parts)
+    }
+    list(primal = as.vector(a), tangent = numeric(length(a)))
+  })
+  primal_tangent_array(
+    unlist(lapply(slots, `[[`, "primal"), use.names = use.names),
+    unlist(lapply(slots, `[[`, "tangent"), use.names = FALSE)
+  )
+}
 
 #' @export
-c.PrimalTangent <- function(...) {
-  list(...)
-}
+c.PrimalTangent <- pt_concat
+
+#' @export
+c.PrimalTangentArray <- pt_concat
+
+#' @export
+c.PrimalTangentVector <- pt_concat
 
 # ---- Ops group generic (arithmetic + comparison) ----------------------------
 
@@ -513,11 +569,52 @@ Summary.PrimalTangentVector <- Summary.PrimalTangent
 #' @export
 as.logical.PrimalTangent <- function(x, ...) as.logical(x$primal)
 
+# A scalar pair carries a vector or matrix payload whenever a single parameter
+# scales a data vector (`theta[k] * X`), so it is as much a tangent-carrying
+# vector as a PrimalTangentArray is and coercing it aborts on the same grounds.
+# Only a genuinely scalar payload still coerces, returning its primal.
 #' @export
-as.double.PrimalTangent <- function(x, ...) as.double(x$primal)
+as.double.PrimalTangent <- function(x, ...) {
+  if (!pt_is_scalar(x)) {
+    pt_coercion_abort()
+  }
+  as.double(x$primal)
+}
 
+# R dispatches `as.numeric()` through the `as.double()` method table, so this
+# method is never reached and the rule above governs both spellings. Changing
+# the behavior here alone would have no effect.
 #' @export
 as.numeric.PrimalTangent <- function(x, ...) as.numeric(x$primal)
+
+# A tangent-carrying vector, matrix, or parameter vector has no plain-double
+# representation that keeps its derivative, and `as.double()` must return a
+# double, so coercing one aborts rather than losing the tangents. Base R would
+# otherwise report `'list' object cannot be coerced to type 'double'` for an
+# array and return `NA` with a coercion warning for a parameter vector, neither
+# of which points at the cause or at the remedy. `as.numeric()` dispatches
+# through `as.double()`, so one method covers both spellings.
+#' @noRd
+pt_coercion_abort <- function() {
+  cli::cli_abort(
+    c(
+      "A tangent-carrying value cannot be coerced to a plain {.cls numeric}.",
+      "i" = "{.fn as.numeric} and {.fn as.double} must return a double, so they
+             cannot preserve the derivative information.",
+      "i" = "Use {.fn c} to flatten a tangent-carrying matrix such as
+             {.code X %*% theta} down to a vector; it keeps the derivative.",
+      "i" = "Or pass {.val capprox} to {.arg deriv_method} to differentiate with
+             finite differences, which need no tangent support."
+    ),
+    call = NULL
+  )
+}
+
+#' @export
+as.double.PrimalTangentArray <- function(x, ...) pt_coercion_abort()
+
+#' @export
+as.double.PrimalTangentVector <- function(x, ...) pt_coercion_abort()
 
 # ---- PrimalTangentArray: primal/tangent parallel numeric arrays -------------
 # A tangent-carrying vector or matrix within a single forward pass. Both slots
@@ -557,10 +654,12 @@ pt_arrays <- function(x) {
     return(list(primal = x$primal, tangent = x$tangent))
   }
   if (is.list(x)) {
-    # A plain list of scalar pairs (produced by `c()` on PrimalTangent objects).
-    # pt_flatten already collapses this shape into parallel numeric vectors, so
-    # a masked binder of such a list keeps its tangents instead of hitting the
-    # numeric-constant fallback below and zeroing them.
+    # A plain list of scalar pairs, produced by an `lapply()` or `sapply()` over
+    # tangent-carrying values inside a differentiated function. (`c()` returns a
+    # PrimalTangentArray, so it no longer yields this shape.) pt_flatten already
+    # collapses the list into parallel numeric vectors, so a masked binder of
+    # such a list keeps its tangents instead of hitting the numeric-constant
+    # fallback below and zeroing them.
     return(pt_flatten(x))
   }
   # Numeric constant: zero tangent, matching the constant's shape
@@ -584,10 +683,11 @@ pt_recycle_tangent <- function(primal, tangent) {
 }
 
 # Flatten a tangent-carrying container into parallel numeric vectors. Used when
-# reshaping into a matrix. Accepts a PrimalTangent (a scalar pair, possibly with
-# a vector primal and a scalar broadcast tangent), a PrimalTangentVector, a
-# PrimalTangentArray, or a plain list of scalar pairs (produced by `c()` on
-# PrimalTangent objects).
+# reshaping into a matrix and when concatenating with `c()`. Accepts a
+# PrimalTangent (a scalar pair, possibly with a vector primal and a scalar
+# broadcast tangent), a PrimalTangentVector, a PrimalTangentArray, or a plain
+# list of scalar pairs (produced by an `lapply()` or `sapply()` over
+# tangent-carrying values).
 #' @noRd
 pt_flatten <- function(x) {
   if (is_pt_array(x)) {
@@ -1017,15 +1117,21 @@ pt_where <- function(test, yes, no) {
 #' @param f A function that takes a numeric vector and returns a numeric
 #'   vector (or scalar). The function may use standard arithmetic operators and
 #'   math functions (`+`, `-`, `*`, `/`, `^`, `exp`, `log`, `sqrt`, `sin`,
-#'   `cos`, etc.). The matrix product `%*%`, the transpose `t()`, and
-#'   two-dimensional indexing differentiate exactly in any function. The
+#'   `cos`, etc.). The matrix product `%*%`, the transpose `t()`, the
+#'   concatenation `c()`, and two-dimensional indexing differentiate exactly in
+#'   any function, because each is a registered S3 method. The
 #'   reshaping, binding, and reduction operations `matrix()`, `rbind()`,
 #'   `cbind()`, `rep()`, and `colSums()` differentiate exactly for functions
 #'   evaluated within the package (such as the built-in estimating equations),
 #'   because those masked forms are only in
 #'   scope there; a user-defined function that calls them from the global
 #'   environment reaches the base versions, and the differentiation aborts
-#'   rather than returning a silent approximation. `log(x, base)` differentiates
+#'   rather than returning a silent approximation. Coercion cannot preserve a
+#'   derivative: `as.numeric()` and `as.double()` must return a plain double, so
+#'   they abort on the parameter vector and on any tangent-carrying value that
+#'   holds a vector or a matrix, rather than dropping the tangents silently.
+#'   Use `c()` to flatten a matrix-shaped result such as `X %*% theta` to a
+#'   vector instead. `log(x, base)` differentiates
 #'   with respect to `x` only; the `base` argument is treated as a constant, and
 #'   a `base` that itself carries a tangent (a value derived from `theta`) is not
 #'   supported and aborts rather than dropping the base's contribution.
@@ -1076,24 +1182,38 @@ extract_tangent_column <- function(result) {
     ))
   }
   if (is.list(result)) {
-    # A list result normally comes from c.PrimalTangent and holds at least one
-    # tangent-carrying pair. A list (or list matrix) with no PrimalTangent
-    # elements instead signals that a base reshaping helper such as rbind() or
-    # cbind() was reached from outside the package namespace and stripped the
-    # tangents. Aborting keeps the documented safety property rather than
-    # returning a silent all-zero column.
+    # A list result holding at least one tangent-carrying pair comes from an
+    # `lapply()` or `sapply()` over per-equation values. A list (or list matrix)
+    # with no PrimalTangent elements instead signals that a base reshaping,
+    # binding, or selection helper such as rbind(), cbind(), or ifelse() was
+    # reached from outside the package namespace and stripped the tangents.
+    # Aborting keeps the documented safety property rather than returning a
+    # silent all-zero column.
+    #
+    # The hint names only operations that carry tangents from any environment,
+    # which means the registered S3 methods. It deliberately does not recommend
+    # matrix(), rbind(), cbind(), or ifelse(), which are masked inside the
+    # namespace and so are unavailable to a user working in the global
+    # environment.
     if (!any(vapply(result, is_pt, logical(1)))) {
       cli::cli_abort(
         c(
           "Automatic differentiation received a result that carries no tangents.",
-          "i" = "A reshaping or binding function such as {.fn rbind} or
-                 {.fn cbind} was likely reached from outside the package
-                 namespace, which strips the derivative information.",
-          "i" = "Combine tangent-carrying values with {.fn c} instead."
+          "i" = "A reshaping, binding, or selection function such as
+                 {.fn rbind}, {.fn cbind}, {.fn matrix}, or {.fn ifelse} was
+                 likely reached from outside the package namespace, which strips
+                 the derivative information.",
+          "i" = "Arithmetic, {.code %*%}, {.fn t}, and {.code [} are S3 methods,
+                 so they carry tangents from any environment. Build a p-by-n
+                 return as {.code t(X * resid)}.",
+          "i" = "For a conditional, write {.code ind * yes + (1 - ind) * no}
+                 rather than using {.fn ifelse}.",
+          "i" = "Or pass {.val capprox} to {.arg deriv_method} to differentiate
+                 with finite differences, which need no tangent support."
         )
       )
     }
-    # Multiple outputs from c.PrimalTangent
+    # One output per list element
     return(vapply(
       result,
       function(e) if (is_pt(e)) e$tangent else 0,

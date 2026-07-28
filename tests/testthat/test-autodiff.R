@@ -865,11 +865,11 @@ test_that("autodiff differentiates a logistic score using plogis(X %*% theta)", 
 #              estimating equation search found no use of prod(); a scalar/vector
 #              test therefore suffices and no PrimalTangentArray prod is wired.
 #
-# `prod(c(x[1], x[2], ...))` cannot be used because `c.PrimalTangent` returns an
-# unclassed list, so the reduction does not dispatch to the Summary generic (the
-# same limitation the existing `sum` tests avoid by summing a single vector-
-# primal pair). The natural multiple-argument form `prod(x[1], x[2], ...)`
-# dispatches to Summary.PrimalTangent and is used instead.
+# Both argument forms are exercised. The multiple-argument form
+# `prod(x[1], x[2], ...)` dispatches to `Summary.PrimalTangent`, and
+# `prod(c(x[1], x[2], ...))` reduces a `PrimalTangentArray` through
+# `Summary.PrimalTangentArray`, because `c()` on tangent-carrying values returns
+# a tangent array rather than an unclassed list.
 #
 # Cross-checks follow the matrix and gamma-family blocks above: capprox at tolerance 1e-5
 # (the central difference carries roughly 1e-6 numerical error at the default
@@ -1121,6 +1121,21 @@ test_that("autodiff differentiates prod of four parameters", {
     function(i) prod(theta[-i]),
     numeric(1)
   )) # c(-3, 2.25, -1.5, -9)
+  expect_equal(exact, approx, tolerance = 1e-5)
+  expect_equal(exact, analytic, tolerance = 1e-8)
+})
+
+test_that("autodiff differentiates prod over a c() of parameters", {
+  # `c()` on tangent-carrying values returns a PrimalTangentArray, so the
+  # single-argument reduction dispatches to Summary.PrimalTangentArray and the
+  # product rule applies across the concatenated elements.
+  theta <- c(2, -3, 4)
+  f <- function(x) prod(c(x[1], x[2], x[3]))
+
+  exact <- auto_differentiation(theta, f)
+  approx <- approx_differentiation(f, theta, method = "capprox")
+
+  analytic <- rbind(c(-3 * 4, 2 * 4, 2 * -3)) # c(-12, 8, -6)
   expect_equal(exact, approx, tolerance = 1e-5)
   expect_equal(exact, analytic, tolerance = 1e-8)
 })
@@ -1924,13 +1939,76 @@ test_that("delta_method with a tangent-preserving transform returns the derivati
   expect_equal(result, diag(2))
 })
 
+test_that("the tangent-stripping abort recommends operations that carry tangents", {
+  # The hint may name only operations that carry tangents from any environment,
+  # which means the registered S3 methods: arithmetic, %*%, t(), and indexing.
+  # matrix(), rbind(), cbind(), and ifelse() are masked inside the namespace and
+  # so are unavailable to a user working in the global environment, which is why
+  # the remedy is the t(X * resid) idiom and indicator arithmetic in place of
+  # ifelse(). cli wraps the bullets, so the message is compared with runs of
+  # whitespace collapsed to a single space.
+  strip <- function(theta) base::rbind(theta[1], theta[2])
+  msg <- tryCatch(
+    auto_differentiation(c(1, 2), strip),
+    error = conditionMessage
+  )
+  flat <- gsub("[[:space:]]+", " ", msg)
+  expect_match(flat, "carries no tangents")
+  expect_match(flat, "t(X * resid)", fixed = TRUE)
+  expect_match(flat, "ind * yes + (1 - ind) * no", fixed = TRUE)
+  expect_match(flat, "capprox", fixed = TRUE)
+})
+
+test_that("the tangent-stripping abort does not recommend c()", {
+  # A previous version of the hint advised combining tangent-carrying values
+  # with c() as the remedy for a stripped result. c() does carry tangents, but
+  # it cannot rebuild a p-by-n return, so recommending it here steered a user
+  # from one failure into another.
+  strip <- function(theta) base::rbind(theta[1], theta[2])
+  msg <- tryCatch(
+    auto_differentiation(c(1, 2), strip),
+    error = conditionMessage
+  )
+  expect_false(grepl("`c()`", msg, fixed = TRUE))
+})
+
+test_that("a base ifelse in a transform aborts with the indicator-arithmetic advice", {
+  # base::ifelse assigns each branch into a copy of `test`, which turns a
+  # tangent-carrying branch into a bare list and discards the derivatives. base::
+  # is named explicitly rather than forcing the transform's environment to the
+  # global environment: pkgload attaches the masked internals to the search path
+  # during devtools::test(), so an environment-only version of this test would
+  # reach deli's tangent-aware ifelse, succeed, and assert nothing.
+  branch <- function(theta) {
+    base::ifelse(c(TRUE, FALSE, TRUE), theta[1] * 2, theta[2] * 3)
+  }
+  msg <- tryCatch(
+    auto_differentiation(c(1, 2), branch),
+    error = conditionMessage
+  )
+  flat <- gsub("[[:space:]]+", " ", msg)
+  expect_match(flat, "carries no tangents")
+  expect_match(flat, "ind * yes + (1 - ind) * no", fixed = TRUE)
+})
+
 # ---- plain-list branch in pt_arrays ----
 
-test_that("masked rbind of a c() pair list keeps tangents under exact mode", {
-  # Inside the package namespace, c() on scalar pairs yields a plain list of
-  # pairs; the masked rbind must route that through pt_flatten so the tangents
-  # survive rather than collapsing to zero.
+test_that("masked rbind of a c() tangent array keeps tangents under exact mode", {
+  # c() on scalar pairs yields a PrimalTangentArray, which the masked rbind
+  # routes through pt_arrays' array branch, so the tangents survive the reshape.
   f <- function(theta) rbind(c(2 * theta[1], 3 * theta[2]))
+  result <- auto_differentiation(c(1, 1), f)
+  expect_equal(result, diag(c(2, 3)))
+})
+
+test_that("masked rbind of an lapply-produced pair list keeps tangents", {
+  # pt_arrays keeps its plain-list branch for a list of scalar pairs built by
+  # lapply() or sapply() inside a differentiated function; the masked rbind must
+  # route that through pt_flatten so the tangents survive rather than collapsing
+  # to zero.
+  f <- function(theta) {
+    rbind(lapply(seq_len(2), function(i) (i + 1) * theta[i]))
+  }
   result <- auto_differentiation(c(1, 1), f)
   expect_equal(result, diag(c(2, 3)))
 })
@@ -1959,4 +2037,238 @@ test_that("[.PrimalTangentVector still allows a negative index", {
 test_that("auto_differentiation aborts on an out-of-bounds parameter index", {
   f <- function(theta) theta[3]
   expect_error(auto_differentiation(c(1, 2), f), "subscript out of bounds")
+})
+
+# ---- c() on tangent-carrying values ----
+#
+# `c()` is a base internal generic, so an S3 method registered for it resolves
+# from any environment, including a user's global environment. That makes it the
+# one portable way to assemble a tangent-carrying vector: the masked reshaping
+# helpers (matrix, rbind, cbind) are in scope only inside the package namespace.
+# Every `c()` call that leads with a tangent-carrying operand returns a
+# PrimalTangentArray whose slots are the concatenated primals and tangents, so
+# the result feeds straight into the Ops, Math, and Summary methods.
+
+test_that("c() on two scalar pairs concatenates both slots into a tangent array", {
+  z <- c(primal_tangent(2, 1), primal_tangent(3, 0))
+  expect_s3_class(z, "PrimalTangentArray")
+  expect_equal(z$primal, c(2, 3))
+  expect_equal(z$tangent, c(1, 0))
+})
+
+test_that("c() on two tangent arrays concatenates both slots", {
+  z <- c(
+    primal_tangent_array(c(1, 2), c(1, 0)),
+    primal_tangent_array(c(3, 4), c(0, 1))
+  )
+  expect_s3_class(z, "PrimalTangentArray")
+  expect_equal(z$primal, c(1, 2, 3, 4))
+  expect_equal(z$tangent, c(1, 0, 0, 1))
+})
+
+test_that("c() flattens a matrix-slotted tangent array column-major", {
+  arr <- primal_tangent_array(
+    base::matrix(c(1, 2, 3, 4), nrow = 2),
+    base::matrix(c(0.1, 0.2, 0.3, 0.4), nrow = 2)
+  )
+  z <- c(arr)
+  expect_s3_class(z, "PrimalTangentArray")
+  expect_null(dim(z))
+  expect_equal(z$primal, c(1, 2, 3, 4))
+  expect_equal(z$tangent, c(0.1, 0.2, 0.3, 0.4))
+})
+
+test_that("c() on a PrimalTangentVector and a scalar pair keeps element order", {
+  vec <- primal_tangent_vector(list(primal_tangent(1, 1), primal_tangent(2, 0)))
+  z <- c(vec, primal_tangent(3, 0.5))
+  expect_s3_class(z, "PrimalTangentArray")
+  expect_equal(z$primal, c(1, 2, 3))
+  expect_equal(z$tangent, c(1, 0, 0.5))
+})
+
+test_that("c() gives a plain numeric operand a zero tangent", {
+  z <- c(primal_tangent(2, 1), 7, c(8, 9))
+  expect_s3_class(z, "PrimalTangentArray")
+  expect_equal(z$primal, c(2, 7, 8, 9))
+  expect_equal(z$tangent, c(1, 0, 0, 0))
+})
+
+test_that("c() recycles a broadcast tangent to the primal length", {
+  # A scalar pair built from a vector primal and a constant (the `theta[k] * X`
+  # scaling idiom) carries a length-1 tangent that broadcasts under elementwise
+  # arithmetic. Concatenation reshapes the two slots independently, so the
+  # tangent is first expanded element for element.
+  z <- c(primal_tangent(c(4, 5, 6), 2), primal_tangent(7, 1))
+  expect_s3_class(z, "PrimalTangentArray")
+  expect_equal(z$primal, c(4, 5, 6, 7))
+  expect_equal(z$tangent, c(2, 2, 2, 1))
+})
+
+test_that("arithmetic on a c() result carries tangents", {
+  z <- c(primal_tangent(2, 1), primal_tangent(3, 0)) * 2
+  expect_s3_class(z, "PrimalTangentArray")
+  expect_equal(z$primal, c(4, 6))
+  expect_equal(z$tangent, c(2, 0))
+})
+
+test_that("exp() on a c() result differentiates elementwise", {
+  z <- exp(c(primal_tangent(0, 1), primal_tangent(1, 0)))
+  expect_s3_class(z, "PrimalTangentArray")
+  expect_equal(z$primal, exp(c(0, 1)))
+  expect_equal(z$tangent, c(1, 0))
+})
+
+test_that("a c() result reaches auto_differentiation as a tangent array", {
+  f <- function(x) c(x[1] * 2, x[2] * 3)
+  expect_equal(auto_differentiation(c(1, 1), f), diag(c(2, 3)))
+})
+
+test_that("sum() over a c() result differentiates exactly", {
+  f <- function(x) sum(c(x[1] * 2, x[2] * 3))
+  expect_equal(auto_differentiation(c(1, 1), f), rbind(c(2, 3)))
+})
+
+test_that("exp() over a c() result differentiates exactly under a reduction", {
+  theta <- c(0.3, -0.7)
+  f <- function(x) sum(exp(c(x[1], x[2])))
+  expect_equal(
+    auto_differentiation(theta, f),
+    rbind(exp(theta)),
+    tolerance = 1e-12
+  )
+})
+
+# ---- c()'s own formals are not data ----
+#
+# `c()` documents two formals, `recursive` and `use.names`. A method declared as
+# `function(...)` swallows both into the dots and concatenates them as ordinary
+# operands, which lengthens the result and, under differentiation, adds a
+# spurious row to the Jacobian. The tangent methods declare both, as every base
+# `c` method does.
+
+test_that("c() matches use.names to its own formal rather than concatenating it", {
+  z <- c(primal_tangent(2, 1), primal_tangent(3, 0), use.names = FALSE)
+  expect_s3_class(z, "PrimalTangentArray")
+  expect_equal(z$primal, c(2, 3))
+  expect_equal(z$tangent, c(1, 0))
+})
+
+test_that("c() matches recursive to its own formal rather than concatenating it", {
+  z <- c(primal_tangent(2, 1), primal_tangent(3, 0), recursive = TRUE)
+  expect_s3_class(z, "PrimalTangentArray")
+  expect_equal(z$primal, c(2, 3))
+  expect_equal(z$tangent, c(1, 0))
+})
+
+test_that("a c() call passing use.names keeps the Jacobian shape", {
+  f <- function(x) c(x[1] * 2, x[2] * 3, use.names = FALSE)
+  expect_equal(auto_differentiation(c(1, 1), f), diag(c(2, 3)))
+})
+
+test_that("c() names the primal slot from its argument names and leaves the tangent bare", {
+  # The tangent slot is a derivative array read positionally by
+  # extract_tangent_column(), so it stays unnamed whatever the primal carries.
+  z <- c(a = primal_tangent(2, 1), b = primal_tangent(3, 0))
+  expect_equal(names(z$primal), c("a", "b"))
+  expect_null(names(z$tangent))
+})
+
+test_that("c() drops the primal names when use.names is FALSE", {
+  z <- c(a = primal_tangent(2, 1), b = primal_tangent(3, 0), use.names = FALSE)
+  expect_null(names(z$primal))
+  expect_equal(z$primal, c(2, 3))
+})
+
+# ---- c() dispatch limitations ----
+#
+# `c()` dispatches on its first argument only. Registering the three tangent
+# classes therefore covers every call that leads with a tangent-carrying value,
+# but a call that leads with a plain numeric reaches the internal default, which
+# unpacks each pair into its two slots and returns a bare list. These tests pin
+# that boundary so it is not later "fixed" by masking `c()` inside the namespace:
+# a mask would only apply to code evaluated there and would leave a user's
+# global-environment transform behaving differently.
+
+test_that("c() leading with a plain numeric does not dispatch", {
+  z <- c(1, primal_tangent(2, 1))
+  expect_false(is_pt_array(z))
+  expect_type(z, "list")
+  # The internal default unpacked the pair into its primal and tangent slots
+  expect_length(z, 3)
+})
+
+test_that("a numeric-first c() aborts rather than returning a zero Jacobian", {
+  f <- function(theta) c(0, theta[1])
+  expect_error(auto_differentiation(1, f), "carries no tangents")
+})
+
+test_that("c() dispatches when a tangent array or a tangent vector leads", {
+  arr <- primal_tangent_array(c(1, 2), c(1, 0))
+  vec <- primal_tangent_vector(list(primal_tangent(3, 0), primal_tangent(4, 1)))
+  expect_s3_class(c(arr, 5), "PrimalTangentArray")
+  expect_s3_class(c(vec, 5), "PrimalTangentArray")
+})
+
+# ---- coercing a tangent-carrying container to a plain double ----
+
+test_that("as.numeric() on a tangent array aborts and names c() as the flatten", {
+  arr <- primal_tangent_array(c(1, 2), c(1, 0))
+  msg <- tryCatch(as.numeric(arr), error = conditionMessage)
+  flat <- gsub("[[:space:]]+", " ", msg)
+  expect_match(flat, "tangent")
+  expect_match(flat, "`c()`", fixed = TRUE)
+})
+
+test_that("as.numeric() on a PrimalTangentVector aborts with the same guidance", {
+  vec <- primal_tangent_vector(list(primal_tangent(1, 1), primal_tangent(2, 0)))
+  msg <- tryCatch(as.numeric(vec), error = conditionMessage)
+  expect_match(gsub("[[:space:]]+", " ", msg), "tangent")
+})
+
+test_that("as.numeric() on a vector-payload scalar pair aborts", {
+  # `theta[k] * X` scales a data vector by a single parameter, so both slots of
+  # the scalar pair hold vectors. That value is as much a tangent-carrying
+  # vector as a PrimalTangentArray is, and coercing it must abort rather than
+  # hand back the primal with the derivative silently dropped.
+  pair <- primal_tangent(c(2, 4, 6), 2)
+  msg <- tryCatch(as.numeric(pair), error = conditionMessage)
+  flat <- gsub("[[:space:]]+", " ", msg)
+  expect_match(flat, "tangent")
+  expect_match(flat, "`c()`", fixed = TRUE)
+})
+
+test_that("as.numeric() on a matrix-payload scalar pair aborts", {
+  pair <- primal_tangent(base::matrix(c(1, 2, 3, 4), nrow = 2), 1)
+  expect_error(as.numeric(pair), "tangent-carrying")
+})
+
+test_that("coercing a scaled data vector aborts instead of zeroing the Jacobian", {
+  f <- function(theta) sum(as.numeric(c(1, 2, 3) * theta[1]))
+  expect_error(auto_differentiation(2, f), "tangent-carrying")
+})
+
+test_that("c() ports the as.numeric linear-predictor idiom to exact mode", {
+  # The pkgdown articles flatten the n-by-1 matrix product with
+  # inverse_logit(as.numeric(W %*% beta)). as.numeric() must return a double, so
+  # it cannot carry a derivative and that idiom does not port to
+  # deriv_method = "exact"; c() does, because it is a registered S3 method.
+  #
+  # What makes this a fair stand-in for a user's transform is the content of the
+  # psi, not where it is evaluated: t(), %*%, c(), the arithmetic operators, and
+  # inverse_logit() are none of them masked by deli, so each resolves to the
+  # same function here as it would in a user's global environment. Scoping the
+  # psi to globalenv() would establish nothing, because devtools::test() loads
+  # with export_all = TRUE and so puts the masked helpers on the search path,
+  # which globalenv()'s parent chain reaches.
+  set.seed(4)
+  n <- 60
+  X <- cbind(1, rnorm(n), rbinom(n, 1, 0.4))
+  beta <- c(-0.3, 0.8, 0.5)
+  y <- rbinom(n, 1, inverse_logit(X %*% beta))
+
+  psi <- function(theta) t(X * (y - inverse_logit(c(X %*% theta))))
+
+  exact <- compute_bread(psi, beta, deriv_method = "exact")
+  approx <- compute_bread(psi, beta, deriv_method = "capprox")
+  expect_equal(exact, approx, tolerance = 1e-5)
 })

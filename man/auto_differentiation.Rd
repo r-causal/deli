@@ -13,15 +13,21 @@ Jacobian.}
 \item{f}{A function that takes a numeric vector and returns a numeric
 vector (or scalar). The function may use standard arithmetic operators and
 math functions (\code{+}, \code{-}, \code{*}, \code{/}, \code{^}, \code{exp}, \code{log}, \code{sqrt}, \code{sin},
-\code{cos}, etc.). The matrix product \code{\%*\%}, the transpose \code{t()}, and
-two-dimensional indexing differentiate exactly in any function. The
+\code{cos}, etc.). The matrix product \code{\%*\%}, the transpose \code{t()}, the
+concatenation \code{c()}, and two-dimensional indexing differentiate exactly in
+any function, because each is a registered S3 method. The
 reshaping, binding, and reduction operations \code{matrix()}, \code{rbind()},
 \code{cbind()}, \code{rep()}, and \code{colSums()} differentiate exactly for functions
 evaluated within the package (such as the built-in estimating equations),
 because those masked forms are only in
 scope there; a user-defined function that calls them from the global
 environment reaches the base versions, and the differentiation aborts
-rather than returning a silent approximation. \code{log(x, base)} differentiates
+rather than returning a silent approximation. Coercion cannot preserve a
+derivative: \code{as.numeric()} and \code{as.double()} must return a plain double, so
+they abort on the parameter vector and on any tangent-carrying value that
+holds a vector or a matrix, rather than dropping the tangents silently.
+Use \code{c()} to flatten a matrix-shaped result such as \code{X \%*\% theta} to a
+vector instead. \code{log(x, base)} differentiates
 with respect to \code{x} only; the \code{base} argument is treated as a constant, and
 a \code{base} that itself carries a tangent (a value derived from \code{theta}) is not
 supported and aborts rather than dropping the base's contribution.}
