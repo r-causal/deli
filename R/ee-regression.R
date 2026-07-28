@@ -213,7 +213,7 @@ ee_bridge_regression <- function(
 #' # The approximate L1 penalty enters the estimating equation as its own
 #' # derivative, and that derivative has unbounded slope at the penalty center.
 #' # The estimating equation is therefore not differentiable there, so the
-#' # bread matrix is undefined and every evaluation warns that the sandwich
+#' # bread matrix is undefined and the fit warns once that the sandwich
 #' # variance should not be trusted here.
 #' fit <- m_estimate(
 #'   mpg ~ wt + hp,
@@ -342,7 +342,7 @@ ee_dlasso_regression <- function(
 #' # The L1 half of the penalty enters the estimating equation as its own
 #' # derivative, and that derivative has unbounded slope at the penalty center.
 #' # The estimating equation is therefore not differentiable there, so the
-#' # bread matrix is undefined and every evaluation warns that the sandwich
+#' # bread matrix is undefined and the fit warns once that the sandwich
 #' # variance should not be trusted here.
 #' fit <- m_estimate(
 #'   mpg ~ wt + hp,

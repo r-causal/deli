@@ -52,7 +52,7 @@ a given ratio. When \code{ratio = 1}, this is LASSO; when \code{ratio = 0}, ridg
 # The L1 half of the penalty enters the estimating equation as its own
 # derivative, and that derivative has unbounded slope at the penalty center.
 # The estimating equation is therefore not differentiable there, so the
-# bread matrix is undefined and every evaluation warns that the sandwich
+# bread matrix is undefined and the fit warns once that the sandwich
 # variance should not be trusted here.
 fit <- m_estimate(
   mpg ~ wt + hp,

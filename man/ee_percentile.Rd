@@ -23,21 +23,28 @@ Returns a 1-by-n matrix for the q-th percentile:
 \details{
 The derivative of this estimating equation is not defined at
 \eqn{\hat{\theta}}, so the bread matrix and sandwich variance cannot be
-used to estimate the variance. The function warns on each call for this
-reason. It is offered for completeness but is not generally recommended
+used to estimate the variance. The function warns for this reason. A direct
+call warns every time; a call from within \code{\link[=m_estimate]{m_estimate()}}, \code{\link[=gmm_estimate]{gmm_estimate()}},
+\code{\link[=estimate]{estimate()}} or \code{\link[=compute_sandwich]{compute_sandwich()}}, each of which evaluates the
+estimating function many times, delivers the warning once for the
+operation. It is offered for completeness but is not generally recommended
 for applications.
+
+Pass the sample quantile as \code{init}. The estimating function is a step
+function of \code{theta}, so its derivative is zero wherever it is defined and a
+root finder has no direction in which to search: it returns the starting
+values it was given. Starting from zero therefore returns zero rather than
+the quantile.
 }
 \examples{
 y <- c(1, 2, 3, 1, 4, 5, 3, 2, 6, 7)
 psi <- function(theta) ee_percentile(theta, y = y, q = 0.5)
 
-# The estimating function is a step function of theta, so its derivative is
-# zero wherever it is defined and the root finder cannot search. Start at the
-# sample quantile, which is the solution.
+# The root finder cannot move away from its starting values here, so start at
+# the sample quantile, which is the solution. The fit warns once that the
+# estimating equation is not differentiable, so the sandwich variance should
+# not be trusted.
 m <- m_estimate(stacked_equations = psi, init = median(y))
-
-# Each call warns for the same reason: the median estimating equation is not
-# differentiable, so the sandwich variance should not be trusted.
 coef(m)
 
 }

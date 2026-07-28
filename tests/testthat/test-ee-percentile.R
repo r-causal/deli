@@ -102,3 +102,35 @@ test_that("ee_positive_mean_deviation returns the correct contributions despite 
   )
   expect_equal(result, expected)
 })
+
+# The median row of ee_positive_mean_deviation() is a step function, so its
+# Jacobian row is zero and no solver can search for the median. The documented
+# advice is therefore to start theta[2] at the sample median and theta[1] at the
+# positive mean deviation that matches it, under solver = "lm"; the example on
+# that help page returns the sample median only because that start holds. Note
+# that what is pinned below is minpack.lm's behavior, not deli's. A failure here
+# means the dependency changed how it treats a singular Jacobian row, not that
+# deli regressed. Even and odd n are both covered because the median row is
+# exactly satisfiable only at even n without ties straddling the median.
+test_that("the documented starting values hold the sample median under the lm solver", {
+  skip_if_not_installed("minpack.lm")
+
+  fit_at_documented_init <- function(y) {
+    psi <- function(theta) {
+      suppressWarnings(ee_positive_mean_deviation(theta, y = y))
+    }
+    init <- c(mean(2 * (y - median(y)) * (y > median(y))), median(y))
+    m <- m_estimate(stacked_equations = psi, init = init, solver = "lm")
+    unname(coef(m))
+  }
+
+  expect_equal(fit_at_documented_init(c(1, 2, 3, 1, 4, 5, 3, 2, 6, 7)), c(2, 3))
+
+  set.seed(1)
+  y_even <- stats::rexp(40)
+  expect_equal(fit_at_documented_init(y_even)[2], median(y_even))
+
+  set.seed(1)
+  y_odd <- stats::rexp(41)
+  expect_equal(fit_at_documented_init(y_odd)[2], median(y_odd))
+})

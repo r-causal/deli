@@ -80,6 +80,39 @@ method(estimate, MEstimator) <- function(
   ...
 ) {
   rlang::check_dots_empty(call = rlang::caller_env())
+  # One fit evaluates the estimating function many times, so an estimating
+  # function that warns raises the same warning repeatedly for one operation.
+  # See R/conditions.R. The scope wraps a worker rather than this body because a
+  # calling handler cannot be installed for a frame that is already running, and
+  # check_dots_empty() has to stay here, where caller_env() is the user's frame.
+  without_repeated_warnings(estimate_m_estimator(
+    object,
+    solver = solver,
+    maxiter = maxiter,
+    tolerance = tolerance,
+    deriv_method = deriv_method,
+    dx = dx,
+    allow_pinv = allow_pinv
+  ))
+}
+
+#' Solve an `MEstimator` and assemble its sandwich variance
+#'
+#' The body of the [estimate()] method for [MEstimator()], separated from it so
+#' that the method can wrap the whole of it in `without_repeated_warnings()`.
+#'
+#' @inheritParams estimate
+#' @returns The `MEstimator` with its estimated properties populated.
+#' @noRd
+estimate_m_estimator <- function(
+  object,
+  solver,
+  maxiter,
+  tolerance,
+  deriv_method,
+  dx,
+  allow_pinv
+) {
   # Default solver for MEstimator is rootSolve
   if (is.null(solver)) {
     solver <- "rootSolve"
@@ -135,7 +168,13 @@ method(estimate, MEstimator) <- function(
     # built-in solver declared solved.
     solved <- list(par = par, solver = "custom", warned = FALSE)
   } else {
-    cli::cli_abort("{.arg solver} must be a string or function.")
+    # This is the only user-reachable condition raised directly in the worker,
+    # and the worker is internal, so the error names the frame of the method
+    # that called it rather than a function no user can see.
+    cli::cli_abort(
+      "{.arg solver} must be a string or function.",
+      call = rlang::caller_env()
+    )
   }
   theta_solved <- solved$par
 
@@ -230,7 +269,9 @@ method(estimate, MEstimator) <- function(
 #     judged again, so one M-estimation solve raises the class at most once. A
 #     just-identified GMM solve judges its moments only where the minimizer
 #     reported success, so it too raises it at most once; an over-identified
-#     solve calls the minimizer repeatedly and can raise it once per pass.
+#     solve calls the minimizer repeatedly and can raise it once per pass,
+#     though the scope described in R/conditions.R delivers the passes that
+#     report the same thing as one warning.
 
 # Score magnitude below which a returned point is treated as solved, where the
 # solver has not reported a convergence failure of its own. Both the
@@ -729,6 +770,36 @@ method(estimate, GMMEstimator) <- function(
   ...
 ) {
   rlang::check_dots_empty(call = rlang::caller_env())
+  # See the MEstimator method above and R/conditions.R for why the body sits in
+  # a worker and what the scope does.
+  without_repeated_warnings(estimate_gmm_estimator(
+    object,
+    solver = solver,
+    maxiter = maxiter,
+    tolerance = tolerance,
+    deriv_method = deriv_method,
+    dx = dx,
+    allow_pinv = allow_pinv
+  ))
+}
+
+#' Minimize a `GMMEstimator` objective and assemble its sandwich variance
+#'
+#' The body of the [estimate()] method for [GMMEstimator()], separated from it so
+#' that the method can wrap the whole of it in `without_repeated_warnings()`.
+#'
+#' @inheritParams estimate
+#' @returns The `GMMEstimator` with its estimated properties populated.
+#' @noRd
+estimate_gmm_estimator <- function(
+  object,
+  solver,
+  maxiter,
+  tolerance,
+  deriv_method,
+  dx,
+  allow_pinv
+) {
   # Default solver for GMMEstimator is "BFGS" (optimization-based)
   if (is.null(solver)) {
     solver <- "BFGS"

@@ -95,6 +95,25 @@ test_that("invalid solver type (non-string, non-function) errors", {
   expect_error(estimate(m, solver = list()))
 })
 
+# The body of the MEstimator method sits in an internal worker, which is a frame
+# no user can name and which appears in no man page. The error therefore has to
+# report the method's own frame instead of the worker's.
+test_that("invalid solver type reports a frame the user can name", {
+  ref <- load_fixture("ee_mean")
+  y <- ref$y
+
+  psi <- function(theta) {
+    matrix(y - theta[1], nrow = 1)
+  }
+
+  m <- MEstimator(stacked_equations = psi, init = c(0))
+  err <- tryCatch(estimate(m, solver = 42), error = function(e) e)
+  reported <- paste(deparse(conditionCall(err)), collapse = " ")
+
+  expect_match(reported, "method(estimate, deli::MEstimator)", fixed = TRUE)
+  expect_false(grepl("estimate_m_estimator", reported, fixed = TRUE))
+})
+
 test_that("unknown solver string reports it is not supported", {
   ref <- load_fixture("ee_mean")
   y <- ref$y

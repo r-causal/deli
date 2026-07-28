@@ -21,27 +21,57 @@ Returns a 2-by-n matrix for the positive mean deviation and median.
 \details{
 The derivative of the estimating equation for the median is not
 defined at \eqn{\hat{\theta}}, so the bread matrix and sandwich variance
-cannot be used to estimate the variance. The function warns on each call
-for this reason. It is offered for completeness but is not generally
+cannot be used to estimate the variance. The function warns for this reason.
+A direct call warns every time; a call from within \code{\link[=m_estimate]{m_estimate()}},
+\code{\link[=gmm_estimate]{gmm_estimate()}}, \code{\link[=estimate]{estimate()}} or \code{\link[=compute_sandwich]{compute_sandwich()}}, each of which
+evaluates the estimating function many times, delivers the warning once for
+the operation. It is offered for completeness but is not generally
 recommended for applications.
+
+Start \code{theta[2]} at the sample median and \code{theta[1]} at the matching
+positive mean deviation, \code{mean(2 * (y - median(y)) * (y > median(y)))}, and
+use \code{solver = "lm"}. The median equation is a step function of \code{theta[2]},
+so its derivative is zero wherever it is defined, the finite-difference
+approximation the solvers work from is zero along that row as well, and the
+Jacobian is singular. Neither solver recovers the median from that, and
+they fail differently. The default \code{rootSolve} solver cannot move at all
+and returns \code{init} unchanged for both parameters. Whether it warns that it
+did not converge depends on the starting values, so a fit can come back
+holding the values it was given with nothing reported. The
+Levenberg-Marquardt solver drives the first equation to zero. That equation
+is itself a function of \code{theta[2]}, so the solver can reduce its residual
+by trading \code{theta[2]} against \code{theta[1]}. Whether it makes that trade
+depends on the starting values: from some it leaves the median at the value
+it was given, and from others it moves the median to whatever value the
+trade leaves it at. It reports no failure either way. Neither outcome
+recovers the sample median on its own, and when the median does move, the
+positive mean deviation returned belongs to that median rather than to the
+sample median.
+
+Those starting values come from measurement: forty exponential samples per
+configuration, each fit with the Levenberg-Marquardt solver. Started at the
+sample median with \code{theta[1]} at the matching deviation, the fit returned
+the sample median for all forty at every one of the sizes 9, 10, 25, 40,
+41, 100, and 101. Started at the sample median with \code{theta[1]} at zero, it
+returned the sample median for about half of them at the even sizes
+\code{n = 10} and \code{n = 40}, and for all forty at \code{n = 9}, \code{n = 25}, and
+\code{n = 41}. Started with \code{theta[1]} at zero and
+\code{theta[2]} half a unit, one unit, or three units to either side of the
+sample median, it returned the sample median for none of the forty, at each
+of those six offsets and each of the sizes 10, 25, 40, and 41.
 }
 \examples{
 \dontshow{if (requireNamespace("minpack.lm", quietly = TRUE)) withAutoprint(\{ # examplesIf}
 y <- c(1, 2, 3, 1, 4, 5, 3, 2, 6, 7)
 psi <- function(theta) ee_positive_mean_deviation(theta, y = y)
 
-# The median equation is a step function of theta, so the Jacobian is
-# singular and the default solver cannot move. Start the median at the sample
-# median, which is the solution, and use the Levenberg-Marquardt solver to
-# fit the remaining parameter.
-m <- m_estimate(
-  stacked_equations = psi,
-  init = c(0, median(y)),
-  solver = "lm"
-)
-
-# Each call warns for the same reason: the median estimating equation is not
-# differentiable, so the sandwich variance should not be trusted.
+# Start the median at the sample median and the deviation at the value that
+# matches it, since the solver cannot search for the median, and use the
+# Levenberg-Marquardt solver, which holds there. The fit warns once that the
+# median estimating equation is not differentiable, so the sandwich variance
+# should not be trusted.
+init <- c(mean(2 * (y - median(y)) * (y > median(y))), median(y))
+m <- m_estimate(stacked_equations = psi, init = init, solver = "lm")
 coef(m)
 \dontshow{\}) # examplesIf}
 }

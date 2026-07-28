@@ -276,29 +276,36 @@ compute_sandwich <- function(
   allow_pinv = TRUE,
   finite_correction = NULL
 ) {
-  # Evaluate estimating equations at theta-hat
-  evald <- stacked_equations(theta)
-  if (is.null(dim(evald))) {
-    n_obs <- length(evald)
-    n_params <- 1
-    # Reshape to 1-by-n matrix so tcrossprod works correctly in compute_meat
-    evald <- matrix(evald, nrow = 1)
-  } else {
-    n_obs <- ncol(evald)
-    n_params <- nrow(evald)
-  }
+  # This evaluates the estimating function once for itself and once or twice per
+  # parameter for the bread, so an estimating function that warns raises the same
+  # warning several times for one call. See R/conditions.R. The body is short
+  # enough to wrap in place, unlike the estimate() methods, which put theirs in a
+  # worker.
+  without_repeated_warnings({
+    # Evaluate estimating equations at theta-hat
+    evald <- stacked_equations(theta)
+    if (is.null(dim(evald))) {
+      n_obs <- length(evald)
+      n_params <- 1
+      # Reshape to 1-by-n matrix so tcrossprod works correctly in compute_meat
+      evald <- matrix(evald, nrow = 1)
+    } else {
+      n_obs <- ncol(evald)
+      n_params <- nrow(evald)
+    }
 
-  # Step 1: Bread matrix
-  bread <- compute_bread(stacked_equations, theta, deriv_method, dx)
-  bread <- bread / n_obs
+    # Step 1: Bread matrix
+    bread <- compute_bread(stacked_equations, theta, deriv_method, dx)
+    bread <- bread / n_obs
 
-  # Step 2: Meat matrix
-  meat <- compute_meat(evald)
-  meat <- meat / n_obs
-  meat <- finite_sample_correction(meat, n_obs, n_params, finite_correction)
+    # Step 2: Meat matrix
+    meat <- compute_meat(evald)
+    meat <- meat / n_obs
+    meat <- finite_sample_correction(meat, n_obs, n_params, finite_correction)
 
-  # Step 3: Build sandwich
-  build_sandwich(bread, meat, allow_pinv)
+    # Step 3: Build sandwich
+    build_sandwich(bread, meat, allow_pinv)
+  })
 }
 
 #' Confidence bands for parameter vectors
@@ -588,7 +595,20 @@ method(delta_method, deli_estimator) <- function(
 ) {
   rlang::check_dots_empty(call = rlang::caller_env())
   check_estimated(object)
-  delta_method_impl(object@theta, transform, object@variance, deriv_method, dx)
+  # One call differentiates `transform` and so evaluates it several times, once
+  # for the shape check and once or twice per parameter for the Jacobian. A
+  # transform that warns would otherwise repeat itself for one call. See
+  # R/conditions.R. The scope wraps the shared worker rather than this body for
+  # the same reason it does in the estimate() methods.
+  without_repeated_warnings(
+    delta_method_impl(
+      object@theta,
+      transform,
+      object@variance,
+      deriv_method,
+      dx
+    )
+  )
 }
 
 method(delta_method, class_numeric) <- function(
@@ -600,7 +620,10 @@ method(delta_method, class_numeric) <- function(
   ...
 ) {
   rlang::check_dots_empty(call = rlang::caller_env())
-  delta_method_impl(object, transform, covariance, deriv_method, dx)
+  # See the method above for why the worker call sits inside the scope.
+  without_repeated_warnings(
+    delta_method_impl(object, transform, covariance, deriv_method, dx)
+  )
 }
 
 #' @noRd
