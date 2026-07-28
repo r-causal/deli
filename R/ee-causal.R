@@ -25,7 +25,7 @@
 #' n <- 1000
 #' W1 <- rnorm(n)
 #' W2 <- rbinom(n, 1, 0.4)
-#' A <- rbinom(n, 1, inverse_logit(-0.5 + 0.5 * W1 + 0.3 * W2))
+#' A <- rbinom(n, 1, plogis(-0.5 + 0.5 * W1 + 0.3 * W2))
 #' Y <- 2 + 1.5 * A + W1 - 0.5 * W2 + rnorm(n)
 #'
 #' X <- cbind(1, A, W1, W2) # Observed design matrix
@@ -130,7 +130,7 @@ ee_gformula <- function(theta, y, X, X1, X0 = NULL, force_continuous = FALSE) {
 #' n <- 1000
 #' W1 <- rnorm(n)
 #' W2 <- rbinom(n, 1, 0.4)
-#' A <- rbinom(n, 1, inverse_logit(-0.5 + 0.5 * W1 + 0.3 * W2))
+#' A <- rbinom(n, 1, plogis(-0.5 + 0.5 * W1 + 0.3 * W2))
 #' Y <- 2 + 1.5 * A + W1 - 0.5 * W2 + rnorm(n)
 #'
 #' W_ps <- cbind(1, W1, W2) # Propensity score design matrix
@@ -219,7 +219,7 @@ ee_ipw <- function(theta, y, A, W, truncate = NULL, weights = NULL) {
 #' n <- 1000
 #' W1 <- rnorm(n)
 #' W2 <- rbinom(n, 1, 0.4)
-#' A <- rbinom(n, 1, inverse_logit(-0.5 + 0.5 * W1 + 0.3 * W2))
+#' A <- rbinom(n, 1, plogis(-0.5 + 0.5 * W1 + 0.3 * W2))
 #' Y <- 2 + 1.5 * A + W1 - 0.5 * W2 + rnorm(n)
 #'
 #' W_ps <- cbind(1, W1, W2) # Propensity score design matrix
