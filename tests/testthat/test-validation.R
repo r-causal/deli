@@ -1,3 +1,12 @@
+# ---- Helpers ----
+
+# cli wraps a message at the console width, so a type description can straddle
+# a line break. Collapsing the whitespace keeps the assertions on it independent
+# of where the break falls.
+flatten_message <- function(cnd) {
+  gsub("\\s+", " ", conditionMessage(cnd))
+}
+
 # check_alpha -------------------------------------------------------------
 
 test_that("check_alpha accepts valid alpha values", {
@@ -34,6 +43,22 @@ test_that("check_estimated rejects an estimator that has not been fitted", {
   psi <- function(theta) matrix(c(1, 2, 3, 4, 5) - theta[1], nrow = 1)
   m <- MEstimator(stacked_equations = psi, init = c(0))
   expect_error(check_estimated(m), "before calling")
+})
+
+# check_estimator_init ----------------------------------------------------
+
+# Each of the four type-naming tests in this file asserts that the type
+# description is present and that the offending object's own values are not.
+# Only the second half separates a working message from one built with
+# `{.obj_type_of}`, which cli does not recognize as an inline class: rather than
+# refusing the name it falls back to pasting the values in, so a message meant
+# to read "not a character matrix" reads out the whole object instead.
+test_that("check_estimator_init names the type of a non-numeric init", {
+  values <- c("alpha", "beta", "gamma", "delta")
+  err <- expect_error(check_estimator_init(matrix(values, nrow = 2)))
+  flat <- flatten_message(err)
+  expect_match(flat, "not a character matrix", fixed = TRUE)
+  expect_false(grepl("alpha", flat, fixed = TRUE))
 })
 
 # check_estimator_subset --------------------------------------------------
@@ -88,6 +113,20 @@ test_that("check_psi_at_init rejects a non-numeric return", {
     check_psi_at_init(matrix("a", nrow = 1), init = c(0)),
     "numeric"
   )
+})
+
+# The offending object here is an estimating-function return, so it holds one
+# value per observation. Pasting it into the message is the worst case of the
+# `{.obj_type_of}` fallback in the package, and the length of the message grows
+# with the data.
+test_that("check_psi_at_init names the type of a non-numeric return", {
+  values <- c("alpha", "beta", "gamma")
+  err <- expect_error(
+    check_psi_at_init(matrix(values, nrow = 1), init = c(0, 0, 0))
+  )
+  flat <- flatten_message(err)
+  expect_match(flat, "not a character matrix", fixed = TRUE)
+  expect_false(grepl("alpha", flat, fixed = TRUE))
 })
 
 test_that("check_psi_at_init rejects non-finite values at init", {
@@ -237,6 +276,23 @@ test_that("check_solver_return rejects NULL, non-numeric, and wrong length", {
   expect_error(check_solver_return(NULL, 2), "numeric vector of length 2")
   expect_error(check_solver_return("a", 2), "numeric vector of length 2")
   expect_error(check_solver_return(c(1, 2, 3), 2), "numeric vector of length 2")
+})
+
+test_that("check_solver_return names the type of what the solver returned", {
+  values <- c("alpha", "beta", "gamma")
+  err <- expect_error(check_solver_return(values, 2))
+  flat <- flatten_message(err)
+  expect_match(flat, "It returned a character vector of length 3", fixed = TRUE)
+  expect_false(grepl("alpha", flat, fixed = TRUE))
+})
+
+# check_deriv_method ------------------------------------------------------
+
+test_that("check_deriv_method names the type of a non-string method", {
+  err <- expect_error(check_deriv_method(c("capprox", "exact")))
+  flat <- flatten_message(err)
+  expect_match(flat, "not a character vector", fixed = TRUE)
+  expect_false(grepl("capprox", flat, fixed = TRUE))
 })
 
 # check_penalty_shape -----------------------------------------------------

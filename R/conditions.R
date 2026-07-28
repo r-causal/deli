@@ -85,10 +85,9 @@ without_repeated_warnings <- function(expr) {
 #' two warnings that read alike but were raised from different frames collapse to
 #' one, and the second is dropped rather than merged. It is accepted because
 #' including the call would separate nothing that matters while destroying the
-#' de-duplication itself. No warning this package raises carries a call. Almost
-#' all of them come from `cli::cli_warn()`, which records a call only when one
-#' is passed through to [rlang::warn()], and no site here passes one; the one
-#' remaining base [warning()], in `compute_bread()`, passes `call. = FALSE`.
+#' de-duplication itself. No warning this package raises carries a call. All of
+#' them come from `cli::cli_warn()`, which records a call only when one is
+#' passed through to [rlang::warn()], and no site here passes one.
 #' `conditionCall()` is therefore empty for every one of them, so the call
 #' distinguishes none of them. Among warnings raised by user code with
 #' [warning()], the reported call is the call to the frame that raised it, and

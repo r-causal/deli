@@ -64,7 +64,7 @@
 #'
 #' @returns A fitted `MEstimator` object with populated `theta`, `variance`,
 #'   etc. Use [coef()], [vcov()], [confint()], [summary()], or
-#'   [broom::tidy()] to extract results.
+#'   [generics::tidy()] to extract results.
 #'
 #' @export
 #' @examples

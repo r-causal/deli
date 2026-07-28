@@ -408,9 +408,10 @@ test_that("a non-finite return that does not fit the automatic init reports the 
 })
 
 # A short init cannot turn a numeric return into a character one, so the type
-# is reported even when the row count is wrong too. These two assert only the
-# part of the message before the offending value, because the value itself is
-# pasted in and is one entry per observation.
+# is reported even when the row count is wrong too. These two pin the type
+# description as well, and pin that the return's own values stay out of the
+# message: the offending object is an estimating-function return, so pasting it
+# in would print one entry per observation.
 test_that("a non-numeric return that does not fit the automatic init keeps its own message", {
   d <- make_line_data()
   ee_character <- function(theta, X, y, ...) {
@@ -420,9 +421,10 @@ test_that("a non-numeric return that does not fit the automatic init keeps its o
   flat <- flatten_message(err)
   expect_match(
     flat,
-    "`stacked_equations` must return a numeric vector or matrix at the initial values, not",
+    "`stacked_equations` must return a numeric vector or matrix at the initial values, not a character matrix.",
     fixed = TRUE
   )
+  expect_false(grepl(as.character(d$y[[1]]), flat, fixed = TRUE))
   expect_false(grepl("automatic zero", flat, fixed = TRUE))
 })
 
@@ -438,9 +440,10 @@ test_that("a non-numeric return that fits the automatic init is not called non-f
   flat <- flatten_message(err)
   expect_match(
     flat,
-    "`stacked_equations` must return a numeric vector or matrix at the initial values, not",
+    "`stacked_equations` must return a numeric vector or matrix at the initial values, not a character matrix.",
     fixed = TRUE
   )
+  expect_false(grepl(as.character(d$y[[1]]), flat, fixed = TRUE))
   expect_false(grepl("non-finite", flat, fixed = TRUE))
 })
 

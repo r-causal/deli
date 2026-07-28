@@ -170,7 +170,7 @@ check_survival_data_valid <- function(delta, time) {
 check_estimator_init <- function(init) {
   if (!is.numeric(init)) {
     cli::cli_abort(
-      "{.arg init} must be a numeric vector, not {.obj_type_of {init}}."
+      "{.arg init} must be a numeric vector, not {.obj_type_friendly {init}}."
     )
   }
   if (length(init) < 1L) {
@@ -300,14 +300,15 @@ check_psi_at_init <- function(vals, init, allow_over_identification = FALSE) {
   # `NULL` first. What it has to clear is the numeric check immediately below,
   # which is what would otherwise catch it, because `is.numeric(NULL)` is
   # `FALSE`. That check diagnoses by naming the type of the offending return,
-  # and `NULL` is the absence of a return rather than a type of one, so the
-  # clause degenerates into contrasting a valid return with nothing; the branch
-  # here names the return in the headline instead and keeps the hint describing
-  # what a valid one holds. It has to clear both shape branches too, for a
-  # separate reason: a dimensionless value counts as one estimating equation
-  # there, so a `NULL` reaching them is reported as a count of one against the
-  # length of `init`, which is not the problem. The finite check is the only
-  # one it is unordered against, since `all(is.finite(NULL))` is `TRUE`.
+  # and the type it names for `NULL` is `NULL`, which reports the absence of a
+  # return as though it were one more type that happens not to be numeric, and
+  # carries no hint; the branch here names the absence in the headline instead
+  # and keeps the hint describing what a valid return holds. It has to clear
+  # both shape branches too, for a separate reason: a dimensionless value
+  # counts as one estimating equation there, so a `NULL` reaching them is
+  # reported as a count of one against the length of `init`, which is not the
+  # problem. The finite check is the only one it is unordered against, since
+  # `all(is.finite(NULL))` is `TRUE`.
   if (is.null(vals)) {
     cli::cli_abort(c(
       "{.arg stacked_equations} returned {.val NULL} at the initial values.",
@@ -323,7 +324,7 @@ check_psi_at_init <- function(vals, init, allow_over_identification = FALSE) {
   if (!is.numeric(vals)) {
     cli::cli_abort(
       "{.arg stacked_equations} must return a numeric vector or matrix at the
-       initial values, not {.obj_type_of {vals}}."
+       initial values, not {.obj_type_friendly {vals}}."
     )
   }
   # The shape ahead of the values. This is two branches under different guards,
@@ -494,7 +495,8 @@ check_solver_return <- function(theta, n_params) {
     cli::cli_abort(c(
       "The custom {.arg solver} must return a numeric vector of length
        {n_params}.",
-      "i" = "It returned {.obj_type_of {theta}} of length {length(theta)}."
+      "i" = "It returned {.obj_type_friendly {theta}} of length
+             {length(theta)}."
     ))
   }
   invisible(NULL)
@@ -517,7 +519,7 @@ check_deriv_method <- function(deriv_method) {
   if (!is.character(deriv_method) || length(deriv_method) != 1L) {
     cli::cli_abort(
       "{.arg deriv_method} must be a single string, not
-       {.obj_type_of {deriv_method}}."
+       {.obj_type_friendly {deriv_method}}."
     )
   }
   normalized <- tolower(deriv_method)

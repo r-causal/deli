@@ -89,11 +89,10 @@ compute_bread <- function(
   }
 
   if (anyNA(bread_matrix)) {
-    warning(
-      "The bread matrix contains NA values, so it cannot be inverted. ",
-      "The variance will not be calculated.",
-      call. = FALSE
-    )
+    cli::cli_warn(c(
+      "!" = "The bread matrix contains NA values, so it cannot be inverted.",
+      "i" = "The variance will not be calculated."
+    ))
   }
 
   -1 * bread_matrix

@@ -187,10 +187,8 @@ test_that("without_repeated_warnings keys on the message and not the call", {
 # The other half of that decision is about this package's own warnings: the call
 # would separate none of them, because none of them carries one.
 # cli::cli_warn() records a call only when one is passed through to
-# rlang::warn(), which no site here does, and the one base warning() left, in
-# compute_bread(), passes `call. = FALSE`. The warnings collected below cover
-# both paths: an estimating equation's, a penalty's, the solver's, and the
-# bread's.
+# rlang::warn(), which no site here does. The warnings collected below cover an
+# estimating equation's, a penalty's, the solver's, and the bread's.
 test_that("no warning this package raises carries a call", {
   y <- percentile_data()
   na_bread_psi <- function(theta) matrix(rep(NA_real_, 3) * theta[1], nrow = 1)
@@ -364,6 +362,19 @@ test_that("compute_sandwich() delivers a repeated warning once", {
 
   expect_length(caught, 1)
   expect_match(warning_messages(caught), "not differentiable")
+})
+
+# The bread's own warning travels through the scope like any other. One call to
+# compute_sandwich() builds one bread, so there is nothing here for the scope to
+# collapse, and what this pins is that the warning is neither repeated nor
+# swallowed by the scope that surrounds it.
+test_that("compute_sandwich() delivers the NA bread warning once", {
+  psi <- function(theta) matrix(rep(NA_real_, 3) * theta[1], nrow = 1)
+
+  caught <- collect_warnings(compute_sandwich(psi, theta = 1))
+
+  expect_length(caught, 1)
+  expect_match(warning_messages(caught), "bread matrix contains NA")
 })
 
 test_that("compute_sandwich() starts a fresh seen-set on every call", {

@@ -98,7 +98,7 @@ against the estimating equations.}
 \value{
 A fitted \code{MEstimator} object with populated \code{theta}, \code{variance},
 etc. Use \code{\link[=coef]{coef()}}, \code{\link[=vcov]{vcov()}}, \code{\link[=confint]{confint()}}, \code{\link[=summary]{summary()}}, or
-\code{\link[broom:tidy]{broom::tidy()}} to extract results.
+\code{\link[generics:tidy]{generics::tidy()}} to extract results.
 }
 \description{
 Creates an \code{MEstimator} and estimates it in one call, analogous to how

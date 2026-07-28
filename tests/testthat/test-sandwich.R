@@ -121,6 +121,21 @@ test_that("compute_bread() returns correct dimensions", {
   expect_equal(dim(result), c(3L, 3L))
 })
 
+# Every condition this package raises goes through cli, so this one is an rlang
+# warning rather than a base one, and cli::cli_warn() records no call because no
+# site here passes one through to rlang::warn(). R/conditions.R keys the
+# de-duplication scope on the class and the message, and relies on the absence
+# of the call, so both are pinned here.
+test_that("compute_bread() warns through cli when the bread contains NA", {
+  psi <- function(theta) matrix(rep(NA_real_, 3) * theta[1], nrow = 1)
+
+  w <- expect_warning(compute_bread(psi, theta = 1), "bread matrix contains NA")
+
+  expect_s3_class(w, "rlang_warning")
+  expect_null(conditionCall(w))
+  expect_match(conditionMessage(w), "variance will not be calculated")
+})
+
 # ---- finite_sample_correction() ---------------------------------------------
 
 test_that("finite_sample_correction() with NULL returns meat unchanged", {
