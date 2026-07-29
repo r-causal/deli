@@ -90,7 +90,10 @@ against the estimating equations.}
 \item{deriv_method}{Character string for numerical differentiation method
 (default \code{"capprox"}).}
 
-\item{dx}{Numeric step size for differentiation (default 1e-9).}
+\item{dx}{Numeric step size for differentiation (default 1e-9). The step is
+absolute and is floored at the floating-point resolution of each estimate,
+so a large parameter magnitude cannot silently reduce it to nothing; see
+\code{\link[=approx_differentiation]{approx_differentiation()}}.}
 
 \item{allow_pinv}{Logical. Use pseudo-inverse if bread is singular? Default
 \code{TRUE}.}

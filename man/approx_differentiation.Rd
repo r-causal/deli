@@ -17,7 +17,9 @@ derivative.}
 \code{"capprox"} (central difference, default), \code{"fapprox"} (forward
 difference), or \code{"bapprox"} (backward difference).}
 
-\item{dx}{Numeric step size for the finite difference (default \code{1e-9}).}
+\item{dx}{Numeric step size for the finite difference (default \code{1e-9}). The
+step is absolute, floored at the floating-point resolution of each
+parameter.}
 }
 \value{
 A matrix where element \verb{[i, j]} is the partial derivative of the
@@ -26,5 +28,35 @@ A matrix where element \verb{[i, j]} is the partial derivative of the
 \description{
 Computes the Jacobian matrix of a vector-valued function using forward,
 backward, or central difference approximation.
+}
+\details{
+\code{dx} is an absolute perturbation, matching the \code{epsilon} argument of the
+Python \code{delicatessen} library, so a \code{dx} carried over from there means the
+same thing here. An absolute step has a limit, though: the spacing of the
+doubles surrounding \code{theta} grows with \code{theta}, so a fixed \code{dx} spans fewer
+and fewer of them as a parameter grows. At the default \code{dx} it spans about
+17,600 of them at \verb{|theta| = 450}, 69 at \verb{|theta| = 1.3e5}, and barely one
+by \verb{|theta| = dx / .Machine$double.eps}, about \code{4.5e6}. The perturbation is
+rounded away with them, at first losing significant digits and past roughly
+\code{1.7e7} leaving \code{theta + dx} equal to \code{theta}, at which point every
+difference is zero and the Jacobian collapses.
+
+Each parameter's step is therefore floored at that magnitude's floating-point
+resolution: it always spans at least ten thousand representable values, so
+the perturbation actually applied reproduces the one intended to about four
+significant digits. The floor is \verb{1e4 * .Machine$double.eps * |theta|}, and
+\verb{.Machine$double.eps * |theta|} runs from one spacing to two as \verb{|theta|}
+climbs from one power of two to the next, so the floor engages wherever \code{dx}
+would span fewer than ten to twenty thousand of them: every \verb{|theta|} above
+\code{dx / (1e4 * .Machine$double.eps)}, about \code{450} at the default \code{dx}. Below
+that magnitude the step is \code{dx} exactly and nothing about the result changes.
+Above it the step applied is the floor rather than \code{dx}, and the derivative
+moves with it: at \verb{|theta| = 500}, where \code{dx} still spans 17,592 values and
+is resolved to five significant digits, the step is \code{1.11e-9}.
+
+Where the floor does engage, the derivative is accurate to a few parts in ten
+thousand rather than to the roughly \code{1e-7} a representable step reaches.
+\code{deriv_method = "exact"} takes no step at all and is unaffected by parameter
+magnitude, so it is the better choice for a badly scaled problem.
 }
 \keyword{internal}

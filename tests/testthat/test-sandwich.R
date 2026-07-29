@@ -136,6 +136,88 @@ test_that("compute_bread() warns through cli when the bread contains NA", {
   expect_match(conditionMessage(w), "variance will not be calculated")
 })
 
+# The finite-difference step is an absolute perturbation, so a large enough
+# parameter magnitude drives it below the spacing of the doubles around `theta`
+# and the Jacobian degrades, then vanishes. Nothing about the returned bread
+# says so: `anyNA()` does not fire, `build_sandwich()` pseudo-inverts the zero
+# matrix, and the reported standard error is exactly zero.
+test_that("the bread survives a parameter magnitude that costs the step", {
+  for (scale in c(5e6, 5e8, 5e9, 5e10)) {
+    set.seed(42)
+    y <- stats::rnorm(200, mean = scale, sd = scale / 5)
+    psi <- function(theta) matrix(y - theta[1], nrow = 1)
+    expected_variance <- sum((y - mean(y))^2) / 200^2
+
+    for (method in c("capprox", "fapprox", "bapprox", "exact")) {
+      expect_no_warning({
+        m <- estimate(
+          MEstimator(stacked_equations = psi, init = scale),
+          deriv_method = method
+        )
+      })
+      lab <- paste0(method, " at scale ", scale)
+      expect_equal(unname(m@bread[1, 1]), 1, tolerance = 1e-3, label = lab)
+      expect_equal(
+        unname(m@variance[1, 1]),
+        expected_variance,
+        tolerance = 1e-3,
+        label = lab
+      )
+    }
+  }
+})
+
+test_that("a fit whose parameters need different steps matches exact", {
+  # A design whose columns sit on different scales puts the three coefficients
+  # at magnitudes 2, 2e6, and 5e3, so no two of them take the same step: the
+  # first keeps `dx` itself, and the floor raises the other two to 4.3e-6 and
+  # 1.1e-8. Each column of the bread therefore has to be divided by its own
+  # parameter's step, and a bread built with any other correspondence is wrong
+  # by up to the ratio between them.
+  set.seed(11)
+  n <- 250
+  z <- stats::runif(n, 1, 3) / 1e6
+  v <- stats::runif(n, 1, 3) / 1e3
+  X <- cbind(1, z, v)
+  y <- 2 + 2e6 * z + 5e3 * v + stats::rnorm(n)
+  psi <- function(theta) ee_regression(theta, X = X, y = y, model = "linear")
+
+  fit <- function(method) {
+    estimate(
+      MEstimator(stacked_equations = psi, init = c(2, 2e6, 5e3)),
+      deriv_method = method
+    )
+  }
+  exact <- fit("exact")
+
+  # The premise: the fit really does straddle the magnitude where the floor
+  # engages, so the steps are not all `dx` and not all the floor.
+  floor_threshold <- 1e-9 / (1e4 * .Machine$double.eps)
+  expect_lt(abs(coef(exact)[[1]]), floor_threshold)
+  expect_gt(min(abs(coef(exact)[-1])), floor_threshold)
+
+  for (method in c("capprox", "fapprox", "bapprox")) {
+    approx <- fit(method)
+    # Only the bread depends on `deriv_method`, so the estimates must be bit
+    # identical and every difference below belongs to the derivative.
+    expect_identical(coef(approx), coef(exact))
+    # Relative, entry by entry: the bread spans twelve orders of magnitude
+    # here, so an absolute comparison would leave its small entries free. The
+    # measured worst cases are 3.6e-05 for the bread and 5.6e-05 for the
+    # standard errors.
+    expect_lt(
+      max(abs(unname(approx@bread / exact@bread) - 1)),
+      1e-3,
+      label = paste0("worst relative bread error, ", method)
+    )
+    expect_lt(
+      max(abs(sqrt(diag(approx@variance)) / sqrt(diag(exact@variance)) - 1)),
+      1e-3,
+      label = paste0("worst relative standard error, ", method)
+    )
+  }
+})
+
 # ---- finite_sample_correction() ---------------------------------------------
 
 test_that("finite_sample_correction() with NULL returns meat unchanged", {

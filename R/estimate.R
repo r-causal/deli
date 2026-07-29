@@ -34,7 +34,10 @@
 #'   the survival prediction helpers, exact differentiation is also available
 #'   through [delta_method()].
 #' @param dx Numeric step size for numerical differentiation; ignored when
-#'   `deriv_method = "exact"` (default 1e-9).
+#'   `deriv_method = "exact"` (default 1e-9). The step is absolute and is
+#'   floored at the floating-point resolution of each estimate, so a large
+#'   parameter magnitude cannot silently reduce it to nothing; see
+#'   [approx_differentiation()].
 #' @param allow_pinv Logical. Use pseudo-inverse if bread is singular? Default
 #'   `TRUE`.
 #' @param ... Not used. Must be empty, so a name that is not one of the

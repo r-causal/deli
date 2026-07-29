@@ -213,6 +213,19 @@ evaluated on one side of the current parameter value. The `dx` argument sets the
 finite-difference step for all three; it defaults to `1e-9` and is the one tuning
 knob these methods expose.
 
+`dx` is an absolute step, so it interacts with the magnitude of the estimates.
+The spacing of the doubles around an estimate grows with the estimate, so `1e-9`
+spans fewer and fewer of them as a parameter grows, and past roughly `1.7e7`
+adding it lands back on the same double and leaves nothing to difference. deli
+floors the step at each parameter's floating-point resolution so that the
+derivative cannot collapse. That floor engages as soon as `dx` spans fewer than
+ten to twenty thousand representable values, the count depending on where the
+estimate sits between consecutive powers of two, which at the default `dx` is
+any estimate past about `450`: from there up the step actually applied is the
+floor rather than `dx`, and the bread is accurate to a few parts in ten thousand
+rather than to roughly `1e-7`. Rescaling the data, or moving to
+`deriv_method = "exact"`, which takes no step at all, restores full accuracy.
+
 `"exact"` is forward-mode automatic differentiation. It carries derivatives
 through the computation exactly, so it is the most accurate option and has no
 step size to choose. Exact differentiation now works for every built-in

@@ -171,3 +171,182 @@ test_that("all three methods run without error", {
     )
   }
 })
+
+# ---- step size against parameter magnitude -----------------------------------
+#
+# `dx` is an absolute perturbation, so at a large enough parameter magnitude the
+# requested step falls below the spacing of the doubles surrounding `theta`.
+# `theta + dx` then rounds back to `theta`, the difference quotient loses its
+# significant digits, and past roughly 1.7e7 it collapses to exactly zero. The
+# step is therefore floored at the resolution of each parameter, which leaves
+# `dx` itself in force wherever it is representable. The two regimes are pinned
+# separately because a fix that only rescues the collapsed one leaves a silent
+# error of several percent standing in the degraded one.
+
+# A well-scaled estimating function at parameter magnitude `s`: the value grows
+# with the data while the derivative stays order one, which is the shape of a
+# real estimating equation fitted to data on that scale.
+scaled_nonlinear <- function(s) {
+  function(x) s * log1p((x / s)^2)
+}
+
+# d/dx of the above, in scaled units u = x / s.
+scaled_nonlinear_deriv <- function(u) 2 * u / (1 + u^2)
+
+# The floor guarantees the step spans enough of the parameter's resolution to
+# reproduce four significant digits, so the surviving error stays a few parts in
+# a hundred thousand at any magnitude. The measured worst case over the eighteen
+# combinations of function, magnitude, and method that the two tests below run
+# is 8.55e-05; the tolerance leaves room for platform variation.
+step_floor_tolerance <- 5e-3
+
+test_that("a dx near the resolution of theta gives the right derivative", {
+  # At these magnitudes the requested step still perturbs `theta`, but it spans
+  # only 550, 69, and 1.07 representable values, so the quotient silently loses
+  # most of its digits. Without the floor the error over these nine combinations
+  # runs from 2.59e-04 to 1.
+  u <- 1.3
+  expected <- scaled_nonlinear_deriv(u)
+
+  for (method in c("capprox", "fapprox", "bapprox")) {
+    for (s in c(1e4, 1e5, 5e6)) {
+      result <- approx_differentiation(
+        func = scaled_nonlinear(s),
+        theta = s * u,
+        method = method,
+        dx = 1e-9
+      )
+      expect_equal(
+        result[1, 1],
+        expected,
+        tolerance = step_floor_tolerance,
+        label = paste0(method, " at |theta| = ", s * u)
+      )
+    }
+  }
+})
+
+test_that("a dx below the resolution of theta gives the right derivative", {
+  # Past roughly 1.7e7 the requested step is lost entirely: `theta + dx` is
+  # `theta`, every difference is zero, and without the floor the derivative is
+  # exactly zero with no warning of any kind.
+  u <- 1.3
+  expected <- scaled_nonlinear_deriv(u)
+
+  for (method in c("capprox", "fapprox", "bapprox")) {
+    for (s in c(5e8, 5e9, 5e10)) {
+      result <- approx_differentiation(
+        func = scaled_nonlinear(s),
+        theta = s * u,
+        method = method,
+        dx = 1e-9
+      )
+      expect_false(result[1, 1] == 0)
+      expect_equal(
+        result[1, 1],
+        expected,
+        tolerance = step_floor_tolerance,
+        label = paste0(method, " at |theta| = ", s * u)
+      )
+    }
+  }
+})
+
+test_that("each Jacobian column is divided by its own parameter's step", {
+  # Once the steps differ from one another, every difference has to meet the
+  # step of the parameter that produced it. Here the two parameters are nine
+  # orders of magnitude apart, so the first keeps `dx` itself while the floor
+  # raises the second to 6.66e-3: an entry divided by the other parameter's
+  # step is wrong by that ratio, 6.66e6. The function returns three values for
+  # two parameters so that a transposed Jacobian cannot satisfy the assertion
+  # either.
+  f <- function(th) {
+    a <- th[1]
+    u <- th[2] / 1e9
+    c(a^3 * u, sin(a) + u^2, exp(a / 4) * log(u))
+  }
+  theta <- c(2, 3e9)
+  a <- theta[1]
+  u <- theta[2] / 1e9
+  expected <- matrix(
+    c(
+      3 * a^2 * u,
+      cos(a),
+      exp(a / 4) * log(u) / 4,
+      a^3 / 1e9,
+      2 * u / 1e9,
+      exp(a / 4) / theta[2]
+    ),
+    nrow = 3,
+    ncol = 2
+  )
+
+  for (method in c("capprox", "fapprox", "bapprox")) {
+    result <- approx_differentiation(func = f, theta = theta, method = method)
+    expect_identical(dim(result), c(3L, 2L))
+    # Relative, entry by entry: the two columns of the Jacobian are themselves
+    # nine orders of magnitude apart, so an absolute comparison would leave the
+    # second column unconstrained. The measured worst case is 1.29e-05.
+    expect_lt(
+      max(abs(result / expected - 1)),
+      1e-3,
+      label = paste0("worst relative error, ", method)
+    )
+  }
+})
+
+test_that("the perturbation is exactly dx where dx is representable at theta", {
+  # The floor may not disturb a well-scaled fit. These magnitudes are the ones
+  # the package's own reference fixtures reach, so the quotient must be the one
+  # a step of exactly `dx` produces, to the last bit.
+  f <- function(x) exp(x / 1e3) + x^2 / 1e4
+  dx <- 1e-9
+
+  for (theta in c(2, 37.23, 183.6)) {
+    by_hand <- (f(theta + dx) - f(theta - dx)) / (2 * dx)
+    result <- approx_differentiation(
+      func = f,
+      theta = theta,
+      method = "capprox",
+      dx = dx
+    )
+    expect_identical(result[1, 1], by_hand)
+  }
+})
+
+test_that("approx_differentiation honors a deliberately large dx", {
+  # `ee_percentile()` is differentiated with `dx = 1` to smooth an indicator,
+  # matching the recipe Python delicatessen documents, so a large `dx` has to
+  # stay the absolute step the caller asked for rather than being rescaled.
+  f <- function(x) x^2
+  theta <- 5.4
+
+  result <- approx_differentiation(
+    func = f,
+    theta = theta,
+    method = "fapprox",
+    dx = 1
+  )
+  expect_identical(result[1, 1], (f(theta + 1) - f(theta)) / 1)
+  # A step that large is deliberately nowhere near the true derivative of 10.8.
+  expect_equal(result[1, 1], 11.8)
+})
+
+test_that("a genuinely flat function differentiates to zero without warning", {
+  # A step function has a finite-difference derivative of exactly zero because
+  # the function does not change, not because the step was lost. The two cases
+  # must not be conflated: this one is correct and must stay quiet.
+  f <- function(x) as.numeric(x > 0)
+  theta <- 2.5
+
+  for (method in c("capprox", "fapprox", "bapprox")) {
+    expect_no_warning({
+      result <- approx_differentiation(
+        func = f,
+        theta = theta,
+        method = method
+      )
+    })
+    expect_identical(result[1, 1], 0)
+  }
+})

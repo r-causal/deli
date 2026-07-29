@@ -9,7 +9,9 @@
 #' @param theta Numeric vector of parameter estimates.
 #' @param deriv_method Character string for the derivative method. One of
 #'   `"capprox"` (central), `"fapprox"` (forward), or `"bapprox"` (backward).
-#' @param dx Numeric step size (default `1e-9`).
+#' @param dx Numeric step size (default `1e-9`). The step is absolute, floored
+#'   at the floating-point resolution of each estimate; see
+#'   [approx_differentiation()].
 #'
 #' @return A p-by-p bread matrix.
 #'
@@ -225,7 +227,10 @@ finite_sample_correction <- function(meat, n, p, adjustment = NULL) {
 #'   the default.
 #' @param dx Numeric step size for the finite-difference methods; ignored when
 #'   `deriv_method = "exact"`. A small value is recommended, since large steps
-#'   can give poor approximations. Default `1e-9`.
+#'   can give poor approximations. Default `1e-9`. The step is absolute and is
+#'   floored at the floating-point resolution of each estimate, so a large
+#'   parameter magnitude cannot silently reduce it to nothing; see
+#'   [approx_differentiation()].
 #' @param allow_pinv Logical. When `TRUE` (default), the Moore-Penrose
 #'   pseudo-inverse is used if the bread matrix is singular; when `FALSE`, a
 #'   singular bread matrix raises an error.
@@ -548,7 +553,10 @@ compute_confidence_bands <- function(
 #'   `"fapprox"` (forward difference), `"bapprox"` (backward difference), or
 #'   `"exact"` (forward-mode automatic differentiation). Default `"capprox"`.
 #' @param dx Numeric step size for the finite-difference methods; ignored when
-#'   `deriv_method = "exact"`. Default `1e-9`.
+#'   `deriv_method = "exact"`. Default `1e-9`. The step is absolute and is
+#'   floored at the floating-point resolution of each estimate, so a large
+#'   parameter magnitude cannot silently reduce it to nothing; see
+#'   [approx_differentiation()].
 #' @param ... Not used. Must be empty, so a name that is not one of the
 #'   documented arguments is an error rather than silently ignored. Exact names
 #'   matter here because `deriv_method` selects how the Jacobian is built, and a

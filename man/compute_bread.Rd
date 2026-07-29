@@ -15,7 +15,9 @@ returns a p-by-n matrix of estimating equation contributions.}
 \item{deriv_method}{Character string for the derivative method. One of
 \code{"capprox"} (central), \code{"fapprox"} (forward), or \code{"bapprox"} (backward).}
 
-\item{dx}{Numeric step size (default \code{1e-9}).}
+\item{dx}{Numeric step size (default \code{1e-9}). The step is absolute, floored
+at the floating-point resolution of each estimate; see
+\code{\link[=approx_differentiation]{approx_differentiation()}}.}
 }
 \value{
 A p-by-p bread matrix.

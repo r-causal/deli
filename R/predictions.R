@@ -99,7 +99,10 @@ regression_predictions <- function(
 #'   `deriv_method = "exact"` to reproduce it with exact derivatives and no
 #'   step-size tuning. See [delta_method()].
 #' @param dx Numeric step size for the finite-difference methods; ignored when
-#'   `deriv_method = "exact"`. Default `1e-9`.
+#'   `deriv_method = "exact"`. Default `1e-9`. The step is absolute and is
+#'   floored at the floating-point resolution of each estimate, so a large
+#'   parameter magnitude cannot silently reduce it to nothing; see
+#'   [approx_differentiation()].
 #'
 #' @returns A data frame with columns: `time`, `predicted`, `variance`,
 #'   `lower`, `upper`.
@@ -376,7 +379,10 @@ aft_predictions_individual <- function(
 #'   `deriv_method = "exact"` to reproduce it with exact derivatives and no
 #'   step-size tuning. See [delta_method()].
 #' @param dx Numeric step size for the finite-difference methods; ignored when
-#'   `deriv_method = "exact"`. Default `1e-9`.
+#'   `deriv_method = "exact"`. Default `1e-9`. The step is absolute and is
+#'   floored at the floating-point resolution of each estimate, so a large
+#'   parameter magnitude cannot silently reduce it to nothing; see
+#'   [approx_differentiation()].
 #'
 #' @returns A data frame with one row per time point and columns: `time`,
 #'   `predicted`, `variance`, `lower`, `upper`.
