@@ -61,7 +61,11 @@ to be empty.}
 the response as its third argument, plus optionally additional arguments
 (required when \code{stacked_equations} is a formula). The formula response is
 passed positionally, so it reaches whatever the function calls that
-argument (\code{y} for \link{ee_regression} or \link{ee_glm}, \code{time} for \link{ee_aft}).}
+argument (\code{y} for \link{ee_regression} or \link{ee_glm}, \code{time} for \link{ee_aft}). An
+equation whose arguments leave any of those nowhere to go cannot be driven
+by a formula and is refused before anything is estimated:
+\link{ee_survival_model} takes no design matrix, so it is fitted through the
+function interface instead.}
 
 \item{init}{Numeric vector of initial parameter values. When \code{NULL}
 (default) and using the formula interface, a zero vector with names from
@@ -133,7 +137,12 @@ What becomes of a name that matches no argument depends on the interface. The
 function interface has no estimating equation to forward \code{...} to, so it
 requires \code{...} to be empty and reports an unrecognized name as an error
 rather than silently ignoring it. The formula interface forwards \code{...} to
-\code{.ee}, which raises its own error for a name it does not take.
+\code{.ee} and matches each name against that function's arguments exactly, naming
+the argument a refused name was probably meant for. A name that merely
+abbreviates one is refused too, rather than partially matched to it, since a
+fit that quietly took a misspelling for \code{weights} reports different numbers
+and says nothing about it. An \code{.ee} that takes \code{...} of its own accepts any
+name.
 }
 \examples{
 # Formula interface

@@ -16,7 +16,12 @@
 #' function interface has no estimating equation to forward `...` to, so it
 #' requires `...` to be empty and reports an unrecognized name as an error
 #' rather than silently ignoring it. The formula interface forwards `...` to
-#' `.ee`, which raises its own error for a name it does not take.
+#' `.ee` and matches each name against that function's arguments exactly, naming
+#' the argument a refused name was probably meant for. A name that merely
+#' abbreviates one is refused too, rather than partially matched to it, since a
+#' fit that quietly took a misspelling for `weights` reports different numbers
+#' and says nothing about it. An `.ee` that takes `...` of its own accepts any
+#' name.
 #'
 #' @param stacked_equations A formula or a function. When a formula, `data` and
 #'   `.ee` must also be provided. When a function, it should take a numeric
@@ -30,7 +35,11 @@
 #'   the response as its third argument, plus optionally additional arguments
 #'   (required when `stacked_equations` is a formula). The formula response is
 #'   passed positionally, so it reaches whatever the function calls that
-#'   argument (`y` for [ee_regression] or [ee_glm], `time` for [ee_aft]).
+#'   argument (`y` for [ee_regression] or [ee_glm], `time` for [ee_aft]). An
+#'   equation whose arguments leave any of those nowhere to go cannot be driven
+#'   by a formula and is refused before anything is estimated:
+#'   [ee_survival_model] takes no design matrix, so it is fitted through the
+#'   function interface instead.
 #' @param ... For the formula interface, additional arguments passed to `.ee`.
 #'   These are evaluated with tidy evaluation in the context of `data`, so
 #'   column names can be used directly (e.g., `event = status`). If the model
@@ -123,7 +132,9 @@ m_estimate.formula <- function(
     data = data,
     .ee = .ee,
     dots = rlang::enquos(...),
-    init = init
+    init = init,
+    ee_name = formula_ee_name(substitute(.ee)),
+    error_call = rlang::current_env()
   )
 
   obj <- MEstimator(
@@ -193,7 +204,12 @@ m_estimate.default <- function(
 #' function interface has no estimating equation to forward `...` to, so it
 #' requires `...` to be empty and reports an unrecognized name as an error
 #' rather than silently ignoring it. The formula interface forwards `...` to
-#' `.ee`, which raises its own error for a name it does not take.
+#' `.ee` and matches each name against that function's arguments exactly, naming
+#' the argument a refused name was probably meant for. A name that merely
+#' abbreviates one is refused too, rather than partially matched to it, since a
+#' fit that quietly took a misspelling for `weights` reports different numbers
+#' and says nothing about it. An `.ee` that takes `...` of its own accepts any
+#' name.
 #'
 #' @inheritParams m_estimate
 #' @param overid_maxiter Integer maximum iterations for the two-step iterative
@@ -281,7 +297,9 @@ gmm_estimate.formula <- function(
     data = data,
     .ee = .ee,
     dots = rlang::enquos(...),
-    init = init
+    init = init,
+    ee_name = formula_ee_name(substitute(.ee)),
+    error_call = rlang::current_env()
   )
 
   obj <- GMMEstimator(
@@ -346,22 +364,36 @@ gmm_estimate.default <- function(
 #' Shared by [m_estimate.formula()] and [gmm_estimate.formula()]. Constructs the
 #' model frame, coerces the response for the regression contract, aligns
 #' dots-supplied arguments with the NA-filtered model frame, honors an
-#' `offset()` term, auto-generates `init` when absent, and returns the closure
-#' plus the resolved `init`.
+#' `offset()` term, checks that `.ee` can be driven by a formula at all and that
+#' the names in `...` are arguments it takes, auto-generates `init` when absent,
+#' and returns the closure plus the resolved `init`.
 #'
 #' @param formula The model formula.
 #' @param data The data frame.
 #' @param .ee The estimating-equation function.
 #' @param dots A list of quosures captured from `...`.
 #' @param init The user-supplied `init`, or `NULL` to auto-generate it.
+#' @param ee_name The name `.ee` was passed under, for the reports about it, or
+#'   `NULL` when it arrived as an anonymous function.
+#' @param error_call The frame of the method that was called, which every abort
+#'   raised here or below reports as the call, since none of the frames they are
+#'   raised in belongs to a function the caller wrote.
 #'
 #' @returns A list with `psi` (the closure), `init` (the resolved vector), and
 #'   `model_spec` (what the fit was specified as; see `formula_model_spec()`).
 #' @noRd
-prepare_formula_psi <- function(formula, data, .ee, dots, init) {
+prepare_formula_psi <- function(
+  formula,
+  data,
+  .ee,
+  dots,
+  init,
+  ee_name = NULL,
+  error_call = NULL
+) {
   mf <- stats::model.frame(formula, data = data)
   response <- stats::model.response(mf)
-  y <- coerce_formula_response(response)
+  y <- coerce_formula_response(response, error_call = error_call)
   X <- stats::model.matrix(formula, data = mf)
 
   # Evaluate ... with tidy evaluation in data context.
@@ -380,13 +412,58 @@ prepare_formula_psi <- function(formula, data, .ee, dots, init) {
   formula_offset <- stats::model.offset(mf)
   if (!is.null(formula_offset)) {
     if ("offset" %in% names(ee_args)) {
-      cli::cli_abort(c(
-        "An offset was supplied both in the formula and through {.arg ...}.",
-        "i" = "Provide the offset in only one place."
-      ))
+      cli::cli_abort(
+        c(
+          "An offset was supplied both in the formula and through {.arg ...}.",
+          "i" = "Provide the offset in only one place."
+        ),
+        call = error_call
+      )
     }
     ee_args$offset <- formula_offset
   }
+
+  # `do.call()` takes the name of a function as readily as the function itself,
+  # so a character `.ee` reaches the estimating equation too. It is resolved to
+  # the function it names before anything is checked, so the checks read one
+  # function's arguments rather than declining to read a string's, and the rest of
+  # the interface recognizes the equation as well. A string is the name to report
+  # the equation by.
+  if (is.character(.ee) && length(.ee) == 1L) {
+    ee_name <- .ee
+    .ee <- rlang::try_fetch(
+      match.fun(.ee),
+      # The lookup is the interface's own step, so its failure is reported the
+      # way the checks below are rather than as the `get()` beneath it.
+      error = function(cnd) {
+        cli::cli_abort(
+          c(
+            "{.arg .ee} must be a function or the name of one.",
+            "x" = "No function named {.val {ee_name}} was found."
+          ),
+          call = error_call
+        )
+      }
+    )
+  }
+
+  # What the interface fills is checked before what the caller named, so an
+  # equation a formula cannot drive is reported as that rather than as a
+  # misspelling in a call that was never going to work. Both run before the
+  # equation is evaluated, so neither fault reaches it.
+  check_formula_ee_signature(
+    .ee,
+    ee_args = ee_args,
+    has_formula_offset = !is.null(formula_offset),
+    ee_name = ee_name,
+    error_call = error_call
+  )
+  check_formula_ee_dots(
+    .ee,
+    ee_args = ee_args,
+    ee_name = ee_name,
+    error_call = error_call
+  )
 
   # The parameter the estimating equation estimates beyond one coefficient per
   # design column, where it is one of the equations that appends any.
@@ -415,9 +492,11 @@ prepare_formula_psi <- function(formula, data, .ee, dots, init) {
     # estimating function at them anyway, and reads this attribute to recognize
     # a failure there as one the automatic length may explain. The appended
     # parameter travels with them so the diagnostic can name what the automatic
-    # length leaves out.
+    # length leaves out, and the entry point so it reports the call the caller
+    # typed from the frame it is raised in, several below this one.
     attr(psi, "deli_auto_init") <- init
     attr(psi, "deli_auto_init_appended") <- appended
+    attr(psi, "deli_auto_init_call") <- error_call
   }
 
   list(
@@ -442,22 +521,26 @@ prepare_formula_psi <- function(formula, data, .ee, dots, init) {
 #' way to encode them.
 #'
 #' @param y The response extracted with [stats::model.response()].
+#' @param error_call The frame to report the error against.
 #'
 #' @returns A numeric or logical response vector.
 #' @noRd
-coerce_formula_response <- function(y) {
+coerce_formula_response <- function(y, error_call = NULL) {
   if (is.character(y)) {
     y <- factor(y)
   }
   if (is.factor(y)) {
     if (nlevels(y) != 2L) {
-      cli::cli_abort(c(
-        "The formula interface requires a numeric, logical, or two-level
-         factor response.",
-        "i" = "The response has {nlevels(y)} level{?s}.",
-        "i" = "Multinomial models ({.fn ee_mlogit}) take an indicator-matrix
-               response through the function interface."
-      ))
+      cli::cli_abort(
+        c(
+          "The formula interface requires a numeric, logical, or two-level
+           factor response.",
+          "i" = "The response has {nlevels(y)} level{?s}.",
+          "i" = "Multinomial models ({.fn ee_mlogit}) take an indicator-matrix
+                 response through the function interface."
+        ),
+        call = error_call
+      )
     }
     y <- as.numeric(y != levels(y)[1])
   }
@@ -511,4 +594,31 @@ align_omitted_rows <- function(a, omit, n) {
   } else {
     a[-drop, , drop = FALSE]
   }
+}
+
+#' The name `.ee` was written as in the call
+#'
+#' Read from the expression the caller supplied, so a report about the estimating
+#' equation can name it and say which of the arguments in the call is the one to
+#' change. A function written out in the call itself has no name to report, and
+#' neither does one produced by a call other than `::`, so both give `NULL` and
+#' are described by the argument they arrived in instead.
+#'
+#' Takes the expression rather than reading it here, because `substitute()` has
+#' to run in the method the caller reached.
+#'
+#' @param expr The result of `substitute(.ee)` in a `.formula` method.
+#'
+#' @returns A string, or `NULL`.
+#' @noRd
+formula_ee_name <- function(expr) {
+  if (is.symbol(expr)) {
+    name <- as.character(expr)
+    # A missing argument substitutes to the empty symbol, which names nothing.
+    return(if (nzchar(name)) name else NULL)
+  }
+  if (is.call(expr) && identical(expr[[1]], quote(`::`))) {
+    return(paste(deparse(expr), collapse = ""))
+  }
+  NULL
 }

@@ -28,10 +28,12 @@
 # first place and cannot demonstrate anything. Pluralizing, shifting case, or
 # substituting an interior letter leaves no such escape.
 #
-# The formula methods are deliberately excluded. Their `...` reaches the
-# estimating equation, which rejects names it does not take, and the last
-# section locks that forwarding down so a guard is never added there by
-# analogy.
+# The formula methods are deliberately excluded. Their `...` is forwarded to the
+# estimating equation, and the formula interface matches the names in it against
+# that equation's arguments exactly, so a name the equation does not take is
+# refused there rather than by a guard here. The last section locks the
+# forwarding down so a guard is never added by analogy, and the refusal itself is
+# covered in test-formula-interface.R.
 
 # ---- Helpers -----------------------------------------------------------------
 
@@ -739,6 +741,6 @@ test_that("the formula interface rejects a name the .ee does not take", {
       init = c(`(Intercept)` = 0, wt = 0, hp = 0),
       tolerence = 1e-12
     ),
-    "unused argument"
+    class = "deli_formula_ee_argument_error"
   )
 })

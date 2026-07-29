@@ -425,19 +425,29 @@ eval_psi_at_init <- function(psi, init, allow_over_identification = FALSE) {
   # parameter the automatic length leaves out has a name, recorded beside the
   # starting values.
   appended <- attr(psi, "deli_auto_init_appended", exact = TRUE)
+  # This is several frames below the method the caller reached, so the frame to
+  # report the failure against travels with the starting values too.
+  entry_point <- attr(psi, "deli_auto_init_call", exact = TRUE)
 
   # The handler covers a single call, the estimating function itself, so
   # nothing raised later can reach it.
   vals <- rlang::try_fetch(
     psi(init),
-    error = function(cnd) abort_formula_auto_init(init, appended, parent = cnd)
+    error = function(cnd) {
+      abort_formula_auto_init(
+        init,
+        appended,
+        parent = cnd,
+        error_call = entry_point
+      )
+    }
   )
   # Of the four returns check_psi_at_init() rejects, only a shape mismatch is a
   # length problem, so catch that class alone rather than every error.
   rlang::try_fetch(
     check_psi_at_init(vals, init, allow_over_identification),
     deli_psi_shape_error = function(cnd) {
-      abort_formula_auto_init(init, appended)
+      abort_formula_auto_init(init, appended, error_call = entry_point)
     }
   )
   vals
@@ -452,11 +462,19 @@ eval_psi_at_init <- function(psi, init, allow_over_identification = FALSE) {
 #' @param parent The error raised while evaluating the estimating function, or
 #'   `NULL` when the estimating function returned a wrong-shaped value instead
 #'   of failing.
+#' @param error_call The frame to report the error against, recorded on the
+#'   estimating-function closure by `prepare_formula_psi()`. `NULL` reports no
+#'   call, which is what a closure carrying no such record leaves.
 #'
 #' @returns Never returns; always raises an error carrying the class
 #'   `deli_formula_auto_init_error`.
 #' @noRd
-abort_formula_auto_init <- function(init, appended = NULL, parent = NULL) {
+abort_formula_auto_init <- function(
+  init,
+  appended = NULL,
+  parent = NULL,
+  error_call = NULL
+) {
   n_params <- length(init)
   # An error means the estimating function did not even evaluate at the
   # automatic init, so its cause is unknown; do not assert it is a length
@@ -483,7 +501,7 @@ abort_formula_auto_init <- function(init, appended = NULL, parent = NULL) {
         "i" = "Supply an explicit {.arg init} of length {n_params + 1}."
       ),
       parent = parent,
-      call = NULL,
+      call = error_call,
       class = "deli_formula_auto_init_error"
     )
   }
@@ -503,9 +521,322 @@ abort_formula_auto_init <- function(init, appended = NULL, parent = NULL) {
       "i" = "Supply an explicit {.arg init} of the correct length."
     ),
     parent = parent,
-    call = NULL,
+    call = error_call,
     class = "deli_formula_auto_init_error"
   )
+}
+
+# ---- formula-interface conditions --------------------------------------------
+# The conditions the formula interface raises about the estimating equation it
+# was handed carry a condition class, so a caller or a test can match on the
+# class rather than on the prose. Each of them reports the entry point the caller
+# typed, `m_estimate()` or `gmm_estimate()`, which the `.formula` methods pass
+# down because every frame these are raised in belongs to a helper no caller
+# wrote.
+#
+#   deli_formula_ee_signature_error
+#     The arguments of `.ee` leave something the interface fills nowhere to go:
+#     `theta`, the model matrix it passes as `X`, the response it passes
+#     positionally, or the offset an `offset()` term in the formula supplies.
+#     Raised by check_formula_ee_signature().
+#
+#   deli_formula_ee_argument_error
+#     A name the caller supplied in `...` matches no argument of `.ee` exactly.
+#     Raised by check_formula_ee_dots().
+#
+#   deli_formula_auto_init_error
+#     The automatic `init` does not fit the estimating equation. Raised by
+#     abort_formula_auto_init() above, at the point the estimating function is
+#     first evaluated rather than where the formula was read.
+
+#' Check that `.ee` can receive what the formula interface fills
+#'
+#' The formula interface fills four arguments of its own: `theta`, the model
+#' matrix it passes as `X`, the response it passes positionally, and the offset
+#' it takes from an `offset()` term in the formula. An equation whose arguments
+#' leave any of them nowhere to go cannot be driven by a formula at all, and
+#' reaching it anyway produced base R's unused-argument error, which pastes the
+#' whole offending vector into its message, so a design matrix or a response was
+#' reported one line per observation long.
+#'
+#' Runs before the exact match on the names in `...`, because a name the caller
+#' supplied is worth reporting only once the equation can be driven at all. The
+#' two checks divide by whose argument is at fault: the arguments the interface
+#' fills here, the names the caller wrote there.
+#'
+#' @param .ee The estimating-equation function passed to the formula interface.
+#' @param ee_args The evaluated `...` arguments forwarded to it, after any
+#'   `offset()` term in the formula has been added to them.
+#' @param has_formula_offset Logical. Did the formula carry an `offset()` term?
+#' @param ee_name The name `.ee` was passed under, or `NULL` when it arrived as
+#'   an anonymous function.
+#' @param error_call The frame to report the error against.
+#'
+#' @returns Invisible `NULL`. Raises an error carrying the class
+#'   `deli_formula_ee_signature_error` if an argument the interface fills has
+#'   nowhere to go.
+#' @noRd
+check_formula_ee_signature <- function(
+  .ee,
+  ee_args,
+  has_formula_offset = FALSE,
+  ee_name = NULL,
+  error_call = NULL
+) {
+  formal_names <- formula_ee_formals(.ee)
+  if (is.null(formal_names)) {
+    return(invisible(NULL))
+  }
+  # An equation with a `...` of its own has somewhere to put every argument,
+  # so nothing the interface fills can be left out.
+  if ("..." %in% formal_names) {
+    return(invisible(NULL))
+  }
+
+  supplied <- formula_ee_dots_names(ee_args)
+
+  faults <- character()
+  if (!"theta" %in% formal_names) {
+    faults <- c(
+      faults,
+      "x" = "It has no {.arg theta} argument for the parameter vector."
+    )
+  }
+  if (!"X" %in% formal_names) {
+    faults <- c(
+      faults,
+      "x" = "It has no {.arg X} argument for the model matrix."
+    )
+  }
+  if (is.null(formula_ee_response_slot(formal_names, supplied))) {
+    faults <- c(
+      faults,
+      "x" = "It has no argument left for the response, which is passed
+             positionally after {.arg theta} and {.arg X}."
+    )
+  }
+
+  if (length(faults) > 0L) {
+    equation <- formula_ee_label(ee_name)
+    cli::cli_abort(
+      c(
+        "{equation} cannot be driven by a formula.",
+        faults,
+        # An equation with no arguments at all has nothing to list.
+        if (length(formal_names) > 0L) {
+          c("i" = "It takes {.arg {formal_names}}.")
+        },
+        "i" = "Fit it through the function interface instead, by passing a
+               function of {.arg theta} as {.arg stacked_equations}."
+      ),
+      call = error_call,
+      class = "deli_formula_ee_signature_error"
+    )
+  }
+
+  # The offset is the one argument the interface fills from the formula rather
+  # than from the model frame, so the report names the term it came from. The
+  # caller wrote no `offset` name at all, so nothing here is a misspelling that a
+  # correction could be suggested for.
+  if (has_formula_offset && !"offset" %in% formal_names) {
+    equation <- formula_ee_label(ee_name)
+    cli::cli_abort(
+      c(
+        "The {.code offset()} term in the formula has no argument to go to.",
+        "x" = "{equation} has no {.arg offset} argument, and an {.code offset()}
+               term reaches the estimating equation through one.",
+        "i" = "Drop the term from the formula, or fit an equation that takes an
+               offset."
+      ),
+      call = error_call,
+      class = "deli_formula_ee_signature_error"
+    )
+  }
+
+  invisible(NULL)
+}
+
+#' Match the names supplied in `...` against the arguments of `.ee` exactly
+#'
+#' R matches a supplied name that is a prefix of exactly one formal to that
+#' formal, and no built-in estimating equation takes a `...` of its own for
+#' another name to fall into, so forwarding `...` with [do.call()] resolved an
+#' abbreviation or a prefix typo against the equation's arguments: `weight = w`
+#' reached `ee_regression()`'s `weights` and returned the weighted estimates.
+#' Such a fit succeeded silently while reporting different numbers, so the names
+#' are matched exactly here and anything else is refused before the equation is
+#' evaluated.
+#'
+#' @param .ee The estimating-equation function passed to the formula interface.
+#' @param ee_args The evaluated `...` arguments forwarded to it.
+#' @param ee_name The name `.ee` was passed under, or `NULL` when it arrived as
+#'   an anonymous function.
+#' @param error_call The frame to report the error against.
+#'
+#' @returns Invisible `NULL`. Raises an error carrying the class
+#'   `deli_formula_ee_argument_error` if a supplied name matches no argument.
+#' @noRd
+check_formula_ee_dots <- function(
+  .ee,
+  ee_args,
+  ee_name = NULL,
+  error_call = NULL
+) {
+  formal_names <- formula_ee_formals(.ee)
+  if (is.null(formal_names)) {
+    return(invisible(NULL))
+  }
+  # A `...` of the equation's own absorbs any name, so the caller may write one
+  # that no argument of it accounts for.
+  if ("..." %in% formal_names) {
+    return(invisible(NULL))
+  }
+
+  supplied <- formula_ee_dots_names(ee_args)
+  refused <- setdiff(supplied, formal_names)
+  if (length(refused) == 0L) {
+    return(invisible(NULL))
+  }
+
+  equation <- formula_ee_label(ee_name)
+
+  # The arguments a caller may write are the ones left once the interface has
+  # filled its own, so neither the list nor the suggestion sends them after an
+  # argument they are not allowed to pass.
+  reserved <- c(
+    "theta",
+    "X",
+    formula_ee_response_slot(formal_names, supplied)
+  )
+  candidates <- setdiff(formal_names, reserved)
+  # One refused name can be answered with the argument it was meant for. Several
+  # cannot: a suggestion for one of them reads as a suggestion for all.
+  meant <- if (length(refused) == 1L) {
+    formula_ee_suggestion(refused, candidates)
+  } else {
+    character()
+  }
+
+  cli::cli_abort(
+    c(
+      "{equation} has no {.arg {refused}} argument{?s}.",
+      if (length(meant) > 0L) {
+        c("i" = "Did you mean {.or {.arg {meant}}}?")
+      } else if (length(candidates) > 0L) {
+        c(
+          "i" = "Besides the arguments the formula interface fills itself, it
+                 takes {.arg {candidates}}."
+        )
+      } else {
+        c(
+          "i" = "It takes no argument the formula interface does not fill itself."
+        )
+      }
+    ),
+    call = error_call,
+    class = "deli_formula_ee_argument_error"
+  )
+}
+
+#' The argument names of an estimating equation, where they can be read
+#'
+#' `args()` gives an argument list for anything that has one and `NULL` for
+#' everything else: a primitive such as `[` has no argument list of its own, and
+#' neither has a value that is not a function at all. `formals()` warns rather
+#' than reporting anything on those, so `NULL` here means the arguments cannot be
+#' read, and the checks decline to speak about a function whose arguments they
+#' cannot read. Such an `.ee` fails when it is called instead. An equation that
+#' takes no arguments is a readable, empty list rather than an unreadable one.
+#'
+#' @param .ee The estimating-equation function passed to the formula interface.
+#'
+#' @returns A character vector of argument names, or `NULL` when they cannot be
+#'   read.
+#' @noRd
+formula_ee_formals <- function(.ee) {
+  fn <- args(.ee)
+  if (!is.function(fn)) {
+    return(NULL)
+  }
+  names(formals(fn)) %||% character()
+}
+
+#' The argument the formula response is passed to
+#'
+#' The response is passed positionally, so it fills the first argument that is
+#' neither `theta` nor `X` nor matched by a name the caller supplied. `NULL` when
+#' the equation has no such argument, which is what leaves the response nowhere
+#' to go.
+#'
+#' @param formal_names The argument names of the estimating equation.
+#' @param supplied The names the caller supplied in `...`.
+#'
+#' @returns A string, or `NULL`.
+#' @noRd
+formula_ee_response_slot <- function(formal_names, supplied) {
+  free <- setdiff(formal_names, c("theta", "X", supplied))
+  if (length(free) == 0L) NULL else free[[1]]
+}
+
+#' The names a caller supplied in `...`
+#'
+#' Drops the empty name an unnamed argument carries, which is passed positionally
+#' and so matches no argument by name at all.
+#'
+#' @param ee_args The evaluated `...` arguments.
+#'
+#' @returns A character vector, empty when nothing was named.
+#' @noRd
+formula_ee_dots_names <- function(ee_args) {
+  supplied <- names(ee_args)
+  if (is.null(supplied)) {
+    return(character())
+  }
+  supplied[nzchar(supplied)]
+}
+
+#' The argument a refused name was probably meant to be
+#'
+#' A name that prefixes an argument is answered with that argument exactly,
+#' because R would have matched it there and the fit it produced is the one the
+#' caller is trying to explain. A name that prefixes nothing is answered from its
+#' spelling, within two edits, which covers a transposition and a doubled or
+#' dropped pair of letters. Anything further away is left unanswered: a
+#' suggestion nothing supports sends the caller after the wrong argument.
+#'
+#' @param name The refused name.
+#' @param candidates The arguments the caller may pass.
+#'
+#' @returns A character vector of candidates, empty when none is close enough.
+#' @noRd
+formula_ee_suggestion <- function(name, candidates) {
+  if (length(candidates) == 0L) {
+    return(character())
+  }
+  prefixed <- candidates[startsWith(candidates, name)]
+  if (length(prefixed) > 0L) {
+    return(prefixed)
+  }
+  distances <- as.integer(utils::adist(name, candidates, ignore.case = TRUE))
+  candidates[distances <= 2L]
+}
+
+#' How to name the estimating equation in a report about it
+#'
+#' An equation passed as a name is named, which says which of the arguments in
+#' the call is the one to change. An anonymous function has no name to report and
+#' is described by the argument it arrived in.
+#'
+#' @param ee_name The name `.ee` was passed under, or `NULL`.
+#'
+#' @returns A formatted string for interpolation into a cli message.
+#' @noRd
+formula_ee_label <- function(ee_name) {
+  if (is.null(ee_name)) {
+    cli::format_inline("The estimating equation passed as {.arg .ee}")
+  } else {
+    cli::format_inline("{.fn {ee_name}}")
+  }
 }
 
 #' Check the return of a custom solver

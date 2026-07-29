@@ -511,3 +511,749 @@ test_that("an explicit init is not described as the automatic one", {
   )
   expect_false(grepl("automatic zero", flatten_message(err), fixed = TRUE))
 })
+
+# The entry point an abort reports. `conditionCall()` is `NULL` for an error
+# raised with `call = NULL`, and rlang maps a method dispatched through
+# `UseMethod()` back to its generic, so the head of the reported call is the
+# function the caller typed rather than the `.formula` method or any of the
+# helpers beneath it.
+reported_entry_point <- function(err) {
+  call <- conditionCall(err)
+  if (is.null(call)) NULL else call[[1]]
+}
+
+# ---- exact-name matching of the dots forwarded to .ee -----------
+#
+# R matches a supplied name that is a prefix of exactly one formal to that
+# formal, and the estimating equations take no `...` of their own for a name to
+# fall into. Forwarding `...` with `do.call()` therefore resolved an abbreviation
+# or a prefix typo against the equation's arguments: `weight = w` reached
+# `ee_regression()`'s `weights` and returned the weighted estimates, and
+# `mod = "linear"` supplied its `model`. Both fitted silently, so a misspelling
+# changed a reported number with nothing in the output to say so. The names in
+# `...` are matched against the arguments of `.ee` exactly instead, and anything
+# else is refused before the equation is evaluated.
+#
+# None of the built-in `ee_*` equations takes `...`, so the exact match applies
+# to every one of them. A caller's own `.ee` may take one, and a name that its
+# `...` would absorb stays acceptable.
+
+make_weighted_data <- function() {
+  set.seed(21)
+  n <- 40
+  d <- data.frame(x = stats::rnorm(n), w = stats::runif(n, 0.5, 2))
+  d$y <- 1 + 2 * d$x + stats::rnorm(n, sd = 0.5)
+  d
+}
+
+test_that("m_estimate() refuses a dots name that only prefixes an argument of .ee", {
+  d <- make_weighted_data()
+  err <- expect_error(
+    m_estimate(
+      y ~ x,
+      data = d,
+      .ee = ee_regression,
+      model = "linear",
+      weight = w
+    ),
+    class = "deli_formula_ee_argument_error"
+  )
+  flat <- flatten_message(err)
+  expect_match(flat, "`weight`", fixed = TRUE)
+  # The refusal is this package's, not the unused-argument error base R raises
+  # for a name that matches nothing at all.
+  expect_false(grepl("unused argument", flat, fixed = TRUE))
+  # The name is in the caller's own call, so that is the call to report.
+  expect_identical(reported_entry_point(err), quote(m_estimate))
+})
+
+test_that("a prefix typo does not silently apply weights", {
+  # What the refusal is worth: the weighted fit differs from the unweighted one
+  # in every coefficient, so a prefix typo reaching `weights` changes every
+  # reported estimate and signals nothing. The two fits are pinned as a pair so
+  # that a fit which quietly ignored the argument instead would not satisfy
+  # this either.
+  d <- make_weighted_data()
+  unweighted <- m_estimate(
+    y ~ x,
+    data = d,
+    .ee = ee_regression,
+    model = "linear"
+  )
+  weighted <- m_estimate(
+    y ~ x,
+    data = d,
+    .ee = ee_regression,
+    model = "linear",
+    weights = w
+  )
+  expect_false(isTRUE(all.equal(coef(unweighted), coef(weighted))))
+
+  expect_error(
+    m_estimate(
+      y ~ x,
+      data = d,
+      .ee = ee_regression,
+      model = "linear",
+      weight = w
+    ),
+    class = "deli_formula_ee_argument_error"
+  )
+})
+
+test_that("m_estimate() refuses a dots name that prefixes no argument of .ee", {
+  # A transposition is a prefix of nothing, so base R already refused it, but as
+  # an unused-argument error carrying the whole vector. The refusal is the same
+  # one a prefix gets.
+  d <- make_weighted_data()
+  err <- expect_error(
+    m_estimate(
+      y ~ x,
+      data = d,
+      .ee = ee_regression,
+      model = "linear",
+      init = c(`(Intercept)` = 0, x = 0),
+      wieghts = w
+    ),
+    class = "deli_formula_ee_argument_error"
+  )
+  flat <- flatten_message(err)
+  expect_match(flat, "`wieghts`", fixed = TRUE)
+  expect_false(grepl("unused argument", flat, fixed = TRUE))
+})
+
+test_that("the refused-argument message names the argument that was meant", {
+  d <- make_weighted_data()
+
+  # A prefix says which argument was meant exactly, since R would have matched
+  # it there.
+  prefix <- expect_error(
+    m_estimate(
+      y ~ x,
+      data = d,
+      .ee = ee_regression,
+      model = "linear",
+      weight = w
+    ),
+    class = "deli_formula_ee_argument_error"
+  )
+  expect_match(flatten_message(prefix), "Did you mean", fixed = TRUE)
+  expect_match(flatten_message(prefix), "`weights`", fixed = TRUE)
+
+  # A near miss that is a prefix of nothing is answered from the spelling.
+  near <- expect_error(
+    m_estimate(
+      y ~ x,
+      data = d,
+      .ee = ee_regression,
+      model = "linear",
+      init = c(`(Intercept)` = 0, x = 0),
+      wieghts = w
+    ),
+    class = "deli_formula_ee_argument_error"
+  )
+  expect_match(flatten_message(near), "Did you mean", fixed = TRUE)
+  expect_match(flatten_message(near), "`weights`", fixed = TRUE)
+
+  # A required argument reached by an abbreviation is named the same way.
+  abbreviated <- expect_error(
+    m_estimate(y ~ x, data = d, .ee = ee_regression, mod = "linear"),
+    class = "deli_formula_ee_argument_error"
+  )
+  expect_match(flatten_message(abbreviated), "`model`", fixed = TRUE)
+})
+
+test_that("the suggestion never names an argument the interface fills itself", {
+  # `theta`, `X`, and the response are supplied by the interface, so a caller
+  # cannot pass them and a suggestion naming one would send them after an
+  # argument they are not allowed to write. Both names below are one edit from
+  # an interface-filled argument (`thta` from `theta`, `yy` from `y`) and four
+  # or more from every argument a caller may pass, so the refusal carries no
+  # suggestion at all.
+  d <- make_weighted_data()
+
+  from_theta <- expect_error(
+    m_estimate(
+      y ~ x,
+      data = d,
+      .ee = ee_regression,
+      model = "linear",
+      init = c(`(Intercept)` = 0, x = 0),
+      thta = 1
+    ),
+    class = "deli_formula_ee_argument_error"
+  )
+  flat_theta <- flatten_message(from_theta)
+  expect_match(flat_theta, "`thta`", fixed = TRUE)
+  expect_false(grepl("Did you mean", flat_theta, fixed = TRUE))
+
+  from_response <- expect_error(
+    m_estimate(
+      y ~ x,
+      data = d,
+      .ee = ee_regression,
+      model = "linear",
+      init = c(`(Intercept)` = 0, x = 0),
+      yy = 1
+    ),
+    class = "deli_formula_ee_argument_error"
+  )
+  flat_response <- flatten_message(from_response)
+  expect_match(flat_response, "`yy`", fixed = TRUE)
+  expect_false(grepl("Did you mean", flat_response, fixed = TRUE))
+})
+
+test_that("a name resembling no argument is refused without a suggestion", {
+  # Every argument of the equation is a long way from this name, and a
+  # suggestion nothing supports would send the caller after the wrong argument.
+  d <- make_weighted_data()
+  err <- expect_error(
+    m_estimate(
+      y ~ x,
+      data = d,
+      .ee = ee_regression,
+      model = "linear",
+      init = c(`(Intercept)` = 0, x = 0),
+      favorite_color = w
+    ),
+    class = "deli_formula_ee_argument_error"
+  )
+  flat <- flatten_message(err)
+  expect_match(flat, "`favorite_color`", fixed = TRUE)
+  expect_false(grepl("Did you mean", flat, fixed = TRUE))
+})
+
+test_that("the refused-argument message carries no data", {
+  # The offending argument is a column of the data, so pasting its value in
+  # would print one number per observation. Base R's unused-argument error does
+  # exactly that.
+  d <- make_weighted_data()
+  err <- expect_error(
+    m_estimate(
+      y ~ x,
+      data = d,
+      .ee = ee_regression,
+      model = "linear",
+      init = c(`(Intercept)` = 0, x = 0),
+      wieghts = w
+    ),
+    class = "deli_formula_ee_argument_error"
+  )
+  flat <- flatten_message(err)
+  expect_false(grepl(as.character(d$w[[1]]), flat, fixed = TRUE))
+  expect_lt(nchar(flat), 400L)
+})
+
+test_that("exact dots names still reach the estimating equation", {
+  d <- make_weighted_data()
+  oracle <- stats::lm(y ~ x, data = d, weights = w)
+  m <- m_estimate(
+    y ~ x,
+    data = d,
+    .ee = ee_regression,
+    model = "linear",
+    weights = w
+  )
+  expect_equal(unname(coef(m)), unname(coef(oracle)), tolerance = 1e-6)
+})
+
+test_that("an .ee taking dots keeps accepting a name of its own choosing", {
+  # A caller's equation with a `...` has somewhere to put any name, so the exact
+  # match against its arguments does not apply to it.
+  d <- make_weighted_data()
+  ee_dots <- function(theta, X, y, ...) {
+    t(X * as.vector(y - X %*% theta))
+  }
+  oracle <- stats::lm(y ~ x, data = d)
+  m <- expect_no_warning(
+    m_estimate(y ~ x, data = d, .ee = ee_dots, favorite_color = "blue")
+  )
+  expect_equal(unname(coef(m)), unname(coef(oracle)), tolerance = 1e-6)
+})
+
+test_that("gmm_estimate() refuses a dots name the same way", {
+  # Both formula methods build their estimating function through the same
+  # helper, so the check reaches this one too.
+  d <- make_weighted_data()
+  err <- expect_error(
+    gmm_estimate(
+      y ~ x,
+      data = d,
+      .ee = ee_regression,
+      model = "linear",
+      weight = w
+    ),
+    class = "deli_formula_ee_argument_error"
+  )
+  expect_match(flatten_message(err), "`weights`", fixed = TRUE)
+  expect_identical(reported_entry_point(err), quote(gmm_estimate))
+})
+
+# ---- the .ee signature the formula interface requires ------------
+#
+# The interface fills four arguments of its own: `theta`, the model matrix it
+# passes as `X`, the response it passes positionally, and the offset it takes
+# from an `offset()` term in the formula. An equation whose arguments leave any
+# of them nowhere to go cannot be driven by a formula at all.
+# `ee_survival_model(theta, time, event, distribution)` is the built-in example,
+# having no `X`. Reaching the estimating equation anyway produced base R's
+# unused-argument error, whose message pastes in the whole offending vector, so
+# the report was both uninformative about the cause and one line per observation
+# long. The signature is checked before the equation is called instead.
+#
+# This check and the exact match on the names in `...` are both up-front
+# validations in the same helper, and they divide by whose argument is at fault:
+# this one covers the arguments the interface itself fills, and that one the
+# names the caller supplied.
+
+make_survival_data <- function() {
+  set.seed(31)
+  n <- 50
+  d <- data.frame(time = stats::rexp(n, 0.5))
+  d$status <- rep(1, n)
+  d
+}
+
+test_that("m_estimate() refuses an .ee that takes no design matrix", {
+  d <- make_survival_data()
+  err <- expect_error(
+    m_estimate(
+      time ~ 1,
+      data = d,
+      .ee = ee_survival_model,
+      event = status,
+      distribution = "weibull",
+      init = c(0.1, 0.1)
+    ),
+    class = "deli_formula_ee_signature_error"
+  )
+  flat <- flatten_message(err)
+  expect_match(flat, "`X`", fixed = TRUE)
+  expect_false(grepl("unused argument", flat, fixed = TRUE))
+  # An equation passed as a name can be named, which says which of the
+  # arguments in the call is the one to change.
+  expect_match(flat, "ee_survival_model", fixed = TRUE)
+  expect_identical(reported_entry_point(err), quote(m_estimate))
+})
+
+test_that("the refused-signature message carries no data", {
+  # The argument at fault is the design the interface built, so the message
+  # must describe it rather than print it.
+  d <- make_survival_data()
+  err <- expect_error(
+    m_estimate(
+      time ~ 1,
+      data = d,
+      .ee = ee_survival_model,
+      event = status,
+      distribution = "weibull",
+      init = c(0.1, 0.1)
+    ),
+    class = "deli_formula_ee_signature_error"
+  )
+  flat <- flatten_message(err)
+  expect_false(grepl("c(1, 1", flat, fixed = TRUE))
+  expect_lt(nchar(flat), 500L)
+})
+
+test_that("the signature check applies to any .ee lacking an X argument", {
+  # Nothing about the survival equation is special. Any equation whose
+  # arguments leave the design nowhere to go is refused the same way.
+  d <- make_weighted_data()
+  ee_no_design <- function(theta, y) {
+    matrix(y - theta[1], nrow = 1)
+  }
+  err <- expect_error(
+    m_estimate(y ~ 1, data = d, .ee = ee_no_design, init = c(0)),
+    class = "deli_formula_ee_signature_error"
+  )
+  expect_match(flatten_message(err), "`X`", fixed = TRUE)
+})
+
+test_that("the signature check covers the argument the response is passed to", {
+  # The response is passed positionally, into the first argument that is
+  # neither `theta` nor `X`. An equation with no such argument leaves it nowhere
+  # to go, and base R reported that by pasting the whole response vector in
+  # without even naming an argument.
+  d <- make_weighted_data()
+  ee_no_response <- function(theta, X) {
+    t(X * as.vector(X %*% theta))
+  }
+  err <- expect_error(
+    m_estimate(
+      y ~ x,
+      data = d,
+      .ee = ee_no_response,
+      init = c(`(Intercept)` = 0, x = 0)
+    ),
+    class = "deli_formula_ee_signature_error"
+  )
+  flat <- flatten_message(err)
+  expect_false(grepl(as.character(d$y[[1]]), flat, fixed = TRUE))
+  expect_lt(nchar(flat), 500L)
+})
+
+test_that("the signature check covers theta", {
+  # `theta` is passed by name like the design is, so an equation without it is
+  # refused for the same reason and by the same check.
+  d <- make_weighted_data()
+  ee_no_theta <- function(X, y) {
+    t(X * as.vector(y))
+  }
+  err <- expect_error(
+    m_estimate(y ~ x, data = d, .ee = ee_no_theta, init = c(0, 0)),
+    class = "deli_formula_ee_signature_error"
+  )
+  expect_match(flatten_message(err), "`theta`", fixed = TRUE)
+})
+
+test_that("an offset() term is refused against an .ee that takes no offset", {
+  # The offset is the fourth argument the interface fills, and the only one it
+  # fills from the formula rather than from the model frame. The caller wrote no
+  # `offset` name, so the report has to say the offset came from the formula's
+  # `offset()` term and must not read as a misspelling to correct.
+  d <- make_weighted_data()
+  ee_no_offset <- function(theta, X, y) {
+    t(X * as.vector(y - X %*% theta))
+  }
+  err <- expect_error(
+    m_estimate(
+      y ~ x + offset(w),
+      data = d,
+      .ee = ee_no_offset,
+      init = c(`(Intercept)` = 0, x = 0)
+    )
+  )
+  expect_true(
+    inherits(err, "deli_formula_ee_signature_error") ||
+      inherits(err, "deli_formula_ee_argument_error")
+  )
+  flat <- flatten_message(err)
+  expect_match(flat, "`offset`", fixed = TRUE)
+  # Named as the formula term it came from, which `{.arg offset}` alone does not
+  # say.
+  expect_match(flat, "offset()", fixed = TRUE)
+  expect_match(flat, "formula", fixed = TRUE)
+  expect_false(grepl("Did you mean", flat, fixed = TRUE))
+  expect_false(grepl(as.character(d$w[[1]]), flat, fixed = TRUE))
+  expect_lt(nchar(flat), 400L)
+})
+
+test_that("the signature check precedes the automatic-init diagnostic", {
+  # The signature is wrong whatever the starting values are, so the report is
+  # about the signature rather than about the automatic length that the failure
+  # to evaluate would otherwise be blamed on.
+  d <- make_weighted_data()
+  ee_no_design <- function(theta, y) {
+    matrix(y - theta[1], nrow = 1)
+  }
+  err <- expect_error(
+    m_estimate(y ~ 1, data = d, .ee = ee_no_design),
+    class = "deli_formula_ee_signature_error"
+  )
+  expect_false(grepl("automatic zero", flatten_message(err), fixed = TRUE))
+})
+
+test_that("gmm_estimate() refuses an .ee that takes no design matrix", {
+  d <- make_survival_data()
+  err <- expect_error(
+    gmm_estimate(
+      time ~ 1,
+      data = d,
+      .ee = ee_survival_model,
+      event = status,
+      distribution = "weibull",
+      init = c(0.1, 0.1)
+    ),
+    class = "deli_formula_ee_signature_error"
+  )
+  expect_match(flatten_message(err), "`X`", fixed = TRUE)
+  expect_identical(reported_entry_point(err), quote(gmm_estimate))
+})
+
+test_that("an .ee with both faults is refused by one of the two checks", {
+  # The two checks coexist, and neither is skipped because the other applies.
+  # Which of them reports first is not the point; that base R's unused-argument
+  # error is no longer what the caller sees is.
+  d <- make_survival_data()
+  ee_no_design <- function(theta, time, event) {
+    matrix(time - theta[1], nrow = 1)
+  }
+  err <- expect_error(
+    m_estimate(
+      time ~ 1,
+      data = d,
+      .ee = ee_no_design,
+      evnt = status,
+      init = c(0.1)
+    )
+  )
+  expect_true(
+    inherits(err, "deli_formula_ee_signature_error") ||
+      inherits(err, "deli_formula_ee_argument_error")
+  )
+  expect_false(grepl("unused argument", flatten_message(err), fixed = TRUE))
+})
+
+# ---- an .ee written as the name of a function --------------------
+#
+# `do.call()` takes the name of a function as readily as the function itself, so
+# a character `.ee` reaches the estimating equation and has to pass the checks on
+# the way. Asking whether `.ee` was a function let it past both of them:
+# `.ee = "ee_regression"` with `weight = w` fitted weighted, the one outcome the
+# exact match exists to remove. The name is resolved to the function it names
+# before anything is checked, so one path covers either spelling, and the rest of
+# the interface sees the function too.
+
+test_that("a character .ee is held to the same exact match", {
+  d <- make_weighted_data()
+  err <- expect_error(
+    m_estimate(
+      y ~ x,
+      data = d,
+      .ee = "ee_regression",
+      model = "linear",
+      weight = w
+    ),
+    class = "deli_formula_ee_argument_error"
+  )
+  flat <- flatten_message(err)
+  expect_match(flat, "`weight`", fixed = TRUE)
+  expect_match(flat, "`weights`", fixed = TRUE)
+  # A string is the name of what it resolves to, so the report names it.
+  expect_match(flat, "ee_regression", fixed = TRUE)
+  expect_identical(reported_entry_point(err), quote(m_estimate))
+})
+
+test_that("a character .ee naming a prefix does not silently apply weights", {
+  # The pair the exact match is worth, as for the equation passed as a function:
+  # a fit that took `weight` for `weights` reports every coefficient of the
+  # weighted fit and says nothing.
+  d <- make_weighted_data()
+  weighted <- m_estimate(
+    y ~ x,
+    data = d,
+    .ee = "ee_regression",
+    model = "linear",
+    weights = w
+  )
+  unweighted <- m_estimate(
+    y ~ x,
+    data = d,
+    .ee = "ee_regression",
+    model = "linear"
+  )
+  expect_false(isTRUE(all.equal(coef(weighted), coef(unweighted))))
+  expect_error(
+    m_estimate(
+      y ~ x,
+      data = d,
+      .ee = "ee_regression",
+      model = "linear",
+      weight = w
+    ),
+    class = "deli_formula_ee_argument_error"
+  )
+})
+
+test_that("a character .ee taking the names it was given still fits", {
+  d <- make_weighted_data()
+  oracle <- stats::lm(y ~ x, data = d, weights = w)
+  m <- m_estimate(
+    y ~ x,
+    data = d,
+    .ee = "ee_regression",
+    model = "linear",
+    weights = w
+  )
+  expect_equal(unname(coef(m)), unname(coef(oracle)), tolerance = 1e-6)
+})
+
+test_that("gmm_estimate() holds a character .ee to the same match", {
+  d <- make_weighted_data()
+  err <- expect_error(
+    gmm_estimate(
+      y ~ x,
+      data = d,
+      .ee = "ee_regression",
+      model = "linear",
+      weight = w
+    ),
+    class = "deli_formula_ee_argument_error"
+  )
+  expect_identical(reported_entry_point(err), quote(gmm_estimate))
+})
+
+test_that("a character .ee naming no function is refused by the interface", {
+  # Resolving the name is the interface's own step, so a name that resolves to
+  # nothing is the interface's own report, naming the string and the call the
+  # caller typed rather than the lookup underneath.
+  d <- make_weighted_data()
+  err <- expect_error(
+    m_estimate(y ~ x, data = d, .ee = "ee_nope", model = "linear")
+  )
+  flat <- flatten_message(err)
+  expect_match(flat, "ee_nope", fixed = TRUE)
+  expect_match(flat, "`.ee`", fixed = TRUE)
+  expect_identical(reported_entry_point(err), quote(m_estimate))
+})
+
+test_that("a character .ee reaches the signature check as well", {
+  d <- make_survival_data()
+  err <- expect_error(
+    m_estimate(
+      time ~ 1,
+      data = d,
+      .ee = "ee_survival_model",
+      event = status,
+      distribution = "weibull",
+      init = c(0.1, 0.1)
+    ),
+    class = "deli_formula_ee_signature_error"
+  )
+  expect_match(flatten_message(err), "ee_survival_model", fixed = TRUE)
+})
+
+test_that("a character .ee is the equation it names throughout", {
+  # Resolving the name serves the rest of the interface too: the parameter
+  # `ee_glm()` appends past the design coefficients is recognized from the
+  # function, which the string naming it is not, so the labels are the ones a
+  # gamma fit driven by the function itself gets.
+  d <- make_gamma_data()
+  m <- m_estimate(
+    y ~ x,
+    data = d,
+    .ee = "ee_glm",
+    distribution = "gamma",
+    link = "log",
+    init = c(0, 0, 0)
+  )
+  expect_named(coef(m), c("(Intercept)", "x", "log_shape"))
+})
+
+test_that("neither check inspects an .ee whose arguments cannot be read", {
+  # `args()` has no argument list to give for a primitive such as `[`, and
+  # `formals(NULL)` warns rather than reporting anything. Neither check speaks
+  # about a function whose arguments it cannot read, so neither reads them and
+  # neither warns: nothing about a primitive is an estimating equation, and
+  # calling one fails on its own. Asserted on the checks themselves because the
+  # warning is raised on the way into them, before any call they could carry it
+  # out of.
+  expect_no_warning(check_formula_ee_signature(`[`, ee_args = list()))
+  expect_no_warning(check_formula_ee_dots(`[`, ee_args = list(weights = 1)))
+})
+
+# ---- an abbreviated distribution= on the formula path ------------
+#
+# `appended_param_name()` reads `distribution` out of the forwarded `...` by
+# name, so a prefix that R matched to `ee_glm()`'s `distribution` fitted the
+# gamma model but labeled the coefficients from the equation's own row names,
+# `X_1` and `X_2`, instead of the model-matrix headings. Spelling the argument
+# in full changed the labels and nothing else, which is the same silence the
+# exact match on the forwarded names removes.
+#
+# One case of the labels degrading remains and is intended. A caller's wrapper
+# around `ee_glm()` is a different function, so `appended_param_name()` does not
+# recognize it and the labels come from the row names. Nothing the interface can
+# read says which distribution such a wrapper fixed.
+
+test_that("m_estimate() refuses an abbreviated distribution= on the formula path", {
+  d <- make_gamma_data()
+  err <- expect_error(
+    m_estimate(
+      y ~ x,
+      data = d,
+      .ee = ee_glm,
+      dist = "gamma",
+      link = "log",
+      init = c(0, 0, 0)
+    ),
+    class = "deli_formula_ee_argument_error"
+  )
+  flat <- flatten_message(err)
+  expect_match(flat, "`dist`", fixed = TRUE)
+  expect_match(flat, "`distribution`", fixed = TRUE)
+})
+
+test_that("a fully spelled distribution= names the appended parameter", {
+  d <- make_gamma_data()
+  m <- m_estimate(
+    y ~ x,
+    data = d,
+    .ee = ee_glm,
+    distribution = "gamma",
+    link = "log",
+    init = c(0, 0, 0)
+  )
+  expect_named(coef(m), c("(Intercept)", "x", "log_shape"))
+})
+
+test_that("a wrapper around ee_glm() keeps the equation's own row names", {
+  d <- make_gamma_data()
+  wrapped_gamma <- function(...) ee_glm(..., distribution = "gamma")
+
+  wrapped <- expect_no_warning(
+    m_estimate(
+      y ~ x,
+      data = d,
+      .ee = wrapped_gamma,
+      link = "log",
+      init = c(0, 0, 0)
+    )
+  )
+  spelled <- m_estimate(
+    y ~ x,
+    data = d,
+    .ee = ee_glm,
+    distribution = "gamma",
+    link = "log",
+    init = c(0, 0, 0)
+  )
+
+  expect_named(coef(wrapped), c("X_1", "X_2", "log_shape"))
+  # The labels are all that the wrapper costs.
+  expect_equal(unname(coef(wrapped)), unname(coef(spelled)))
+})
+
+# ---- the call the formula aborts report --------------------------
+#
+# The automatic-`init` diagnostic is raised where the estimating function is
+# first evaluated, several frames below the method the caller reached, and it
+# named no call at all, so it printed a bare `Error:` with nothing in it that
+# appears in the caller's code. Every abort the formula interface raises names
+# the entry point instead: `m_estimate()` on one path and `gmm_estimate()` on
+# the other, whichever internal frame the abort is raised in.
+
+test_that("the automatic-init diagnostic names m_estimate()", {
+  d <- make_gamma_data()
+  err <- expect_error(
+    m_estimate(
+      y ~ x,
+      data = d,
+      .ee = ee_glm,
+      distribution = "gamma",
+      link = "log"
+    ),
+    class = "deli_formula_auto_init_error"
+  )
+  expect_identical(reported_entry_point(err), quote(m_estimate))
+  # Neither the method the generic dispatched to nor the helper that evaluates
+  # the estimating function is a call the caller can act on.
+  reported <- paste(deparse(conditionCall(err)), collapse = " ")
+  expect_false(grepl("m_estimate.formula", reported, fixed = TRUE))
+  expect_false(grepl("eval_psi_at_init", reported, fixed = TRUE))
+})
+
+test_that("the automatic-init diagnostic names gmm_estimate()", {
+  d <- make_line_data()
+  ee_short <- function(theta, X, y, ...) {
+    matrix(as.vector(y - X %*% theta), nrow = 1)
+  }
+  err <- expect_error(
+    gmm_estimate(y ~ x, data = d, .ee = ee_short),
+    class = "deli_formula_auto_init_error"
+  )
+  expect_identical(reported_entry_point(err), quote(gmm_estimate))
+  reported <- paste(deparse(conditionCall(err)), collapse = " ")
+  expect_false(grepl("gmm_estimate.formula", reported, fixed = TRUE))
+})

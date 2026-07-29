@@ -34,8 +34,8 @@
 #
 # `ee_survival_model()` cannot be fitted through the formula interface at all. It
 # takes no design matrix, and `prepare_formula_psi()` always passes the design it
-# built as `X`, so driving it from a formula is an unused-argument error before
-# anything is estimated. There is therefore no fit of it to route, and
+# built as `X`, so the signature check there refuses it before anything is
+# estimated. There is therefore no fit of it to route, and
 # `survival_predictions()` is how its predictions are made.
 #
 # `ee_mlogit()` is absent for the plainer reason that a multinomial model defines

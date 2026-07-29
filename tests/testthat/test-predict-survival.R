@@ -610,7 +610,7 @@ test_that("ee_survival_model() cannot be driven by the formula interface", {
       distribution = "weibull",
       init = c(0.1, 0.1)
     ),
-    "unused argument"
+    class = "deli_formula_ee_signature_error"
   )
 })
 
