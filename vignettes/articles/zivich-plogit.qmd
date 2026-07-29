@@ -258,6 +258,7 @@ ggplot(rd_results, aes(x = time, y = rd)) +
     data = rd_band,
     aes(x = time, ymin = lcb, ymax = ucb),
     inherit.aes = FALSE,
+    fill = "black",
     alpha = 0.1
   ) +
   geom_step() +
@@ -336,7 +337,7 @@ rd_results <- data.frame(
 # Plot the risk difference function
 ggplot(rd_results, aes(x = time, y = rd)) +
   geom_hline(yintercept = 0, linetype = 3) +
-  geom_ribbon(aes(ymin = lcl, ymax = ucl), alpha = 0.1) +
+  geom_ribbon(aes(ymin = lcl, ymax = ucl), fill = "black", alpha = 0.1) +
   geom_line() +
   coord_cartesian(xlim = c(0, 60), ylim = c(-1, 1)) +
   labs(x = "Time (months)", y = "Risk Difference")

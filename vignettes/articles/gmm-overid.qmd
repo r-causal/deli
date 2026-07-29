@@ -109,7 +109,7 @@ estr_fail <- MEstimator(
     ee2 <- matrix(Z2 * (Y - theta[1] * A), nrow = 1)
     rbind(ee1, ee2)
   },
-  init = c(0)
+  init = 0
 ) |>
   estimate()
 ```
@@ -132,7 +132,7 @@ estr_gmm <- gmm_estimate(
     ee2 <- matrix(Z2 * (Y - theta[1] * A), nrow = 1)
     rbind(ee1, ee2)
   },
-  init = c(0)
+  init = 0
 )
 
 data.frame(

@@ -7,7 +7,7 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-```{r, include = FALSE}
+```{r knitr-opts, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
@@ -54,7 +54,7 @@ The estimating equations are:
 The third equation has no variation across observations, so we repeat the same
 value n times.
 
-```{r}
+```{r ratio-of-means}
 set.seed(42)
 n <- 200
 y1 <- rnorm(n, mean = 4, sd = 1)
@@ -80,13 +80,13 @@ The third element of `theta` is the estimated ratio. Because the ratio is
 estimated jointly with the means, the sandwich variance accounts for the
 uncertainty in all three parameters:
 
-```{r}
+```{r ratio-summary}
 summary(m)
 ```
 
 Compare the point estimate to the naive ratio:
 
-```{r}
+```{r naive-ratio}
 mean(y1) / mean(y2)
 ```
 
@@ -139,7 +139,7 @@ coefficient, along with a proper confidence interval. We can stack the
 regression estimating equations with a custom equation that exponentiates the
 log-odds coefficient.
 
-```{r}
+```{r stacked-odds-ratio}
 set.seed(42)
 n <- 500
 x <- rnorm(n)
@@ -171,7 +171,7 @@ The third row of the summary gives the odds ratio with a sandwich-based
 confidence interval that correctly accounts for the estimation uncertainty in
 the regression coefficients. Compare with a manual calculation:
 
-```{r}
+```{r odds-ratio-manual}
 exp(m@theta[2])
 ```
 
@@ -198,7 +198,7 @@ without stacking. Nothing custom is stacked onto the regression here, so the
 formula interface applies: give `m_estimate()` a formula and a data frame and it
 builds the design matrix and response for you.
 
-```{r}
+```{r logistic-fit}
 # Fit the logistic regression only
 d <- data.frame(x, y)
 
@@ -209,7 +209,7 @@ m_reg@theta
 Now apply the delta method. The `transform` function takes the full `theta`
 vector and returns the transformed quantity:
 
-```{r}
+```{r delta-method}
 # Transform: exponentiate the second coefficient to get the odds ratio
 dm_var <- delta_method(m_reg, transform = function(theta) exp(theta[2]))
 dm_var
@@ -218,7 +218,7 @@ dm_var
 The result is the variance of the odds ratio. We can compute a confidence
 interval:
 
-```{r}
+```{r delta-method-ci}
 or_est <- exp(m_reg@theta[2])
 or_se <- sqrt(dm_var[1, 1])
 ci <- or_est + c(-1, 1) * qnorm(0.975) * or_se
@@ -244,7 +244,7 @@ natural for your problem.
 You can also call `delta_method()` directly on a numeric vector of estimates
 and a covariance matrix, without a fitted estimator object:
 
-```{r}
+```{r delta-method-raw}
 delta_method(
   m_reg@theta,
   transform = function(theta) exp(theta[2]),

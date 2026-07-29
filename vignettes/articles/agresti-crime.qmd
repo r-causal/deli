@@ -70,11 +70,11 @@ estr <- m_estimate(
 )
 
 # Save OLS estimates for use as initial values in robust regression
-ols_theta <- unname(estr@theta)
+ols_theta <- unname(coef(estr))
 
 data.frame(
   Param = c("Intercept", "Poverty", "Single"),
-  Coef = round(estr@theta, 2),
+  Coef = round(coef(estr), 2),
   LCL = round(confint(estr)[, 1], 2),
   UCL = round(confint(estr)[, 2], 2)
 )
@@ -126,7 +126,7 @@ estr <- m_estimate(
 
 data.frame(
   Param = c("Intercept", "Poverty", "Single"),
-  Coef = round(estr@theta, 2),
+  Coef = round(coef(estr), 2),
   LCL = round(confint(estr)[, 1], 2),
   UCL = round(confint(estr)[, 2], 2)
 )
@@ -149,7 +149,7 @@ estr <- m_estimate(
 
 data.frame(
   Param = c("Intercept", "Poverty", "Single"),
-  Coef = round(estr@theta, 2),
+  Coef = round(coef(estr), 2),
   LCL = round(confint(estr)[, 1], 2),
   UCL = round(confint(estr)[, 2], 2)
 )
@@ -174,7 +174,7 @@ estr <- m_estimate(
 
 data.frame(
   Param = c("Intercept", "Poverty", "Single"),
-  Coef = round(estr@theta, 2),
+  Coef = round(coef(estr), 2),
   LCL = round(confint(estr)[, 1], 2),
   UCL = round(confint(estr)[, 2], 2)
 )
@@ -205,7 +205,7 @@ estr <- m_estimate(
 
 data.frame(
   Param = c("Intercept", "Poverty", "Single"),
-  Coef = round(estr@theta, 2),
+  Coef = round(coef(estr), 2),
   LCL = round(confint(estr)[, 1], 2),
   UCL = round(confint(estr)[, 2], 2)
 )
@@ -228,7 +228,7 @@ estr <- m_estimate(
 
 data.frame(
   Param = c("Intercept", "Poverty", "Single"),
-  Coef = round(estr@theta, 2),
+  Coef = round(coef(estr), 2),
   LCL = round(confint(estr)[, 1], 2),
   UCL = round(confint(estr)[, 2], 2)
 )
@@ -255,7 +255,7 @@ estr <- m_estimate(
 
 data.frame(
   Param = c("Intercept", "Poverty", "Single"),
-  Coef = round(estr@theta, 2),
+  Coef = round(coef(estr), 2),
   LCL = round(confint(estr)[, 1], 2),
   UCL = round(confint(estr)[, 2], 2)
 )
@@ -278,7 +278,7 @@ estr <- m_estimate(
 
 data.frame(
   Param = c("Intercept", "Poverty", "Single"),
-  Coef = round(estr@theta, 2),
+  Coef = round(coef(estr), 2),
   LCL = round(confint(estr)[, 1], 2),
   UCL = round(confint(estr)[, 2], 2)
 )
@@ -310,7 +310,7 @@ estr <- m_estimate(
 
 data.frame(
   Param = c("Intercept", "Poverty", "Single"),
-  Coef = round(estr@theta, 2),
+  Coef = round(coef(estr), 2),
   LCL = round(confint(estr)[, 1], 2),
   UCL = round(confint(estr)[, 2], 2)
 )

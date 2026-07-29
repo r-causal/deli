@@ -7,14 +7,14 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-```{r, include = FALSE}
+```{r knitr-opts, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
 )
 ```
 
-```{r}
+```{r setup}
 library(deli)
 ```
 
@@ -37,7 +37,7 @@ This vignette demonstrates:
 We simulate data with a binary treatment `A`, a confounder `W`, and a
 continuous outcome `Y`:
 
-```{r}
+```{r simulate-data}
 set.seed(42)
 n <- 1000
 W1 <- rnorm(n)
@@ -54,7 +54,7 @@ The g-formula estimates the average causal effect by fitting an outcome
 model and standardizing (averaging predictions over the covariate
 distribution):
 
-```{r}
+```{r gformula}
 X <- cbind(1, A, W1, W2)      # Observed design matrix
 X1 <- cbind(1, 1, W1, W2)     # Counterfactual: all treated
 X0 <- cbind(1, 0, W1, W2)     # Counterfactual: all untreated
@@ -80,7 +80,7 @@ The first parameter is the average causal effect (ACE).
 IPW reweights the observed data by the inverse of the treatment
 probability (propensity score):
 
-```{r}
+```{r ipw}
 W_ps <- cbind(1, W1, W2)  # Propensity score design matrix
 
 psi <- function(theta) {
@@ -100,7 +100,7 @@ summary(m)
 Extreme propensity scores can inflate variance. Use `truncate` to clip
 them:
 
-```{r}
+```{r ipw-truncate}
 psi <- function(theta) {
   ee_ipw(theta, y = Y, A = A, W = W_ps,
          truncate = c(0.1, 0.9))
@@ -116,7 +116,7 @@ AIPW combines outcome modeling and IPW. It is "doubly robust": the
 estimate is consistent if either the outcome model or the propensity
 score model is correctly specified:
 
-```{r}
+```{r aipw}
 X <- cbind(1, A, W1, W2)
 X1 <- cbind(1, 1, W1, W2)
 X0 <- cbind(1, 0, W1, W2)
@@ -141,7 +141,7 @@ summary(m)
 
 ## Comparing methods
 
-```{r}
+```{r compare-methods}
 psi_gformula <- function(theta) {
   ee_gformula(theta, y = Y, X = cbind(1, A, W1, W2),
               X1 = cbind(1, 1, W1, W2),

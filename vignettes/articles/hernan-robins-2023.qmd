@@ -362,7 +362,9 @@ estr <- m_estimate(
 )
 
 # MSM coefficients
-round(cbind(estimate = coef(estr), confint(estr))[1:3, ], 3)
+msm_est <- cbind(estimate = coef(estr), confint(estr))[1:3, ]
+rownames(msm_est) <- c("alpha_0", "alpha_1", "alpha_2")
+round(msm_est, 3)
 ```
 
 The book reports coefficients of: 2.005, -0.109, 0.003. These match the
@@ -533,7 +535,9 @@ estr <- m_estimate(
 )
 
 # MSM with effect modification by sex
-round(cbind(estimate = coef(estr), confint(estr))[1:4, ], 2)
+msm_est <- cbind(estimate = coef(estr), confint(estr))[1:4, ]
+rownames(msm_est) <- c("alpha_0", "alpha_1", "alpha_2", "alpha_3")
+round(msm_est, 2)
 ```
 
 While not reported in the book, other online references report the
@@ -1008,9 +1012,6 @@ estr <- m_estimate(
   init = c(0, rep(0, ncol(W_ge)), rep(0, ncol(X_ge))),
   maxiter = 5000
 )
-
-# Save theta for later use
-snm1_init <- as.numeric(estr@theta)
 
 snm_est <- cbind(estimate = coef(estr), confint(estr))[1, , drop = FALSE]
 rownames(snm_est) <- "SNM phi_0"

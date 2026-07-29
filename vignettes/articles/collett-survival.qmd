@@ -64,8 +64,8 @@ estr <- m_estimate(stacked_equations = psi, init = c(0.01))
 
 # Display the results
 results <- data.frame(
-  Est = estr@theta,
-  SE = sqrt(diag(estr@variance)),
+  Est = coef(estr),
+  SE = sqrt(diag(vcov(estr))),
   LCL = confint(estr)[, 1],
   UCL = confint(estr)[, 2],
   row.names = c("Lambda")
@@ -89,10 +89,10 @@ surv <- survival_predictions(
 
 # Plot the survival function
 ggplot(surv, aes(x = time, y = predicted)) +
-  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.3) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), fill = "black", alpha = 0.3) +
   geom_line() +
   coord_cartesian(xlim = c(0, 235), ylim = c(0, 1)) +
-  labs(x = "Time (days)", y = "Survival", title = "Exponential")
+  labs(x = "Time (months)", y = "Survival", title = "Exponential")
 ```
 
 ### Weibull
@@ -116,8 +116,8 @@ estr <- m_estimate(stacked_equations = psi, init = c(0.01, 1.0))
 
 # Display the results
 results <- data.frame(
-  Est = estr@theta,
-  SE = sqrt(diag(estr@variance)),
+  Est = coef(estr),
+  SE = sqrt(diag(vcov(estr))),
   LCL = confint(estr)[, 1],
   UCL = confint(estr)[, 2],
   row.names = c("Lambda", "Gamma")
@@ -141,10 +141,10 @@ surv <- survival_predictions(
 
 # Plot the survival function
 ggplot(surv, aes(x = time, y = predicted)) +
-  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.3) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), fill = "black", alpha = 0.3) +
   geom_line() +
   coord_cartesian(xlim = c(0, 235), ylim = c(0, 1)) +
-  labs(x = "Time (days)", y = "Survival", title = "Weibull")
+  labs(x = "Time (months)", y = "Survival", title = "Weibull")
 ```
 
 A disadvantage of the previous models is that they do not incorporate information on baseline covariates.
@@ -183,8 +183,8 @@ estr <- m_estimate(stacked_equations = psi, init = c(6.0, 0.0))
 
 # Display the results
 results <- data.frame(
-  Est = estr@theta,
-  SE = sqrt(diag(estr@variance)),
+  Est = coef(estr),
+  SE = sqrt(diag(vcov(estr))),
   LCL = confint(estr)[, 1],
   UCL = confint(estr)[, 2],
   row.names = c("Intercept", "Stain")
@@ -228,7 +228,7 @@ ggplot(aft_surv, aes(x = time, y = survival, color = stain)) +
   scale_color_manual(values = c(Negative = "blue", Positive = "red")) +
   coord_cartesian(xlim = c(0, 235), ylim = c(0, 1)) +
   labs(
-    x = "Time (days)",
+    x = "Time (months)",
     y = "Survival",
     title = "Exponential AFT",
     color = NULL
@@ -259,8 +259,8 @@ estr <- m_estimate(stacked_equations = psi, init = c(5.0, 0.0, 0.0))
 
 # Display the results
 results <- data.frame(
-  Est = estr@theta,
-  SE = sqrt(diag(estr@variance)),
+  Est = coef(estr),
+  SE = sqrt(diag(vcov(estr))),
   LCL = confint(estr)[, 1],
   UCL = confint(estr)[, 2],
   row.names = c("Intercept", "Stain", "Shape")
@@ -304,7 +304,7 @@ ggplot(aft_surv, aes(x = time, y = survival, color = stain)) +
   scale_color_manual(values = c(Negative = "blue", Positive = "red")) +
   coord_cartesian(xlim = c(0, 235), ylim = c(0, 1)) +
   labs(
-    x = "Time (days)",
+    x = "Time (months)",
     y = "Survival",
     title = "Weibull AFT",
     color = NULL
@@ -347,7 +347,7 @@ ggplot(aft_haz, aes(x = time, y = hazard, color = stain)) +
   scale_color_manual(values = c(Negative = "blue", Positive = "red")) +
   coord_cartesian(xlim = c(-5, 235), ylim = c(0, 0.011)) +
   labs(
-    x = "Time (days)",
+    x = "Time (months)",
     y = "Hazard",
     title = "Weibull AFT",
     color = NULL
@@ -376,8 +376,8 @@ estr <- m_estimate(stacked_equations = psi, init = c(5.0, 0.0, 0.0))
 
 # Display the results
 results <- data.frame(
-  Est = estr@theta,
-  SE = sqrt(diag(estr@variance)),
+  Est = coef(estr),
+  SE = sqrt(diag(vcov(estr))),
   LCL = confint(estr)[, 1],
   UCL = confint(estr)[, 2],
   row.names = c("Intercept", "Stain", "Shape")
@@ -417,7 +417,7 @@ ggplot(aft_surv, aes(x = time, y = survival, color = stain)) +
   scale_color_manual(values = c(Negative = "blue", Positive = "red")) +
   coord_cartesian(xlim = c(0, 235), ylim = c(0, 1)) +
   labs(
-    x = "Time (days)",
+    x = "Time (months)",
     y = "Survival",
     title = "Log-Normal AFT",
     color = NULL
@@ -444,8 +444,8 @@ estr <- m_estimate(stacked_equations = psi, init = c(5.0, 0.0, 0.0))
 
 # Display the results
 results <- data.frame(
-  Est = estr@theta,
-  SE = sqrt(diag(estr@variance)),
+  Est = coef(estr),
+  SE = sqrt(diag(vcov(estr))),
   LCL = confint(estr)[, 1],
   UCL = confint(estr)[, 2],
   row.names = c("Intercept", "Stain", "Shape")
@@ -487,7 +487,7 @@ ggplot(aft_surv, aes(x = time, y = survival, color = stain)) +
   scale_color_manual(values = c(Negative = "blue", Positive = "red")) +
   coord_cartesian(xlim = c(0, 235), ylim = c(0, 1)) +
   labs(
-    x = "Time (days)",
+    x = "Time (months)",
     y = "Survival",
     title = "Log-Logistic AFT",
     color = NULL
@@ -530,7 +530,7 @@ ggplot(aft_haz, aes(x = time, y = hazard, color = stain)) +
   scale_color_manual(values = c(Negative = "blue", Positive = "red")) +
   coord_cartesian(xlim = c(-5, 235), ylim = c(0, 0.011)) +
   labs(
-    x = "Time (days)",
+    x = "Time (months)",
     y = "Hazard",
     title = "Log-Logistic AFT",
     color = NULL

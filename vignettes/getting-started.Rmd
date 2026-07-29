@@ -7,7 +7,7 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-```{r, include = FALSE}
+```{r knitr-opts, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
@@ -32,7 +32,7 @@ deli is an R port of the Python
 
 ## Installation
 
-```{r eval=FALSE}
+```{r install, eval=FALSE}
 # Install from GitHub (development version)
 # pak::pak("r-causal/deli")
 ```
@@ -44,7 +44,7 @@ data frame, and a pre-built estimating equation. It constructs the estimator
 and solves it in a single call, much as `lm()` fits a linear model in one
 step. Here is a linear regression on the `mtcars` data:
 
-```{r}
+```{r first-fit}
 library(deli)
 
 fit <- m_estimate(
@@ -67,7 +67,7 @@ Fitted estimators support the standard R accessors. `coef()` returns the point
 estimates, `vcov()` returns the sandwich variance-covariance matrix, and
 `confint()` returns Wald confidence intervals:
 
-```{r}
+```{r accessors}
 vcov(fit)
 
 confint(fit)
@@ -76,7 +76,7 @@ confint(fit)
 `summary()` collects the estimates, standard errors, test statistics, and
 confidence intervals into a single table:
 
-```{r}
+```{r fit-summary}
 summary(fit)
 ```
 
@@ -84,7 +84,7 @@ deli also provides [broom](https://broom.tidymodels.org/) tidiers, so results
 flow into tidyverse pipelines. `tidy()` returns one row per parameter, and
 `glance()` returns a one-row model summary:
 
-```{r}
+```{r tidiers}
 generics::tidy(fit, conf.int = TRUE)
 
 generics::glance(fit)
@@ -94,7 +94,7 @@ If you prefer deli's own inference helpers, `confidence_intervals()`,
 `z_scores()`, `p_values()`, and `s_values()` each return the corresponding
 quantities directly:
 
-```{r}
+```{r inference-helpers}
 z_scores(fit)
 p_values(fit)
 ```
@@ -105,7 +105,7 @@ The pre-built regression equation covers several model families. Switch from
 linear to logistic regression by changing the `model` argument. Here `vs` is a
 binary indicator of engine type:
 
-```{r}
+```{r logistic-fit}
 fit_logistic <- m_estimate(
   vs ~ mpg + wt,
   data = mtcars,
@@ -136,7 +136,7 @@ with the estimator directly. The workflow has two steps:
 
 Here is a simple example that estimates a mean:
 
-```{r}
+```{r mean-estimator}
 y <- c(1, 2, 3, 1, 4, 5, 3, 2, 6, 7)
 
 # Define the estimating equation
@@ -152,7 +152,7 @@ coef(m)
 
 The estimated mean matches `mean(y)`:
 
-```{r}
+```{r mean-check}
 mean(y)
 ```
 
@@ -160,7 +160,7 @@ The same accessors that worked on the formula fit work here. The point
 estimate and variance are also available on the object as `m@theta` and
 `m@variance`:
 
-```{r}
+```{r estimator-slots}
 m@theta       # Point estimate (the mean)
 m@variance    # Sandwich variance estimate
 ```
@@ -168,7 +168,7 @@ m@variance    # Sandwich variance estimate
 `m_estimate()` accepts a `psi` function directly as well, which fits the same
 model in one step:
 
-```{r}
+```{r psi-one-step}
 m <- m_estimate(psi, init = 0)
 coef(m)
 ```
@@ -180,7 +180,7 @@ When you stack equations, the sandwich variance correctly accounts for all
 sources of uncertainty. Here is an example that estimates a mean and variance
 simultaneously:
 
-```{r}
+```{r mean-variance}
 y <- c(1, 2, 3, 1, 4, 5, 3, 2, 6, 7)
 
 psi <- function(theta) {
@@ -201,7 +201,7 @@ several components, they are a natural fit for the function interface. Here is
 an example that uses inverse probability weighting (IPW) to estimate an average
 treatment effect:
 
-```{r}
+```{r ipw}
 set.seed(42)
 n <- 500
 w <- rbinom(n, 1, 0.5)               # Binary confounder
@@ -227,7 +227,7 @@ with confidence intervals. It takes a design matrix rather than a data frame,
 so build the prediction design with the same columns in the same order as the
 fitted model. Here the formula `y ~ x` gives an intercept followed by `x`:
 
-```{r}
+```{r predictions}
 set.seed(42)
 n <- 200
 x <- rnorm(n)
@@ -248,7 +248,7 @@ preds
 For clustered or grouped data, use `aggregate_efuncs()` inside your `psi`
 function to get cluster-robust variance estimates:
 
-```{r}
+```{r clustered}
 set.seed(42)
 n <- 200
 n_groups <- 50
@@ -286,7 +286,7 @@ forward it to the delta method. The following fits a logistic model and uses
 exact differentiation to obtain the variance of the fitted probability at a
 covariate pattern:
 
-```{r}
+```{r exact-delta-method}
 set.seed(42)
 n <- 500
 x <- rnorm(n)

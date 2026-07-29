@@ -7,14 +7,14 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-```{r, include = FALSE}
+```{r knitr-opts, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
 )
 ```
 
-```{r}
+```{r setup}
 library(deli)
 ```
 
@@ -27,11 +27,17 @@ matrix, constructs the estimator, and solves it in one call. Arguments belonging
 to the estimating equation, such as `model` or `penalty`, go in the same call
 and are forwarded to it, while `init`, `subset`, `solver`, and the other solver
 controls are arguments of `m_estimate()` itself. The sandwich variance estimator
-automatically provides robust standard errors, and the parameters are named
-after the design matrix columns whenever `init` is left at its default. An
-explicit `init` takes those same names where its length accounts for the design
-columns, together with any parameter the estimating equation adds on top of
-them. Name its elements yourself to label the parameters any other way.
+automatically provides robust standard errors.
+
+The parameters are labeled from the first of three sources that names every one
+of them: the names on `init`, the columns of the design matrix, and the row
+names the estimating equation writes on its own return. A default `init` carries
+no names, so the design columns label the fit, together with any parameter the
+equation estimates on top of the coefficients; an explicit `init` is labeled the
+same way when its length accounts for one of those two shapes. Where it accounts
+for neither, the equation's row names label the fit instead, and where nothing
+labels every parameter they are numbered `theta_1` through `theta_p`. Name the
+elements of `init` yourself to label the parameters any other way.
 
 `init` defaults to a zero vector with one element per design matrix column. That
 is the right length for most estimating equations, but not for the few that
@@ -48,7 +54,7 @@ stacked equations; see `vignette("custom-estimating-equations")`.
 
 The most basic regression model uses `ee_regression()` with `model = "linear"`:
 
-```{r}
+```{r linear}
 set.seed(42)
 n <- 300
 x1 <- rnorm(n)
@@ -64,7 +70,7 @@ summary(m)
 
 For binary outcomes, use `model = "logistic"`:
 
-```{r}
+```{r logistic}
 set.seed(42)
 n <- 500
 x <- rnorm(n)
@@ -79,7 +85,7 @@ summary(m)
 
 For count data, use `model = "poisson"`:
 
-```{r}
+```{r poisson}
 set.seed(42)
 n <- 500
 x <- rnorm(n)
@@ -95,7 +101,7 @@ summary(m)
 `ee_glm()` provides a more flexible interface where you specify the
 distribution and link function separately:
 
-```{r}
+```{r glm-poisson}
 set.seed(42)
 n <- 500
 x <- rnorm(n)
@@ -126,7 +132,7 @@ necessary. It needs no names of its own: the formula interface labels an
 unnamed `init` of that length from the model matrix columns and the extra
 parameter.
 
-```{r}
+```{r glm-gamma}
 set.seed(42)
 n <- 500
 x <- rnorm(n)
@@ -157,7 +163,7 @@ to the estimating equations.
 
 L2 penalty shrinks coefficients toward zero:
 
-```{r}
+```{r ridge}
 set.seed(42)
 n <- 200
 x1 <- rnorm(n)
@@ -179,7 +185,7 @@ m@theta
 
 L1 penalty produces sparse solutions:
 
-```{r}
+```{r lasso}
 # Not differentiable, so the sandwich variance should not be trusted here
 m <- m_estimate(
   y ~ x1 + x2,
@@ -195,7 +201,7 @@ m@theta
 
 Combines L1 and L2 penalties:
 
-```{r}
+```{r elasticnet}
 # The L1 half is not differentiable, so again distrust the sandwich variance
 m <- m_estimate(
   y ~ x1 + x2,
@@ -213,7 +219,7 @@ m@theta
 `ee_robust_regression()` replaces the squared loss with a robust loss
 function, providing resistance to outliers:
 
-```{r}
+```{r robust}
 set.seed(42)
 n <- 200
 x <- rnorm(n)
@@ -222,7 +228,12 @@ y <- 1 + 2 * x + rnorm(n)
 y[1:5] <- y[1:5] + 20
 d <- data.frame(x, y)
 
-# Robust losses can have several roots, so seed the search from least squares
+# The Huber loss is convex, so its estimating function has a single root. What
+# makes the seed necessary is that the Huber psi is bounded: far from the
+# solution every residual is past the tuning constant k, every contribution
+# saturates at k, and the estimating function is constant with a Jacobian of
+# exactly zero. Starting from zero lands in that flat region, where the solver
+# has no slope to follow, so start from a least-squares fit.
 start <- coef(lm(y ~ x, data = d))
 
 # Huber loss with k = 1.345
@@ -250,7 +261,7 @@ All regression EEs support observation weights via the `weights` argument.
 Arguments passed through `m_estimate()` are evaluated in the data frame, so the
 column name is enough:
 
-```{r}
+```{r weighted}
 set.seed(42)
 n <- 200
 x <- rnorm(n)
@@ -276,7 +287,7 @@ than a data frame, so build the prediction design with the same columns in the
 same order as the fitted model. Here the formula `y ~ x` gives an intercept
 followed by `x`:
 
-```{r}
+```{r predictions}
 set.seed(42)
 n <- 300
 x <- rnorm(n)

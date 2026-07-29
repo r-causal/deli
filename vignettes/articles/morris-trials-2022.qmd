@@ -153,7 +153,7 @@ estr <- m_estimate(
     # Returning stacked estimating equations (order matters)
     rbind(
       ee_risk_diff,   # risk difference
-      ee_risk_ratio,  # risk ratio
+      ee_risk_ratio,  # log risk ratio
       ee_ya1,         # risk a=1
       ee_ya0,         # risk a=0
       ee_log          # logistic model
@@ -165,7 +165,7 @@ estr <- m_estimate(
 # Results
 se <- sqrt(diag(estr@variance))
 data.frame(
-  Measure = c("Risk Difference", "Risk Ratio"),
+  Measure = c("Risk Difference", "Log Risk Ratio"),
   Estimate = round(estr@theta[1:2], 3),
   SE = round(se[1:2], 3)
 )
@@ -189,10 +189,11 @@ $$\psi(Y_i, A_i, W_i; \theta) =
 $$
 
 where $g(W_i)$ is a specific function to generate the design matrix. As before,
-the first and second equations are the risk difference and risk ratio,
-respectively. Third and fourth equations correspond to the risk under all-1 and
-the risk under all-0. The final estimating equation is the propensity score
-model and is used to generate the propensity scores given $W_i$.
+the first and second equations are the risk difference and the log-transformed
+risk ratio, respectively. Third and fourth equations correspond to the risk
+under all-1 and the risk under all-0. The final estimating equation is the
+propensity score model and is used to generate the propensity scores given
+$W_i$.
 
 ```{r}
 #| label: ipw
@@ -230,7 +231,7 @@ estr <- m_estimate(
     # Returning stacked estimating equations (order matters)
     rbind(
       ee_risk_diff,   # risk difference
-      ee_risk_ratio,  # risk ratio
+      ee_risk_ratio,  # log risk ratio
       ee_ya1,         # risk a=1
       ee_ya0,         # risk a=0
       ee_log          # logistic model
@@ -242,7 +243,7 @@ estr <- m_estimate(
 # Results
 se <- sqrt(diag(estr@variance))
 data.frame(
-  Measure = c("Risk Difference", "Risk Ratio"),
+  Measure = c("Risk Difference", "Log Risk Ratio"),
   Estimate = round(estr@theta[1:2], 3),
   SE = round(se[1:2], 3)
 )

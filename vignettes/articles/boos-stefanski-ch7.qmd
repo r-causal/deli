@@ -213,7 +213,7 @@ psi <- function(theta) {
   matrix(clipped, nrow = 1)
 }
 
-estr <- m_estimate(stacked_equations = psi, init = c(0))
+estr <- m_estimate(stacked_equations = psi, init = 0)
 estr@theta
 confint(estr)
 ```
@@ -226,7 +226,7 @@ psi <- function(theta) {
   ee_mean_robust(theta, y = y_rob, k = 3, loss = "huber")
 }
 
-estr <- m_estimate(stacked_equations = psi, init = c(0))
+estr <- m_estimate(stacked_equations = psi, init = 0)
 estr@theta
 confint(estr)
 ```

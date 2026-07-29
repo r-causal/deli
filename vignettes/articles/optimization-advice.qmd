@@ -101,7 +101,7 @@ up.
 ```{r}
 #| label: maxiter-example
 #| eval: false
-m <- m_estimate(psi_robust, init = c(mean(y), 0), maxiter = 20000)
+m_estimate(psi_robust, init = c(mean(y), 0), maxiter = 20000)
 ```
 
 ## Try a different solver

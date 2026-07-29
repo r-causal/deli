@@ -22,7 +22,7 @@ theme_set(theme_minimal())
 ```
 
 Cole et al. (2023) reviewed a sensitivity analysis method for missing data
-proposed in Robins et al. (1999). This example was illustrated using simulated
+proposed in Robins et al. (2000). This example was illustrated using simulated
 missing data on CD4 T cell counts among persons with HIV (an immune marker for
 disease progression). In the paper, the estimator and corresponding estimating
 functions are reviewed.
