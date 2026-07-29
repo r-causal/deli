@@ -139,6 +139,7 @@ reference:
   - title: Predictions
     desc: Prediction helpers for fitted models.
     contents:
+      - deli-predict
       - regression_predictions
       - survival_predictions
       - aft_predictions_individual

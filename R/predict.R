@@ -1,0 +1,483 @@
+# ---- Which parameters predict() may treat as coefficients --------------------
+# `predict()` forms a linear predictor as `X %*% beta`, so it has to know which
+# entries of `theta` are the coefficients on the recorded design and where they
+# sit. `model_spec$n_coef` is the number of design columns, and on its own it
+# answers neither question.
+#
+# Two built-in equations show why. Under one plan `ee_gformula()` orders its
+# parameters `causal_mean, X_1, ..., X_k`, one more than the design has columns
+# and so the same count as `ee_tobit()`, whose extra parameter trails instead.
+# Slicing to `n_coef` would put the causal mean where the intercept belongs and
+# shift every other coefficient by one, and nothing about the result would look
+# wrong.
+# `ee_additive_regression()` expands its design internally, so a fit with two
+# design columns and one spline specification solves for four coefficients on
+# the expanded basis. There `n_coef` is not a coefficient count at all, and
+# slicing to it drops real coefficients rather than misplacing them.
+#
+# `appended_param_name()` cannot separate those cases, because it returns `NULL`
+# both for an equation that appends nothing and for an equation it does not
+# list. A `NULL` from it means "appends nothing" only for an equation already
+# known to be in its table.
+#
+# `predict_link_name()` below is the table that makes `n_coef` sufficient. Every
+# equation it lists puts one coefficient per design column at the front of
+# `theta` and appends at most the single parameter `appended_param_name()`
+# names, so the coefficients are `theta[seq_len(n_coef)]` and
+# `predict_coef_index()` confirms the parameter count agrees before slicing. An
+# equation the table does not list gets an error naming the reason, never a
+# slice. That direction is deliberate: refusing to predict is visible, and a
+# wrong slice is not.
+#
+# The table carries the second thing `predict()` needs as well, the inverse link
+# that takes the linear predictor to the mean of the response. An equation whose
+# linear predictor is not a link-scale mean is left out for that reason alone.
+# `ee_aft()` puts its linear predictor on the log-time scale and `ee_tobit()`
+# puts it on a latent scale, so `type = "response"` would not be the conditional
+# mean of the response for either; `aft_predictions_individual()` and
+# `aft_predictions_function()` answer the AFT question on its own terms.
+#
+# ---- Specification arguments, not a replay -----------------------------------
+# `predict()` reads the model from `model_spec$ee_spec_args` and never calls the
+# estimating equation again. That split is what makes `newdata` possible:
+# `model`, `distribution`, and `link` describe the model and apply to any data,
+# while `weights`, `offset`, and `event` are one value per fitted observation
+# and have no counterpart in data the model has not seen. An offset supplied
+# through `...` therefore cannot travel onto `newdata`, and `predict()` aborts
+# rather than predicting at an offset of zero. An offset written into the
+# formula with `offset()` is part of the terms, so it is evaluated on `newdata`
+# like any other variable.
+#
+# ---- Two argument names from base R ------------------------------------------
+# `se.fit` and `level` are spelled as `stats::predict.lm()` spells them, rather
+# than in this package's own vocabulary of snake_case names and `alpha`. This is
+# a method on a base generic, and the shapes it returns are the shapes
+# `predict.lm()` returns, so a reader who knows one knows the other. `confint()`
+# takes `level` here for the same reason.
+
+#' Predictions from a fitted deli estimator
+#'
+#' A method for [stats::predict()] that forms the linear predictor of a fit made
+#' through the formula interface, on either the link or the response scale, with
+#' sandwich standard errors and Wald confidence intervals.
+#'
+#' @details
+#' The design for `newdata` is rebuilt through the terms, factor levels, and
+#' contrasts the fit recorded, so a factor whose new values cover only some of
+#' the fitted levels still produces the fitted set of columns, and a
+#' data-dependent term such as `poly(x, 2)` or `scale(x)` is evaluated with the
+#' coefficients it was fitted with rather than refitted to `newdata`. A factor
+#' level the fit never saw, or a predictor `newdata` does not carry, is an
+#' error.
+#'
+#' The standard error is the delta-method standard error of the linear
+#' predictor, \eqn{\sqrt{\mathrm{diag}(X \hat{V} X^{T})}}, formed from the
+#' coefficient block of the sandwich variance. On the response scale it is
+#' scaled by the derivative of the inverse link, which is exact because the
+#' inverse link is applied elementwise. The intervals are Wald intervals on the
+#' scale asked for, so they are symmetric about `fit` on that scale rather than
+#' transformed from the link scale.
+#'
+#' `predict()` needs to know which parameters are coefficients on the design and
+#' what takes the linear predictor to the mean of the response. It supports
+#' [ee_regression()], [ee_glm()], [ee_robust_regression()],
+#' [ee_beta_regression()], and the five penalized regressions
+#' [ee_bridge_regression()], [ee_ridge_regression()], [ee_lasso_regression()],
+#' [ee_dlasso_regression()], and [ee_elasticnet_regression()], whose parameters
+#' are one coefficient per design column followed by at most one parameter of
+#' the outcome distribution. Any other estimating equation, and any fit built
+#' from a `stacked_equations` function, is an error naming the reason;
+#' [regression_predictions()] takes a design, estimates, and a covariance matrix
+#' directly and can be used wherever this method declines.
+#'
+#' @param object A fitted `MEstimator` or `GMMEstimator` object made with the
+#'   formula interface (after calling [estimate()]).
+#' @param newdata A data frame of covariate values to predict at, or `NULL`
+#'   (default) to predict the rows the fit was made on. An offset written into
+#'   the formula with `offset()` is evaluated on `newdata`; an offset supplied
+#'   through `...` at fit time is one value per fitted observation, so
+#'   predicting on `newdata` is an error rather than a prediction at an offset
+#'   of zero.
+#' @param type Character string. `"link"` (default) returns the linear
+#'   predictor; `"response"` applies the inverse link, giving the conditional
+#'   mean of the response.
+#' @param se.fit Logical. Return standard errors beside the predictions?
+#'   Default `FALSE`.
+#' @param interval Character string. `"none"` (default) or `"confidence"` for
+#'   Wald intervals at `level`.
+#' @param level The confidence level for `interval`. Default `0.95`. The
+#'   critical value comes from the standard normal distribution, or from the
+#'   t-distribution with \eqn{n - p} degrees of freedom when a
+#'   `finite_correction` is set on the fit, matching [confint()].
+#' @param ... Not used. Must be empty, so a name that is not one of the
+#'   documented arguments is an error rather than silently ignored.
+#'
+#' @returns
+#' With the defaults, a named numeric vector of predictions, one per row of
+#' `newdata` or of the fitted design. With `interval = "confidence"`, a matrix
+#' with columns `"fit"`, `"lwr"`, and `"upr"`. With `se.fit = TRUE`, a list
+#' whose `fit` element is whichever of those two the other arguments call for
+#' and whose `se.fit` element is a numeric vector of standard errors.
+#'
+#' @seealso [regression_predictions()], which computes the same quantities from
+#'   a design matrix, a vector of estimates, and a covariance matrix, for fits
+#'   this method does not cover.
+#'
+#' @examples
+#' fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
+#'                   model = "linear")
+#'
+#' head(predict(fit))
+#'
+#' # New covariate patterns, with sandwich standard errors.
+#' at <- data.frame(wt = c(2, 3, 4), hp = 110)
+#'
+#' predict(fit, newdata = at, se.fit = TRUE)
+#'
+#' predict(fit, newdata = at, interval = "confidence")
+#'
+#' # A logistic fit predicts log-odds by default and probabilities on the
+#' # response scale.
+#' vs_fit <- m_estimate(vs ~ wt, data = mtcars, .ee = ee_regression,
+#'                      model = "logistic")
+#'
+#' predict(vs_fit, newdata = data.frame(wt = c(2, 3)), type = "response")
+#'
+#' @name deli-predict
+#' @importFrom stats predict
+NULL
+
+# ---- External generic declarations ------------------------------------------
+
+stats_predict <- new_external_generic("stats", "predict", "object")
+
+# ---- predict -----------------------------------------------------------------
+
+method(stats_predict, deli_estimator) <- function(
+  object,
+  newdata = NULL,
+  type = c("link", "response"),
+  se.fit = FALSE,
+  interval = c("none", "confidence"),
+  level = 0.95,
+  ...
+) {
+  # Dispatch leaves the generic's frame directly beneath this method, so
+  # `sys.call(-1)` is the `predict()` call the caller wrote and the error names
+  # it. The default would name this method's own frame, spelled
+  # `predict.deli::deli_estimator()`, and `rlang::caller_env()` would name
+  # whichever function called `predict()`, neither of which is where the
+  # offending argument was written. Nothing beneath this frame gives `NULL`,
+  # which reports the message with no call at all.
+  rlang::check_dots_empty(call = sys.call(-1))
+  check_estimated(object)
+  type <- match.arg(type)
+  interval <- match.arg(interval)
+  check_level(level)
+
+  spec <- object@model_spec
+  if (is.null(spec)) {
+    abort_predict_no_model_spec()
+  }
+  link <- predict_link_name(spec$ee, spec$ee_spec_args)
+  if (is.null(link)) {
+    abort_predict_unsupported_ee(spec$ee)
+  }
+
+  index <- predict_coef_index(spec, object@n_params)
+  beta <- object@theta[index]
+  covariance <- object@variance[index, index, drop = FALSE]
+
+  design <- predict_design(spec, newdata)
+  X <- design$X
+
+  eta <- as.numeric(X %*% beta)
+  if (!is.null(design$offset)) {
+    eta <- eta + as.numeric(design$offset)
+  }
+  # The variance of the linear predictor is the diagonal of X V X'. It is
+  # written the way regression_predictions() writes it, rather than in any other
+  # algebraically equal form, so that the two agree to the last bit.
+  eta_variance <- as.numeric(rowSums((X %*% covariance) * X))
+
+  if (type == "response") {
+    inverse <- inverse_link(eta, link)
+    fit <- inverse$mu
+    # The inverse link is applied one observation at a time, so its Jacobian is
+    # diagonal and the delta-method variance of the mean is the squared
+    # derivative times the variance of the linear predictor, with no
+    # approximation beyond the delta method itself.
+    fit_variance <- inverse$dmu^2 * eta_variance
+  } else {
+    fit <- eta
+    fit_variance <- eta_variance
+  }
+
+  names(fit) <- rownames(X)
+  se <- sqrt(fit_variance)
+  names(se) <- rownames(X)
+
+  if (interval == "confidence") {
+    cv <- critical_value(object, 1 - level)
+    fit <- cbind(fit = fit, lwr = fit - cv * se, upr = fit + cv * se)
+  }
+
+  if (!se.fit) {
+    return(fit)
+  }
+  list(fit = fit, se.fit = se)
+}
+
+# ---- The supported equations -------------------------------------------------
+
+#' The inverse link of an estimating equation predict() can predict from
+#'
+#' Names the link that takes an equation's linear predictor to the mean of its
+#' response, for the equations whose parameters are one coefficient per design
+#' column followed by at most the parameter `appended_param_name()` names.
+#' `NULL` for every other equation, including every equation not listed, which
+#' is what `predict()` refuses on.
+#'
+#' Membership carries the layout claim as well as the link, which is why the two
+#' answers are not separated. An equation reaches this table only when both hold
+#' of it, so a caller that has a link from here may slice the coefficients off
+#' the front of `theta`.
+#'
+#' The three models [ee_regression()] takes are the three links they name:
+#' `"linear"` is the identity link, `"logistic"` the logit, and `"poisson"` the
+#' log. Returning a link for those rather than the model itself lets every scale
+#' run through `inverse_link()`, which supplies the derivative of the inverse
+#' link as well as its value, where `model_transform()` supplies only the value.
+#' `test-predict.R` pins the two against each other so the mapping cannot drift.
+#'
+#' @param .ee The estimating-equation function the fit was made with.
+#' @param ee_args The model-specification arguments recorded for the fit.
+#' @returns A string naming a link `inverse_link()` accepts, or `NULL`.
+#' @noRd
+predict_link_name <- function(.ee, ee_args) {
+  if (!is.function(.ee)) {
+    return(NULL)
+  }
+  if (identical(.ee, ee_glm)) {
+    return(link_arg_name(ee_args[["link"]]))
+  }
+  if (identical(.ee, ee_beta_regression)) {
+    # The mean model is logit by construction; the equation takes no link.
+    return("logit")
+  }
+  model_equations <- list(
+    ee_regression,
+    ee_robust_regression,
+    ee_ridge_regression,
+    ee_bridge_regression,
+    ee_lasso_regression,
+    ee_dlasso_regression,
+    ee_elasticnet_regression
+  )
+  if (any(vapply(model_equations, identical, logical(1), y = .ee))) {
+    return(model_link_name(ee_args[["model"]]))
+  }
+  NULL
+}
+
+#' The link named by a `model` argument
+#'
+#' @param model The `model` argument recorded for the fit.
+#' @returns A string, or `NULL` when the argument names no supported model.
+#' @noRd
+model_link_name <- function(model) {
+  if (!is.character(model) || length(model) != 1L || is.na(model)) {
+    return(NULL)
+  }
+  switch(
+    tolower(model),
+    linear = "identity",
+    logistic = "logit",
+    poisson = "log"
+  )
+}
+
+#' The link named by a `link` argument
+#'
+#' Passed on unchanged for `inverse_link()` to accept or reject, since the set
+#' of links it takes is its own to state.
+#'
+#' @param link The `link` argument recorded for the fit.
+#' @returns A string, or `NULL` when the argument is not one.
+#' @noRd
+link_arg_name <- function(link) {
+  if (!is.character(link) || length(link) != 1L || is.na(link)) {
+    return(NULL)
+  }
+  link
+}
+
+#' Where the design coefficients sit in a fit's parameter vector
+#'
+#' Returns the positions of the coefficients on the recorded design, having
+#' first confirmed that the design and the parameter the estimating equation
+#' appends account for every parameter the fit solved for. They will not when a
+#' caller supplied an `init` longer or shorter than the equation's layout, so
+#' the check is what stops a design of the wrong width from being multiplied
+#' into a slice of the wrong parameters.
+#'
+#' Only equations `predict_link_name()` recognizes reach here, so a `NULL` from
+#' `appended_param_name()` means the equation appends nothing rather than that
+#' the equation is unknown to it.
+#'
+#' @param spec The fit's `model_spec`.
+#' @param n_params The number of parameters the fit solved for.
+#' @returns An integer vector of positions in `theta`.
+#' @noRd
+predict_coef_index <- function(spec, n_params) {
+  n_coef <- spec$n_coef
+  appended <- appended_param_name(spec$ee, spec$ee_spec_args)
+  expected <- if (is.null(appended)) n_coef else n_coef + 1L
+
+  if (!identical(as.integer(n_params), as.integer(expected))) {
+    cli::cli_abort(
+      c(
+        "The recorded design does not account for every parameter of this fit.",
+        "i" = "The model matrix has {n_coef} column{?s} and the fit solved for
+               {n_params} parameter{?s}, where {expected} {?was/were} expected.",
+        "i" = "{.fn predict} cannot tell which parameters are the coefficients,
+               so it makes no prediction rather than a wrong one."
+      ),
+      call = NULL
+    )
+  }
+  seq_len(n_coef)
+}
+
+# ---- The design to predict on ------------------------------------------------
+
+#' The design and offset to predict at
+#'
+#' Returns the fitted design when `newdata` is absent, and otherwise rebuilds
+#' one from the terms, factor levels, and contrasts the fit recorded, the same
+#' triple [stats::lm()] keeps and the same way [stats::predict.lm()] uses it.
+#' Rows with missing values pass through rather than being dropped, so the
+#' predictions line up with the rows of `newdata`.
+#'
+#' @param spec The fit's `model_spec`.
+#' @param newdata A data frame, or `NULL`.
+#' @returns A list with `X` and `offset`.
+#' @noRd
+predict_design <- function(spec, newdata) {
+  if (is.null(newdata)) {
+    return(list(X = spec$X, offset = spec$offset))
+  }
+
+  predictors <- stats::delete.response(spec$terms)
+  mf <- stats::model.frame(
+    predictors,
+    newdata,
+    na.action = stats::na.pass,
+    xlev = spec$xlevels
+  )
+  X <- stats::model.matrix(predictors, mf, contrasts.arg = spec$contrasts)
+
+  # An offset in the terms is evaluated on newdata like any other variable. One
+  # that is not in the terms reached the fit through `...`, and is one value per
+  # fitted observation rather than a rule newdata can be put through.
+  offset <- stats::model.offset(mf)
+  if (is.null(offset) && !is.null(spec$offset)) {
+    abort_predict_dots_offset()
+  }
+
+  list(X = X, offset = offset)
+}
+
+# ---- Validation and conditions -----------------------------------------------
+
+#' @noRd
+check_level <- function(level) {
+  if (
+    !is.numeric(level) ||
+      length(level) != 1L ||
+      is.na(level) ||
+      level <= 0 ||
+      level >= 1
+  ) {
+    cli::cli_abort(
+      "{.arg level} must be a single number between 0 and 1 (exclusive).",
+      call = NULL
+    )
+  }
+  invisible(NULL)
+}
+
+#' @noRd
+abort_predict_no_model_spec <- function() {
+  cli::cli_abort(
+    c(
+      "{.fn predict} needs a fit made through the formula interface.",
+      "i" = "This fit was built from a {.arg stacked_equations} function, which
+             records no formula, design, or link to predict from.",
+      "i" = "Compute predictions from the estimates directly with
+             {.fn regression_predictions}."
+    ),
+    call = NULL
+  )
+}
+
+#' @noRd
+abort_predict_unsupported_ee <- function(.ee) {
+  if (identical(.ee, ee_gformula)) {
+    cli::cli_abort(
+      c(
+        "{.fn predict} does not support a fit of {.fn ee_gformula}.",
+        "i" = "Its parameters are the causal mean or means it estimates
+               followed by the outcome-model coefficients, so the leading
+               parameters are not coefficients on the design.",
+        "i" = "Predict from the outcome model with
+               {.fn regression_predictions}, using the trailing coefficients
+               and the matching block of {.fn vcov}."
+      ),
+      call = NULL
+    )
+  }
+  if (identical(.ee, ee_additive_regression)) {
+    cli::cli_abort(
+      c(
+        "{.fn predict} does not support a fit of {.fn ee_additive_regression}.",
+        "i" = "Its coefficients sit on the spline basis
+               {.fn additive_design_matrix} expands the design into, not on the
+               columns of the model matrix the formula built.",
+        "i" = "Expand the new data with {.fn additive_design_matrix} and predict
+               from the result with {.fn regression_predictions}."
+      ),
+      call = NULL
+    )
+  }
+  cli::cli_abort(
+    c(
+      "{.fn predict} does not support this fit's estimating equation.",
+      "i" = "It supports {.fn ee_regression}, {.fn ee_glm},
+             {.fn ee_robust_regression}, {.fn ee_beta_regression}, and the five
+             penalized regressions {.fn ee_bridge_regression},
+             {.fn ee_ridge_regression}, {.fn ee_lasso_regression},
+             {.fn ee_dlasso_regression}, and {.fn ee_elasticnet_regression},
+             whose parameters are one coefficient per design column followed by
+             at most one parameter of the outcome distribution.",
+      "i" = "For any other equation, build the design yourself and predict with
+             {.fn regression_predictions}."
+    ),
+    call = NULL
+  )
+}
+
+#' @noRd
+abort_predict_dots_offset <- function() {
+  cli::cli_abort(
+    c(
+      "The offset this fit was made with cannot be evaluated on
+       {.arg newdata}.",
+      "i" = "It was supplied through {.arg ...}, which is one value per fitted
+             observation and has no counterpart in data the fit has not seen.",
+      "i" = "Write the offset into the formula with {.fn offset} so that it is
+             evaluated on {.arg newdata} like any other variable."
+    ),
+    call = NULL
+  )
+}
