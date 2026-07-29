@@ -263,7 +263,8 @@ estimate_m_estimator <- function(
       evald[judged, , drop = FALSE],
       full_theta[judged],
       bread[judged, judged, drop = FALSE],
-      init_score[judged]
+      init_score = init_score[judged],
+      init = init[judged]
     )
     if (!is.null(unsolved)) {
       warn_unsolved(solved, unsolved)
@@ -387,12 +388,20 @@ newton_step_ceiling <- 1
 #' weight leaves an equation that takes a different value at every observation
 #' and still cannot cancel, so what matters is the one sign rather than the
 #' repetition. What must vanish for such an equation is its mean contribution, so
-#' that is what is measured, against the larger of the magnitude of the estimates
-#' and the largest contribution anywhere in the stack. Taking the larger of the
-#' two is what makes the reading free of scale: the first alone would grow with
-#' the scale of the estimating functions, and the second alone is the value
-#' itself for a stack that is nothing but one such equation, where the estimates
-#' are the only scale available.
+#' that is what is measured, against the larger of the magnitude of the starting
+#' values and the largest contribution anywhere in the stack. Taking the larger
+#' of the two is what makes the reading free of scale: the first alone would grow
+#' with the scale of the estimating functions, and the second alone is the value
+#' itself for a stack that is nothing but one such equation, where the parameters
+#' are the only other scale there is.
+#'
+#' The parameter term reads the starting values rather than the estimates because
+#' the estimates are the thing under test. A solver that runs a parameter away
+#' hands back a magnitude large enough to excuse whatever it left behind, so an
+#' estimate-based scale is at its weakest in exactly the case this reading exists
+#' to catch. The starting values are the caller's own statement of the scale the
+#' parameters are expected on, and a fit that legitimately works at a magnitude
+#' of 1e8 is started there, so the term keeps everything it was added for.
 #'
 #' Both readings are one-sided. Each is decisive when it is large, and when it is
 #' small it has only failed to find evidence against the point: mixed-sign
@@ -410,6 +419,9 @@ newton_step_ceiling <- 1
 #' @param ef A p-by-n matrix of per-observation contributions to the equations
 #'   being solved, evaluated at the point under test.
 #' @param theta The point under test.
+#' @param init The starting values the solver was given, which supply the
+#'   parameter term of the scale the one-sided reading measures against. Defaults
+#'   to `theta`, for a caller judging a point that no solver produced.
 #' @returns `NULL` when every equation is solved at that point. Otherwise a list
 #'   naming the equation that misses its ceiling by the widest margin, in `row`,
 #'   whether its summed score is finite, in `finite`, which of the two readings
@@ -417,7 +429,7 @@ newton_step_ceiling <- 1
 #'   observation, in `constant`, and the summed score it leaves, in `score`.
 #' @keywords internal
 #' @noRd
-unsolved_equation <- function(ef, theta) {
+unsolved_equation <- function(ef, theta, init = theta) {
   score <- rowSums(ef)
   if (!all(is.finite(score))) {
     bad <- which(!is.finite(score))[[1L]]
@@ -445,7 +457,7 @@ unsolved_equation <- function(ef, theta) {
   excess[!one_sided] <- abs(score[!one_sided]) /
     mass[!one_sided] /
     noncancel_ceiling
-  problem_scale <- max(1, abs(theta[is.finite(theta)]), magnitude)
+  problem_scale <- max(1, abs(init[is.finite(init)]), magnitude)
   excess[one_sided] <- abs(score[one_sided]) /
     ncol(ef) /
     (one_sided_ceiling * problem_scale)
@@ -625,6 +637,8 @@ flat_equation <- function(ef, bread, init_score) {
 #' @param init_score The summed value of each of those equations at the starting
 #'   values, passed on to `flat_equation()`, which is the only reading that uses
 #'   it. Defaults to `NULL`, which leaves that reading unmade.
+#' @param init The starting values the solver was given, passed on to
+#'   `unsolved_equation()`. Defaults to `theta`.
 #' @returns `NULL` when the point solves the equations. Otherwise the list
 #'   `unsolved_equation()` or `flat_equation()` returns, or, where neither
 #'   reading found anything and the Newton step did, a list whose `row` is `NA`
@@ -632,8 +646,8 @@ flat_equation <- function(ef, bread, init_score) {
 #'   only for the second of the three.
 #' @keywords internal
 #' @noRd
-unsolved_point <- function(ef, theta, bread, init_score = NULL) {
-  found <- unsolved_equation(ef, theta)
+unsolved_point <- function(ef, theta, bread, init_score = NULL, init = theta) {
+  found <- unsolved_equation(ef, theta, init)
   if (!is.null(found)) {
     found$flat <- FALSE
     found$step <- NA_real_
@@ -1176,7 +1190,8 @@ estimate_gmm_estimator <- function(
       evald,
       current_theta,
       bread,
-      equation_scores(vals_at_init)
+      init_score = equation_scores(vals_at_init),
+      init = init
     )
     if (!is.null(unsolved)) {
       summed_moment <- signif(unsolved$score, 3)
