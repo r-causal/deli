@@ -42,10 +42,7 @@ regression_predictions <- function(
   offset = NULL,
   alpha = 0.05
 ) {
-  # Validate alpha
-  if (alpha <= 0 || alpha >= 1) {
-    cli::cli_abort("{.arg alpha} must be between 0 and 1 (exclusive).")
-  }
+  check_prediction_alpha(alpha)
 
   X <- as.matrix(X)
   theta <- as.numeric(theta)
@@ -61,17 +58,16 @@ regression_predictions <- function(
   # Efficient: rowSums((X %*% Sigma) * X)
   yhat_var <- rowSums((X %*% covariance) * X)
 
-  # Confidence intervals
-  yhat_se <- sqrt(yhat_var)
-  z_alpha <- qnorm(1 - alpha / 2)
-  lower_ci <- yhat - z_alpha * yhat_se
-  upper_ci <- yhat + z_alpha * yhat_se
+  # Confidence intervals. The variance is a quadratic form in a covariance
+  # matrix rather than a numerical derivative, so it is not floored at zero the
+  # way the two delta-method helpers below floor theirs.
+  band <- wald_band(yhat, sqrt(yhat_var), alpha)
 
   data.frame(
     predicted = yhat,
     variance = yhat_var,
-    lower = lower_ci,
-    upper = upper_ci
+    lower = band$lower,
+    upper = band$upper
   )
 }
 
@@ -157,9 +153,7 @@ survival_predictions <- function(
   deriv_method = "capprox",
   dx = 1e-9
 ) {
-  if (alpha <= 0 || alpha >= 1) {
-    cli::cli_abort("{.arg alpha} must be between 0 and 1 (exclusive).")
-  }
+  check_prediction_alpha(alpha)
 
   distribution <- tolower(distribution)
   times <- as.numeric(times)
@@ -222,15 +216,14 @@ survival_predictions <- function(
   # where step-size cancellation can drive a near-zero variance slightly
   # negative; it is a no-op under exact autodiff, whose delta-method variance
   # is nonnegative by construction. Python does not clamp.
-  se_m <- sqrt(pmax(var_m, 0))
-  z_alpha <- qnorm(1 - alpha / 2)
+  band <- wald_band(est, sqrt(pmax(var_m, 0)), alpha)
 
   data.frame(
     time = times,
     predicted = est,
     variance = var_m,
-    lower = est - z_alpha * se_m,
-    upper = est + z_alpha * se_m
+    lower = band$lower,
+    upper = band$upper
   )
 }
 
@@ -301,38 +294,22 @@ aft_predictions_individual <- function(
     sigma <- exp(-theta[length(theta)])
   }
 
-  # Linear predictor
+  # Linear predictor, one entry per person. The matrix product is what makes
+  # this the vectorized half of the pair: aft_measure_at_time() is elementwise
+  # throughout, so a whole column of people is predicted in one call.
   xbeta <- as.numeric(X %*% beta)
 
   # Compute survival metric at each time point
   results <- matrix(NA_real_, nrow = n, ncol = length(times))
 
   for (j in seq_along(times)) {
-    t_val <- times[j]
-    log_t <- log(t_val)
-    eps <- (log_t - xbeta) / sigma
-    hazard_scaler <- 1 / (sigma * t_val)
-
-    if (distribution %in% c("exponential", "weibull")) {
-      surv <- exp(-exp(eps))
-      haz <- hazard_scaler * exp(eps)
-    } else if (distribution %in% c("lognormal", "log-normal")) {
-      surv <- 1 - pnorm(eps)
-      haz <- hazard_scaler * dnorm(eps) / surv
-    } else if (distribution %in% c("loglogistic", "log-logistic")) {
-      surv <- 1 / (1 + exp(eps))
-      haz <- hazard_scaler / (1 + exp(-eps))
-    } else {
-      cli::cli_abort(
-        c(
-          "The distribution {.val {distribution}} is not supported.",
-          "i" = "Use one of: {.val exponential}, {.val weibull},
-                 {.val log-logistic}, {.val log-normal}."
-        )
-      )
-    }
-
-    results[, j] <- convert_survival_measures(surv, haz, measure)
+    results[, j] <- aft_measure_at_time(
+      times[j],
+      xbeta,
+      sigma,
+      distribution,
+      measure
+    )
   }
 
   # Return as data frame with time-named columns
@@ -433,10 +410,7 @@ aft_predictions_function <- function(
   deriv_method = "capprox",
   dx = 1e-9
 ) {
-  # Validate alpha level (mirrors the sibling prediction helpers)
-  if (alpha <= 0 || alpha >= 1) {
-    cli::cli_abort("{.arg alpha} must be between 0 and 1 (exclusive).")
-  }
+  check_prediction_alpha(alpha)
 
   X <- as.matrix(X)
 
@@ -460,14 +434,14 @@ aft_predictions_function <- function(
   beta_dim <- length(x_vec)
   n_theta <- length(theta)
 
-  # Measure for the single covariate pattern at one time point. Written with
-  # scalar operations on the parameter vector so it differentiates exactly:
-  # under exact autodiff `th` is a tangent-carrying pair vector, and indexing
-  # plus scalar arithmetic keep the derivatives attached (whereas the numeric-
-  # matrix path in aft_predictions_individual would strip them). The
-  # autodiff-compatible standard_normal_cdf/standard_normal_pdf carry the
-  # tangent through the log-normal error distribution. The same code returns
-  # plain doubles when `th` is numeric, so the finite-difference paths reuse it.
+  # Measure for the single covariate pattern at one time point. The linear
+  # predictor is accumulated one term at a time rather than through a matrix
+  # product, because that is what lets exact differentiation reach here: under
+  # exact autodiff `th` is a tangent-carrying pair vector, and indexing plus
+  # scalar arithmetic keep the derivatives attached, where a matrix product
+  # would need as.numeric() and a tangent-carrying value cannot become a plain
+  # double. The same code returns plain doubles when `th` is numeric, so the
+  # finite-difference paths reuse it.
   predict_at_time <- function(t_val, th) {
     xbeta <- 0
     for (k in seq_len(beta_dim)) {
@@ -478,28 +452,7 @@ aft_predictions_function <- function(
     } else {
       sigma <- exp(-th[n_theta])
     }
-    eps <- (log(t_val) - xbeta) / sigma
-    hazard_scaler <- 1 / (sigma * t_val)
-
-    if (distribution %in% c("exponential", "weibull")) {
-      surv <- exp(-exp(eps))
-      haz <- hazard_scaler * exp(eps)
-    } else if (distribution %in% c("lognormal", "log-normal")) {
-      surv <- 1 - standard_normal_cdf(eps)
-      haz <- hazard_scaler * standard_normal_pdf(eps) / surv
-    } else if (distribution %in% c("loglogistic", "log-logistic")) {
-      surv <- 1 / (1 + exp(eps))
-      haz <- hazard_scaler / (1 + exp(-eps))
-    } else {
-      cli::cli_abort(
-        c(
-          "The distribution {.val {distribution}} is not supported.",
-          "i" = "Use one of: {.val exponential}, {.val weibull},
-                 {.val log-logistic}, {.val log-normal}."
-        )
-      )
-    }
-    convert_survival_measures(surv, haz, measure)
+    aft_measure_at_time(t_val, xbeta, sigma, distribution, measure)
   }
 
   # Measure across times for the single covariate pattern. The transform
@@ -528,15 +481,14 @@ aft_predictions_function <- function(
   # difference paths, where step-size cancellation can drive a near-zero
   # variance slightly negative; it is a no-op under exact autodiff. Python does
   # not clamp.
-  se_m <- sqrt(pmax(var_m, 0))
-  z_alpha <- qnorm(1 - alpha / 2)
+  band <- wald_band(est, sqrt(pmax(var_m, 0)), alpha)
 
   data.frame(
     time = times,
     predicted = est,
     variance = var_m,
-    lower = est - z_alpha * se_m,
-    upper = est + z_alpha * se_m
+    lower = band$lower,
+    upper = band$upper
   )
 }
 
@@ -686,4 +638,116 @@ plogit_predict <- function(
   }
 
   results
+}
+
+# ---- Shared internals --------------------------------------------------------
+# Three pieces of the functions above are the same piece, written once here so
+# that a change to any of them reaches every function that uses it.
+#
+# `aft_measure_at_time()` is the one to read before changing anything. It is
+# reached both with plain doubles and, under `deriv_method = "exact"`, with
+# tangent-carrying pairs, and it is written in scalar arithmetic for the second
+# case. Its two callers form the linear predictor differently and have to keep
+# doing so: `aft_predictions_individual()` uses a matrix product, which predicts
+# every person at once but which the exact path cannot use, because reading a
+# matrix product back out needs `as.numeric()` and a tangent-carrying value
+# cannot become a plain double. Keeping the linear predictor in the callers and
+# the per-time measure here lets the individual predictions stay vectorized over
+# people while the function-level predictions stay differentiable.
+
+#' Validate a significance level for the prediction helpers
+#'
+#' These helpers replicate the Python Delicatessen API down to the message they
+#' raise, which is why they do not share `check_alpha()`: that one also rejects
+#' a non-numeric or non-scalar `alpha` and words its message differently. The
+#' error is reported against the caller so that it names the prediction function
+#' the user called rather than this helper.
+#'
+#' @param alpha The significance level supplied.
+#' @returns Invisible `NULL`. Raises an error if `alpha` is not strictly
+#'   between 0 and 1.
+#' @noRd
+check_prediction_alpha <- function(alpha) {
+  if (alpha <= 0 || alpha >= 1) {
+    cli::cli_abort(
+      "{.arg alpha} must be between 0 and 1 (exclusive).",
+      call = rlang::caller_env()
+    )
+  }
+  invisible(NULL)
+}
+
+#' Wald confidence limits
+#'
+#' The symmetric limits `estimate` plus and minus the two-sided standard normal
+#' critical value times `se`.
+#'
+#' The standard error is taken already formed rather than derived from a
+#' variance, because the callers do not agree on how to reach it. The two
+#' delta-method helpers floor the variance at zero first, since a
+#' finite-difference derivative can drive a near-zero variance slightly
+#' negative, while [regression_predictions()] computes a quadratic form and does
+#' not floor it.
+#'
+#' @param estimate Numeric vector of point estimates.
+#' @param se Numeric vector of standard errors.
+#' @param alpha Numeric significance level.
+#' @returns A list with numeric `lower` and `upper` elements, each the length of
+#'   `estimate`.
+#' @noRd
+wald_band <- function(estimate, se, alpha) {
+  z_alpha <- qnorm(1 - alpha / 2)
+  list(
+    lower = estimate - z_alpha * se,
+    upper = estimate + z_alpha * se
+  )
+}
+
+#' The predicted measure of an AFT model at one time
+#'
+#' Evaluates the survival and hazard of the error distribution at
+#' \eqn{\epsilon = (\log t - X \beta) / \sigma} and converts them to the
+#' requested measure. The hazard scaler \eqn{1 / (\sigma t)} carries the hazard
+#' from the error scale to the time scale.
+#'
+#' `xbeta` and `sigma` arrive already formed, for the reason given in the
+#' section comment above. Everything here is elementwise arithmetic plus
+#' [standard_normal_cdf()] and [standard_normal_pdf()], all of which have exact
+#' differentiation rules, so a tangent handed in through `xbeta` or `sigma`
+#' comes back out in the result, and a vector `xbeta` of one entry per person
+#' comes back as a vector of the same length. `pnorm()` and `dnorm()` would
+#' serve the numeric callers equally but hand their argument to compiled code
+#' without dispatching, so they cannot serve the exact path.
+#'
+#' @param t_val The time to predict at.
+#' @param xbeta The linear predictor: a scalar, or one value per person.
+#' @param sigma The scale parameter.
+#' @param distribution The error distribution, already lowercased.
+#' @param measure The measure to return.
+#' @returns The requested measure, in the shape of `xbeta`.
+#' @noRd
+aft_measure_at_time <- function(t_val, xbeta, sigma, distribution, measure) {
+  eps <- (log(t_val) - xbeta) / sigma
+  hazard_scaler <- 1 / (sigma * t_val)
+
+  if (distribution %in% c("exponential", "weibull")) {
+    surv <- exp(-exp(eps))
+    haz <- hazard_scaler * exp(eps)
+  } else if (distribution %in% c("lognormal", "log-normal")) {
+    surv <- 1 - standard_normal_cdf(eps)
+    haz <- hazard_scaler * standard_normal_pdf(eps) / surv
+  } else if (distribution %in% c("loglogistic", "log-logistic")) {
+    surv <- 1 / (1 + exp(eps))
+    haz <- hazard_scaler / (1 + exp(-eps))
+  } else {
+    cli::cli_abort(
+      c(
+        "The distribution {.val {distribution}} is not supported.",
+        "i" = "Use one of: {.val exponential}, {.val weibull},
+               {.val log-logistic}, {.val log-normal}."
+      ),
+      call = rlang::caller_env()
+    )
+  }
+  convert_survival_measures(surv, haz, measure)
 }
