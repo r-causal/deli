@@ -470,11 +470,11 @@ predict_coef_index <- function(spec, n_params) {
 
 #' The design and offset to predict at
 #'
-#' Returns the fitted design when `newdata` is absent, and otherwise rebuilds
-#' one from the terms, factor levels, and contrasts the fit recorded, the same
-#' triple [stats::lm()] keeps and the same way [stats::predict.lm()] uses it.
-#' Rows with missing values pass through rather than being dropped, so the
-#' predictions line up with the rows of `newdata`.
+#' Returns the fitted design when `newdata` is absent, and otherwise the design
+#' `rebuild_design()` builds from the terms, factor levels, and contrasts the fit
+#' recorded, the same triple [stats::lm()] keeps and the same way
+#' [stats::predict.lm()] uses it. The offset is the question this adds to that
+#' one, and it is why the model frame comes back beside the matrix.
 #'
 #' @param spec The fit's `model_spec`.
 #' @param newdata A data frame, or `NULL`.
@@ -485,24 +485,17 @@ predict_design <- function(spec, newdata) {
     return(list(X = spec$X, offset = spec$offset))
   }
 
-  predictors <- stats::delete.response(spec$terms)
-  mf <- stats::model.frame(
-    predictors,
-    newdata,
-    na.action = stats::na.pass,
-    xlev = spec$xlevels
-  )
-  X <- stats::model.matrix(predictors, mf, contrasts.arg = spec$contrasts)
+  design <- rebuild_design(spec, newdata)
 
   # An offset in the terms is evaluated on newdata like any other variable. One
   # that is not in the terms reached the fit through `...`, and is one value per
   # fitted observation rather than a rule newdata can be put through.
-  offset <- stats::model.offset(mf)
+  offset <- stats::model.offset(design$model_frame)
   if (is.null(offset) && !is.null(spec$offset)) {
     abort_predict_dots_offset()
   }
 
-  list(X = X, offset = offset)
+  list(X = design$X, offset = offset)
 }
 
 # ---- Validation and conditions -----------------------------------------------

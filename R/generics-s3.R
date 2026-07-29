@@ -36,15 +36,31 @@
 # `model.frame()`. That last one reads as though it takes a formula and does
 # not; the name is the generic's and dispatch follows it.
 #
+# ---- Why model.matrix() has a method of its own ------------------------------
+# `model.matrix.default()` would answer for a fit with no method written at all:
+# it reads the terms and the model frame off the object through the two generics
+# above and builds from them. What it builds the factor columns with is
+# `getOption("contrasts")` rather than the coding the fit recorded, so a fit made
+# under sum contrasts and read back in a session under the default treatment
+# contrasts comes back as a design of columns the fit never had, and nothing in
+# the result says the coding changed. A design matrix is the fit's rather than the
+# session's, which is the rule `predict()` already follows; both go through
+# `rebuild_design()`, so the design a fit reports is the design its predictions
+# are formed on.
+#
+# Without `data` the recorded design is reported as recorded, which is the matrix
+# a rebuild from the recorded frame produces anyway. With `data`, the response is
+# deleted from the terms first, so covariate values that carry none are enough.
+# That is where a design parts company with a model frame, which holds every
+# variable the formula names and says so when the response is absent. There is no
+# `contrasts.arg`: the argument that would take one is the fit, which has already
+# answered the question.
+#
 # ---- Why model.frame() takes the rest of its formals -------------------------
-# `model.matrix()` has no method here and needs none: `model.matrix.default()`
-# reads the terms and the model frame off the object through the two generics
-# above. What it also does is pass its own `data` positionally into
-# `model.frame()`, so `model.matrix(fit, data = newdata)` arrives as
-# `model.frame(fit, newdata, xlev = NULL)`. A method that swallowed that into
-# `...` would answer with the design the fit was solved on, at the fitted number
-# of rows, and give no sign that the caller's covariate values had been
-# discarded. Every base method honors `data`, and this one does too.
+# `model.frame()` honors `data` for the reason every base method does. A method
+# that swallowed it into `...` would answer with the frame the fit was solved on,
+# at the fitted number of rows, and give no sign that the caller's rows had been
+# discarded.
 #
 # With `data`, the frame is rebuilt through the recorded terms and `xlevels`,
 # the same triple `predict()` rebuilds a design from and for the same reasons:
@@ -63,21 +79,20 @@
 #
 # Without `data` there is nothing to build, so the recorded frame comes back as
 # recorded and an argument that describes how to build one is an error rather
-# than a silent no-op. `xlev` is what makes that rule delicate: `model.matrix()`
-# reaches this method as `model.frame(fit, NULL, xlev = NULL)`, so a `NULL`
-# `xlev` beside a `NULL` `data` has to stay legal, and only a supplied one is
-# refused.
+# than a silent no-op. `xlev` is what makes that rule delicate: `NULL` is its own
+# default rather than something a caller asks for, so a `NULL` `xlev` beside a
+# `NULL` `data` has to stay legal and only a supplied one is refused.
 
 #' Standard S3 generics for deli estimators
 #'
 #' Methods for base R generics [stats::coef()], [stats::vcov()],
 #' [stats::confint()], [stats::nobs()], [stats::fitted()],
-#' [stats::residuals()], [stats::model.frame()], [stats::formula()], and
-#' [stats::terms()] so that deli estimator objects interoperate with the broader
-#' R modeling ecosystem.
+#' [stats::residuals()], [stats::model.frame()], [stats::model.matrix()],
+#' [stats::formula()], and [stats::terms()] so that deli estimator objects
+#' interoperate with the broader R modeling ecosystem.
 #'
 #' @details
-#' The last five report on the model a fit was specified as, which only the
+#' The last six report on the model a fit was specified as, which only the
 #' formula interface records, so each of them is an error for a fit built from a
 #' `stacked_equations` function. `fitted()` and `residuals()` are also an error
 #' for a formula fit of an estimating equation [`predict()`][deli-predict] does
@@ -101,6 +116,14 @@
 #' frame holds every variable the formula names; covariate values that carry no
 #' response are what `predict()` and [deli-augment] take a `newdata` for.
 #'
+#' `model.matrix()` returns the design the fit was solved on, or the design of
+#' `data` when one is supplied, coded with the contrasts and factor levels the fit
+#' recorded rather than with whatever `getOption("contrasts")` says when the call
+#' is made. A design matrix is a property of the fit, so a fit made under one
+#' setting of that option answers with the coding it was solved on under any
+#' other, which is what [`predict()`][deli-predict] does as well. A design names
+#' no response, so `data` needs only the predictors.
+#'
 #' @param object A fitted `MEstimator` or `GMMEstimator` object (after calling
 #'   [estimate()]).
 #' @param parm A specification of which parameters are to be given confidence
@@ -116,9 +139,10 @@
 #' @param formula A fitted `MEstimator` or `GMMEstimator` object. Named
 #'   `formula` because [stats::model.frame()] names its first argument that;
 #'   the method takes a fit, not a formula.
-#' @param data A data frame to build the model frame of, or `NULL` (default) to
-#'   report the frame the fit was solved on. It has to carry the response as
-#'   well as the predictors.
+#' @param data A data frame to build the model frame or the design matrix of, or
+#'   `NULL` (default) to report the one the fit was solved on. `model.frame()`
+#'   needs it to carry the response as well as the predictors; `model.matrix()`
+#'   names no response, so the predictors alone are enough there.
 #' @param subset,na.action,drop.unused.levels,xlev Passed to
 #'   [stats::model.frame()], and meaning there what they mean for any other
 #'   model frame. `xlev` defaults to the factor levels the fit recorded. All
@@ -139,6 +163,9 @@
 #' - `model.frame()`: The model frame the fit was built from, with the rows
 #'   dropped for missing data already removed, or the model frame of `data`
 #'   when one is supplied.
+#' - `model.matrix()`: The design matrix the fit was solved on, or the design
+#'   matrix of `data` when one is supplied, coded with the contrasts and factor
+#'   levels the fit recorded.
 #' - `formula()`: The model formula.
 #' - `terms()`: The `terms` object of the model frame, carrying the response
 #'   index, any offset, and the `predvars` of a data-dependent term.
@@ -167,7 +194,7 @@
 #'
 #' @name deli-generics
 #' @importFrom stats coef vcov confint nobs fitted residuals model.frame
-#' @importFrom stats formula terms
+#' @importFrom stats model.matrix formula terms
 NULL
 
 # ---- External generic declarations ------------------------------------------
@@ -179,6 +206,7 @@ stats_nobs <- new_external_generic("stats", "nobs", "object")
 stats_fitted <- new_external_generic("stats", "fitted", "object")
 stats_residuals <- new_external_generic("stats", "residuals", "object")
 stats_model_frame <- new_external_generic("stats", "model.frame", "formula")
+stats_model_matrix <- new_external_generic("stats", "model.matrix", "object")
 stats_formula <- new_external_generic("stats", "formula", "x")
 stats_terms <- new_external_generic("stats", "terms", "x")
 
@@ -304,6 +332,22 @@ method(stats_model_frame, deli_estimator) <- function(
     args$na.action <- quote(na.action)
   }
   eval(as.call(c(list(quote(stats::model.frame)), args)))
+}
+
+# ---- model.matrix ------------------------------------------------------------
+
+method(stats_model_matrix, deli_estimator) <- function(
+  object,
+  data = NULL,
+  ...
+) {
+  spec <- model_spec_or_abort(object, "model.matrix")
+
+  if (is.null(data)) {
+    return(spec$X)
+  }
+
+  rebuild_design(spec, data)$X
 }
 
 # ---- formula -----------------------------------------------------------------

@@ -190,3 +190,45 @@ formula_model_spec <- function(mf, X, y, .ee, ee_args, response_levels) {
     response_levels = response_levels
   )
 }
+
+#' Rebuild the design matrix of data from the recorded specification
+#'
+#' The one place a design is built from the recorded triple, shared by
+#' [`predict()`][deli-predict] and `model.matrix()` so that the design a
+#' prediction is formed on and the design a fit reports are the same matrix.
+#' Three choices make it worth writing once.
+#'
+#' The response is deleted from the terms, so covariate values that carry none
+#' are enough. A design matrix names no response, and neither does the `newdata`
+#' of a prediction have to.
+#'
+#' The recorded factor levels and contrasts are passed rather than the session's.
+#' A factor observed at a subset of its fitted levels would otherwise yield fewer
+#' columns, and a coding the fit recorded would be replaced by whatever
+#' `getOption("contrasts")` says when the call is made, answering for a model that
+#' was never fitted and giving no sign of it.
+#'
+#' Rows with missing values pass through under `na.pass` rather than being
+#' dropped, so the design lines up with the rows of `data`.
+#'
+#' The model frame is returned beside the matrix because `predict()` reads the
+#' offset off it, and building it twice would evaluate every term twice.
+#'
+#' @param spec The fit's `model_spec`.
+#' @param data A data frame of covariate values.
+#' @returns A list with `model_frame` and `X`.
+#' @noRd
+rebuild_design <- function(spec, data) {
+  predictors <- stats::delete.response(spec$terms)
+  mf <- stats::model.frame(
+    predictors,
+    data,
+    na.action = stats::na.pass,
+    xlev = spec$xlevels
+  )
+
+  list(
+    model_frame = mf,
+    X = stats::model.matrix(predictors, mf, contrasts.arg = spec$contrasts)
+  )
+}

@@ -241,13 +241,13 @@ test_that("model.frame() carries the terms the design rebuilds from", {
   expect_identical(rebuilt, m@model_spec$X)
 })
 
-test_that("model.matrix() rebuilds the recorded design from the two of them", {
+test_that("model.matrix() answers with the design the fit was solved on", {
   m <- accessor_fit()
 
-  # No method is written for model.matrix(). Its default reads the terms and
-  # the model frame off the object through the two generics above, so a design
-  # identical to the recorded one falls out of them, contrasts and all. The
-  # assertion is here so that it stays that way.
+  # With no data to build one from, the recorded design is reported as recorded,
+  # which under the default contrasts is also what the terms and the model frame
+  # above rebuild to. The assertion is here so that the three stay the same
+  # matrix.
   expect_identical(stats::model.matrix(m), m@model_spec$X)
 })
 
@@ -329,6 +329,80 @@ test_that("model.frame() evaluates a data-dependent term at its fitted basis", {
     unname(drop(stats::model.matrix(m, data = nd) %*% coef(m))),
     unname(predict(m, newdata = nd))
   )
+})
+
+# model.matrix() ---------------------------------------------------------------
+#
+# A design matrix is the fit's, not the session's. Factor coding comes from the
+# contrasts the fit recorded, so a fit made under one setting of
+# `options(contrasts = )` and read back under another answers with the coding it
+# was solved on. This is the rule `predict()` already follows, which rebuilds
+# its design with the recorded contrasts.
+#
+# A design matrix also names no response, so covariate values that carry none
+# are enough to build one. That is where it parts company with `model.frame()`,
+# which holds every variable the formula names and says so when the response is
+# absent.
+
+test_that("model.matrix() codes a factor the way the fit coded it", {
+  data <- accessor_data()
+
+  # Fitted under sum contrasts and read back under the default treatment
+  # contrasts. The coding belongs to the fit, which recorded it, and not to the
+  # option in force when the design is asked for. The restore is immediate
+  # because the read has to happen under the default; the exit handler covers
+  # the path where the fit fails before reaching it.
+  old <- options(contrasts = c("contr.sum", "contr.poly"))
+  on.exit(options(old), add = TRUE)
+  m <- accessor_fit(data)
+  options(old)
+
+  mm <- stats::model.matrix(m)
+
+  expect_identical(attr(mm, "contrasts"), m@model_spec$contrasts)
+  expect_identical(colnames(mm), c("(Intercept)", "x", "g1", "g2"))
+  expect_identical(mm, m@model_spec$X)
+})
+
+test_that("model.matrix() builds a design from covariate values alone", {
+  m <- accessor_fit()
+  covariates <- accessor_newdata()[, c("x", "g")]
+
+  mm <- stats::model.matrix(m, data = covariates)
+
+  expect_identical(nrow(mm), nrow(covariates))
+  expect_identical(colnames(mm), colnames(m@model_spec$X))
+  # The design at the caller's covariate values is the one predict() forms, so
+  # multiplying it by the coefficients gives the predictions.
+  expect_equal(
+    unname(drop(mm %*% coef(m))),
+    unname(predict(m, newdata = covariates))
+  )
+})
+
+test_that("model.matrix() codes new data from the recorded contrasts", {
+  data <- accessor_data()
+
+  old <- options(contrasts = c("contr.sum", "contr.poly"))
+  on.exit(options(old), add = TRUE)
+  m <- accessor_fit(data)
+  options(old)
+
+  covariates <- accessor_newdata()[, c("x", "g")]
+  mm <- stats::model.matrix(m, data = covariates)
+
+  expect_identical(attr(mm, "contrasts"), m@model_spec$contrasts)
+  expect_identical(colnames(mm), colnames(m@model_spec$X))
+  expect_equal(
+    unname(drop(mm %*% coef(m))),
+    unname(predict(m, newdata = covariates))
+  )
+})
+
+test_that("model.matrix() aborts for a fit built from a function", {
+  # A fit with no recorded specification has no design to describe, the same
+  # answer the other specification accessors give.
+  expect_error(stats::model.matrix(function_fit()), "formula interface")
 })
 
 test_that("model.frame() honors subset and na.action beside data", {

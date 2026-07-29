@@ -25,9 +25,10 @@ rather than a response residual under another name.}
 \code{formula} because \code{\link[stats:model.frame]{stats::model.frame()}} names its first argument that;
 the method takes a fit, not a formula.}
 
-\item{data}{A data frame to build the model frame of, or \code{NULL} (default) to
-report the frame the fit was solved on. It has to carry the response as
-well as the predictors.}
+\item{data}{A data frame to build the model frame or the design matrix of, or
+\code{NULL} (default) to report the one the fit was solved on. \code{model.frame()}
+needs it to carry the response as well as the predictors; \code{model.matrix()}
+names no response, so the predictors alone are enough there.}
 
 \item{subset, na.action, drop.unused.levels, xlev}{Passed to
 \code{\link[stats:model.frame]{stats::model.frame()}}, and meaning there what they mean for any other
@@ -51,6 +52,9 @@ one per observation the fit was solved on.
 \item \code{model.frame()}: The model frame the fit was built from, with the rows
 dropped for missing data already removed, or the model frame of \code{data}
 when one is supplied.
+\item \code{model.matrix()}: The design matrix the fit was solved on, or the design
+matrix of \code{data} when one is supplied, coded with the contrasts and factor
+levels the fit recorded.
 \item \code{formula()}: The model formula.
 \item \code{terms()}: The \code{terms} object of the model frame, carrying the response
 index, any offset, and the \code{predvars} of a data-dependent term.
@@ -59,12 +63,12 @@ index, any offset, and the \code{predvars} of a data-dependent term.
 \description{
 Methods for base R generics \code{\link[stats:coef]{stats::coef()}}, \code{\link[stats:vcov]{stats::vcov()}},
 \code{\link[stats:confint]{stats::confint()}}, \code{\link[stats:nobs]{stats::nobs()}}, \code{\link[stats:fitted]{stats::fitted()}},
-\code{\link[stats:residuals]{stats::residuals()}}, \code{\link[stats:model.frame]{stats::model.frame()}}, \code{\link[stats:formula]{stats::formula()}}, and
-\code{\link[stats:terms]{stats::terms()}} so that deli estimator objects interoperate with the broader
-R modeling ecosystem.
+\code{\link[stats:residuals]{stats::residuals()}}, \code{\link[stats:model.frame]{stats::model.frame()}}, \code{\link[stats:model.matrix]{stats::model.matrix()}},
+\code{\link[stats:formula]{stats::formula()}}, and \code{\link[stats:terms]{stats::terms()}} so that deli estimator objects
+interoperate with the broader R modeling ecosystem.
 }
 \details{
-The last five report on the model a fit was specified as, which only the
+The last six report on the model a fit was specified as, which only the
 formula interface records, so each of them is an error for a fit built from a
 \code{stacked_equations} function. \code{fitted()} and \code{residuals()} are also an error
 for a formula fit of an estimating equation \code{\link[=deli-predict]{predict()}} does
@@ -87,6 +91,14 @@ at its fitted basis and a factor gets its fitted levels, as they are under
 \code{\link[=deli-predict]{predict()}}. \code{data} has to carry the response, since a model
 frame holds every variable the formula names; covariate values that carry no
 response are what \code{predict()} and \link{deli-augment} take a \code{newdata} for.
+
+\code{model.matrix()} returns the design the fit was solved on, or the design of
+\code{data} when one is supplied, coded with the contrasts and factor levels the fit
+recorded rather than with whatever \code{getOption("contrasts")} says when the call
+is made. A design matrix is a property of the fit, so a fit made under one
+setting of that option answers with the coding it was solved on under any
+other, which is what \code{\link[=deli-predict]{predict()}} does as well. A design names
+no response, so \code{data} needs only the predictors.
 }
 \examples{
 fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
