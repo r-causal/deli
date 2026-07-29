@@ -630,3 +630,133 @@ test_that("fitted() and residuals() abort before an estimator is estimated", {
   expect_error(fitted(m), "before calling")
   expect_error(residuals(m), "before calling")
 })
+
+# df.residual, weights, sigma, logLik, and deviance ----------------------------
+#
+# Five more base generics a fit is asked in the ordinary course of using a model
+# object, and the two answers they can give divide the same way the accessors
+# above do.
+#
+# `df.residual()` is the residual degrees of freedom, the observations less the
+# parameters, and both counts are properties of every fit however it was built,
+# so it answers for a `stacked_equations` fit as readily as for a formula one.
+# `weights()` reports the weights the fit was solved with, which reach a fit
+# only through the formula interface, so it is a specification accessor and
+# aborts like the rest of them for a fit that records none. An unweighted
+# formula fit returns `NULL`, which is what `weights()` answers for an
+# unweighted [stats::lm()] fit; the alternative, a vector of ones, would be
+# indistinguishable from a fit weighted by ones and would say a fit had weights
+# when the caller supplied none.
+#
+# `sigma()`, `logLik()`, and `deviance()` are the three that have no answer at
+# all, and each has to say so rather than report a wrong one. An M-estimator is
+# defined by its estimating equations, which need come from no likelihood, so
+# there is no log-likelihood to return, no deviance to take from one, and no
+# residual standard deviation the object records: a linear equation has one and a
+# logistic equation has none, and nothing in `theta` says which was solved. Every
+# one of those defaults is worse than an error. `deviance.default()` reads
+# `object$deviance`, so on an S7 object the reported failure is about `$` and
+# names a property the class does not have; `sigma.default()` reaches the same
+# failure through it; and `logLik()` has no default at all, so it reports that no
+# method applies to a class the package wrote the rest of its methods for.
+
+accessor_weighted_fit <- function(data = accessor_data()) {
+  data$w <- rep(c(0.5, 1.5), length.out = nrow(data))
+  m_estimate(
+    y ~ x + g,
+    data = data,
+    .ee = ee_regression,
+    model = "linear",
+    weights = w
+  )
+}
+
+test_that("df.residual() is the observations less the parameters", {
+  m <- accessor_fit()
+
+  expect_equal(stats::df.residual(m), 56)
+  expect_equal(stats::df.residual(m), nobs(m) - m@n_params)
+})
+
+test_that("df.residual() answers for a GMMEstimator", {
+  m <- gmm_estimate(
+    y ~ x + g,
+    data = accessor_data(),
+    .ee = ee_regression,
+    model = "linear"
+  )
+
+  expect_equal(stats::df.residual(m), 56)
+})
+
+test_that("df.residual() answers for a fit built from a function", {
+  m <- function_fit()
+
+  # Both counts are properties of the fit rather than of a specification, so
+  # this is not one of the accessors a function fit has no answer for.
+  expect_equal(stats::df.residual(m), nobs(m) - m@n_params)
+  expect_equal(stats::df.residual(m), 30)
+})
+
+test_that("weights() returns the weights a formula fit was solved with", {
+  data <- accessor_data()
+  m <- accessor_weighted_fit(data)
+  used <- rep(c(0.5, 1.5), length.out = nrow(data))
+
+  expect_equal(unname(stats::weights(m)), used)
+  expect_length(stats::weights(m), nobs(m))
+})
+
+test_that("weights() returns NULL for an unweighted formula fit", {
+  m <- accessor_fit()
+
+  # The precedent is weights() on an unweighted lm() fit, which is NULL rather
+  # than a vector of ones.
+  expect_null(stats::weights(m))
+})
+
+test_that("weights() aborts for a fit built from a function", {
+  m <- function_fit()
+
+  expect_match(
+    flatten_message(expect_error(stats::weights(m), "formula interface")),
+    "weights()",
+    fixed = TRUE
+  )
+})
+
+test_that("sigma() reports that no residual standard deviation is defined", {
+  for (m in list(accessor_fit(), function_fit())) {
+    err <- expect_error(stats::sigma(m), "standard deviation")
+    expect_match(flatten_message(err), "sigma()", fixed = TRUE)
+  }
+})
+
+test_that("logLik() reports that an M-estimator defines no likelihood", {
+  for (m in list(accessor_fit(), function_fit())) {
+    err <- expect_error(stats::logLik(m), "likelihood")
+    expect_match(flatten_message(err), "logLik()", fixed = TRUE)
+  }
+})
+
+test_that("deviance() reports that an M-estimator defines no likelihood", {
+  # A deviance is a likelihood quantity, so it has no more of an answer here
+  # than the log-likelihood it would be taken from, and it needs a method of its
+  # own: without one the reported failure is `sigma.default()`'s, about `$` on a
+  # property the class does not have.
+  for (m in list(accessor_fit(), function_fit())) {
+    err <- expect_error(stats::deviance(m), "likelihood")
+    expect_match(flatten_message(err), "deviance()", fixed = TRUE)
+  }
+})
+
+test_that("nobs() and the specification accessors are unchanged", {
+  m <- accessor_fit()
+
+  expect_equal(nobs(m), 60L)
+  expect_length(fitted(m), 60L)
+  expect_length(residuals(m), 60L)
+  expect_identical(names(stats::model.frame(m)), c("y", "x", "g"))
+  expect_identical(deparse1(stats::formula(m)), "y ~ x + g")
+  expect_identical(attr(stats::terms(m), "term.labels"), c("x", "g"))
+})

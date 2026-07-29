@@ -1,6 +1,6 @@
-# ---- What the five model accessors report on ---------------------------------
-# `fitted()`, `residuals()`, `model.frame()`, `formula()`, and `terms()` all
-# report on the model a formula fit was specified as, which only
+# ---- What the six model accessors report on ----------------------------------
+# `fitted()`, `residuals()`, `weights()`, `model.frame()`, `formula()`, and
+# `terms()` all report on the model a formula fit was specified as, which only
 # `formula_model_spec()` records. A fit built from a `stacked_equations` closure
 # has none, so each of them is an error there, naming itself and saying why.
 #
@@ -86,22 +86,50 @@
 # than a silent no-op. `xlev` is what makes that rule delicate: `NULL` is its own
 # default rather than something a caller asks for, so a `NULL` `xlev` beside a
 # `NULL` `data` has to stay legal and only a supplied one is refused.
+#
+# ---- The residual degrees of freedom, and the three with no answer ------------
+# `df.residual()` is not one of the accessors above. Both counts it subtracts are
+# properties of every fit however it was built, so it answers for a
+# `stacked_equations` closure as readily as for a formula. It calls
+# `check_estimated()` first because `n_obs` is `NULL` until the solve records it,
+# and `NULL - n_params` is `integer(0)` rather than an error, so an unestimated
+# object would otherwise report a zero-length degrees of freedom instead of
+# saying that nothing has been estimated yet.
+#
+# `sigma()`, `logLik()`, and `deviance()` have no answer at all and say so. An
+# M-estimator is defined by its estimating equations, which need come from no
+# likelihood, so there is no log-likelihood to return and no deviance to take
+# from one; `AIC()` and `BIC()` reach a fit through `logLik()` and are refused
+# with it. A residual standard deviation belongs to the model an equation states
+# rather than to the solve: a linear equation has one, a logistic equation has
+# none, and nothing in `theta` says which was solved.
+#
+# Each of the three is written out rather than left to the default, and the third
+# is why the other two are worth writing. `deviance.default()` reads
+# `object$deviance`, which on an S7 object reports a failure about `$` naming a
+# property the class does not have, and `sigma.default()` reaches that same
+# failure through it. `logLik()` has no default at all and reports that no method
+# applies to a class this file writes the rest of its methods for. All three
+# failures are about the plumbing rather than about the model.
 
 #' Standard S3 generics for deli estimators
 #'
 #' Methods for base R generics [stats::coef()], [stats::vcov()],
-#' [stats::confint()], [stats::nobs()], [stats::fitted()],
-#' [stats::residuals()], [stats::model.frame()], [stats::model.matrix()],
-#' [stats::formula()], and [stats::terms()] so that deli estimator objects
-#' interoperate with the broader R modeling ecosystem.
+#' [stats::confint()], [stats::nobs()], [stats::df.residual()],
+#' [stats::fitted()], [stats::residuals()], [stats::weights()],
+#' [stats::model.frame()], [stats::model.matrix()], [stats::formula()],
+#' [stats::terms()], [stats::sigma()], [stats::logLik()], and
+#' [stats::deviance()] so that deli estimator objects interoperate with the
+#' broader R modeling ecosystem.
 #'
 #' @details
-#' The last six report on the model a fit was specified as, which only the
-#' formula interface records, so each of them is an error for a fit built from a
-#' `stacked_equations` function. `fitted()` and `residuals()` are also an error
-#' for a formula fit of an estimating equation [`predict()`][deli-predict] does
-#' not support, since a fitted value is a prediction; see [deli-predict] for the
-#' equations it covers.
+#' `fitted()`, `residuals()`, `weights()`, `model.frame()`, `model.matrix()`,
+#' `formula()`, and `terms()` report on the model a fit was specified as, which
+#' only the formula interface records, so each of them is an error for a fit
+#' built from a `stacked_equations` function. `fitted()` and `residuals()` are
+#' also an error for a formula fit of an estimating equation
+#' [`predict()`][deli-predict] does not support, since a fitted value is a
+#' prediction; see [deli-predict] for the equations it covers.
 #'
 #' `fitted()` is the conditional mean of the response, so it is on the response
 #' scale rather than the link scale, matching [stats::fitted()] on a `glm`
@@ -127,6 +155,25 @@
 #' setting of that option answers with the coding it was solved on under any
 #' other, which is what [`predict()`][deli-predict] does as well. A design names
 #' no response, so `data` needs only the predictors.
+#'
+#' `df.residual()` is the number of observations less the number of parameters.
+#' Both counts belong to the fit rather than to a specification, so it answers
+#' for a fit built from a `stacked_equations` function as readily as for a
+#' formula one. `weights()` returns the observation weights the fit was solved
+#' with, which reach a fit only through the formula interface. A formula fit
+#' specified without weights returns `NULL`, as [stats::weights()] does for an
+#' unweighted [stats::lm()] fit: a vector of ones would be indistinguishable
+#' from a fit weighted by ones.
+#'
+#' `sigma()`, `logLik()`, and `deviance()` are errors for every fit, and say
+#' why. An M-estimator is defined by its estimating equations, which need come
+#' from no likelihood at all, so there is no log-likelihood to return and no
+#' deviance to take from one; [stats::AIC()] and [stats::BIC()] reach a fit
+#' through `logLik()` and are refused with it. A residual standard deviation
+#' belongs to the model an equation states rather than to the solve: a linear
+#' equation has one, a logistic equation has none, and nothing in the estimates
+#' says which was solved. Reporting an error is the only answer that does not
+#' invent a quantity the fit never had.
 #'
 #' @param object A fitted `MEstimator` or `GMMEstimator` object (after calling
 #'   [estimate()]).
@@ -165,9 +212,13 @@
 #' - `vcov()`: Named variance-covariance matrix.
 #' - `confint()`: Matrix with columns `"lower"` and `"upper"`.
 #' - `nobs()`: Integer number of observations.
+#' - `df.residual()`: Integer residual degrees of freedom, the number of
+#'   observations less the number of parameters.
 #' - `fitted()`: Named numeric vector of fitted values on the response scale,
 #'   one per observation the fit was solved on.
 #' - `residuals()`: Named numeric vector of response residuals.
+#' - `weights()`: The observation weights the fit was solved with, as they were
+#'   recorded, or `NULL` for a formula fit specified without any.
 #' - `model.frame()`: The model frame the fit was built from, with the rows
 #'   dropped for missing data already removed, or the model frame of `data`
 #'   when one is supplied.
@@ -177,6 +228,8 @@
 #' - `formula()`: The model formula.
 #' - `terms()`: The `terms` object of the model frame, carrying the response
 #'   index, any offset, and the `predvars` of a data-dependent term.
+#' - `sigma()`, `logLik()`, `deviance()`: Nothing. Each raises an error saying
+#'   that an M-estimator states no likelihood and records no residual scale.
 #'
 #' @seealso [deli-predict] for predictions at new covariate values, and
 #'   [deli-augment] for the fitted values, intervals, and residuals as columns
@@ -194,15 +247,24 @@
 #'
 #' nobs(fit)
 #'
+#' df.residual(fit)
+#'
 #' head(fitted(fit))
 #'
 #' head(residuals(fit))
 #'
 #' formula(fit)
 #'
+#' # Weights reach a fit through the formula interface, and `weights()` reports
+#' # the vector the fit was solved with.
+#' weighted <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
+#'                        model = "linear", weights = 1 / hp)
+#'
+#' head(weights(weighted))
+#'
 #' @name deli-generics
-#' @importFrom stats coef vcov confint nobs fitted residuals model.frame
-#' @importFrom stats model.matrix formula terms
+#' @importFrom stats coef vcov confint nobs df.residual fitted residuals weights
+#' @importFrom stats model.frame model.matrix formula terms sigma logLik deviance
 NULL
 
 # ---- External generic declarations ------------------------------------------
@@ -211,12 +273,17 @@ stats_coef <- new_external_generic("stats", "coef", "object")
 stats_vcov <- new_external_generic("stats", "vcov", "object")
 stats_confint <- new_external_generic("stats", "confint", "object")
 stats_nobs <- new_external_generic("stats", "nobs", "object")
+stats_df_residual <- new_external_generic("stats", "df.residual", "object")
 stats_fitted <- new_external_generic("stats", "fitted", "object")
 stats_residuals <- new_external_generic("stats", "residuals", "object")
+stats_weights <- new_external_generic("stats", "weights", "object")
 stats_model_frame <- new_external_generic("stats", "model.frame", "formula")
 stats_model_matrix <- new_external_generic("stats", "model.matrix", "object")
 stats_formula <- new_external_generic("stats", "formula", "x")
 stats_terms <- new_external_generic("stats", "terms", "x")
+stats_sigma <- new_external_generic("stats", "sigma", "object")
+stats_log_lik <- new_external_generic("stats", "logLik", "object")
+stats_deviance <- new_external_generic("stats", "deviance", "object")
 
 # ---- coef --------------------------------------------------------------------
 
@@ -259,6 +326,13 @@ method(stats_nobs, deli_estimator) <- function(object, ...) {
   object@n_obs
 }
 
+# ---- df.residual -------------------------------------------------------------
+
+method(stats_df_residual, deli_estimator) <- function(object, ...) {
+  check_estimated(object)
+  object@n_obs - object@n_params
+}
+
 # ---- fitted ------------------------------------------------------------------
 
 method(stats_fitted, deli_estimator) <- function(object, ...) {
@@ -289,6 +363,15 @@ method(stats_residuals, deli_estimator) <- function(
   residual <- as.numeric(object@model_spec$y) - unname(mu)
   names(residual) <- names(mu)
   residual
+}
+
+# ---- weights -----------------------------------------------------------------
+
+method(stats_weights, deli_estimator) <- function(object, ...) {
+  # `[[` rather than `$` so that a name the fit did not forward answers `NULL`
+  # instead of partially matching another recorded argument; see the comment at
+  # the head of R/model-spec.R.
+  model_spec_or_abort(object, "weights")$ee_obs_args[["weights"]]
 }
 
 # ---- model.frame -------------------------------------------------------------
@@ -375,6 +458,24 @@ method(stats_formula, deli_estimator) <- function(x, ...) {
 
 method(stats_terms, deli_estimator) <- function(x, ...) {
   model_spec_or_abort(x, "terms")$terms
+}
+
+# ---- sigma -------------------------------------------------------------------
+
+method(stats_sigma, deli_estimator) <- function(object, ...) {
+  abort_accessor_no_residual_scale()
+}
+
+# ---- logLik ------------------------------------------------------------------
+
+method(stats_log_lik, deli_estimator) <- function(object, ...) {
+  abort_accessor_no_likelihood("logLik")
+}
+
+# ---- deviance ----------------------------------------------------------------
+
+method(stats_deviance, deli_estimator) <- function(object, ...) {
+  abort_accessor_no_likelihood("deviance")
 }
 
 # ---- Validation --------------------------------------------------------------
@@ -495,9 +596,54 @@ abort_accessor_no_model_spec <- function(fn) {
     c(
       "{.fn {fn}} needs a fit made through the formula interface.",
       "i" = "This fit was built from a {.arg stacked_equations} function, which
-             records no formula, terms, or model frame to report.",
+             records nothing that describes the model it solves: no formula, no
+             terms, no model frame, and no weights.",
       "i" = "Pass a formula and {.arg data} to {.fn m_estimate} or
              {.fn gmm_estimate} for a fit that describes itself."
+    ),
+    call = NULL
+  )
+}
+
+#' Refuse a quantity that only a likelihood defines
+#'
+#' Shared by `logLik()` and `deviance()`, which ask the same question of a fit
+#' that has no likelihood to answer it with.
+#'
+#' @param fn The name of the function the user called, which the error names.
+#' @returns Never returns; raises an error.
+#' @noRd
+abort_accessor_no_likelihood <- function(fn) {
+  cli::cli_abort(
+    c(
+      "{.fn {fn}} needs a likelihood, and an M-estimator defines none.",
+      "i" = "A fit is specified by its estimating equations, which need come
+             from no likelihood at all, so there is no log-likelihood to return
+             and no deviance to take from one. {.fn AIC} and {.fn BIC} reach a
+             fit through {.fn logLik} and have no answer either.",
+      "i" = "For inference on the estimates, use {.fn summary} or {.fn confint},
+             which report the empirical sandwich standard errors and the limits
+             built from them."
+    ),
+    call = NULL
+  )
+}
+
+#' Refuse a residual standard deviation the fit never recorded
+#'
+#' @returns Never returns; raises an error.
+#' @noRd
+abort_accessor_no_residual_scale <- function() {
+  cli::cli_abort(
+    c(
+      "{.fn sigma} has no residual standard deviation to report.",
+      "i" = "A residual scale belongs to the model an estimating equation
+             states rather than to the solve: a linear equation has one, a
+             logistic equation has none, and nothing in the estimates says
+             which was solved.",
+      "i" = "For the sampling variability of the estimates, use {.fn vcov} or
+             {.fn summary}, which report the empirical sandwich standard
+             errors."
     ),
     call = NULL
   )

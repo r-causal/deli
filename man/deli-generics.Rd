@@ -50,9 +50,13 @@ argument for a wrong name to displace.}
 \item \code{vcov()}: Named variance-covariance matrix.
 \item \code{confint()}: Matrix with columns \code{"lower"} and \code{"upper"}.
 \item \code{nobs()}: Integer number of observations.
+\item \code{df.residual()}: Integer residual degrees of freedom, the number of
+observations less the number of parameters.
 \item \code{fitted()}: Named numeric vector of fitted values on the response scale,
 one per observation the fit was solved on.
 \item \code{residuals()}: Named numeric vector of response residuals.
+\item \code{weights()}: The observation weights the fit was solved with, as they were
+recorded, or \code{NULL} for a formula fit specified without any.
 \item \code{model.frame()}: The model frame the fit was built from, with the rows
 dropped for missing data already removed, or the model frame of \code{data}
 when one is supplied.
@@ -62,22 +66,27 @@ levels the fit recorded.
 \item \code{formula()}: The model formula.
 \item \code{terms()}: The \code{terms} object of the model frame, carrying the response
 index, any offset, and the \code{predvars} of a data-dependent term.
+\item \code{sigma()}, \code{logLik()}, \code{deviance()}: Nothing. Each raises an error saying
+that an M-estimator states no likelihood and records no residual scale.
 }
 }
 \description{
 Methods for base R generics \code{\link[stats:coef]{stats::coef()}}, \code{\link[stats:vcov]{stats::vcov()}},
-\code{\link[stats:confint]{stats::confint()}}, \code{\link[stats:nobs]{stats::nobs()}}, \code{\link[stats:fitted]{stats::fitted()}},
-\code{\link[stats:residuals]{stats::residuals()}}, \code{\link[stats:model.frame]{stats::model.frame()}}, \code{\link[stats:model.matrix]{stats::model.matrix()}},
-\code{\link[stats:formula]{stats::formula()}}, and \code{\link[stats:terms]{stats::terms()}} so that deli estimator objects
-interoperate with the broader R modeling ecosystem.
+\code{\link[stats:confint]{stats::confint()}}, \code{\link[stats:nobs]{stats::nobs()}}, \code{\link[stats:df.residual]{stats::df.residual()}},
+\code{\link[stats:fitted]{stats::fitted()}}, \code{\link[stats:residuals]{stats::residuals()}}, \code{\link[stats:weights]{stats::weights()}},
+\code{\link[stats:model.frame]{stats::model.frame()}}, \code{\link[stats:model.matrix]{stats::model.matrix()}}, \code{\link[stats:formula]{stats::formula()}},
+\code{\link[stats:terms]{stats::terms()}}, \code{\link[stats:sigma]{stats::sigma()}}, \code{\link[stats:logLik]{stats::logLik()}}, and
+\code{\link[stats:deviance]{stats::deviance()}} so that deli estimator objects interoperate with the
+broader R modeling ecosystem.
 }
 \details{
-The last six report on the model a fit was specified as, which only the
-formula interface records, so each of them is an error for a fit built from a
-\code{stacked_equations} function. \code{fitted()} and \code{residuals()} are also an error
-for a formula fit of an estimating equation \code{\link[=deli-predict]{predict()}} does
-not support, since a fitted value is a prediction; see \link{deli-predict} for the
-equations it covers.
+\code{fitted()}, \code{residuals()}, \code{weights()}, \code{model.frame()}, \code{model.matrix()},
+\code{formula()}, and \code{terms()} report on the model a fit was specified as, which
+only the formula interface records, so each of them is an error for a fit
+built from a \code{stacked_equations} function. \code{fitted()} and \code{residuals()} are
+also an error for a formula fit of an estimating equation
+\code{\link[=deli-predict]{predict()}} does not support, since a fitted value is a
+prediction; see \link{deli-predict} for the equations it covers.
 
 \code{fitted()} is the conditional mean of the response, so it is on the response
 scale rather than the link scale, matching \code{\link[stats:fitted]{stats::fitted()}} on a \code{glm}
@@ -103,6 +112,25 @@ is made. A design matrix is a property of the fit, so a fit made under one
 setting of that option answers with the coding it was solved on under any
 other, which is what \code{\link[=deli-predict]{predict()}} does as well. A design names
 no response, so \code{data} needs only the predictors.
+
+\code{df.residual()} is the number of observations less the number of parameters.
+Both counts belong to the fit rather than to a specification, so it answers
+for a fit built from a \code{stacked_equations} function as readily as for a
+formula one. \code{weights()} returns the observation weights the fit was solved
+with, which reach a fit only through the formula interface. A formula fit
+specified without weights returns \code{NULL}, as \code{\link[stats:weights]{stats::weights()}} does for an
+unweighted \code{\link[stats:lm]{stats::lm()}} fit: a vector of ones would be indistinguishable
+from a fit weighted by ones.
+
+\code{sigma()}, \code{logLik()}, and \code{deviance()} are errors for every fit, and say
+why. An M-estimator is defined by its estimating equations, which need come
+from no likelihood at all, so there is no log-likelihood to return and no
+deviance to take from one; \code{\link[stats:AIC]{stats::AIC()}} and \code{\link[stats:BIC]{stats::BIC()}} reach a fit
+through \code{logLik()} and are refused with it. A residual standard deviation
+belongs to the model an equation states rather than to the solve: a linear
+equation has one, a logistic equation has none, and nothing in the estimates
+says which was solved. Reporting an error is the only answer that does not
+invent a quantity the fit never had.
 }
 \examples{
 fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
@@ -116,11 +144,20 @@ confint(fit)
 
 nobs(fit)
 
+df.residual(fit)
+
 head(fitted(fit))
 
 head(residuals(fit))
 
 formula(fit)
+
+# Weights reach a fit through the formula interface, and `weights()` reports
+# the vector the fit was solved with.
+weighted <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
+                       model = "linear", weights = 1 / hp)
+
+head(weights(weighted))
 
 }
 \seealso{
