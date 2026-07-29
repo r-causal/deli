@@ -78,6 +78,137 @@ test_that("ee_positive_mean_deviation names the deviation and the median", {
   expect_equal(names(coef(m)), c("positive_mean_deviation", "median"))
 })
 
+# ee-regression.R ---------------------------------------------------------
+
+test_that("ee_tobit names the design rows and the log scale", {
+  ref <- load_fixture("ee_tobit")
+  psi <- function(theta) {
+    ee_tobit(theta, X = ref$X, y = ref$y, lower = ref$lower)
+  }
+  expected <- c("X_1", "X_2", "log_sigma")
+
+  expect_equal(ncol(ref$X), 2L)
+  expect_equal(rownames(psi(ref$init)), expected)
+
+  m <- m_estimate(stacked_equations = psi, init = ref$init)
+
+  expect_equal(names(coef(m)), expected)
+})
+
+test_that("ee_beta_regression names the design rows and the log precision", {
+  ref <- load_fixture("ee_beta_regression")
+  psi <- function(theta) ee_beta_regression(theta, X = ref$X, y = ref$y)
+  expected <- c("X_1", "X_2", "log_phi")
+
+  expect_equal(ncol(ref$X), 2L)
+  expect_equal(rownames(psi(ref$init)), expected)
+
+  m <- m_estimate(stacked_equations = psi, init = ref$init)
+
+  expect_equal(names(coef(m)), expected)
+})
+
+test_that("ee_regression leaves its rows unnamed", {
+  # Every parameter is a coefficient on a design column, and coerce_design()
+  # has already dropped the caller's column headings, so positional labels
+  # would say no more than the numbering they would replace.
+  ref <- load_fixture("ee_tobit")
+  ee <- ee_regression(c(0, 0), X = ref$X, y = ref$y, model = "linear")
+
+  expect_null(rownames(ee))
+})
+
+# ee-glm.R ----------------------------------------------------------------
+
+test_that("ee_glm names the design rows and the log shape under the gamma", {
+  ref <- load_fixture("ee_glm_gamma_log")
+  psi <- function(theta) {
+    ee_glm(theta, X = ref$X, y = ref$y, distribution = "gamma", link = "log")
+  }
+  expected <- c("X_1", "X_2", "X_3", "log_shape")
+
+  expect_equal(ncol(ref$X), 3L)
+  expect_equal(rownames(psi(ref$init)), expected)
+
+  m <- m_estimate(stacked_equations = psi, init = ref$init)
+
+  expect_equal(names(coef(m)), expected)
+})
+
+test_that("ee_glm names the log dispersion under the negative binomial", {
+  ref <- load_fixture("ee_glm_negative_binomial_log")
+  psi <- function(theta) {
+    ee_glm(
+      theta,
+      X = ref$X,
+      y = ref$y,
+      distribution = "negative_binomial",
+      link = "log"
+    )
+  }
+  expected <- c("X_1", "X_2", "X_3", "log_dispersion")
+
+  expect_equal(ncol(ref$X), 3L)
+  expect_equal(rownames(psi(ref$init)), expected)
+
+  m <- m_estimate(stacked_equations = psi, init = ref$init)
+
+  expect_equal(names(coef(m)), expected)
+})
+
+test_that("the nb alias names its rows as negative_binomial does", {
+  ref <- load_fixture("ee_glm_nb_alias_log")
+  psi <- function(theta) {
+    ee_glm(theta, X = ref$X, y = ref$y, distribution = "nb", link = "log")
+  }
+  expected <- c("X_1", "X_2", "X_3", "log_dispersion")
+
+  expect_equal(rownames(psi(ref$init)), expected)
+
+  m <- m_estimate(stacked_equations = psi, init = ref$init)
+
+  expect_equal(names(coef(m)), expected)
+})
+
+test_that("ee_glm leaves the tweedie rows unnamed", {
+  # The tweedie power is a fixed hyperparameter rather than an estimated
+  # parameter, so nothing is stacked beneath the beta scores and every
+  # parameter is a coefficient on a design column.
+  ref <- load_fixture("ee_glm_tweedie_p15_log")
+  psi <- function(theta) {
+    ee_glm(
+      theta,
+      X = ref$X,
+      y = ref$y,
+      distribution = "tweedie",
+      link = "log",
+      hyperparameter = ref$hyperparameter
+    )
+  }
+
+  expect_equal(length(ref$init), ncol(ref$X))
+  expect_null(rownames(psi(ref$init)))
+
+  m <- m_estimate(stacked_equations = psi, init = ref$init)
+
+  expect_equal(names(coef(m)), paste0("theta_", 1:3))
+})
+
+test_that("ee_glm leaves the distributions with no extra parameter unnamed", {
+  for (fixture in c("ee_glm_normal_identity", "ee_glm_poisson_log")) {
+    ref <- load_fixture(fixture)
+    ee <- ee_glm(
+      ref$init,
+      X = ref$X,
+      y = ref$y,
+      distribution = ref$distribution,
+      link = ref$link
+    )
+
+    expect_null(rownames(ee), label = fixture)
+  }
+})
+
 # ee-pharma.R -------------------------------------------------------------
 
 test_that("ee_emax names the zero-dose response, maximum, and ED50", {
@@ -624,8 +755,11 @@ test_that("a named built-in block stacked with an unnamed one is numbered", {
 # Assigning row names is a no-op while a value carries derivatives, and the
 # labels are read from the plain evaluation at the solved values instead, so
 # naming a return cannot change what exact mode computes. One family per
-# ee-*.R file is checked here; test-exact-mode-acceptance.R compares exact
-# against capprox for every family.
+# ee-*.R file is checked here, together with all four of the returns whose
+# extra row is a parameter of the outcome distribution rather than a
+# coefficient on a design column, since those are the rows a wrong label would
+# shift. test-exact-mode-acceptance.R compares exact against capprox for every
+# family.
 
 test_that("naming the rows leaves the exact-mode fits unchanged", {
   compare_methods <- function(psi, init, expected, label, solver = NULL) {
@@ -701,5 +835,49 @@ test_that("naming the rows leaves the exact-mode fits unchanged", {
     c(1, 25, 10),
     c("e0", "emax", "ed50"),
     "ee_emax"
+  )
+
+  gam <- load_fixture("ee_glm_exact_gamma_log")
+  compare_methods(
+    function(theta) {
+      ee_glm(theta, X = gam$X, y = gam$y, distribution = "gamma", link = "log")
+    },
+    gam$init,
+    c("X_1", "X_2", "X_3", "log_shape"),
+    "ee_glm"
+  )
+
+  nb <- load_fixture("ee_glm_negative_binomial_log")
+  compare_methods(
+    function(theta) {
+      ee_glm(
+        theta,
+        X = nb$X,
+        y = nb$y,
+        distribution = "negative_binomial",
+        link = "log"
+      )
+    },
+    nb$init,
+    c("X_1", "X_2", "X_3", "log_dispersion"),
+    "ee_glm (negative binomial)"
+  )
+
+  tob <- load_fixture("ee_tobit_exact")
+  compare_methods(
+    function(theta) {
+      ee_tobit(theta, X = tob$X, y = tob$y, lower = tob$lower)
+    },
+    tob$init,
+    c("X_1", "X_2", "X_3", "log_sigma"),
+    "ee_tobit"
+  )
+
+  bet <- load_fixture("ee_beta_regression_exact")
+  compare_methods(
+    function(theta) ee_beta_regression(theta, X = bet$X, y = bet$y),
+    bet$init,
+    c("X_1", "X_2", "X_3", "log_phi"),
+    "ee_beta_regression"
   )
 })

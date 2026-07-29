@@ -109,8 +109,8 @@ mean(y1) / mean(y2)
   argument contributes whatever row names it already carries. Many built-in
   `ee_*()` functions name their rows and many do not. The ones that do say so
   under **Value** on their help pages, along with what the names are, so a stack
-  that mixes in one of the others is numbered unless you name it yourself. None
-  of the regression estimating equations names its rows. For most of them there
+  that mixes in one of the others is numbered unless you name it yourself. Most
+  of the regression estimating equations leave their rows unnamed, because there
   is nothing to name: a regression coefficient has no name apart from the design
   column it multiplies, and deli drops a design's column headings, so the labels
   left would say no more than `theta_1` already does. Four returns are
@@ -119,10 +119,10 @@ mean(y1) / mean(y2)
   `ee_beta_regression()`, each hold one row more than the design has columns,
   and that last row is a parameter of the outcome distribution: a log shape, a
   log dispersion, a log scale, or a log precision. It is the row you are most
-  likely to read as a coefficient, and it goes unlabeled with the rest. Name
-  `init` where you want it labeled, as `vignette("regression-models")` does with
-  `log_shape`. Set the names yourself with `rownames()` where the ones you want
-  are not the ones you get. The assignment works under
+  likely to read as a coefficient, so each of the four names it `log_shape`,
+  `log_dispersion`, `log_sigma`, or `log_phi`, with the design rows labeled
+  `X_1` through `X_p` beside it. Set the names yourself with `rownames()` where
+  the ones you want are not the ones you get. The assignment works under
   `deriv_method = "exact"` as well, unlike the reshaping helpers described in
   `vignette("getting-started")`.
 

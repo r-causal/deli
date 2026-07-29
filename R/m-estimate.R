@@ -42,6 +42,15 @@
 #'   (default) and using the formula interface, a zero vector with names from
 #'   the model matrix columns is generated automatically. Names on it label the
 #'   parameters and take precedence over the row names of `stacked_equations`.
+#'   An explicit `init` with no names of its own takes the same model matrix
+#'   names on the formula interface, together with the parameter the estimating
+#'   equation estimates beyond the design coefficients (`log_shape` for
+#'   [ee_glm] with `"gamma"`, `log_dispersion` with `"negative_binomial"`,
+#'   `log_inv_scale` for a non-exponential [ee_aft], `log_sigma` for
+#'   [ee_tobit], and `log_phi` for [ee_beta_regression]). An `init` of any
+#'   other length is left unnamed, which passes the labeling to the row names
+#'   of the estimating functions; see [estimate()] for that channel and for
+#'   when the parameters are numbered instead.
 #' @param subset Integer vector of parameter indices to solve for, or `NULL`
 #'   (default) to solve for all parameters. Indices are 1-based; parameters not
 #'   listed are held fixed at their `init` values while the rest are solved.
@@ -354,9 +363,20 @@ prepare_formula_psi <- function(formula, data, .ee, dots, init) {
     ee_args$offset <- formula_offset
   }
 
+  # The parameter the estimating equation estimates beyond one coefficient per
+  # design column, where it is one of the equations that appends any.
+  appended <- appended_param_name(.ee, ee_args)
+
   init_auto <- is.null(init)
   if (init_auto) {
     init <- stats::setNames(rep(0, ncol(X)), colnames(X))
+  } else if (is.null(names(init))) {
+    # An explicit `init` with no names of its own is labeled from the same
+    # column headings, which are otherwise lost: coerce_design() drops them
+    # before the estimating equation sees the design, so nothing downstream can
+    # recover them. A length neither the design nor the appended parameter
+    # accounts for is left alone.
+    names(init) <- design_param_names(colnames(X), appended, length(init))
   }
 
   # The response is passed positionally so it fills the first argument not named
@@ -368,8 +388,11 @@ prepare_formula_psi <- function(formula, data, .ee, dots, init) {
   if (init_auto) {
     # Record the starting values the user never chose. estimate() evaluates the
     # estimating function at them anyway, and reads this attribute to recognize
-    # a failure there as one the automatic length may explain.
+    # a failure there as one the automatic length may explain. The appended
+    # parameter travels with them so the diagnostic can name what the automatic
+    # length leaves out.
     attr(psi, "deli_auto_init") <- init
+    attr(psi, "deli_auto_init_appended") <- appended
   }
 
   list(psi = psi, init = init)

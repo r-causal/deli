@@ -566,7 +566,8 @@ ee_mlogit <- function(theta, X, y, weights = NULL, offset = NULL) {
 #' @param weights Optional numeric vector of n weights. Default `NULL`.
 #' @param offset Optional numeric vector of n offsets. Default `NULL`.
 #'
-#' @returns A `(b+1)`-by-n matrix.
+#' @returns A `(b+1)`-by-n matrix. The rows are named `X_1` through `X_b` for
+#'   the columns of `X`, and the final row is named `log_phi`.
 #'
 #' @examplesIf requireNamespace("nleqslv", quietly = TRUE)
 #' set.seed(42)
@@ -625,7 +626,13 @@ ee_beta_regression <- function(theta, X, y, weights = NULL, offset = NULL) {
     nrow = 1
   )
 
-  rbind(ef_mean, ef_prc)
+  out <- rbind(ef_mean, ef_prc)
+  # The trailing row is log(phi), a parameter of the outcome distribution rather
+  # than a coefficient on a design column, and it is the row a caller is most
+  # likely to mistake for one. The design rows are named positionally so that
+  # the set is complete, since a partial set is discarded whole.
+  rownames(out) <- c(block_param_names("X", b), "log_phi")
+  out
 }
 
 #' Estimating equation for Tobit regression (Type I)
@@ -643,7 +650,8 @@ ee_beta_regression <- function(theta, X, y, weights = NULL, offset = NULL) {
 #' @param weights Optional numeric vector of n weights. Default `NULL`.
 #' @param offset Optional numeric vector of n offsets. Default `NULL`.
 #'
-#' @returns A `(b+1)`-by-n matrix.
+#' @returns A `(b+1)`-by-n matrix. The rows are named `X_1` through `X_b` for
+#'   the columns of `X`, and the final row is named `log_sigma`.
 #'
 #' @examples
 #' # A latent outcome observed only down to zero, so the negative values are
@@ -760,7 +768,12 @@ ee_tobit <- function(
     nrow = 1
   )
 
-  rbind(ef_treg, ef_sigma)
+  out <- rbind(ef_treg, ef_sigma)
+  # As in ee_beta_regression() above, the trailing row is a parameter of the
+  # outcome distribution and the design rows are named beside it so that the
+  # set is complete.
+  rownames(out) <- c(block_param_names("X", b), "log_sigma")
+  out
 }
 
 #' Estimating equation for additive regression (GAM)

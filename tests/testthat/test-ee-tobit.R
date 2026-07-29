@@ -39,8 +39,11 @@ test_that("ee_tobit with no censoring matches linear regression", {
   m_lm <- MEstimator(stacked_equations = psi_lm, init = c(0, 0))
   m_lm <- estimate(m_lm)
 
-  # Beta coefficients should match
-  expect_equal(m_tobit@theta[1:2], m_lm@theta, tolerance = 1e-3)
+  # Beta coefficients should match. ee_tobit() names its rows and
+  # ee_regression() does not, so the two fits label the same coefficients
+  # differently and only the values are compared; test-param-names-builtin.R
+  # pins what each is called.
+  expect_equal(unname(m_tobit@theta[1:2]), unname(m_lm@theta), tolerance = 1e-3)
 })
 
 test_that("ee_tobit solves with left censoring", {

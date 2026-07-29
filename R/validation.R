@@ -390,7 +390,9 @@ check_psi_at_init <- function(vals, init, allow_over_identification = FALSE) {
 #' regression coefficients (for example [ee_glm()] with `"gamma"` or
 #' `"negative_binomial"`, which add a scale or dispersion parameter), so the
 #' automatic `init` is one short and the estimating function either fails
-#' outright or returns the wrong number of rows.
+#' outright or returns the wrong number of rows. Where the equation is one the
+#' formula interface recognizes, the reframed message names the parameter the
+#' automatic length leaves out.
 #'
 #' Only those two failures are reframed. A `NULL` or non-numeric return keeps
 #' its own message, because an `init` one element short cannot cause either. A
@@ -419,17 +421,24 @@ eval_psi_at_init <- function(psi, init, allow_over_identification = FALSE) {
     return(vals)
   }
 
+  # Where the estimating equation is one the formula interface recognizes, the
+  # parameter the automatic length leaves out has a name, recorded beside the
+  # starting values.
+  appended <- attr(psi, "deli_auto_init_appended", exact = TRUE)
+
   # The handler covers a single call, the estimating function itself, so
   # nothing raised later can reach it.
   vals <- rlang::try_fetch(
     psi(init),
-    error = function(cnd) abort_formula_auto_init(init, parent = cnd)
+    error = function(cnd) abort_formula_auto_init(init, appended, parent = cnd)
   )
   # Of the four returns check_psi_at_init() rejects, only a shape mismatch is a
   # length problem, so catch that class alone rather than every error.
   rlang::try_fetch(
     check_psi_at_init(vals, init, allow_over_identification),
-    deli_psi_shape_error = function(cnd) abort_formula_auto_init(init)
+    deli_psi_shape_error = function(cnd) {
+      abort_formula_auto_init(init, appended)
+    }
   )
   vals
 }
@@ -437,6 +446,9 @@ eval_psi_at_init <- function(psi, init, allow_over_identification = FALSE) {
 #' Abort with the automatic-`init` diagnostic
 #'
 #' @param init The automatically generated initial parameter vector.
+#' @param appended The parameter the estimating equation estimates beyond the
+#'   design coefficients, or `NULL` when the equation is not one this package
+#'   recognizes.
 #' @param parent The error raised while evaluating the estimating function, or
 #'   `NULL` when the estimating function returned a wrong-shaped value instead
 #'   of failing.
@@ -444,7 +456,7 @@ eval_psi_at_init <- function(psi, init, allow_over_identification = FALSE) {
 #' @return Never returns; always raises an error carrying the class
 #'   `deli_formula_auto_init_error`.
 #' @noRd
-abort_formula_auto_init <- function(init, parent = NULL) {
+abort_formula_auto_init <- function(init, appended = NULL, parent = NULL) {
   n_params <- length(init)
   # An error means the estimating function did not even evaluate at the
   # automatic init, so its cause is unknown; do not assert it is a length
@@ -457,6 +469,23 @@ abort_formula_auto_init <- function(init, parent = NULL) {
   } else {
     "The automatic zero {.arg init} has length {n_params}, the number of
      model-matrix columns, which does not fit the estimating function."
+  }
+  # A recognized equation can have the missing parameter named and counted
+  # rather than described, on both paths. Nothing is known about any other
+  # equation's parameters, so the hint stays general there.
+  if (!is.null(appended)) {
+    cli::cli_abort(
+      c(
+        header,
+        "i" = "This estimating equation estimates one parameter beyond the
+               design coefficients, {.val {appended}}, so it needs an
+               {.arg init} of length {n_params + 1}.",
+        "i" = "Supply an explicit {.arg init} of length {n_params + 1}."
+      ),
+      parent = parent,
+      call = NULL,
+      class = "deli_formula_auto_init_error"
+    )
   }
   hint <- if (errored) {
     "A length mismatch is the most common cause. Estimating equations such as

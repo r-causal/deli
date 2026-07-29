@@ -66,7 +66,10 @@
 #' @returns A p-by-n matrix. For the gamma and negative binomial
 #'   distributions the matrix has `ncol(X) + 1` rows, the final row being the
 #'   nuisance equation for that distribution's extra parameter (the gamma shape
-#'   or the negative binomial dispersion).
+#'   or the negative binomial dispersion). Those two distributions name their
+#'   rows `X_1` through `X_p` for the columns of `X`, followed by `log_shape`
+#'   or `log_dispersion`. Every other distribution estimates one coefficient
+#'   per design column and leaves its rows unnamed.
 #'
 #' @export
 #' @examples
@@ -166,9 +169,13 @@ ee_glm <- function(
         log(alpha * y / pred_y) -
         deli_polygamma(0, alpha))
 
-    # Stack the shape nuisance row beneath the beta score rows.
+    # Stack the shape nuisance row beneath the beta score rows. The trailing row
+    # is a parameter of the outcome distribution rather than a coefficient on a
+    # design column, and it is the row a caller is most likely to mistake for
+    # one. The design rows are named positionally so that the set is complete,
+    # since a partial set is discarded whole.
     out <- rbind(ee_beta, ee_alpha)
-    rownames(out) <- NULL
+    rownames(out) <- c(block_param_names("X", ncol(X)), "log_shape")
     return(out)
   }
 
@@ -186,9 +193,10 @@ ee_glm <- function(
       alpha^2
     ee_alpha <- p1 + p2 + p3 + p4
 
-    # Stack the dispersion nuisance row beneath the beta score rows.
+    # Stack the dispersion nuisance row beneath the beta score rows, named as
+    # the gamma shape row above is.
     out <- rbind(ee_beta, ee_alpha)
-    rownames(out) <- NULL
+    rownames(out) <- c(block_param_names("X", ncol(X)), "log_dispersion")
     return(out)
   }
 

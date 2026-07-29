@@ -11,8 +11,13 @@
 #' Where `init` carries no names at all, the row names of the estimating
 #' functions are read instead. That is how a `stacked_equations` function names
 #' the parameters it defines, since the estimator otherwise sees only an opaque
-#' closure returning a matrix. The formula interface always names `init` from
-#' the model matrix columns, so the row names matter to the function interface.
+#' closure returning a matrix. The formula interface names `init` from the model
+#' matrix columns where it can account for its length, one parameter per design
+#' column or one more for the parameter the equation appends, so the row names
+#' carry the function interface and every formula fit of another length.
+#' [ee_gformula()] is one of those: its extra parameter leads rather than
+#' trails, so the formula interface leaves its `init` unnamed and the fit takes
+#' the labels the equation writes on its own rows.
 #'
 #' Row names are read only when they label every parameter distinctly: one name
 #' per parameter, none empty, none missing, and no two alike. An incomplete or

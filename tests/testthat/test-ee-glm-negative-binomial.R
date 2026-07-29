@@ -29,8 +29,10 @@ test_that("ee_glm negative_binomial appends the polygamma nuisance equation", {
   expect_equal(ncol(ee), length(y))
 
   # Row sums at the starting values pin the exact form of every equation,
-  # including the polygamma nuisance row for the dispersion parameter.
-  expect_equal(rowSums(ee), ref$ee_sum_at_init, tolerance = 1e-6)
+  # including the polygamma nuisance row for the dispersion parameter. The
+  # Python reference carries no labels, so the comparison is made on the values
+  # alone, as the fixture helper does.
+  expect_equal(unname(rowSums(ee)), ref$ee_sum_at_init, tolerance = 1e-6)
 })
 
 test_that("ee_glm negative_binomial/log matches Python Delicatessen", {

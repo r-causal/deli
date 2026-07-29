@@ -23,8 +23,9 @@ test_that("ee_glm gamma appends the shape nuisance equation", {
   expect_equal(ncol(ee), length(y))
 
   # Row sums at the starting values pin the exact form of every equation,
-  # including the shape nuisance row.
-  expect_equal(rowSums(ee), ref$ee_sum_at_init, tolerance = 1e-6)
+  # including the shape nuisance row. The Python reference carries no labels,
+  # so the comparison is made on the values alone, as the fixture helper does.
+  expect_equal(unname(rowSums(ee)), ref$ee_sum_at_init, tolerance = 1e-6)
 })
 
 test_that("ee_glm gamma/log matches Python Delicatessen", {

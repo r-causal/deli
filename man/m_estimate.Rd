@@ -66,7 +66,16 @@ argument (\code{y} for \link{ee_regression} or \link{ee_glm}, \code{time} for \l
 \item{init}{Numeric vector of initial parameter values. When \code{NULL}
 (default) and using the formula interface, a zero vector with names from
 the model matrix columns is generated automatically. Names on it label the
-parameters and take precedence over the row names of \code{stacked_equations}.}
+parameters and take precedence over the row names of \code{stacked_equations}.
+An explicit \code{init} with no names of its own takes the same model matrix
+names on the formula interface, together with the parameter the estimating
+equation estimates beyond the design coefficients (\code{log_shape} for
+\link{ee_glm} with \code{"gamma"}, \code{log_dispersion} with \code{"negative_binomial"},
+\code{log_inv_scale} for a non-exponential \link{ee_aft}, \code{log_sigma} for
+\link{ee_tobit}, and \code{log_phi} for \link{ee_beta_regression}). An \code{init} of any
+other length is left unnamed, which passes the labeling to the row names
+of the estimating functions; see \code{\link[=estimate]{estimate()}} for that channel and for
+when the parameters are numbered instead.}
 
 \item{subset}{Integer vector of parameter indices to solve for, or \code{NULL}
 (default) to solve for all parameters. Indices are 1-based; parameters not

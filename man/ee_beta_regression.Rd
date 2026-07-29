@@ -18,7 +18,8 @@ ee_beta_regression(theta, X, y, weights = NULL, offset = NULL)
 \item{offset}{Optional numeric vector of n offsets. Default \code{NULL}.}
 }
 \value{
-A \code{(b+1)}-by-n matrix.
+A \code{(b+1)}-by-n matrix. The rows are named \code{X_1} through \code{X_b} for
+the columns of \code{X}, and the final row is named \code{log_phi}.
 }
 \description{
 Beta regression for outcomes in (0, 1) using mean-precision

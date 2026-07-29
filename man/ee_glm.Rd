@@ -43,7 +43,10 @@ other distribution. Default \code{NULL}.}
 A p-by-n matrix. For the gamma and negative binomial
 distributions the matrix has \code{ncol(X) + 1} rows, the final row being the
 nuisance equation for that distribution's extra parameter (the gamma shape
-or the negative binomial dispersion).
+or the negative binomial dispersion). Those two distributions name their
+rows \code{X_1} through \code{X_p} for the columns of \code{X}, followed by \code{log_shape}
+or \code{log_dispersion}. Every other distribution estimates one coefficient
+per design column and leaves its rows unnamed.
 }
 \description{
 Returns a p-by-n matrix of estimating equation contributions for a GLM

@@ -29,8 +29,9 @@ and are forwarded to it, while `init`, `subset`, `solver`, and the other solver
 controls are arguments of `m_estimate()` itself. The sandwich variance estimator
 automatically provides robust standard errors, and the parameters are named
 after the design matrix columns whenever `init` is left at its default. An
-explicit `init` supplies the parameter names instead, so name its elements if
-you want them carried through to the output.
+explicit `init` takes those same names where its length accounts for the design
+columns, together with any parameter the estimating equation adds on top of
+them. Name its elements yourself to label the parameters any other way.
 
 `init` defaults to a zero vector with one element per design matrix column. That
 is the right length for most estimating equations, but not for the few that
@@ -121,7 +122,9 @@ links: `"identity"`, `"log"`, `"logit"`, `"probit"`, `"cauchy"` (alias
 regression coefficients: the log of the gamma shape, or the log of the negative
 binomial dispersion. The automatic `init` has one element per design matrix
 column and so is one element short for these two, which makes an explicit `init`
-necessary. Naming its elements also names the parameters in the output:
+necessary. It needs no names of its own: the formula interface labels an
+unnamed `init` of that length from the model matrix columns and the extra
+parameter.
 
 ```{r}
 set.seed(42)
@@ -137,7 +140,7 @@ m <- m_estimate(
   .ee = ee_glm,
   distribution = "gamma",
   link = "log",
-  init = c("(Intercept)" = 0, x = 0, log_shape = 0)
+  init = c(0, 0, 0)
 )
 m@theta
 ```

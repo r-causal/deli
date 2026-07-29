@@ -55,6 +55,11 @@ default_param_names <- function(nm, p) {
 #' parameter. Filling it would attach a stray label or two to an otherwise
 #' numbered fit.
 #'
+#' A formula fit reaches this with names on `init` more often than the caller
+#' typed any: `prepare_formula_psi()` fills an unnamed `init` from the model
+#' matrix through `design_param_names()` below, since the column headings it
+#' knows are the ones no estimating equation is given.
+#'
 #' @param init_names The names of the estimator's `init`, or `NULL`.
 #' @param evald The estimating functions evaluated at the solved values.
 #' @param p The number of parameters.
@@ -130,14 +135,13 @@ psi_param_names <- function(evald, p) {
 #' them, because a fixed label repeated across a stack costs that stack its
 #' names.
 #'
-#' Four returns the rule identifies as nameable go unnamed. `ee_glm()` under the
-#' gamma and negative binomial distributions, `ee_tobit()`, and
-#' `ee_beta_regression()` each hold one row more than their design has columns,
-#' and that row is a parameter of the outcome distribution rather than a
-#' coefficient on a design column, which is the property that earns `ee_aft()`'s
-#' `log_inv_scale` its label. None of the four carries row names, so a caller
-#' who wants the trailing row labeled names `init` instead. The gap between the
-#' rule and those four returns is known rather than overlooked.
+#' Four more returns follow from the same rule. `ee_glm()` under the gamma and
+#' negative binomial distributions, `ee_tobit()`, and `ee_beta_regression()`
+#' each hold one row more than their design has columns, and that row is a
+#' parameter of the outcome distribution rather than a coefficient on a design
+#' column, which is the property that earns `ee_aft()`'s `log_inv_scale` its
+#' label. Each names that row `log_shape`, `log_dispersion`, `log_sigma`, or
+#' `log_phi`, with the design block named here beside it.
 #'
 #' @param prefix The name of the block, ordinarily the design argument that
 #'   supplied it.
@@ -146,4 +150,106 @@ psi_param_names <- function(evald, p) {
 #' @noRd
 block_param_names <- function(prefix, p) {
   sprintf("%s_%d", prefix, seq_len(p))
+}
+
+#' The parameter an estimating equation appends past its design coefficients
+#'
+#' Answers, for the built-in equations the formula interface can drive, whether
+#' the equation estimates one parameter beyond a coefficient per design column
+#' and what that parameter is called. `NULL` for every equation whose parameters
+#' are all design coefficients, and for every equation not listed.
+#'
+#' The table is written out rather than derived from what the equations return.
+#' Two things it has to know cannot be read off a return. The first is where in
+#' `theta` an appended parameter sits: `ee_gformula()` labels its rows
+#' `c("causal_mean", "X_1", ...)` for one parameter more than the design has
+#' columns, the same count as `ee_tobit()`, with the extra parameter at the
+#' front rather than the back, so the row names alone do not tell the two
+#' layouts apart. The second is that the answer is needed before the equation
+#' has evaluated successfully at all, since the diagnostic in
+#' `abort_formula_auto_init()` reports on an automatic `init` that the equation
+#' rejected.
+#'
+#' The names here must match the ones those equations write on their own rows,
+#' and `test-param-names-builtin.R` pins both ends.
+#'
+#' @param .ee The estimating-equation function passed to the formula interface.
+#' @param ee_args The evaluated `...` arguments forwarded to it.
+#' @returns A string, or `NULL`.
+#' @noRd
+appended_param_name <- function(.ee, ee_args) {
+  if (!is.function(.ee)) {
+    return(NULL)
+  }
+  dist <- ee_args[["distribution"]]
+  if (!is.character(dist) || length(dist) != 1L) {
+    dist <- ""
+  }
+  dist <- tolower(dist)
+
+  if (identical(.ee, ee_glm)) {
+    if (dist == "gamma") {
+      return("log_shape")
+    }
+    if (dist %in% c("negative_binomial", "nb")) {
+      return("log_dispersion")
+    }
+    # Every other distribution, the tweedie among them, estimates one
+    # coefficient per design column.
+    return(NULL)
+  }
+  if (identical(.ee, ee_aft)) {
+    # Sigma is fixed at 1 under the exponential, so that distribution alone
+    # appends nothing. An unreadable distribution is treated the same way,
+    # since a wrong label is worse than the labels the equation writes on its
+    # own rows, and worse than numbering where it writes none.
+    if (dist %in% c("", "exponential")) {
+      return(NULL)
+    }
+    return("log_inv_scale")
+  }
+  if (identical(.ee, ee_tobit)) {
+    return("log_sigma")
+  }
+  if (identical(.ee, ee_beta_regression)) {
+    return("log_phi")
+  }
+  NULL
+}
+
+#' Names for an unnamed `init` on the formula interface
+#'
+#' The formula interface knows one thing no estimating equation does: what the
+#' caller called the columns of the design. `coerce_design()` drops the column
+#' headings on the way in, so an equation can label a design block only by
+#' position and the row-name channel cannot recover them. A formula fit whose
+#' `init` carries no names of its own therefore takes them from the model
+#' matrix, and from the parameter the equation appends beyond it.
+#'
+#' Only two lengths are named: one parameter per design column, and one per
+#' design column plus the appended parameter. Any other length describes a
+#' parameter vector this function cannot account for, and naming it would
+#' attach the intercept's label to whatever the first parameter happens to be,
+#' so it is left alone. Leaving it alone hands the labeling to the row names of
+#' the estimating functions, which is how a formula fit of `ee_gformula()` comes
+#' back labeled even though its extra parameter leads rather than trails. The
+#' parameters are numbered only where those row names do not label every one.
+#'
+#' @param design_names The column names of the model matrix.
+#' @param appended The parameter the estimating equation appends, or `NULL`.
+#' @param p The number of parameters.
+#' @returns A character vector of length `p`, or `NULL`.
+#' @noRd
+design_param_names <- function(design_names, appended, p) {
+  if (is.null(design_names)) {
+    return(NULL)
+  }
+  k <- length(design_names)
+  if (p == k) {
+    return(design_names)
+  }
+  if (!is.null(appended) && p == k + 1L) {
+    return(c(design_names, appended))
+  }
+  NULL
 }

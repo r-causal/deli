@@ -33,7 +33,9 @@ the user never chose. Some estimating equations append parameters beyond the
 regression coefficients (for example \code{\link[=ee_glm]{ee_glm()}} with \code{"gamma"} or
 \code{"negative_binomial"}, which add a scale or dispersion parameter), so the
 automatic \code{init} is one short and the estimating function either fails
-outright or returns the wrong number of rows.
+outright or returns the wrong number of rows. Where the equation is one the
+formula interface recognizes, the reframed message names the parameter the
+automatic length leaves out.
 
 Only those two failures are reframed. A \code{NULL} or non-numeric return keeps
 its own message, because an \code{init} one element short cannot cause either. A

@@ -83,6 +83,39 @@ plogit_fixture <- function() {
   )
 }
 
+# A small frame with one covariate, so its model matrix has the two columns
+# `(Intercept)` and `x`. prepare_formula_psi() builds the closure without
+# calling it, so the same frame serves every estimating equation below whatever
+# outcome that equation expects.
+formula_frame <- function() {
+  data.frame(
+    x = c(-1.1, 0.3, 1.7, -0.4, 0.9),
+    y = c(0.2, 0.5, 0.8, 0.3, 0.7)
+  )
+}
+
+# The names the formula interface resolves for an `init`, read off the vector it
+# hands to the estimator.
+resolved_init_names <- function(.ee, init, ...) {
+  prep <- prepare_formula_psi(
+    y ~ x,
+    data = formula_frame(),
+    .ee = .ee,
+    dots = rlang::quos(...),
+    init = init
+  )
+  names(prep$init)
+}
+
+# A gamma outcome with one covariate, the smallest fit that appends a parameter
+# beyond the design columns and still solves from a zero start.
+formula_gamma_data <- function() {
+  set.seed(6)
+  d <- data.frame(x = stats::rnorm(50))
+  d$y <- stats::rgamma(50, shape = 2, rate = exp(-(0.2 + 0.3 * d$x)))
+  d
+}
+
 # A summary object built directly, so the printing path can be reached with a
 # parameter vector carrying whatever names the test needs. A fitted estimator
 # always names its parameters, so this is the only way to exercise the fallback
@@ -436,6 +469,240 @@ test_that("names the caller typed on init may repeat", {
   )
 
   expect_equal(names(coef(m)), c("mu", "mu"))
+})
+
+# Parameter names on the formula interface -------------------------------------
+
+test_that("an unnamed init takes the model matrix column names", {
+  # The formula interface knows what the caller called the design columns, which
+  # coerce_design() drops before any estimating equation sees them, so no row
+  # name can carry them.
+  expect_equal(
+    resolved_init_names(ee_regression, c(0, 0), model = "linear"),
+    c("(Intercept)", "x")
+  )
+})
+
+test_that("an unnamed init takes the parameter its equation appends", {
+  expect_equal(
+    resolved_init_names(
+      ee_glm,
+      rep(0, 3),
+      distribution = "gamma",
+      link = "log"
+    ),
+    c("(Intercept)", "x", "log_shape")
+  )
+  expect_equal(
+    resolved_init_names(
+      ee_glm,
+      rep(0, 3),
+      distribution = "negative_binomial",
+      link = "log"
+    ),
+    c("(Intercept)", "x", "log_dispersion")
+  )
+  expect_equal(
+    resolved_init_names(ee_glm, rep(0, 3), distribution = "nb", link = "log"),
+    c("(Intercept)", "x", "log_dispersion")
+  )
+  expect_equal(
+    resolved_init_names(ee_tobit, rep(0, 3), lower = 0),
+    c("(Intercept)", "x", "log_sigma")
+  )
+  expect_equal(
+    resolved_init_names(ee_beta_regression, rep(0, 3)),
+    c("(Intercept)", "x", "log_phi")
+  )
+  expect_equal(
+    resolved_init_names(
+      ee_aft,
+      rep(0, 3),
+      event = 1,
+      distribution = "weibull"
+    ),
+    c("(Intercept)", "x", "log_inv_scale")
+  )
+})
+
+test_that("an equation that appends nothing names only the design columns", {
+  # The tweedie power is a fixed hyperparameter and the exponential AFT scale is
+  # fixed at 1, so both estimate one parameter per design column and neither
+  # accounts for a third.
+  expect_equal(
+    resolved_init_names(
+      ee_glm,
+      c(0, 0),
+      distribution = "tweedie",
+      link = "log",
+      hyperparameter = 1.5
+    ),
+    c("(Intercept)", "x")
+  )
+  expect_null(
+    resolved_init_names(
+      ee_glm,
+      rep(0, 3),
+      distribution = "tweedie",
+      link = "log",
+      hyperparameter = 1.5
+    )
+  )
+  expect_equal(
+    resolved_init_names(
+      ee_aft,
+      c(0, 0),
+      event = 1,
+      distribution = "exponential"
+    ),
+    c("(Intercept)", "x")
+  )
+  expect_null(
+    resolved_init_names(
+      ee_aft,
+      rep(0, 3),
+      event = 1,
+      distribution = "exponential"
+    )
+  )
+})
+
+test_that("an init of a length the design cannot account for is left unnamed", {
+  # Naming here would attach the intercept's label to whatever the first
+  # parameter happens to be, so the vector is passed on as the caller wrote it
+  # and the row names of the estimating functions label the fit instead, or the
+  # parameters are numbered where those row names do not label every one.
+  expect_null(resolved_init_names(ee_regression, rep(0, 3), model = "linear"))
+  expect_null(resolved_init_names(ee_regression, 0, model = "linear"))
+  expect_null(
+    resolved_init_names(ee_glm, rep(0, 4), distribution = "gamma", link = "log")
+  )
+})
+
+test_that("an unrecognized equation names only the design columns", {
+  # An equation this package does not know may append anything or nothing, so
+  # only the length that needs no such knowledge is named.
+  ee_custom <- function(theta, X, y, ...) t(X * as.vector(y - X %*% theta))
+
+  expect_equal(
+    resolved_init_names(ee_custom, c(0, 0)),
+    c("(Intercept)", "x")
+  )
+  expect_null(resolved_init_names(ee_custom, rep(0, 3)))
+})
+
+test_that("an init the caller named reaches the estimator unaltered", {
+  expect_equal(
+    resolved_init_names(ee_regression, c(a = 0, b = 0), model = "linear"),
+    c("a", "b")
+  )
+  # A partially named `init` is left alone as well, so its gaps are filled by
+  # position in the one place that fills them.
+  expect_equal(
+    resolved_init_names(
+      ee_glm,
+      c(a = 0, 0, 0),
+      distribution = "gamma",
+      link = "log"
+    ),
+    c("a", "", "")
+  )
+})
+
+test_that("a formula fit labels an unnamed init through to coef()", {
+  d <- formula_gamma_data()
+  m <- m_estimate(
+    y ~ x,
+    data = d,
+    .ee = ee_glm,
+    distribution = "gamma",
+    link = "log",
+    init = c(0, 0, 0)
+  )
+  expected <- c("(Intercept)", "x", "log_shape")
+
+  expect_equal(names(coef(m)), expected)
+  expect_equal(dimnames(vcov(m)), list(expected, expected))
+  expect_equal(rownames(confint(m)), expected)
+  expect_equal(tidy(m)$term, expected)
+})
+
+test_that("labeling an unnamed init leaves the estimates unchanged", {
+  # Names never enter the arithmetic, so the fit is the one the same call made
+  # before the labels were resolved.
+  d <- formula_gamma_data()
+  fit <- function(init) {
+    m_estimate(
+      y ~ x,
+      data = d,
+      .ee = ee_glm,
+      distribution = "gamma",
+      link = "log",
+      init = init
+    )
+  }
+  unnamed <- fit(c(0, 0, 0))
+  named <- fit(c(b0 = 0, b1 = 0, shape = 0))
+
+  expect_identical(unname(coef(unnamed)), unname(coef(named)))
+  expect_identical(unname(vcov(unnamed)), unname(vcov(named)))
+  expect_equal(names(coef(named)), c("b0", "b1", "shape"))
+})
+
+test_that("an init the design cannot account for fails in the equation", {
+  # Assigning the design column names to a vector of another length would raise
+  # a names-length error before the fit began, reporting a problem with the
+  # wrong thing. The failure has to stay the one the estimating equation
+  # raises.
+  d <- formula_gamma_data()
+
+  expect_error(
+    m_estimate(
+      y ~ x,
+      data = d,
+      .ee = ee_regression,
+      model = "linear",
+      init = c(0, 0, 0)
+    ),
+    "non-conformable"
+  )
+})
+
+test_that("an equation whose extra parameter leads keeps its own row names", {
+  # ee_gformula() holds one parameter more than the design has columns, the same
+  # count as ee_tobit(), but the extra one leads rather than trails. That is why
+  # the appended parameter is written out for each equation rather than inferred
+  # from the count: a fit labeled by count alone would call the causal mean
+  # `(Intercept)` and shift every coefficient's label by one.
+  set.seed(31)
+  n <- 200
+  d <- data.frame(x = stats::rbinom(n, 1, 0.5))
+  d$y <- stats::rbinom(n, 1, stats::plogis(-0.5 + 0.8 * d$x))
+  X1 <- cbind(1, rep(1, n))
+
+  m <- m_estimate(
+    y ~ x,
+    data = d,
+    .ee = ee_gformula,
+    X1 = X1,
+    init = c(0.5, 0, 0)
+  )
+
+  expect_equal(names(coef(m)), c("causal_mean", "X_1", "X_2"))
+})
+
+test_that("a GMM formula fit labels an unnamed init as well", {
+  d <- formula_gamma_data()
+  # The plain residual stacked beneath the two score rows leaves the two
+  # coefficients over-identified, which is the case GMM is for.
+  ee_over <- function(theta, X, y, ...) {
+    r <- as.vector(y - X %*% theta)
+    base::rbind(t(X * r), r)
+  }
+
+  g <- gmm_estimate(y ~ x, data = d, .ee = ee_over, init = c(0, 0))
+
+  expect_equal(names(coef(g)), c("(Intercept)", "x"))
 })
 
 # ee_*() functions and the naming channel --------------------------------------

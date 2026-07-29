@@ -238,6 +238,56 @@ test_that("m_estimate() reports the automatic init length for a gamma fit", {
     "the automatic zero `init` of length 2 (the number of model-matrix columns)",
     fixed = TRUE
   )
+  # The equation is one this package recognizes, so the parameter the automatic
+  # length leaves out is named rather than described.
+  expect_match(
+    flat,
+    "one parameter beyond the design coefficients, \"log_shape\"",
+    fixed = TRUE
+  )
+  expect_match(flat, "Supply an explicit `init` of length 3", fixed = TRUE)
+})
+
+test_that("the automatic-init diagnostic names a wrong-shaped return's parameter", {
+  # ee_tobit() reads its log scale off an element the automatic init does not
+  # reach, which makes every value NA rather than raising, so the return is
+  # judged on its shape. The parameter is named on that path too.
+  set.seed(11)
+  d <- data.frame(x = stats::rnorm(40))
+  d$y <- pmax(1 + 0.5 * d$x + stats::rnorm(40), 0)
+
+  err <- expect_error(
+    m_estimate(y ~ x, data = d, .ee = ee_tobit, lower = 0),
+    class = "deli_formula_auto_init_error"
+  )
+  flat <- flatten_message(err)
+
+  expect_match(
+    flat,
+    "The automatic zero `init` has length 2, the number of model-matrix columns",
+    fixed = TRUE
+  )
+  expect_match(
+    flat,
+    "one parameter beyond the design coefficients, \"log_sigma\"",
+    fixed = TRUE
+  )
+})
+
+test_that("the automatic-init diagnostic stays general for an unrecognized equation", {
+  # Nothing is known about a custom equation's parameter layout, so the hint
+  # describes the common cause instead of naming a parameter.
+  d <- make_line_data()
+  ee_short <- function(theta, X, y, ...) {
+    matrix(as.vector(y - X %*% theta), nrow = 1)
+  }
+
+  err <- expect_error(
+    m_estimate(y ~ x, data = d, .ee = ee_short),
+    class = "deli_formula_auto_init_error"
+  )
+  flat <- flatten_message(err)
+
   expect_match(
     flat,
     "`ee_glm()` with \"gamma\" or \"negative_binomial\" append an extra parameter",
