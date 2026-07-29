@@ -199,6 +199,55 @@ test_that("predict() predicts newdata the fit never saw", {
   )
 })
 
+test_that("predict() reports NA for the newdata rows that carry one", {
+  # `predict_design()` builds the design with `na.action = na.pass` so the
+  # predictions line up with the rows of `newdata` rather than with whichever
+  # of them survived. A missing covariate therefore travels through the
+  # transform and the Jacobian into the row it belongs to, and only into that
+  # row: an interval is reported for the complete patterns either side of it.
+  data <- aft_data()
+  m <- aft_fit("weibull", data)
+  at <- data.frame(
+    x = c(-1, NA, 0.5),
+    g = factor("b", levels = levels(data$g))
+  )
+  times <- c(4, 16)
+  p <- predict(
+    m,
+    newdata = at,
+    times = times,
+    se.fit = TRUE,
+    interval = "confidence"
+  )
+
+  missing_rows <- p$fit$.row == "2"
+  expect_identical(sum(missing_rows), length(times))
+  expect_true(all(is.na(p$fit[missing_rows, c("fit", "lwr", "upr")])))
+  expect_true(all(is.na(p$se.fit[missing_rows])))
+  expect_false(anyNA(p$fit[!missing_rows, c("fit", "lwr", "upr")]))
+  expect_false(anyNA(p$se.fit[!missing_rows]))
+
+  # The complete rows are the predictions they would have got on their own, so
+  # the missing row costs its neighbours nothing.
+  complete <- predict(
+    m,
+    newdata = at[c(1, 3), ],
+    times = times,
+    se.fit = TRUE,
+    interval = "confidence"
+  )
+  expect_equal(
+    unname(as.matrix(p$fit[!missing_rows, c("fit", "lwr", "upr")])),
+    unname(as.matrix(complete$fit[, c("fit", "lwr", "upr")])),
+    tolerance = 1e-14
+  )
+  expect_equal(
+    unname(p$se.fit[!missing_rows]),
+    unname(complete$se.fit),
+    tolerance = 1e-14
+  )
+})
+
 test_that("predict() carries an offset written into the formula", {
   data <- aft_data()
   data$shift <- round(seq(-0.2, 0.2, length.out = nrow(data)), 4)
@@ -662,6 +711,21 @@ test_that("predict() rejects a measure it has no formula for", {
   expect_error(predict(m, times = 5, measure = "odds"), "measure")
   expect_error(
     predict(m, times = 5, measure = c("risk", "survival")),
+    "measure"
+  )
+})
+
+test_that("a pooled logistic fit rejects a measure on the same terms", {
+  # `check_predict_measure()` only asks for a single string; which measures
+  # exist is `convert_survival_measures()`'s to state, and both paths reach it,
+  # the AFT one through `aft_measure_at_time()` and this one through
+  # `plogit_predict()`. The shape check is common to the two surfaces and the
+  # name check is not, so the pooled logistic path is exercised on its own.
+  m <- plogit_fit()
+  err <- expect_error(predict(m, times = 12, measure = "odds"), "measure")
+  expect_match(flatten_message(err), "not supported", fixed = TRUE)
+  expect_error(
+    predict(m, times = 12, measure = c("risk", "survival")),
     "measure"
   )
 })

@@ -170,6 +170,24 @@ test_that("formula_model_spec() records levels for a factor response", {
   expect_identical(unname(m@model_spec$y), as.numeric(data$high == "yes"))
 })
 
+test_that("formula_model_spec() records levels for a character response", {
+  data <- model_spec_data()
+  data$high <- ifelse(data$count > 4, "yes", "no")
+  m <- m_estimate(
+    high ~ x,
+    data = data,
+    .ee = ee_regression,
+    model = "logistic"
+  )
+
+  # `coerce_formula_response()` and `formula_response_levels()` each turn a
+  # character response into a factor before reading it, so the levels reported
+  # are the alphabetical ones the coercion scores against. Their docstrings
+  # assert that coupling and nothing else pins it.
+  expect_identical(m@model_spec$response_levels, c("no", "yes"))
+  expect_identical(unname(m@model_spec$y), as.numeric(data$high == "yes"))
+})
+
 test_that("formula_model_spec() records no levels for a numeric response", {
   m <- model_spec_fit()
   expect_null(m@model_spec$response_levels)

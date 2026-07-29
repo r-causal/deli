@@ -24,6 +24,130 @@ make_fitted_regression <- function() {
   estimate(m)
 }
 
+# Linear regression on mtcars: three parameters, solved reliably from zero
+# starting values by every solver under test. Being linear, it reaches its root
+# in a couple of Newton steps far inside any iteration budget and below any
+# tolerance, so maxiter and tolerance move to the logistic fixture further down.
+mtcars_regression_psi <- function() {
+  X <- stats::model.matrix(mpg ~ wt + hp, data = mtcars)
+  y <- mtcars$mpg
+  function(theta) ee_regression(theta, X = X, y = y, model = "linear")
+}
+
+mtcars_regression_init <- c(`(Intercept)` = 0, wt = 0, hp = 0)
+
+# The arguments the estimator constructors take. Everything else in an argument
+# set belongs to estimate().
+constructor_arg_names <- c(
+  "subset",
+  "finite_correction",
+  "overid_maxiter",
+  "overid_tolerance"
+)
+
+fit_two_step <- function(constructor, psi, init, args) {
+  constructor_args <- args[names(args) %in% constructor_arg_names]
+  estimate_args <- args[!names(args) %in% constructor_arg_names]
+  obj <- do.call(
+    constructor,
+    c(list(stacked_equations = psi, init = init), constructor_args)
+  )
+  do.call(estimate, c(list(obj), estimate_args))
+}
+
+# Everything a fit reports about its parameters. The estimates and the sandwich
+# variance say whether an argument reached the estimator at all; the intervals
+# and the P-values say whether it reached the inference as well, which the
+# variance does not settle on its own. A finite correction both rescales the
+# meat and switches the reference distribution to the t, so a fit that took the
+# rescaling without the switch matches on the first two and not on the last two.
+fit_report <- function(m) {
+  list(
+    coef = coef(m),
+    vcov = vcov(m),
+    confidence_intervals = confidence_intervals(m),
+    p_values = p_values(m)
+  )
+}
+
+same_fit <- function(a, b) {
+  identical(fit_report(a), fit_report(b))
+}
+
+expect_same_fit <- function(one_step, two_step, label) {
+  expect_identical(coef(one_step), coef(two_step), info = label)
+  expect_identical(vcov(one_step), vcov(two_step), info = label)
+  expect_identical(
+    confidence_intervals(one_step),
+    confidence_intervals(two_step),
+    info = label
+  )
+  expect_identical(p_values(one_step), p_values(two_step), info = label)
+}
+
+# One row of an argument grid: the arguments to pass, whether the fit they
+# produce must differ from the fixture's default fit, and the warning they are
+# expected to raise. An exhausted iteration budget is a non-convergence warning
+# by construction, so the only way to observe maxiter is to catch that warning
+# rather than compare bare fits.
+arg_case <- function(args, differs = TRUE, warning = NULL) {
+  list(args = args, differs = differs, warning = warning)
+}
+
+# Forces a fit, requiring the case's declared warning when it declares one.
+# Anything undeclared propagates and fails the run.
+fit_case <- function(fit, warning, label) {
+  if (is.null(warning)) {
+    return(fit)
+  }
+  # expect_warning() hands back the condition rather than the value, so the
+  # fitted object is caught on the side.
+  caught <- NULL
+  expect_warning(caught <- fit, warning, info = label)
+  caught
+}
+
+# Runs every case in a grid through both forms. `one_step` takes an argument
+# list and returns the wrapper fit; `two_step` returns the build-then-estimate
+# fit for the same arguments.
+expect_grid_matches <- function(cases, one_step, two_step, default_fit) {
+  for (label in names(cases)) {
+    case <- cases[[label]]
+    wrapped <- fit_case(one_step(case$args), case$warning, label)
+    manual <- fit_case(two_step(case$args), case$warning, label)
+    expect_same_fit(wrapped, manual, label)
+    if (case$differs) {
+      expect_false(same_fit(wrapped, default_fit), info = label)
+    } else {
+      expect_same_fit(wrapped, default_fit, label)
+    }
+  }
+}
+
+# Leave-one-out over a combined argument set. Dropping any member must change
+# the fit; a member that survives its own removal is one the combined set never
+# exercised, whatever the grid claims to cover.
+expect_every_argument_felt <- function(fit_with, args) {
+  full <- fit_with(args)
+  for (name in names(args)) {
+    expect_false(
+      same_fit(fit_with(args[setdiff(names(args), name)]), full),
+      info = name
+    )
+  }
+}
+
+m_one_step_function <- function(psi, init) {
+  function(args) {
+    do.call(m_estimate, c(list(stacked_equations = psi, init = init), args))
+  }
+}
+
+m_one_step_formula <- function(formula, data, ...) {
+  fixed <- c(list(formula, data = data), list(...))
+  function(args) do.call(m_estimate, c(fixed, args))
+}
+
 # ---- Phase 1: Parameter naming -----------------------------------------------
 
 test_that("named init propagates to theta", {
@@ -233,182 +357,6 @@ test_that("gmm_estimate() default interface works", {
   expect_equal(unname(coef(g)), mean(y), tolerance = 1e-4)
 })
 
-# ---- subset and finite_correction forwarded through the formula interface ----
-#
-# The one-step wrappers create an MEstimator or GMMEstimator and hand the
-# estimator constructor's subset and finite_correction options straight through.
-# subset restricts root-finding to the named parameter indices, freezing the
-# others at their init values (the variance estimator ignores subset).
-# finite_correction rescales the meat matrix and switches confidence intervals
-# and P-values to the t-distribution with df = n_obs - n_params.
-#
-# These tests pin that forwarding: each wrapper fit equals the equivalent
-# manual estimate() fit carrying the same option, and each option changes the
-# result relative to the fit without it. Both are formals of all four wrapper
-# methods, so neither name reaches the estimating equation through `...`.
-
-test_that("m_estimate() forwards finite_correction to t-distribution inference", {
-  X <- model.matrix(mpg ~ wt + hp, data = mtcars)
-  y <- mtcars$mpg
-  psi <- function(theta) ee_regression(theta, X = X, y = y, model = "linear")
-  init <- c(`(Intercept)` = 0, wt = 0, hp = 0)
-
-  m_wrap <- m_estimate(
-    mpg ~ wt + hp,
-    data = mtcars,
-    .ee = ee_regression,
-    model = "linear",
-    finite_correction = "HC1"
-  )
-  m_manual <- estimate(MEstimator(psi, init = init, finite_correction = "HC1"))
-
-  # Wrapper fit equals the manual estimator carrying the same correction.
-  expect_equal(coef(m_wrap), coef(m_manual), tolerance = 1e-6)
-  expect_equal(vcov(m_wrap), vcov(m_manual), tolerance = 1e-6)
-  expect_equal(
-    confidence_intervals(m_wrap),
-    confidence_intervals(m_manual),
-    tolerance = 1e-6
-  )
-  expect_equal(p_values(m_wrap), p_values(m_manual), tolerance = 1e-6)
-
-  # The correction discriminates against the uncorrected (normal) fit: the
-  # HC1 rescaling and heavier t-tails both widen every interval.
-  m_unc <- m_estimate(
-    mpg ~ wt + hp,
-    data = mtcars,
-    .ee = ee_regression,
-    model = "linear"
-  )
-  ci_corr <- confidence_intervals(m_wrap)
-  ci_unc <- confidence_intervals(m_unc)
-  expect_true(all(ci_corr[, "lower"] < ci_unc[, "lower"]))
-  expect_true(all(ci_corr[, "upper"] > ci_unc[, "upper"]))
-  expect_true(all(p_values(m_wrap) > p_values(m_unc)))
-})
-
-test_that("m_estimate() forwards subset to the root-finder", {
-  X <- model.matrix(mpg ~ wt + hp, data = mtcars)
-  y <- mtcars$mpg
-  psi <- function(theta) ee_regression(theta, X = X, y = y, model = "linear")
-  init <- c(`(Intercept)` = 0, wt = 0, hp = 0)
-
-  m_wrap <- m_estimate(
-    mpg ~ wt + hp,
-    data = mtcars,
-    .ee = ee_regression,
-    model = "linear",
-    subset = 1L
-  )
-  m_manual <- estimate(MEstimator(psi, init = init, subset = 1L))
-
-  # Wrapper fit equals the manual estimator solving the same parameter subset.
-  expect_equal(coef(m_wrap), coef(m_manual), tolerance = 1e-6)
-  expect_equal(vcov(m_wrap), vcov(m_manual), tolerance = 1e-6)
-
-  # subset freezes wt and hp at their init values and solves only the
-  # intercept, which becomes the marginal mean of mpg.
-  expect_equal(unname(coef(m_wrap)[c("wt", "hp")]), c(0, 0))
-  expect_equal(
-    unname(coef(m_wrap)[["(Intercept)"]]),
-    mean(mtcars$mpg),
-    tolerance = 1e-4
-  )
-
-  # The subset fit differs materially from the full fit.
-  m_full <- m_estimate(
-    mpg ~ wt + hp,
-    data = mtcars,
-    .ee = ee_regression,
-    model = "linear"
-  )
-  expect_true(
-    abs(
-      coef(m_wrap)[["(Intercept)"]] -
-        coef(m_full)[["(Intercept)"]]
-    ) >
-      10
-  )
-})
-
-test_that("gmm_estimate() forwards finite_correction to t-distribution inference", {
-  X <- model.matrix(mpg ~ wt + hp, data = mtcars)
-  y <- mtcars$mpg
-  psi <- function(theta) ee_regression(theta, X = X, y = y, model = "linear")
-  init <- c(`(Intercept)` = 0, wt = 0, hp = 0)
-
-  g_wrap <- gmm_estimate(
-    mpg ~ wt + hp,
-    data = mtcars,
-    .ee = ee_regression,
-    model = "linear",
-    finite_correction = "HC1"
-  )
-  g_manual <- estimate(GMMEstimator(
-    psi,
-    init = init,
-    finite_correction = "HC1"
-  ))
-
-  expect_equal(coef(g_wrap), coef(g_manual), tolerance = 1e-5)
-  expect_equal(vcov(g_wrap), vcov(g_manual), tolerance = 1e-5)
-  expect_equal(
-    confidence_intervals(g_wrap),
-    confidence_intervals(g_manual),
-    tolerance = 1e-5
-  )
-  expect_equal(p_values(g_wrap), p_values(g_manual), tolerance = 1e-5)
-
-  g_unc <- gmm_estimate(
-    mpg ~ wt + hp,
-    data = mtcars,
-    .ee = ee_regression,
-    model = "linear"
-  )
-  ci_corr <- confidence_intervals(g_wrap)
-  ci_unc <- confidence_intervals(g_unc)
-  expect_true(all(ci_corr[, "lower"] < ci_unc[, "lower"]))
-  expect_true(all(ci_corr[, "upper"] > ci_unc[, "upper"]))
-  expect_true(all(p_values(g_wrap) > p_values(g_unc)))
-})
-
-test_that("gmm_estimate() forwards subset to the minimizer", {
-  X <- model.matrix(mpg ~ wt + hp, data = mtcars)
-  y <- mtcars$mpg
-  psi <- function(theta) ee_regression(theta, X = X, y = y, model = "linear")
-  init <- c(`(Intercept)` = 0, wt = 0, hp = 0)
-
-  g_wrap <- gmm_estimate(
-    mpg ~ wt + hp,
-    data = mtcars,
-    .ee = ee_regression,
-    model = "linear",
-    subset = 1L
-  )
-  g_manual <- estimate(GMMEstimator(psi, init = init, subset = 1L))
-
-  expect_equal(coef(g_wrap), coef(g_manual), tolerance = 1e-5)
-  expect_equal(vcov(g_wrap), vcov(g_manual), tolerance = 1e-5)
-
-  # subset freezes wt and hp at their init values.
-  expect_equal(unname(coef(g_wrap)[c("wt", "hp")]), c(0, 0))
-
-  # The subset fit differs materially from the full fit.
-  g_full <- gmm_estimate(
-    mpg ~ wt + hp,
-    data = mtcars,
-    .ee = ee_regression,
-    model = "linear"
-  )
-  expect_true(
-    abs(
-      coef(g_wrap)[["(Intercept)"]] -
-        coef(g_full)[["(Intercept)"]]
-    ) >
-      10
-  )
-})
-
 # ---- One-step wrappers reproduce the two-step form ---------------------------
 #
 # m_estimate() and gmm_estimate() build an estimator and call estimate() in a
@@ -429,98 +377,6 @@ test_that("gmm_estimate() forwards subset to the minimizer", {
 # their own further down: a nonlinear fit for the M estimator's maxiter and
 # tolerance, a rank-deficient design for allow_pinv, and an over-identified
 # system for the two over-identification controls.
-
-# The arguments the estimator constructors take. Everything else in an argument
-# set belongs to estimate().
-constructor_arg_names <- c(
-  "subset",
-  "finite_correction",
-  "overid_maxiter",
-  "overid_tolerance"
-)
-
-fit_two_step <- function(constructor, psi, init, args) {
-  constructor_args <- args[names(args) %in% constructor_arg_names]
-  estimate_args <- args[!names(args) %in% constructor_arg_names]
-  obj <- do.call(
-    constructor,
-    c(list(stacked_equations = psi, init = init), constructor_args)
-  )
-  do.call(estimate, c(list(obj), estimate_args))
-}
-
-same_fit <- function(a, b) {
-  identical(coef(a), coef(b)) && identical(vcov(a), vcov(b))
-}
-
-expect_same_fit <- function(one_step, two_step, label) {
-  expect_identical(coef(one_step), coef(two_step), info = label)
-  expect_identical(vcov(one_step), vcov(two_step), info = label)
-}
-
-# One row of an argument grid: the arguments to pass, whether the fit they
-# produce must differ from the fixture's default fit, and the warning they are
-# expected to raise. An exhausted iteration budget is a non-convergence warning
-# by construction, so the only way to observe maxiter is to catch that warning
-# rather than compare bare fits.
-arg_case <- function(args, differs = TRUE, warning = NULL) {
-  list(args = args, differs = differs, warning = warning)
-}
-
-# Forces a fit, requiring the case's declared warning when it declares one.
-# Anything undeclared propagates and fails the run.
-fit_case <- function(fit, warning, label) {
-  if (is.null(warning)) {
-    return(fit)
-  }
-  # expect_warning() hands back the condition rather than the value, so the
-  # fitted object is caught on the side.
-  caught <- NULL
-  expect_warning(caught <- fit, warning, info = label)
-  caught
-}
-
-# Runs every case in a grid through both forms. `one_step` takes an argument
-# list and returns the wrapper fit; `two_step` returns the build-then-estimate
-# fit for the same arguments.
-expect_grid_matches <- function(cases, one_step, two_step, default_fit) {
-  for (label in names(cases)) {
-    case <- cases[[label]]
-    wrapped <- fit_case(one_step(case$args), case$warning, label)
-    manual <- fit_case(two_step(case$args), case$warning, label)
-    expect_same_fit(wrapped, manual, label)
-    if (case$differs) {
-      expect_false(same_fit(wrapped, default_fit), info = label)
-    } else {
-      expect_same_fit(wrapped, default_fit, label)
-    }
-  }
-}
-
-# Leave-one-out over a combined argument set. Dropping any member must change
-# the fit; a member that survives its own removal is one the combined set never
-# exercised, whatever the grid claims to cover.
-expect_every_argument_felt <- function(fit_with, args) {
-  full <- fit_with(args)
-  for (name in names(args)) {
-    expect_false(
-      same_fit(fit_with(args[setdiff(names(args), name)]), full),
-      info = name
-    )
-  }
-}
-
-# Linear regression on mtcars: three parameters, solved reliably from zero
-# starting values by every solver under test. Being linear, it reaches its root
-# in a couple of Newton steps far inside any iteration budget and below any
-# tolerance, so maxiter and tolerance move to the logistic fixture below.
-mtcars_regression_psi <- function() {
-  X <- stats::model.matrix(mpg ~ wt + hp, data = mtcars)
-  y <- mtcars$mpg
-  function(theta) ee_regression(theta, X = X, y = y, model = "linear")
-}
-
-mtcars_regression_init <- c(`(Intercept)` = 0, wt = 0, hp = 0)
 
 # Both combined sets below hold deriv_method at a finite-difference method,
 # because "exact" ignores dx and would leave the dx member inert, and neither
@@ -585,17 +441,6 @@ gmm_argument_sets <- list(
     finite_correction = "HC1"
   ))
 )
-
-m_one_step_function <- function(psi, init) {
-  function(args) {
-    do.call(m_estimate, c(list(stacked_equations = psi, init = init), args))
-  }
-}
-
-m_one_step_formula <- function(formula, data, ...) {
-  fixed <- c(list(formula, data = data), list(...))
-  function(args) do.call(m_estimate, c(fixed, args))
-}
 
 test_that("m_estimate() function interface reproduces the two-step fit", {
   psi <- mtcars_regression_psi()
@@ -686,6 +531,91 @@ test_that("the combined GMM argument set exercises every argument it carries", {
   expect_every_argument_felt(
     fit_with,
     gmm_argument_sets[["every argument at once"]]$args
+  )
+})
+
+# ---- What the two constructor options do once they arrive --------------------
+#
+# The grids pin that subset and finite_correction reach the estimator, and that
+# the fit each produces is not the default fit. These two pin what each one does
+# once it gets there, which is what keeps "not the default fit" a claim about
+# the option rather than about arithmetic noise. Both wrappers are covered
+# because the correction and the subset are constructor properties of two
+# different classes.
+
+wrapper_constructors <- list(
+  "m_estimate()" = m_estimate,
+  "gmm_estimate()" = gmm_estimate
+)
+
+mtcars_formula_fit <- function(wrapper) {
+  function(args) {
+    do.call(
+      wrapper,
+      c(
+        list(
+          mpg ~ wt + hp,
+          data = mtcars,
+          .ee = ee_regression,
+          model = "linear"
+        ),
+        args
+      )
+    )
+  }
+}
+
+test_that("finite_correction widens every interval and raises every P-value", {
+  for (label in names(wrapper_constructors)) {
+    fit <- mtcars_formula_fit(wrapper_constructors[[label]])
+    corrected <- fit(list(finite_correction = "HC1"))
+    plain <- fit(list())
+
+    # The HC1 rescaling of the meat and the heavier t-tails both widen the
+    # interval, so the correction moves every bound outwards and every P-value
+    # up rather than trading one against the other.
+    ci_corrected <- confidence_intervals(corrected)
+    ci_plain <- confidence_intervals(plain)
+    expect_true(
+      all(ci_corrected[, "lower"] < ci_plain[, "lower"]),
+      info = label
+    )
+    expect_true(
+      all(ci_corrected[, "upper"] > ci_plain[, "upper"]),
+      info = label
+    )
+    expect_true(all(p_values(corrected) > p_values(plain)), info = label)
+  }
+})
+
+test_that("subset solves the parameters it names and freezes the rest", {
+  for (label in names(wrapper_constructors)) {
+    fit <- mtcars_formula_fit(wrapper_constructors[[label]])
+    restricted <- fit(list(subset = 1L))
+    full <- fit(list())
+
+    # wt and hp keep the zero starting values the formula interface generates.
+    expect_equal(unname(coef(restricted)[c("wt", "hp")]), c(0, 0), info = label)
+    # Which puts the intercept far from the one the full fit reaches, so the
+    # restriction is doing something the data can feel.
+    expect_true(
+      abs(coef(restricted)[["(Intercept)"]] - coef(full)[["(Intercept)"]]) > 10,
+      info = label
+    )
+  }
+})
+
+test_that("subset leaves m_estimate() solving the marginal mean of mpg", {
+  # With both slopes held at zero, the intercept equation on its own is the
+  # equation for the marginal mean. Only the M estimator reaches it: GMM
+  # minimizes a quadratic form in all three moment conditions rather than
+  # solving the first alone, so the two slope equations still pull on the one
+  # parameter it is free to move.
+  fit <- mtcars_formula_fit(m_estimate)
+  expect_equal(
+    unname(coef(fit(list(subset = 1L)))[["(Intercept)"]]),
+    mean(mtcars$mpg),
+    tolerance = 1e-4
   )
 })
 

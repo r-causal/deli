@@ -1,0 +1,13 @@
+# Pins the formatter so the `air format .` gate is reproducible across air
+# versions. Every value here is air 0.10's default, which is what the committed
+# sources are already formatted to; writing them down means a later release that
+# changes a default reformats nothing.
+[format]
+line-width = 80
+indent-width = 2
+indent-style = "space"
+line-ending = "auto"
+persistent-line-breaks = true
+assignment-style = "arrow"
+default-exclude = true
+default-table = true

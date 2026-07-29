@@ -332,6 +332,7 @@ test_that("ee_ridge_regression matches Python Delicatessen", {
 })
 
 test_that("ee_robust_regression (Huber) matches Python Delicatessen", {
+  skip_if_not_installed("minpack.lm")
   ref <- load_fixture("ee_robust_regression_huber")
   X <- ref$X
   y <- ref$y

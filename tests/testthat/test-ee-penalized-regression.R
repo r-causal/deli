@@ -63,6 +63,9 @@ test_that("ee_lasso_regression returns correct shape", {
   expect_true(is.matrix(result))
   expect_equal(nrow(result), ncol(X))
   expect_equal(ncol(result), nrow(X))
+  # A matrix of the right shape carrying NaN or Inf solves nothing, and the
+  # shape assertions above cannot tell the two apart.
+  expect_true(all(is.finite(result)))
 })
 
 test_that("ee_lasso_regression solves via MEstimator", {
@@ -121,6 +124,8 @@ test_that("ee_dlasso_regression returns correct shape", {
   )
   expect_true(is.matrix(result))
   expect_equal(nrow(result), ncol(X))
+  expect_equal(ncol(result), nrow(X))
+  expect_true(all(is.finite(result)))
 })
 
 test_that("ee_dlasso_regression solves via MEstimator", {
@@ -154,6 +159,8 @@ test_that("ee_elasticnet_regression returns correct shape", {
   )
   expect_true(is.matrix(result))
   expect_equal(nrow(result), ncol(X))
+  expect_equal(ncol(result), nrow(X))
+  expect_true(all(is.finite(result)))
 })
 
 test_that("ee_elasticnet_regression with ratio=0 matches ridge", {

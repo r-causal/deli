@@ -441,6 +441,7 @@ test_that("ee_rogan_gladen_extended scales the nuisance rows by weights", {
 })
 
 test_that("ee_rogan_gladen_extended fits and matches Python with weights", {
+  skip_if_not_installed("minpack.lm")
   ref <- load_fixture("ee_rogan_gladen_extended_weighted")
   y <- ref$y
   y_star <- ref$y_star

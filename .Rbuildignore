@@ -12,3 +12,4 @@
 ^scratch$
 ^\.git$
 ^\.venv$
+^air\.toml$

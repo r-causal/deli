@@ -4,6 +4,7 @@
 # X, y, model, k (tuning parameter), and loss arguments.
 
 test_that("ee_robust_regression Huber loss matches Python Delicatessen", {
+  skip_if_not_installed("minpack.lm")
   ref <- load_fixture("ee_robust_regression_huber")
 
   X <- ref$X
@@ -37,6 +38,7 @@ test_that("ee_robust_regression Huber loss matches Python Delicatessen", {
 })
 
 test_that("ee_robust_regression Huber loss pipeline results match full fixture", {
+  skip_if_not_installed("minpack.lm")
   ref <- load_fixture("ee_robust_regression_huber")
 
   X <- ref$X
@@ -77,6 +79,7 @@ test_that("ee_robust_regression Huber loss pipeline results match full fixture",
 })
 
 test_that("ee_robust_regression Huber defaults to 'huber' loss", {
+  skip_if_not_installed("minpack.lm")
   ref <- load_fixture("ee_robust_regression_huber")
 
   X <- ref$X

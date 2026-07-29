@@ -50,6 +50,17 @@ declared_dependencies <- function() {
   declared[nzchar(declared) & declared != "R"]
 }
 
+# The same two environments, and the same reason for two branches, as
+# `deli_rd_db()` above. `_pkgdown.yml` is `.Rbuildignore`d, so it reaches
+# neither the tarball nor the installed package: under `devtools::test()` it
+# sits two directories above the test files in the source tree, and under
+# R CMD check there is no copy of it anywhere. `NULL` says which of the two
+# this is, and the test that reads it skips rather than failing on the second.
+deli_pkgdown_config <- function() {
+  path <- test_path("..", "..", "_pkgdown.yml")
+  if (file.exists(path)) path else NULL
+}
+
 # Rd cross-references ------------------------------------------------------
 
 test_that("every cross-package Rd link names a declared dependency", {
@@ -67,4 +78,32 @@ test_that("every cross-package Rd link names a declared dependency", {
     rownames(installed.packages(priority = "base"))
   )
   expect_equal(setdiff(linked, allowed), character())
+})
+
+# The pkgdown reference index ----------------------------------------------
+#
+# A topic listed twice in `_pkgdown.yml` renders twice in the reference index,
+# under both groups, which says the same function belongs to two families.
+# `pkgdown::check_pkgdown()` does not report it: with a duplicate injected it
+# still prints "No problems found", because it checks that every topic is
+# listed and that every listed topic exists, not how many times each appears.
+# A duplicate `gmm_estimate` entry survived on that basis, so the assertion
+# lives here.
+
+test_that("no topic is listed twice in the pkgdown reference index", {
+  skip_on_cran()
+  skip_if_not_installed("yaml")
+  config <- deli_pkgdown_config()
+  skip_if(is.null(config), "_pkgdown.yml is not in the built package")
+
+  reference <- yaml::read_yaml(config)$reference
+  topics <- unlist(
+    lapply(reference, function(group) group$contents),
+    use.names = FALSE
+  )
+  # Fails if the groups stop yielding topics at all, which would leave the
+  # assertion below trivially true.
+  expect_gt(length(topics), 0)
+
+  expect_equal(unique(topics[duplicated(topics)]), character())
 })

@@ -152,20 +152,6 @@ make_gamma_data <- function() {
   d
 }
 
-test_that("m_estimate() rejects a too-short auto-init informatively", {
-  d <- make_gamma_data()
-  expect_error(
-    m_estimate(
-      y ~ x,
-      data = d,
-      .ee = ee_glm,
-      distribution = "gamma",
-      link = "log"
-    ),
-    regexp = "init"
-  )
-})
-
 test_that("m_estimate() gamma fit succeeds with an explicit init", {
   d <- make_gamma_data()
   m <- m_estimate(

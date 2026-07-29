@@ -438,6 +438,48 @@ test_that("predict_link_name() declines every equation it does not support", {
   expect_null(predict_link_name(ee_regression, list(model = "probit")))
 })
 
+test_that("the linear-predictor surface declines a multinomial fit", {
+  # An indicator-matrix response might suggest the formula interface cannot
+  # drive `ee_mlogit()`. `coerce_formula_response()` branches only on character
+  # and factor, so a matrix falls through and the fit succeeds, which is what
+  # makes the refusal below a refusal of a real fit rather than of nothing.
+  set.seed(414)
+  n <- 120L
+  d <- data.frame(x = round(stats::rnorm(n), 3))
+  category <- sample(3L, n, replace = TRUE)
+  d$y1 <- as.numeric(category == 1L)
+  d$y2 <- as.numeric(category == 2L)
+  d$y3 <- as.numeric(category == 3L)
+
+  m <- m_estimate(
+    cbind(y1, y2, y3) ~ x,
+    data = d,
+    .ee = ee_mlogit,
+    init = rep(0, 4)
+  )
+  expect_identical(dim(m@model_spec$y), c(n, 3L))
+
+  # A multinomial model has one linear predictor per category rather than one
+  # per observation, so every function that reaches the supported-equation
+  # table declines, and each names itself rather than whichever of them the
+  # shared helper happens to be called from.
+  callers <- list(
+    "predict" = function(m) predict(m),
+    "fitted" = function(m) fitted(m),
+    "residuals" = function(m) residuals(m),
+    "augment" = function(m) generics::augment(m)
+  )
+  for (fn in names(callers)) {
+    err <- expect_error(callers[[fn]](m), "estimating equation", info = fn)
+    expect_match(
+      flatten_message(err),
+      paste0("`", fn, "()` does not support"),
+      fixed = TRUE,
+      info = fn
+    )
+  }
+})
+
 test_that("predict() predicts from a penalized regression fit", {
   data <- predict_data()
   m <- m_estimate(

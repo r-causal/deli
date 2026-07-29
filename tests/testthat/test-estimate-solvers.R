@@ -178,16 +178,19 @@ fit_logistic <- function(fixture, solver) {
 param_se <- function(m) sqrt(diag(m@variance))
 
 test_that("lm solver matches Python solver='lm' for linear regression", {
+  skip_if_not_installed("minpack.lm")
   m <- fit_linear("ee_solver_lm_linear", solver = "lm")
   expect_python_match(m, "ee_solver_lm_linear")
 })
 
 test_that("lm solver matches Python solver='lm' for logistic regression", {
+  skip_if_not_installed("minpack.lm")
   m <- fit_logistic("ee_solver_lm_logistic", solver = "lm")
   expect_python_match(m, "ee_solver_lm_logistic")
 })
 
 test_that("lm solver agrees with rootSolve on the linear problem", {
+  skip_if_not_installed("minpack.lm")
   m_lm <- fit_linear("ee_solver_lm_linear", solver = "lm")
   m_rs <- fit_linear("ee_solver_lm_linear", solver = "rootSolve")
 
@@ -196,6 +199,7 @@ test_that("lm solver agrees with rootSolve on the linear problem", {
 })
 
 test_that("lm solver agrees with rootSolve on the logistic problem", {
+  skip_if_not_installed("minpack.lm")
   m_lm <- fit_logistic("ee_solver_lm_logistic", solver = "lm")
   m_rs <- fit_logistic("ee_solver_lm_logistic", solver = "rootSolve")
 

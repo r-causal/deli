@@ -31,7 +31,8 @@ Suggests:
     quarto,
     readxl,
     rmarkdown,
-    testthat (>= 3.0.0)
+    testthat (>= 3.0.0),
+    yaml
 VignetteBuilder: 
     knitr
 Config/Needs/website: ggplot2, quarto, reticulate
