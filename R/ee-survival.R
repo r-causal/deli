@@ -258,9 +258,16 @@ ee_survival_model <- function(theta, time, event, distribution) {
 #' @param event Numeric vector of n event indicators (1 = event, 0 = censored).
 #' @param S Optional time design matrix with K rows (one per time step) and
 #'   p_s columns. Default `NULL` uses disjoint indicators for unique event
-#'   times.
-#' @param unique_times Optional numeric vector of unique event times. Only
-#'   used when `S = NULL`. Default `NULL`.
+#'   times. When supplied, time is modeled over the unit-time intervals from one
+#'   to the maximum observed time, so K has to be the number of those intervals.
+#' @param unique_times Optional numeric vector of unique event times. Default
+#'   `NULL`. When `S = NULL` it names the time steps the disjoint indicators are
+#'   built for. When `S` is supplied the grid is the unit-time intervals up to
+#'   the maximum observed time, and that grid is also the binning of the
+#'   person-periods the equation is solved on, so `unique_times` may only agree
+#'   with it: a value equal to it is accepted and changes nothing, and any other
+#'   value is an error rather than the silently ignored argument Python
+#'   Delicatessen documents. [plogit_predict()] validates it the same way.
 #' @param weights Optional numeric vector of n weights, or an n-by-K matrix of
 #'   time-varying weights with one column per time interval (K must equal the
 #'   number of unit-time intervals). Default `NULL`.
@@ -330,18 +337,10 @@ ee_plogit <- function(
   } else {
     S <- coerce_design(S)
     time_design_matrix <- S
-    unique_times <- seq_len(max(time)) # 1:max(time)
+    # The grid is the equation's to build, and `nrow(S)` and `unique_times` may
+    # only agree with it; see `plogit_unit_time_grid()`.
+    unique_times <- plogit_unit_time_grid(time, unique_times, nrow(S))
     n_time_steps <- length(unique_times)
-    if (n_time_steps != nrow(time_design_matrix)) {
-      cli::cli_abort(
-        c(
-          "Dimension mismatch between time intervals and {.arg S}.",
-          "x" = "Found {n_time_steps} unit-time intervals but {.arg S} has
-                 {nrow(time_design_matrix)} rows.",
-          "i" = "These values must match."
-        )
-      )
-    }
   }
 
   # Log-odds contributions for covariates and time

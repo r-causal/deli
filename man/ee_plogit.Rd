@@ -28,10 +28,17 @@ when \code{S = NULL}, \code{p_s} is \code{K}, the number of unique event times.}
 
 \item{S}{Optional time design matrix with K rows (one per time step) and
 p_s columns. Default \code{NULL} uses disjoint indicators for unique event
-times.}
+times. When supplied, time is modeled over the unit-time intervals from one
+to the maximum observed time, so K has to be the number of those intervals.}
 
-\item{unique_times}{Optional numeric vector of unique event times. Only
-used when \code{S = NULL}. Default \code{NULL}.}
+\item{unique_times}{Optional numeric vector of unique event times. Default
+\code{NULL}. When \code{S = NULL} it names the time steps the disjoint indicators are
+built for. When \code{S} is supplied the grid is the unit-time intervals up to
+the maximum observed time, and that grid is also the binning of the
+person-periods the equation is solved on, so \code{unique_times} may only agree
+with it: a value equal to it is accepted and changes nothing, and any other
+value is an error rather than the silently ignored argument Python
+Delicatessen documents. \code{\link[=plogit_predict]{plogit_predict()}} validates it the same way.}
 
 \item{weights}{Optional numeric vector of n weights, or an n-by-K matrix of
 time-varying weights with one column per time interval (K must equal the

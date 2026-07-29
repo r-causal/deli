@@ -1362,6 +1362,263 @@ test_that("plogit_predict density equals hazard * survival", {
   expect_equal(dens, haz * surv)
 })
 
+# ---- plogit_predict() and a supplied time design matrix ----------------------
+#
+# A supplied `S` models time parametrically over the unit-time intervals from one
+# to the maximum observed time. That grid is the function's to build, and the two
+# arguments that describe it have to agree with it rather than replace it:
+# `nrow(S)` is how many steps it has, and `unique_times`, when supplied, names
+# them.
+#
+# Neither is honored in place of the built grid. `unique_times` is not, because
+# the grid also bins the person-periods `ee_plogit()` solves on, so a predictor
+# that accepted a different one would answer on a grid the coefficients were
+# never fitted to. A grid `ee_plogit()` would reject is therefore not a grid
+# predictions come back from, and both surfaces validate the same way: a
+# `unique_times` equal to the built grid is accepted and changes nothing, and one
+# that differs from it is an error rather than a silent substitution.
+#
+# `nrow(S)` is not honored either, and getting it wrong is the quieter fault. The
+# K-vector of time contributions is added to the K-by-n matrix of covariate
+# contributions, and R recycles it down the whole matrix in column-major order.
+# Nothing is raised unless the two lengths fail to divide, and K times n is a
+# generous multiple, so the usual outcome is a well-formed matrix of the wrong
+# numbers. Two shapes of wrongness follow, and both appear below:
+#
+#   * When the rows of `S` do not divide K, the recycling phase advances from
+#     one column to the next, so two people with identical covariate values come
+#     back with different predicted curves.
+#   * When they do divide it, every column recycles in the same phase, so the
+#     first rows agree with the grid `S` describes and the rows past it are time
+#     steps `S` never described at all.
+#
+# `ee_plogit()` already refuses a mismatched `nrow(S)`. These are the same check
+# on the prediction side, worded the same way.
+
+# Eight unit-time intervals, an intercept-and-linear-time `S`, and one binary
+# covariate. The first two people share a covariate value, so any disagreement
+# between their predicted curves comes from the time grid and nothing else.
+plogit_s_fixture <- function() {
+  set.seed(606)
+  n <- 60
+  x <- rbinom(n, 1, 0.5)
+  max_time <- 8
+  time <- rep(NA_real_, n)
+  event <- rep(0, n)
+  for (i in seq_len(n)) {
+    for (k in seq_len(max_time)) {
+      if (runif(1) < inverse_logit(-4 + 0.3 * x[i] + 0.1 * k)) {
+        time[i] <- k
+        event[i] <- 1
+        break
+      }
+    }
+    if (is.na(time[i])) {
+      time[i] <- max_time
+      event[i] <- 0
+    }
+  }
+
+  X <- cbind(x)
+  S <- cbind(1, seq_len(max_time))
+  psi <- function(theta) {
+    ee_plogit(theta, X = X, time = time, event = event, S = S)
+  }
+  m <- estimate(
+    MEstimator(stacked_equations = psi, init = c(0, -4, 0.1)),
+    solver = "nleqslv"
+  )
+
+  list(theta = coef(m), time = time, event = event, X = X, S = S)
+}
+
+# The survival matrix that a time design matrix and a covariate design matrix
+# imply, written straight from the definition: the hazard at each of the rows of
+# `S` for each of the people, then the running product of its complement. This
+# is the grid the predictions are checked against, computed without going
+# through the function under test.
+plogit_survival_reference <- function(theta, X, S) {
+  beta_x <- theta[seq_len(ncol(X))]
+  beta_s <- theta[(ncol(X) + 1):length(theta)]
+  hazard <- inverse_logit(outer(
+    as.numeric(S %*% beta_s),
+    as.numeric(X %*% beta_x),
+    `+`
+  ))
+  apply(1 - hazard, 2, cumprod)
+}
+
+test_that("plogit_predict() aborts on an S with too few rows for the grid", {
+  f <- plogit_s_fixture()
+
+  # Three rows against the eight unit-time intervals the fit spans. Three does
+  # not divide eight, so the recycling advances a phase per column and people
+  # who share a covariate value stop sharing a curve.
+  S_short <- cbind(1, c(1, 2, 3))
+
+  expect_error(
+    plogit_predict(
+      f$theta,
+      time = f$time,
+      event = f$event,
+      X = f$X,
+      S = S_short
+    ),
+    "Dimension mismatch"
+  )
+})
+
+test_that("plogit_predict() aborts on an S whose rows divide the grid", {
+  f <- plogit_s_fixture()
+
+  # Four rows against eight intervals. Four divides eight, so every column
+  # recycles in the same phase and the result is a well-formed eight-row matrix
+  # whose last four rows are time steps `S` never described.
+  S_half <- cbind(1, c(1, 2, 3, 4))
+
+  expect_error(
+    plogit_predict(
+      f$theta,
+      time = f$time,
+      event = f$event,
+      X = f$X,
+      S = S_half
+    ),
+    "Dimension mismatch"
+  )
+})
+
+test_that("plogit_predict() aborts on a unique_times that is not the grid", {
+  f <- plogit_s_fixture()
+
+  # Every other unit time. This names four steps where the grid under `S` has
+  # eight, so it describes a coarser grid than the one the coefficients were
+  # fitted to.
+  expect_error(
+    plogit_predict(
+      f$theta,
+      time = f$time,
+      event = f$event,
+      X = f$X,
+      S = f$S,
+      unique_times = c(2, 4, 6, 8)
+    ),
+    "unique_times"
+  )
+
+  # The right number of steps at the wrong times. The length agreeing with
+  # `nrow(S)` is not enough, because it is the times themselves that the
+  # person-periods were binned on.
+  expect_error(
+    plogit_predict(
+      f$theta,
+      time = f$time,
+      event = f$event,
+      X = f$X,
+      S = f$S,
+      unique_times = 2:9
+    ),
+    "unique_times"
+  )
+})
+
+test_that("plogit_predict() accepts a unique_times equal to the grid", {
+  f <- plogit_s_fixture()
+
+  # Naming the grid the function would have built is agreement, not a request,
+  # so it is accepted and the predictions are the ones that come back without
+  # it, to the last bit.
+  omitted <- plogit_predict(
+    f$theta,
+    time = f$time,
+    event = f$event,
+    X = f$X,
+    S = f$S
+  )
+  supplied <- plogit_predict(
+    f$theta,
+    time = f$time,
+    event = f$event,
+    X = f$X,
+    S = f$S,
+    unique_times = seq_len(max(f$time))
+  )
+
+  expect_identical(supplied, omitted)
+})
+
+test_that("plogit_predict() keeps the default grid when S spans it", {
+  f <- plogit_s_fixture()
+
+  result <- plogit_predict(
+    f$theta,
+    time = f$time,
+    event = f$event,
+    X = f$X,
+    S = f$S
+  )
+
+  expect_identical(dim(result), c(nrow(f$S), nrow(f$X)))
+  expect_equal(result, plogit_survival_reference(f$theta, f$X, f$S))
+
+  # Two people with the same covariate value have the same predicted curve,
+  # which is what a recycled time grid takes away.
+  same <- which(f$X[, 1] == f$X[1, 1])[1:2]
+  expect_equal(result[, same[1]], result[, same[2]])
+})
+
+test_that("plogit_predict() truncates a fractional maximum time", {
+  f <- plogit_s_fixture()
+
+  # The default grid under `S` is the unit-time intervals from one to the
+  # maximum observed time. A maximum falling between two whole times names no
+  # further whole interval, so the grid stops at the last one, which is the grid
+  # ee_plogit() solved the coefficients on.
+  time_fractional <- f$time
+  time_fractional[which.max(time_fractional)] <- 8.5
+
+  result <- plogit_predict(
+    f$theta,
+    time = time_fractional,
+    event = f$event,
+    X = f$X,
+    S = f$S
+  )
+
+  expect_identical(dim(result), c(nrow(f$S), nrow(f$X)))
+  expect_equal(
+    result,
+    plogit_predict(
+      f$theta,
+      time = f$time,
+      event = f$event,
+      X = f$X,
+      S = f$S
+    )
+  )
+})
+
+test_that("plogit_predict() aborts on an S sized past a truncated maximum", {
+  f <- plogit_s_fixture()
+  time_fractional <- f$time
+  time_fractional[which.max(time_fractional)] <- 8.5
+
+  # Nine rows for a maximum of 8.5, which spans eight whole intervals. The
+  # ninth row describes a step the grid does not reach.
+  S_long <- cbind(1, seq_len(9))
+
+  expect_error(
+    plogit_predict(
+      f$theta,
+      time = time_fractional,
+      event = f$event,
+      X = f$X,
+      S = S_long
+    ),
+    "Dimension mismatch"
+  )
+})
+
 # ---- consistent time/event argument names -----------------------------------
 #
 # See the header in test-ee-survival.R for the full naming contract. These

@@ -26,8 +26,8 @@ as in \code{ee_plogit}).}
 
 \item{X}{Numeric n-by-b design matrix for covariates.}
 
-\item{S}{Optional time design matrix. Default \code{NULL} uses disjoint
-indicators.}
+\item{S}{Optional time design matrix, with one row per unit-time interval up
+to the maximum observed time. Default \code{NULL} uses disjoint indicators.}
 
 \item{times_to_predict}{Optional numeric vector of specific times to
 predict at. Default \code{NULL} returns all time steps.}
@@ -36,7 +36,8 @@ predict at. Default \code{NULL} returns all time steps.}
 \code{"hazard"}, or \code{"cumulative_hazard"}. Default \code{"survival"}.}
 
 \item{unique_times}{Optional numeric vector of unique event times.
-Default \code{NULL}.}
+Default \code{NULL}. When \code{S} is supplied it may only agree with the time grid
+the function builds; see the section on a supplied time design matrix.}
 }
 \value{
 A K-by-n matrix (or selected subset of rows if
@@ -47,6 +48,28 @@ Computes predicted survival analysis measures from a pooled logistic
 regression model at specified time points. Meant to be used after
 fitting \code{\link[=ee_plogit]{ee_plogit()}} with \code{\link[=MEstimator]{MEstimator()}}.
 }
+\section{A supplied time design matrix}{
+
+A supplied \code{S} models time parametrically over the unit-time intervals from
+one to the maximum observed time, one row of \code{S} per interval. That grid is
+the function's to build, and the two arguments that describe it have to agree
+with it rather than replace it: \code{nrow(S)} counts its steps and \code{unique_times},
+when supplied, names them. A mismatch in either is an error.
+
+Neither can be honored in place of the built grid, because the grid is also
+the binning of the person-periods \code{\link[=ee_plogit]{ee_plogit()}} solves on, so predictions on
+any other grid would come from coefficients that were never fitted to it. A
+maximum observed time falling between two whole times names no further whole
+interval, so the grid stops at the last whole one and an \code{S} sized past it is
+an error as well. \code{\link[=ee_plogit]{ee_plogit()}} validates both arguments the same way, so a
+grid the equation refuses is not one predictions come back from.
+
+This is a deliberate divergence from Python Delicatessen, which documents
+\code{unique_times} as ignored when a time design matrix is supplied. An ignored
+argument leaves a caller believing the grid was theirs to choose, so deli
+validates it instead.
+}
+
 \examples{
 # Bladder tumor recurrence, fit with disjoint indicators for time
 d <- collett_bladder

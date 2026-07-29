@@ -444,6 +444,126 @@ test_that("ee_plogit errors on S dimension mismatch", {
   )
 })
 
+# ---- ee_plogit time grid under a supplied S ----------------------------------
+#
+# A supplied `S` models time parametrically over the unit-time intervals from one
+# to the maximum observed time. Those intervals are what the person-periods are
+# binned on, so the grid is the function's to build and `unique_times` cannot
+# stand in for a different one: a fit on a grid of the caller's choosing would be
+# a different model, and a numerical divergence from the reference
+# implementation. What `unique_times` may do is agree, which is worth accepting
+# because the same value is passed to `plogit_predict()` alongside the same `S`.
+#
+# `plogit_predict()` validates this the same way and with the same wording; see
+# the matching section in test-predictions.R.
+
+# One binary covariate over five unit-time intervals, with an
+# intercept-and-linear-time `S`. `theta` has ncol(X) + ncol(S) entries.
+plogit_grid_data <- function() {
+  set.seed(918)
+  n <- 40
+  X <- cbind(rbinom(n, 1, 0.5))
+  y <- sample(1:5, n, replace = TRUE)
+  delta <- rbinom(n, 1, 0.6)
+  list(
+    X = X,
+    time = y,
+    event = delta,
+    S = cbind(1, seq_len(max(y))),
+    theta = c(0.2, -3, 0.1)
+  )
+}
+
+test_that("ee_plogit aborts on a unique_times that is not the time grid", {
+  d <- plogit_grid_data()
+
+  # Three steps where the grid has five, so it describes a coarser binning of
+  # the person-periods than the one the equation builds.
+  expect_error(
+    ee_plogit(
+      d$theta,
+      X = d$X,
+      time = d$time,
+      event = d$event,
+      S = d$S,
+      unique_times = c(1, 3, 5)
+    ),
+    "unique_times"
+  )
+
+  # The right number of steps at the wrong times. Agreeing on the count is not
+  # agreeing on the grid.
+  expect_error(
+    ee_plogit(
+      d$theta,
+      X = d$X,
+      time = d$time,
+      event = d$event,
+      S = d$S,
+      unique_times = 2:6
+    ),
+    "unique_times"
+  )
+})
+
+test_that("ee_plogit accepts a unique_times equal to the time grid", {
+  d <- plogit_grid_data()
+
+  # Naming the grid the equation would have built is agreement, not a request,
+  # so the estimating function is the one that comes back without it, to the
+  # last bit.
+  omitted <- ee_plogit(
+    d$theta,
+    X = d$X,
+    time = d$time,
+    event = d$event,
+    S = d$S
+  )
+  supplied <- ee_plogit(
+    d$theta,
+    X = d$X,
+    time = d$time,
+    event = d$event,
+    S = d$S,
+    unique_times = seq_len(max(d$time))
+  )
+
+  expect_identical(supplied, omitted)
+})
+
+test_that("ee_plogit truncates a fractional maximum time to whole intervals", {
+  d <- plogit_grid_data()
+
+  # A maximum observed time falling between two whole times names no further
+  # whole interval, so the grid stops at the last one and an `S` spanning those
+  # five intervals is the conformable one.
+  time_fractional <- d$time
+  time_fractional[which.max(time_fractional)] <- 5.5
+
+  result <- ee_plogit(
+    d$theta,
+    X = d$X,
+    time = time_fractional,
+    event = d$event,
+    S = d$S
+  )
+  expect_equal(nrow(result), ncol(d$X) + ncol(d$S))
+  expect_equal(ncol(result), nrow(d$X))
+
+  # An `S` sized to the maximum rounded up describes a step the truncated grid
+  # does not reach, and the conformability check says so.
+  expect_error(
+    ee_plogit(
+      d$theta,
+      X = d$X,
+      time = time_fractional,
+      event = d$event,
+      S = cbind(1, seq_len(6))
+    ),
+    "mismatch"
+  )
+})
+
 # ---- ee_plogit weights test ----
 
 test_that("ee_plogit supports weights", {

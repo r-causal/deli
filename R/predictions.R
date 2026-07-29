@@ -507,17 +507,38 @@ aft_predictions_function <- function(
 #' @param event Numeric vector of n event indicators (same as in
 #'   `ee_plogit`).
 #' @param X Numeric n-by-b design matrix for covariates.
-#' @param S Optional time design matrix. Default `NULL` uses disjoint
-#'   indicators.
+#' @param S Optional time design matrix, with one row per unit-time interval up
+#'   to the maximum observed time. Default `NULL` uses disjoint indicators.
 #' @param times_to_predict Optional numeric vector of specific times to
 #'   predict at. Default `NULL` returns all time steps.
 #' @param measure Character string: `"survival"`, `"risk"`, `"density"`,
 #'   `"hazard"`, or `"cumulative_hazard"`. Default `"survival"`.
 #' @param unique_times Optional numeric vector of unique event times.
-#'   Default `NULL`.
+#'   Default `NULL`. When `S` is supplied it may only agree with the time grid
+#'   the function builds; see the section on a supplied time design matrix.
 #'
 #' @returns A K-by-n matrix (or selected subset of rows if
 #'   `times_to_predict` is specified).
+#'
+#' @section A supplied time design matrix:
+#' A supplied `S` models time parametrically over the unit-time intervals from
+#' one to the maximum observed time, one row of `S` per interval. That grid is
+#' the function's to build, and the two arguments that describe it have to agree
+#' with it rather than replace it: `nrow(S)` counts its steps and `unique_times`,
+#' when supplied, names them. A mismatch in either is an error.
+#'
+#' Neither can be honored in place of the built grid, because the grid is also
+#' the binning of the person-periods [ee_plogit()] solves on, so predictions on
+#' any other grid would come from coefficients that were never fitted to it. A
+#' maximum observed time falling between two whole times names no further whole
+#' interval, so the grid stops at the last whole one and an `S` sized past it is
+#' an error as well. [ee_plogit()] validates both arguments the same way, so a
+#' grid the equation refuses is not one predictions come back from.
+#'
+#' This is a deliberate divergence from Python Delicatessen, which documents
+#' `unique_times` as ignored when a time design matrix is supplied. An ignored
+#' argument leaves a caller believing the grid was theirs to choose, so deli
+#' validates it instead.
 #'
 #' @examples
 #' # Bladder tumor recurrence, fit with disjoint indicators for time
@@ -578,7 +599,12 @@ plogit_predict <- function(
   } else {
     S <- as.matrix(S)
     time_design_matrix <- S
-    unique_times <- seq_len(max(time))
+    # The grid is the function's to build, and `nrow(S)` and `unique_times` may
+    # only agree with it; see `plogit_unit_time_grid()`. Without the row check a
+    # non-conforming `S` is recycled down the K-by-n matrix of covariate
+    # contributions, which base R raises nothing about whenever the two lengths
+    # divide, so the result would be a well-formed matrix of the wrong numbers.
+    unique_times <- plogit_unit_time_grid(time, unique_times, nrow(S))
     n_time_steps <- length(unique_times)
   }
 
