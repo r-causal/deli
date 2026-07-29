@@ -1152,7 +1152,31 @@ solve_equations <- function(func, init, method, maxiter, tolerance) {
     # function values for the caller to judge rather than as failures, so codes
     # 1 to 3 all leave the point to be judged. Every other code is a failure of
     # the algorithm itself and is reported as one.
-    if (!result$termcd %in% 1:3) {
+    #
+    # Code 5 is a failure of the algorithm that says nothing against the point
+    # it stopped at. nleqslv reports it where the Jacobian is too
+    # ill-conditioned for it to take another step, and a stack whose blocks
+    # differ by orders of magnitude reaches that state at the exact solution,
+    # returning the values it started from to the last digit. What an
+    # ill-conditioned Jacobian does put in doubt is the bread built there, and
+    # so the variance, so that is what the report is about. It is still a
+    # failure the solver has stated, so the returned point is not judged again
+    # on top of it and the solve reports itself once.
+    if (result$termcd == 5) {
+      cli::cli_warn(
+        c(
+          "!" = "nleqslv reports an ill-conditioned Jacobian at the returned
+                 values (code {result$termcd}).",
+          "i" = "{result$message}",
+          "i" = "The returned values may still solve the estimating equations;
+                 it is the variance that an ill-conditioned Jacobian puts in
+                 doubt. Consider rescaling the parameters or the estimating
+                 functions."
+        ),
+        class = "deli_solver_not_converged"
+      )
+      solved$warned <- TRUE
+    } else if (!result$termcd %in% 1:3) {
       cli::cli_warn(
         c(
           "!" = "nleqslv did not converge (code {result$termcd}).",
