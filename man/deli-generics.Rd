@@ -13,7 +13,31 @@ all parameters are considered.}
 
 \item{level}{The confidence level required. Default \code{0.95}.}
 
-\item{...}{Additional arguments (currently unused).}
+\item{type}{Character string naming the residual \code{residuals()} returns. Only
+\code{"response"} is available, since it is the one residual defined for every
+estimating equation \code{predict()} supports. Any other value is an error
+rather than a response residual under another name.}
+
+\item{x}{A fitted \code{MEstimator} or \code{GMMEstimator} object. Named \code{x} because
+\code{\link[stats:formula]{stats::formula()}} and \code{\link[stats:terms]{stats::terms()}} name their first argument that.}
+
+\item{formula}{A fitted \code{MEstimator} or \code{GMMEstimator} object. Named
+\code{formula} because \code{\link[stats:model.frame]{stats::model.frame()}} names its first argument that;
+the method takes a fit, not a formula.}
+
+\item{data}{A data frame to build the model frame of, or \code{NULL} (default) to
+report the frame the fit was solved on. It has to carry the response as
+well as the predictors.}
+
+\item{subset, na.action, drop.unused.levels, xlev}{Passed to
+\code{\link[stats:model.frame]{stats::model.frame()}}, and meaning there what they mean for any other
+model frame. \code{xlev} defaults to the factor levels the fit recorded. All
+four describe how to build a frame from \code{data}, so supplying one without
+\code{data} is an error rather than a silent no-op.}
+
+\item{...}{Additional arguments. \code{model.frame()} requires them to be empty,
+so that a name it does not recognize is an error rather than silently
+ignored; the rest of the methods ignore them.}
 }
 \value{
 \itemize{
@@ -21,12 +45,48 @@ all parameters are considered.}
 \item \code{vcov()}: Named variance-covariance matrix.
 \item \code{confint()}: Matrix with columns \code{"lower"} and \code{"upper"}.
 \item \code{nobs()}: Integer number of observations.
+\item \code{fitted()}: Named numeric vector of fitted values on the response scale,
+one per observation the fit was solved on.
+\item \code{residuals()}: Named numeric vector of response residuals.
+\item \code{model.frame()}: The model frame the fit was built from, with the rows
+dropped for missing data already removed, or the model frame of \code{data}
+when one is supplied.
+\item \code{formula()}: The model formula.
+\item \code{terms()}: The \code{terms} object of the model frame, carrying the response
+index, any offset, and the \code{predvars} of a data-dependent term.
 }
 }
 \description{
 Methods for base R generics \code{\link[stats:coef]{stats::coef()}}, \code{\link[stats:vcov]{stats::vcov()}},
-\code{\link[stats:confint]{stats::confint()}}, and \code{\link[stats:nobs]{stats::nobs()}} so that deli estimator objects
-interoperate with the broader R modeling ecosystem.
+\code{\link[stats:confint]{stats::confint()}}, \code{\link[stats:nobs]{stats::nobs()}}, \code{\link[stats:fitted]{stats::fitted()}},
+\code{\link[stats:residuals]{stats::residuals()}}, \code{\link[stats:model.frame]{stats::model.frame()}}, \code{\link[stats:formula]{stats::formula()}}, and
+\code{\link[stats:terms]{stats::terms()}} so that deli estimator objects interoperate with the broader
+R modeling ecosystem.
+}
+\details{
+The last five report on the model a fit was specified as, which only the
+formula interface records, so each of them is an error for a fit built from a
+\code{stacked_equations} function. \code{fitted()} and \code{residuals()} are also an error
+for a formula fit of an estimating equation \code{\link[=predict]{predict()}} does not support,
+since a fitted value is a prediction; see \link{deli-predict} for the equations it
+covers.
+
+\code{fitted()} is the conditional mean of the response, so it is on the response
+scale rather than the link scale, matching \code{\link[stats:fitted]{stats::fitted()}} on a \code{glm}
+object. \code{residuals()} is the response minus that mean, the residual a GLM
+calls a response residual, and the only \code{type} it takes. Deviance and Pearson
+residuals are not offered: the first needs a likelihood and the second a
+variance function, and an M-estimator need not state either, while the
+response residual is defined the same way for every equation \code{predict()}
+supports. Under a non-identity link it is heteroscedastic by construction.
+
+\code{model.frame()} returns the frame the fit was solved on, or builds the frame
+of \code{data} when one is supplied, through the terms and factor levels the fit
+recorded. A data-dependent term such as \code{poly(x, 2)} is therefore evaluated
+at its fitted basis and a factor gets its fitted levels, as they are under
+\code{\link[=predict]{predict()}}. \code{data} has to carry the response, since a model frame holds
+every variable the formula names; covariate values that carry no response are
+what \code{predict()} and \link{deli-augment} take a \code{newdata} for.
 }
 \examples{
 fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
@@ -40,4 +100,15 @@ confint(fit)
 
 nobs(fit)
 
+head(fitted(fit))
+
+head(residuals(fit))
+
+formula(fit)
+
+}
+\seealso{
+\link{deli-predict} for predictions at new covariate values, and
+\link{deli-augment} for the fitted values, intervals, and residuals as columns
+beside the data.
 }

@@ -95,7 +95,8 @@ predict(vs_fit, newdata = data.frame(wt = c(2, 3)), type = "response")
 
 }
 \seealso{
-\code{\link[=regression_predictions]{regression_predictions()}}, which computes the same quantities from
-a design matrix, a vector of estimates, and a covariance matrix, for fits
-this method does not cover.
+\link{deli-augment}, which returns these predictions as columns beside
+the data, and \code{\link[=regression_predictions]{regression_predictions()}}, which computes the same
+quantities from a design matrix, a vector of estimates, and a covariance
+matrix, for fits this method does not cover.
 }

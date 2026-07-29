@@ -119,9 +119,10 @@
 #' whose `fit` element is whichever of those two the other arguments call for
 #' and whose `se.fit` element is a numeric vector of standard errors.
 #'
-#' @seealso [regression_predictions()], which computes the same quantities from
-#'   a design matrix, a vector of estimates, and a covariance matrix, for fits
-#'   this method does not cover.
+#' @seealso [deli-augment], which returns these predictions as columns beside
+#'   the data, and [regression_predictions()], which computes the same
+#'   quantities from a design matrix, a vector of estimates, and a covariance
+#'   matrix, for fits this method does not cover.
 #'
 #' @examples
 #' fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
@@ -175,14 +176,8 @@ method(stats_predict, deli_estimator) <- function(
   interval <- match.arg(interval)
   check_level(level)
 
+  link <- resolve_predict_link(object, "predict")
   spec <- object@model_spec
-  if (is.null(spec)) {
-    abort_predict_no_model_spec()
-  }
-  link <- predict_link_name(spec$ee, spec$ee_spec_args)
-  if (is.null(link)) {
-    abort_predict_unsupported_ee(spec$ee)
-  }
 
   index <- predict_coef_index(spec, object@n_params)
   beta <- object@theta[index]
@@ -390,8 +385,45 @@ predict_design <- function(spec, newdata) {
 
 # ---- Validation and conditions -----------------------------------------------
 
+#' The link a fit can be predicted through, or an error naming why it cannot
+#'
+#' Answers the two questions that decide whether a fit can be predicted from at
+#' all: whether it records a model specification, and whether its estimating
+#' equation is one whose linear predictor `predict_link_name()` can name a link
+#' for. Both are asked here, in one place, so that [predict()], `fitted()`,
+#' `residuals()`, and `augment()` refuse the same fits on the same terms.
+#'
+#' `fn` is what makes it worth sharing. Every one of those functions reaches the
+#' supported-equation table through this helper, and a user who called
+#' `augment()` should be told that `augment()` declined rather than be handed a
+#' message about a function they did not call.
+#'
+#' @param object A fitted estimator.
+#' @param fn The name of the function the user called.
+#' @returns A string naming a link `inverse_link()` accepts.
 #' @noRd
-check_level <- function(level) {
+resolve_predict_link <- function(object, fn = "predict") {
+  spec <- object@model_spec
+  if (is.null(spec)) {
+    abort_predict_no_model_spec(fn)
+  }
+  link <- predict_link_name(spec$ee, spec$ee_spec_args)
+  if (is.null(link)) {
+    abort_predict_unsupported_ee(spec$ee, fn)
+  }
+  link
+}
+
+#' Validate a confidence level
+#'
+#' @param level The level supplied.
+#' @param arg The name the caller gave it. `augment()` spells it `conf.level`,
+#'   and the message names the argument the user wrote rather than the one this
+#'   package passes it on as.
+#' @returns Invisible `NULL`. Raises an error if `level` is not a single number
+#'   strictly between 0 and 1.
+#' @noRd
+check_level <- function(level, arg = "level") {
   if (
     !is.numeric(level) ||
       length(level) != 1L ||
@@ -400,7 +432,7 @@ check_level <- function(level) {
       level >= 1
   ) {
     cli::cli_abort(
-      "{.arg level} must be a single number between 0 and 1 (exclusive).",
+      "{.arg {arg}} must be a single number between 0 and 1 (exclusive).",
       call = NULL
     )
   }
@@ -408,10 +440,10 @@ check_level <- function(level) {
 }
 
 #' @noRd
-abort_predict_no_model_spec <- function() {
+abort_predict_no_model_spec <- function(fn = "predict") {
   cli::cli_abort(
     c(
-      "{.fn predict} needs a fit made through the formula interface.",
+      "{.fn {fn}} needs a fit made through the formula interface.",
       "i" = "This fit was built from a {.arg stacked_equations} function, which
              records no formula, design, or link to predict from.",
       "i" = "Compute predictions from the estimates directly with
@@ -422,11 +454,11 @@ abort_predict_no_model_spec <- function() {
 }
 
 #' @noRd
-abort_predict_unsupported_ee <- function(.ee) {
+abort_predict_unsupported_ee <- function(.ee, fn = "predict") {
   if (identical(.ee, ee_gformula)) {
     cli::cli_abort(
       c(
-        "{.fn predict} does not support a fit of {.fn ee_gformula}.",
+        "{.fn {fn}} does not support a fit of {.fn ee_gformula}.",
         "i" = "Its parameters are the causal mean or means it estimates
                followed by the outcome-model coefficients, so the leading
                parameters are not coefficients on the design.",
@@ -440,7 +472,7 @@ abort_predict_unsupported_ee <- function(.ee) {
   if (identical(.ee, ee_additive_regression)) {
     cli::cli_abort(
       c(
-        "{.fn predict} does not support a fit of {.fn ee_additive_regression}.",
+        "{.fn {fn}} does not support a fit of {.fn ee_additive_regression}.",
         "i" = "Its coefficients sit on the spline basis
                {.fn additive_design_matrix} expands the design into, not on the
                columns of the model matrix the formula built.",
@@ -452,7 +484,7 @@ abort_predict_unsupported_ee <- function(.ee) {
   }
   cli::cli_abort(
     c(
-      "{.fn predict} does not support this fit's estimating equation.",
+      "{.fn {fn}} does not support this fit's estimating equation.",
       "i" = "It supports {.fn ee_regression}, {.fn ee_glm},
              {.fn ee_robust_regression}, {.fn ee_beta_regression}, and the five
              penalized regressions {.fn ee_bridge_regression},

@@ -16,6 +16,9 @@
 #'   `conf.low` and `conf.high`.
 #' - `glance()`: A single-row data.frame with model-level summaries.
 #'
+#' @seealso [deli-augment], the third broom generic, which returns the
+#'   observation-level fitted values, intervals, and residuals.
+#'
 #' @examples
 #' fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
 #'                   model = "linear")

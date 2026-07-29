@@ -50,6 +50,7 @@ test_that("formula_model_spec() records every field of the model spec", {
       "ee",
       "ee_spec_args",
       "n_coef",
+      "model_frame",
       "X",
       "y",
       "offset",
@@ -104,6 +105,27 @@ test_that("formula_model_spec() records the design the closure was built on", {
   # holds, not a second copy of it.
   expect_identical(m@model_spec$X, environment(m@stacked_equations)$X)
   expect_identical(m@model_spec$y, environment(m@stacked_equations)$y)
+  expect_identical(
+    m@model_spec$model_frame,
+    environment(m@stacked_equations)$mf
+  )
+})
+
+test_that("formula_model_spec() records the model frame behind the design", {
+  data <- model_spec_data()
+  m <- model_spec_fit(data)
+  mf <- m@model_spec$model_frame
+
+  expect_s3_class(mf, "data.frame")
+  expect_identical(
+    names(mf),
+    c("count", "x", "g", "offset(log(exposure))")
+  )
+  expect_identical(nrow(mf), nrow(data))
+  # The frame keeps the variables the formula named, before the factor was
+  # coded and the offset lifted out, which the design no longer shows.
+  expect_identical(mf$g, data$g)
+  expect_identical(attr(mf, "terms"), m@model_spec$terms)
 })
 
 test_that("formula_model_spec() records n_coef as the design column count", {

@@ -37,3 +37,7 @@ generics::tidy(fit, conf.int = TRUE)
 generics::glance(fit)
 
 }
+\seealso{
+\link{deli-augment}, the third broom generic, which returns the
+observation-level fitted values, intervals, and residuals.
+}

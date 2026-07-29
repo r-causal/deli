@@ -120,6 +120,16 @@ spec_ee_args <- function(ee_args) {
 #' `ee_gformula()`, which puts its extra parameter first rather than last.
 #' Counting design columns is exact wherever the table is silent.
 #'
+#' The model frame is recorded whole, beside the design built from it, because
+#' the two answer different questions. The design is the numeric matrix the
+#' estimating equation was handed, with factors already coded and
+#' transformations already applied; the model frame is the variables the formula
+#' named, which is what [stats::model.frame()] promises and what a row-wise
+#' report of a fit is written against. It costs nothing to keep: the estimating
+#' function closure is built in this frame and its environment holds the model
+#' frame already, so the field is a second reference to an object the fit
+#' carries either way rather than a second copy of it.
+#'
 #' @param mf The model frame.
 #' @param X The design matrix built from it.
 #' @param y The response, after `coerce_formula_response()`.
@@ -143,6 +153,7 @@ formula_model_spec <- function(mf, X, y, .ee, ee_args, response_levels) {
     ee = .ee,
     ee_spec_args = spec_ee_args(ee_args),
     n_coef = ncol(X),
+    model_frame = mf,
     X = X,
     y = y,
     offset = offset,

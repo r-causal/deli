@@ -140,6 +140,7 @@ reference:
     desc: Prediction helpers for fitted models.
     contents:
       - deli-predict
+      - deli-augment
       - regression_predictions
       - survival_predictions
       - aft_predictions_individual
