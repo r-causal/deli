@@ -82,8 +82,8 @@ Another more informative way to view the results from this model is to plot the 
 # Compute survival predictions with confidence intervals
 surv <- survival_predictions(
   times = times_to_predict,
-  theta = estr@theta,
-  covariance = estr@variance,
+  theta = coef(estr),
+  covariance = vcov(estr),
   distribution = "exponential"
 )
 
@@ -134,8 +134,8 @@ As before, we can plot the survival function to get a better idea what these par
 # Compute survival predictions with confidence intervals
 surv <- survival_predictions(
   times = times_to_predict,
-  theta = estr@theta,
-  covariance = estr@variance,
+  theta = coef(estr),
+  covariance = vcov(estr),
   distribution = "weibull"
 )
 
@@ -202,14 +202,14 @@ Another informative way to view these results is through a plot of the survival 
 surv_neg <- aft_predictions_individual(
   X = matrix(c(1, 0), nrow = 1),
   times = times_to_predict,
-  theta = estr@theta,
+  theta = coef(estr),
   distribution = "exponential"
 )
 
 surv_pos <- aft_predictions_individual(
   X = matrix(c(1, 1), nrow = 1),
   times = times_to_predict,
-  theta = estr@theta,
+  theta = coef(estr),
   distribution = "exponential"
 )
 
@@ -278,14 +278,14 @@ Below is code to generate a plot of the survival functions. As the shape paramet
 surv_neg <- aft_predictions_individual(
   X = matrix(c(1, 0), nrow = 1),
   times = times_to_predict,
-  theta = estr@theta,
+  theta = coef(estr),
   distribution = "weibull"
 )
 
 surv_pos <- aft_predictions_individual(
   X = matrix(c(1, 1), nrow = 1),
   times = times_to_predict,
-  theta = estr@theta,
+  theta = coef(estr),
   distribution = "weibull"
 )
 
@@ -319,7 +319,7 @@ Other measures can also be plotted. Here, we plot the hazard functions shown in 
 haz_neg <- aft_predictions_individual(
   X = matrix(c(1, 0), nrow = 1),
   times = times_to_predict,
-  theta = estr@theta,
+  theta = coef(estr),
   distribution = "weibull",
   measure = "hazard"
 )
@@ -327,7 +327,7 @@ haz_neg <- aft_predictions_individual(
 haz_pos <- aft_predictions_individual(
   X = matrix(c(1, 1), nrow = 1),
   times = times_to_predict,
-  theta = estr@theta,
+  theta = coef(estr),
   distribution = "weibull",
   measure = "hazard"
 )
@@ -391,14 +391,14 @@ round(results, 3)
 surv_neg <- aft_predictions_individual(
   X = matrix(c(1, 0), nrow = 1),
   times = times_to_predict,
-  theta = estr@theta,
+  theta = coef(estr),
   distribution = "log-normal"
 )
 
 surv_pos <- aft_predictions_individual(
   X = matrix(c(1, 1), nrow = 1),
   times = times_to_predict,
-  theta = estr@theta,
+  theta = coef(estr),
   distribution = "log-normal"
 )
 
@@ -461,14 +461,14 @@ These parameter estimates are the same as those reported in Collett (except $\si
 surv_neg <- aft_predictions_individual(
   X = matrix(c(1, 0), nrow = 1),
   times = times_to_predict,
-  theta = estr@theta,
+  theta = coef(estr),
   distribution = "log-logistic"
 )
 
 surv_pos <- aft_predictions_individual(
   X = matrix(c(1, 1), nrow = 1),
   times = times_to_predict,
-  theta = estr@theta,
+  theta = coef(estr),
   distribution = "log-logistic"
 )
 
@@ -502,7 +502,7 @@ Again, we can also plot the hazard functions over time and compare them to the b
 haz_neg <- aft_predictions_individual(
   X = matrix(c(1, 0), nrow = 1),
   times = times_to_predict,
-  theta = estr@theta,
+  theta = coef(estr),
   distribution = "log-logistic",
   measure = "hazard"
 )
@@ -510,7 +510,7 @@ haz_neg <- aft_predictions_individual(
 haz_pos <- aft_predictions_individual(
   X = matrix(c(1, 1), nrow = 1),
   times = times_to_predict,
-  theta = estr@theta,
+  theta = coef(estr),
   distribution = "log-logistic",
   measure = "hazard"
 )
