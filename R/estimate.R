@@ -368,12 +368,18 @@ one_sided_ceiling <- 1e-4
 # against the magnitude of the estimates themselves, before its equations are
 # judged unsolved. Across the test suite, every fit that unsolved_equation()
 # leaves quiet and whose bread can be solved takes a step either below 5e-4 or
-# above 20, and the ceiling sits in that gap. The gap describes the fits this
-# reading judges, not fits that stopped short generally: a fit
-# unsolved_equation() catches first is never measured against the ceiling and
-# can sit well below it, the smallest in the suite being the tobit fit of
-# test-estimate-solvers.R at 0.7. See relative_newton_step().
-newton_step_ceiling <- 1
+# above 0.1, and the ceiling sits in that gap. The lower group is round-off and
+# solver tolerance at points that are roots. The upper group opens with a
+# logistic regression on separated data, whose slope runs away while its score
+# falls away with it, so the contributions say nothing about it and this reading
+# is the only one that sees it at all.
+#
+# The gap describes the fits this reading judges, not fits that stopped short
+# generally. A fit unsolved_equation() catches first is never measured against
+# the ceiling and its step bears no relation to it: the tobit fit of
+# test-estimate-solvers.R is reported by its contributions at a step of 0.7. See
+# relative_newton_step().
+newton_step_ceiling <- 1e-3
 
 #' Find an equation that is not solved at a point
 #'

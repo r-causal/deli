@@ -1048,10 +1048,10 @@ test_that("GMM warns when a constant moment condition cannot vanish", {
   )
 })
 
-# The share is the only thing that sees a gross failure on a stack with no
-# constant row, so splitting the criterion must not cost it. A tobit fit refitted
-# as GMM returns a log scale parameter of 10.6 against -0.002 and a slope of 1.37
-# against 0.478, at a Newton step well under the ceiling.
+# The share is what names the equation on a stack with no constant row, so
+# splitting the criterion must not cost it. A tobit fit refitted as GMM returns a
+# log scale parameter of 10.6 against -0.002 and a slope of 1.37 against 0.478,
+# and the report has to say which moment condition that is.
 test_that("GMM still warns on a tobit fit that stops far from the solution", {
   set.seed(123)
   x <- cbind(1, stats::rnorm(200))
@@ -1066,10 +1066,13 @@ test_that("GMM still warns on a tobit fit that stops far from the solution", {
   expect_match(conditionMessage(seen[[1]]), "do not cancel", fixed = TRUE)
   m <- estimate(MEstimator(stacked_equations = psi, init = init))
   expect_gt(abs(g@theta[[3]] - m@theta[[3]]), 10)
-  # The Newton step cannot see this one, which is why the share is kept.
+  # The share is asked before the Newton step and names a row, so the step is
+  # never taken here however far past the ceiling it is. That ordering is what
+  # keeps the report naming the equation rather than quoting a step.
   bread <- compute_bread(psi, g@theta, "capprox", 1e-9) / 200
   step <- relative_newton_step(bread, rowSums(psi(g@theta)) / 200, g@theta)
-  expect_lt(step, newton_step_ceiling)
+  expect_gt(step, newton_step_ceiling)
+  expect_false(is.na(unsolved_point(psi(g@theta), g@theta, bread)$row))
 })
 
 # ---- equations whose contributions all carry one sign -------------------------
@@ -1587,4 +1590,261 @@ test_that("GMM names the moment condition its bread has gone flat under", {
   # The flat branch rather than a reading of the contributions, which cancel
   # well enough here to say nothing.
   expect_no_match(reported, "do not cancel", fixed = TRUE)
+})
+
+# ---- a runaway estimate as the scale it is measured against -------------------
+#
+# The one-sided reading measures the mean contribution of an equation that
+# cannot cancel against the scale of the problem, and that scale takes in the
+# magnitude of the estimates. The term is there for a stack that is nothing but
+# such an equation, where the estimates are the only scale available, and it is
+# self-defeating exactly when the estimates are the thing that went wrong: a
+# solver that runs a parameter away supplies a scale large enough to excuse
+# whatever it left behind.
+
+test_that("a runaway estimate does not supply the scale it is judged against", {
+  # inverse_logit is bounded by one, so no value of theta brings this equation
+  # near zero: it sums to -160 wherever the solver stops. multiroot runs theta
+  # out to 3.4e8 and reports success there. The equation is one-sided, so it is
+  # measured against the scale of the problem, and the runaway estimate is
+  # itself the largest thing in that scale: 160 / 40 / 3.4e8 reads as 1.2e-8,
+  # under the ceiling.
+  psi <- function(theta) matrix(inverse_logit(theta[1]) - rep(5, 40), nrow = 1)
+  seen <- collect_warnings({
+    m <- estimate(MEstimator(stacked_equations = psi, init = 0))
+  })
+  expect_length(seen, 1L)
+  expect_length(
+    Filter(function(cnd) inherits(cnd, "deli_solver_not_converged"), seen),
+    1L
+  )
+  theta <- unname(coef(m))
+  expect_gt(abs(theta), 1e6)
+  # Nothing else reaches it. A saturated logistic has a bread of zeros, so no
+  # Newton step can be taken, and the score the solver left is smaller than the
+  # one it was handed, so the flat-bread reading owes it the same excuse it owes
+  # an equation left where the caller put it.
+  expect_true(all(m@bread == 0))
+  expect_equal(sum(psi(theta)), -160)
+  expect_lt(abs(sum(psi(theta))), abs(sum(psi(0))))
+})
+
+test_that("the same runaway equation is judged on the GMM path", {
+  # The asymmetry is the evidence that the scale rather than the equation is
+  # what goes wrong above: minimizing the same stack leaves theta at 12, which
+  # is too small to excuse anything, and the moment is reported.
+  psi <- function(theta) matrix(inverse_logit(theta[1]) - rep(5, 40), nrow = 1)
+  seen <- collect_warnings(
+    estimate(GMMEstimator(stacked_equations = psi, init = 0))
+  )
+  expect_length(seen, 1L)
+  expect_s3_class(seen[[1]], "deli_solver_not_converged")
+  expect_match(
+    conditionMessage(seen[[1]]),
+    "does not vanish, leaving a summed moment of -160",
+    fixed = TRUE
+  )
+})
+
+test_that("a solved relation is still measured against the scale of the estimates", {
+  # The guard the term is owed. A mean equation on data of magnitude 4e8 and a
+  # contrast demanding the two parameters agree, handed to a solver whose
+  # convergence test is relative to the estimates, which is what every parameter
+  # tolerance on offer is written in terms of. It stops where the two agree to
+  # ten significant digits, leaving the contrast summing to 8 rather than to
+  # zero while every contribution in the stack is of order one.
+  set.seed(9)
+  n <- 200
+  y <- 4e8 + stats::rnorm(n)
+  psi <- function(theta) {
+    rbind(
+      y - theta[1],
+      rep(theta[1] - theta[2], n)
+    )
+  }
+  relative_tolerance <- function(stacked_equations, init) {
+    root <- mean(y)
+    c(root, root * (1 - 1e-10))
+  }
+  expect_no_warning({
+    m <- estimate(
+      MEstimator(stacked_equations = psi, init = c(4e8, 4e8)),
+      solver = relative_tolerance
+    )
+  })
+  theta <- unname(coef(m))
+  ef <- psi(theta)
+  expect_true(is_root(ef, theta))
+  # The contrast is one-sided and its score is well above the floor, so the
+  # reading is made rather than excused.
+  expect_equal(sum(ef[2, ] < 0), 0L)
+  expect_equal(rowSums(ef)[[2]], 8, tolerance = 1e-6)
+  expect_gt(abs(rowSums(ef)[[2]]), score_floor)
+  # Measured against the contributions alone the contrast is out by a factor of
+  # 144, so a scale carrying no reading of the parameters at all turns this
+  # solved fit into a false alarm.
+  expect_gt(
+    abs(rowSums(ef)[[2]]) / n / (one_sided_ceiling * max(1, abs(ef))),
+    100
+  )
+})
+
+# ---- estimates that run away while the score does not ------------------------
+#
+# A flat estimating function drives the summed score below any floor while the
+# parameters run away rather than settle, so every reading written in terms of
+# the size of the residual is met at a point nobody would accept. Catching it
+# needs a reading of the estimates themselves, and the guards below are what
+# keeps such a reading from reporting a fit that legitimately travelled a long
+# way to a root.
+
+test_that("a separated logistic that runs away is not reported as solved", {
+  # A covariate that separates the outcome exactly. The likelihood has no
+  # maximum: the slope grows without bound and the score falls with it, so
+  # multiroot's own atol test is met at a slope of 11007 with a score of 7.6e-06.
+  set.seed(42)
+  n <- 200
+  x <- stats::rnorm(n)
+  y <- as.numeric(x > 0)
+  design <- cbind(1, x)
+  psi <- function(theta) {
+    ee_regression(theta, X = design, y = y, model = "logistic")
+  }
+  seen <- collect_warnings({
+    m <- estimate(MEstimator(stacked_equations = psi, init = c(0, 0)))
+  })
+  expect_length(seen, 1L)
+  expect_length(
+    Filter(function(cnd) inherits(cnd, "deli_solver_not_converged"), seen),
+    1L
+  )
+  theta <- unname(coef(m))
+  expect_gt(theta[[2]], 1e4)
+  # No reading of the contributions sees it: the score is under the floor, so
+  # they say nothing at all, and the solver reported success rather than a
+  # convergence test that failed. What is left is the Newton step, which is 0.102
+  # here against 3.3e-09 at the worst of the fits that must stay quiet.
+  ef <- psi(theta)
+  expect_lt(max(abs(rowSums(ef))), score_floor)
+  expect_true(is_root(ef, theta))
+  expect_equal(
+    relative_newton_step(unname(m@bread), rowSums(ef) / n, theta),
+    0.102,
+    tolerance = 1e-2
+  )
+})
+
+test_that("a logistic fit on overlapping data stays quiet", {
+  set.seed(7)
+  n <- 200
+  x <- stats::rnorm(n)
+  y <- stats::rbinom(n, 1, stats::plogis(-0.3 + 1.1 * x))
+  design <- cbind(1, x)
+  psi <- function(theta) {
+    ee_regression(theta, X = design, y = y, model = "logistic")
+  }
+  expect_no_warning({
+    m <- estimate(MEstimator(stacked_equations = psi, init = c(0, 0)))
+  })
+  expect_equal(
+    unname(coef(m)),
+    unname(stats::coef(stats::glm(y ~ x, family = stats::binomial()))),
+    tolerance = 1e-6
+  )
+})
+
+test_that("a fit that travels a long way to a root stays quiet", {
+  # The estimate moves a million units from the starting value and lands on the
+  # sample mean, so a bound on how far a fit may travel from where it started
+  # would report this one. Where it stopped is what separates it from the
+  # separated logistic above: the Newton step there is 0.1 and here it is 2.4e-9.
+  set.seed(12)
+  n <- 200
+  y <- 1e6 + stats::rnorm(n)
+  psi <- function(theta) matrix(y - theta[1], nrow = 1)
+  expect_no_warning({
+    m <- estimate(MEstimator(stacked_equations = psi, init = 0))
+  })
+  theta <- unname(coef(m))
+  expect_equal(theta, mean(y), tolerance = 1e-6)
+  expect_gt(abs(theta), 1e5)
+  expect_lt(
+    relative_newton_step(unname(m@bread), rowSums(psi(theta)) / n, theta),
+    1e-6
+  )
+})
+
+# ---- a design that does not identify the parameters --------------------------
+#
+# A design whose columns are linearly dependent leaves the estimating equations
+# with no unique root: the returned point solves them, and so does every point
+# along the direction the design cannot see. The solver reports a failed
+# convergence test, which is true of the search and beside the point about the
+# problem, so the report has to name the design rather than the search.
+
+# A linear regression whose design repeats its second column, so the last two
+# coefficients are identified only by their sum.
+duplicated_column_psi <- function() {
+  set.seed(3)
+  n <- 200
+  x1 <- stats::rnorm(n)
+  y <- 1 + 2 * x1 + stats::rnorm(n)
+  design <- cbind(1, x1, x1)
+  function(theta) ee_regression(theta, X = design, y = y, model = "linear")
+}
+
+# The same data and shape with a third column of its own.
+full_rank_psi <- function() {
+  set.seed(3)
+  n <- 200
+  x1 <- stats::rnorm(n)
+  y <- 1 + 2 * x1 + stats::rnorm(n)
+  x2 <- stats::rnorm(n)
+  design <- cbind(1, x1, x2)
+  function(theta) ee_regression(theta, X = design, y = y, model = "linear")
+}
+
+test_that("a rank-deficient design is reported as such", {
+  psi <- duplicated_column_psi()
+  seen <- collect_warnings({
+    m <- estimate(MEstimator(stacked_equations = psi, init = c(0, 0, 0)))
+  })
+  expect_length(seen, 1L)
+  expect_s3_class(seen[[1]], "deli_solver_not_converged")
+  theta <- unname(coef(m))
+  # The point the fit returns is a root by the reading that judges one, it is
+  # not where the fit started, and the two duplicated coefficients sum to the
+  # slope an identified fit reports. Nothing about it is a search that stopped
+  # short.
+  expect_true(is_root(psi(theta), theta))
+  expect_false(isTRUE(all(theta == 0)))
+  expect_equal(theta[[2]] + theta[[3]], 1.9358, tolerance = 1e-4)
+  reported <- conditionMessage(seen[[1]])
+  expect_match(reported, "rank deficient", fixed = TRUE)
+  expect_match(reported, "not identified", fixed = TRUE)
+})
+
+test_that("the rank-deficient report does not read as a search that stopped short", {
+  psi <- duplicated_column_psi()
+  seen <- collect_warnings(
+    estimate(MEstimator(stacked_equations = psi, init = c(0, 0, 0)))
+  )
+  expect_length(seen, 1L)
+  expect_no_match(
+    conditionMessage(seen[[1]]),
+    "did not converge to a root of the estimating equations",
+    fixed = TRUE
+  )
+})
+
+test_that("a full-rank design of the same shape stays quiet", {
+  psi <- full_rank_psi()
+  expect_no_warning({
+    m <- estimate(MEstimator(stacked_equations = psi, init = c(0, 0, 0)))
+  })
+  expect_equal(
+    unname(coef(m)),
+    c(1.04503043, 1.93571355, 0.00753299),
+    tolerance = 1e-6
+  )
 })
