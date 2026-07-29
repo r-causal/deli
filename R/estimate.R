@@ -897,11 +897,11 @@ without_output <- function(expr) {
 # returned, once or twice per parameter while the bread is built, and as many
 # times as the solver likes in between. A warning from any of those is the
 # caller's business, and the evaluations made inside the solver are no
-# exception, so the muffling recognises the solver's own reports by what they
+# exception, so the muffling recognizes the solver's own reports by what they
 # say and leaves everything else to propagate.
 #
-# The predicates below are what "recognisably the solver's own" means, one per
-# solver that reports this way. They are vectorised over messages so that a
+# The predicates below are what "recognizably the solver's own" means, one per
+# solver that reports this way. They are vectorized over messages so that a
 # recorded batch can be read in one call.
 
 #' Whether `rootSolve::multiroot()` reported its convergence test failing
@@ -980,20 +980,23 @@ solver_state$in_multiroot <- FALSE
 #'
 #' The marker is restored rather than cleared, and on the error path as well as
 #' the ordinary one, so a solve that is refused or that fails leaves the marker
-#' where it found it and the next fit solves normally.
+#' where it found it and the next fit solves normally. The restore is registered
+#' before the marker is set, so that an interrupt arriving between the two
+#' cannot leave the marker standing for the rest of the session; registering it
+#' after would leave that window open.
 #'
 #' @param ... Arguments for [rootSolve::multiroot()].
 #' @returns What `multiroot()` returns.
 #' @noRd
 run_multiroot <- function(...) {
   previous <- solver_state$in_multiroot
-  solver_state$in_multiroot <- TRUE
   on.exit(
     {
       solver_state$in_multiroot <- previous
     },
     add = TRUE
   )
+  solver_state$in_multiroot <- TRUE
   rootSolve::multiroot(...)
 }
 
@@ -1043,7 +1046,11 @@ with_muffled_self_reports <- function(expr, self_report) {
         return()
       }
       reports <<- c(reports, message)
-      invokeRestart("muffleWarning")
+      # cnd_muffle() rather than invokeRestart("muffleWarning"), for the reason
+      # given in R/conditions.R: a condition inheriting from "warning" that was
+      # signalled without that restart would turn the restart call into an
+      # error, while cnd_muffle() returns FALSE and leaves it to propagate.
+      rlang::cnd_muffle(w)
     }
   )
   list(value = value, reports = reports)

@@ -1857,7 +1857,7 @@ test_that("a full-rank design of the same shape stays quiet", {
 # the user's business whichever of those evaluations raised it, so no solver
 # branch may swallow one. What is not the user's business is a solver's own
 # account of itself, which `solve_equations()` reads and rewords, and which is
-# therefore recognised by what it says and muffled where it is raised.
+# therefore recognized by what it says and muffled where it is raised.
 
 # A psi whose warning names the evaluation that raised it, so no two of its
 # warnings share a message and the de-duplication scope collapses none of them.
@@ -1930,9 +1930,10 @@ test_that("the lm solver delivers every warning its psi raises", {
 })
 
 # multiroot reports its own convergence test failing as a warning reading
-# "steady-state not reached", and reports a singular factorisation as one naming
-# the LINPACK routine dgefa. Both are the solver talking about itself, both are
-# read by `solve_equations()` and reworded, and neither may reach the user twice.
+# "steady-state not reached", and reports a Jacobian it cannot factor as one
+# reading "error during factorisation of matrix (dgefa)". Both are the solver
+# talking about itself, both are read by `solve_equations()` and reworded, and
+# neither may reach the user twice.
 test_that("multiroot's own account of a diverging solve stays inside the solver", {
   psi <- beta_runaway_psi()
 
