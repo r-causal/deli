@@ -340,7 +340,8 @@ compute_sandwich <- function(
 #' @param ... Not used. Must be empty, so a name that is not one of the
 #'   documented arguments is an error rather than silently ignored.
 #'
-#' @returns A p-by-2 matrix with columns `"lower"` and `"upper"`.
+#' @returns A p-by-2 matrix with columns `"lower"` and `"upper"`. Rows are named
+#'   for the parameters, as in [confint()].
 #'
 #' @examplesIf requireNamespace("MASS", quietly = TRUE)
 #' # Two independent samples, each contributing one mean parameter
@@ -452,7 +453,8 @@ method(confidence_bands, class_numeric) <- function(
 #'   default and how to match it.
 #' @param seed RNG seed. Default `NULL`.
 #'
-#' @returns A p-by-2 matrix with columns `"lower"` and `"upper"`.
+#' @returns A p-by-2 matrix with columns `"lower"` and `"upper"`. Rows take
+#'   their names from `theta`, when it has any.
 #'
 #' @examplesIf requireNamespace("MASS", quietly = TRUE)
 #' fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
@@ -471,6 +473,9 @@ compute_confidence_bands <- function(
   n_draws = 100000L,
   seed = NULL
 ) {
+  # as.numeric() strips the names, so they are kept aside for the row labels of
+  # the returned bands, which are the same labels confint() puts on its rows.
+  param_names <- names(theta)
   theta <- as.numeric(theta)
   covariance <- as.matrix(covariance)
   k <- length(theta)
@@ -531,7 +536,7 @@ compute_confidence_bands <- function(
   }
 
   cb <- cbind(lower = theta - cv * se, upper = theta + cv * se)
-  rownames(cb) <- names(theta)
+  rownames(cb) <- param_names
   cb
 }
 

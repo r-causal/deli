@@ -29,7 +29,8 @@ default and how to match it.}
 \item{seed}{RNG seed. Default \code{NULL}.}
 }
 \value{
-A p-by-2 matrix with columns \code{"lower"} and \code{"upper"}.
+A p-by-2 matrix with columns \code{"lower"} and \code{"upper"}. Rows take
+their names from \code{theta}, when it has any.
 }
 \description{
 Compute confidence bands from theta and covariance

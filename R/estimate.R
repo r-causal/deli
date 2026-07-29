@@ -237,7 +237,7 @@ estimate_m_estimator <- function(
   }
 
   # Apply parameter names
-  param_names <- names(object@init) %||% paste0("theta_", seq_along(full_theta))
+  param_names <- default_param_names(names(object@init), length(full_theta))
   names(full_theta) <- param_names
   dimnames(bread) <- list(param_names, param_names)
   dimnames(meat_mat) <- list(param_names, param_names)
@@ -1037,8 +1037,10 @@ estimate_gmm_estimator <- function(
   }
 
   # Apply parameter names
-  param_names <- names(object@init) %||%
-    paste0("theta_", seq_along(current_theta))
+  param_names <- default_param_names(
+    names(object@init),
+    length(current_theta)
+  )
   names(current_theta) <- param_names
   # Bread and meat may be non-square in the over-identified case
   # (n_eqs x n_params for bread, n_eqs x n_eqs for meat)

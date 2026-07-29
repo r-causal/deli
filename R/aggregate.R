@@ -23,10 +23,12 @@
 #' @param group A vector of length n identifying the group (cluster) for
 #'   each observation.
 #'
-#' @returns A p-by-m matrix, where m is the number of unique groups. Columns
-#'   are ordered by the sorted unique values of `group`. A factor `group` is
-#'   coerced with `as.vector()` to its character labels before sorting, so its
-#'   columns sort lexically by label rather than by factor-level order.
+#' @returns A p-by-m matrix, where m is the number of unique groups. Row names
+#'   are those of `est_funcs`, since the rows are the same parameters. Columns
+#'   are ordered by the sorted unique values of `group` and are unlabeled. A
+#'   factor `group` is coerced with `as.vector()` to its character labels before
+#'   sorting, so its columns sort lexically by label rather than by factor-level
+#'   order.
 #'
 #' @examples
 #' # Fifty clusters of four observations, sharing a cluster-level shift in y
@@ -82,6 +84,12 @@ aggregate_efuncs <- function(est_funcs, group) {
   # t(est_funcs) is n-by-p, rowsum sums rows by group -> m-by-p
   aggregated <- rowsum(t(est_funcs), group_idx, reorder = TRUE)
 
-  # Return as p-by-m matrix (strip names from rowsum)
-  unname(t(aggregated))
+  # Return as p-by-m matrix. The rows are the same parameters as the rows of
+  # the input, so any labels on them survive. The columns are not: rowsum()
+  # labels its rows with the compact group indices rather than the original
+  # group values, so those labels are dropped rather than passed off as group
+  # names.
+  out <- unname(t(aggregated))
+  rownames(out) <- rownames(est_funcs)
+  out
 }

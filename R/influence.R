@@ -16,7 +16,8 @@
 #'   documented arguments is an error rather than silently ignored.
 #'
 #' @returns An n-by-p matrix of influence function values, where n is the
-#'   number of observations and p is the number of parameters.
+#'   number of observations and p is the number of parameters. Columns are named
+#'   for the parameters, as in [coef()].
 #'
 #' @examples
 #' fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
@@ -65,5 +66,11 @@ method(influence_functions, deli_estimator) <- function(
   }
 
   # IF = B^{-1} * psi, return n-by-p
-  t(bread_inv %*% efunc_i)
+  out <- t(bread_inv %*% efunc_i)
+  # The columns are the parameters, so they carry the parameter names as the
+  # other post-estimation accessors do. `estimate()` names the bread and
+  # `solve()` propagates those names through the inverse, but `MASS::ginv()`
+  # drops them, so a singular bread arrives here unlabeled without this.
+  colnames(out) <- names(object@theta)
+  out
 }

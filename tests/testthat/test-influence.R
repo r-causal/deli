@@ -54,3 +54,42 @@ test_that("influence_functions() errors before estimation", {
   m <- MEstimator(stacked_equations = psi, init = c(0))
   expect_error(influence_functions(m))
 })
+
+# Parameter names --------------------------------------------------------------
+#
+# The columns of the returned matrix are the parameters, so they carry the
+# parameter names as every other post-estimation accessor does. Most of the time
+# they arrive on their own: estimate() names the bread and solve() propagates
+# those names through the inverse. MASS::ginv() does not, so a singular bread is
+# the case that needs the assignment, and the case these tests cover.
+
+test_that("influence_functions() names its columns for the parameters", {
+  m <- make_fitted_mean_variance()
+  expect_equal(colnames(influence_functions(m)), names(coef(m)))
+})
+
+test_that("influence_functions() names its columns when the bread is singular", {
+  skip_if_not_installed("MASS")
+  # Duplicating a predictor makes the three-parameter bread rank two, so
+  # solve() fails and the pseudo-inverse takes over. Solving only the intercept
+  # and the wt slope leaves the duplicate frozen at zero, which keeps the
+  # root-finder quiet while the bread stays rank deficient.
+  d <- mtcars[c("mpg", "wt")]
+  d$wt_copy <- d$wt
+  X <- stats::model.matrix(mpg ~ wt + wt_copy, data = d)
+  psi <- function(theta) {
+    ee_regression(theta, X = X, y = d$mpg, model = "linear")
+  }
+  m <- m_estimate(
+    stacked_equations = psi,
+    init = c(`(Intercept)` = 0, wt = 0, wt_copy = 0),
+    subset = c(1L, 2L)
+  )
+  # The fixture is only doing its job if solve() really cannot invert the bread.
+  expect_error(solve(m@bread), "singular")
+
+  expect_equal(
+    colnames(influence_functions(m)),
+    c("(Intercept)", "wt", "wt_copy")
+  )
+})

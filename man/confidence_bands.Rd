@@ -45,7 +45,8 @@ Default \code{NULL} (all parameters).}
 documented arguments is an error rather than silently ignored.}
 }
 \value{
-A p-by-2 matrix with columns \code{"lower"} and \code{"upper"}.
+A p-by-2 matrix with columns \code{"lower"} and \code{"upper"}. Rows are named
+for the parameters, as in \code{\link[=confint]{confint()}}.
 }
 \description{
 Computes simultaneous confidence bands that provide coverage for the

@@ -290,3 +290,76 @@ test_that("numeric confidence_bands() subset matches bands on the reduced inputs
   )
   expect_equal(cb, reduced)
 })
+
+# Parameter names --------------------------------------------------------------
+#
+# The rows of the returned matrix are the parameters, so they carry the same
+# labels confint() puts on its rows. compute_confidence_bands() coerces theta
+# with as.numeric() before computing, which strips the names, so the labels are
+# taken from the parameter vector as it arrives.
+
+test_that("confidence_bands() names its rows for the parameters", {
+  m <- make_fitted_mean_variance()
+  expect_equal(rownames(confidence_bands(m, seed = 42)), names(coef(m)))
+})
+
+test_that("confidence_bands() names its rows under the bonferroni method", {
+  m <- make_fitted_mean_variance()
+  expect_equal(
+    rownames(confidence_bands(m, method = "bonferroni")),
+    names(coef(m))
+  )
+})
+
+test_that("confidence_bands() names the rows a subset keeps", {
+  m <- make_fitted_mean_variance()
+  cb <- confidence_bands(m, subset = 2L, method = "bonferroni")
+  expect_equal(rownames(cb), names(coef(m))[2])
+})
+
+test_that("confidence_bands() row names match the confint() row names", {
+  m <- make_fitted_mean_variance()
+  cb <- confidence_bands(m, method = "bonferroni")
+  expect_equal(rownames(cb), rownames(confint(m)))
+})
+
+test_that("numeric confidence_bands() names its rows for a named theta", {
+  theta <- c(alpha = 1, beta = 2, gamma = 3)
+  cb <- confidence_bands(
+    theta,
+    covariance = diag(c(0.1, 0.2, 0.3)),
+    method = "bonferroni"
+  )
+  expect_equal(rownames(cb), c("alpha", "beta", "gamma"))
+})
+
+test_that("numeric confidence_bands() names the rows a subset keeps", {
+  theta <- c(alpha = 1, beta = 2, gamma = 3)
+  cb <- confidence_bands(
+    theta,
+    covariance = diag(c(0.1, 0.2, 0.3)),
+    subset = c(1, 3),
+    method = "bonferroni"
+  )
+  expect_equal(rownames(cb), c("alpha", "gamma"))
+})
+
+test_that("compute_confidence_bands() names its rows for a named theta", {
+  theta <- c(mu = 1, sigma2 = 2)
+  covariance <- matrix(c(0.1, 0.02, 0.02, 0.2), nrow = 2)
+
+  supt <- compute_confidence_bands(theta, covariance, seed = 42)
+  bonferroni <- compute_confidence_bands(
+    theta,
+    covariance,
+    method = "bonferroni"
+  )
+
+  expect_equal(rownames(supt), c("mu", "sigma2"))
+  expect_equal(rownames(bonferroni), c("mu", "sigma2"))
+})
+
+test_that("compute_confidence_bands() leaves an unnamed theta unlabeled", {
+  cb <- compute_confidence_bands(c(1, 2), diag(2), method = "bonferroni")
+  expect_null(rownames(cb))
+})

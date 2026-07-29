@@ -223,3 +223,60 @@ test_that("aggregate_efuncs works with regression EEs", {
   expect_equal(unname(m@theta[1]), 1, tolerance = 0.5)
   expect_true(all(diag(m@variance) > 0))
 })
+
+# Parameter names --------------------------------------------------------------
+#
+# The rows of the aggregated matrix are the same parameters as the rows of the
+# input, so labels on the input rows survive aggregation and reach the fitted
+# estimator through the estimating function. The columns are a different matter:
+# rowsum() labels its rows with the compact group indices rather than the
+# original group values, so those labels are dropped instead of being passed off
+# as group names.
+
+test_that("aggregate_efuncs() keeps the row names of its input", {
+  ef <- matrix(1:12, nrow = 2, dimnames = list(c("mu", "sigma2"), NULL))
+  group <- c(1, 1, 2, 2, 3, 3)
+
+  result <- aggregate_efuncs(ef, group)
+
+  expect_equal(rownames(result), c("mu", "sigma2"))
+})
+
+test_that("aggregate_efuncs() leaves the aggregated columns unlabeled", {
+  # The group values are 10, 20 and 30, so an integer index passed off as a
+  # group label would be visibly wrong.
+  ef <- matrix(1:12, nrow = 2, dimnames = list(c("mu", "sigma2"), NULL))
+  group <- c(10, 10, 20, 20, 30, 30)
+
+  result <- aggregate_efuncs(ef, group)
+
+  expect_null(colnames(result))
+})
+
+test_that("aggregate_efuncs() returns an unnamed matrix for an unnamed input", {
+  ef <- matrix(1:12, nrow = 2)
+  group <- c(1, 1, 2, 2, 3, 3)
+
+  expect_null(dimnames(aggregate_efuncs(ef, group)))
+})
+
+test_that("aggregate_efuncs() row names leave a fit undisturbed", {
+  # The estimator labels its own matrices from `init`, so row names arriving on
+  # the estimating function must reach the sandwich without displacing them.
+  set.seed(4242)
+  n <- 100
+  group <- rep(1:25, each = 4)
+  y <- rnorm(n, mean = 5)
+
+  psi <- function(theta) {
+    ef <- ee_mean(theta, y = y)
+    rownames(ef) <- "labelled"
+    aggregate_efuncs(ef, group = group)
+  }
+
+  m <- m_estimate(stacked_equations = psi, init = c(mu = 0))
+
+  expect_equal(names(coef(m)), "mu")
+  expect_equal(dimnames(m@meat), list("mu", "mu"))
+  expect_true(m@variance[1, 1] > 0)
+})

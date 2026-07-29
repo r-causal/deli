@@ -76,7 +76,7 @@ summarize_estimator <- function(
   # original parameter index because the named theta vector carries its names
   # through the subset.
   if (!is.null(subset)) {
-    names(theta) <- names(theta) %||% paste0("theta_", seq_along(theta))
+    names(theta) <- default_param_names(names(theta), length(theta))
     theta <- theta[subset]
     se <- se[subset]
     ci <- ci[subset, , drop = FALSE]
@@ -128,10 +128,7 @@ method(print, EstimatorSummary) <- function(x, ...) {
   ucl_lab <- sprintf("%.0f%% UCL", pct)
 
   # Determine column widths
-  param_names <- names(x@theta)
-  if (is.null(param_names)) {
-    param_names <- paste0("theta_", seq_along(x@theta))
-  }
+  param_names <- default_param_names(names(x@theta), length(x@theta))
   name_width <- max(nchar(param_names), 5)
 
   # Header
