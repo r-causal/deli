@@ -20,7 +20,8 @@ Default \code{0.05} (95\% CIs).}
 }
 \value{
 A data frame with n rows and columns: \code{predicted}, \code{variance},
-\code{lower}, \code{upper}.
+\code{lower}, \code{upper}. The rows are labeled by position regardless of the row
+names of \code{X}, which say nothing about the predictions made from it.
 }
 \description{
 Computes predicted outcomes, their variance, and Wald-type confidence

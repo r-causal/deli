@@ -37,8 +37,8 @@ expect_golden <- function(actual, expected, label) {
   )
 }
 
-# A design whose rows are named, so the row names of the returned data frame
-# are pinned alongside its values.
+# A design whose rows are named, so that the returned data frame's positional
+# row labels are pinned against an input that could have supplied its own.
 golden_regression_design <- function() {
   X <- cbind(1, c(-1.5, 0.25, 2), c(0, 1, 1))
   rownames(X) <- c("r1", "r2", "r3")
@@ -208,10 +208,11 @@ test_that("regression_predictions reproduces its recorded shape and names", {
 
   expect_s3_class(result, "data.frame")
   expect_identical(names(result), c("predicted", "variance", "lower", "upper"))
-  # The variance is formed with rowSums(), which carries the row names of the
-  # design into the data frame. Pinning them keeps that incidental but visible
-  # part of the return value from changing.
-  expect_identical(rownames(result), c("r1", "r2", "r3"))
+  # The design argument runs through coerce_design(), which drops the labels of
+  # both axes, so the data frame numbers its rows itself even though this design
+  # names them. Pinning the labels keeps that visible part of the return value
+  # from changing.
+  expect_identical(rownames(result), c("1", "2", "3"))
 })
 
 test_that("regression_predictions reproduces its recorded values for one row", {
@@ -1803,4 +1804,266 @@ test_that("the AFT per-time core returns plain doubles for plain arguments", {
   expect_type(result, "double")
   expect_length(result, 3)
   expect_false(is_pt(result))
+})
+
+# ---- the matrix arguments as a caller may spell them -------------------------
+#
+# A caller may spell any matrix argument of the five helpers as an unnamed
+# matrix, a matrix with both axes named, or a data frame, and the three have to
+# answer alike in every part of the result, the row labels as much as the
+# numbers. The design arguments run through `coerce_design()`, which drops the
+# labels of both axes just as it does for every design argument of every
+# estimating equation, so nothing a caller names on the way in reaches the
+# result. The covariance arguments keep their labels through `as.matrix()`, but
+# they are only ever read as numbers.
+#
+# The tests below record the classes, column names, dimensions, and row labels
+# each input kind produces, and hold the three kinds to one set of numbers. The
+# numbers themselves are the recorded ones from the sections above: each block
+# takes the input kind those sections use as its reference and requires exact
+# agreement with it, so the recorded values reach every kind. The one function
+# whose reference is the named matrix, `regression_predictions()`, has its values
+# written out again instead.
+#
+# The row labels are pinned positionally rather than as the input's, because the
+# labels of a design say nothing about the predictions made from it.
+
+matrix_input_kinds <- function(m, row_labels, col_labels) {
+  unnamed <- m
+  dimnames(unnamed) <- NULL
+  named <- unnamed
+  dimnames(named) <- list(row_labels, col_labels)
+  list(
+    "unnamed matrix" = unnamed,
+    "named matrix" = named,
+    "data frame" = as.data.frame(named)
+  )
+}
+
+regression_design_kinds <- function() {
+  matrix_input_kinds(
+    golden_regression_design(),
+    c("r1", "r2", "r3"),
+    c("intercept", "x", "z")
+  )
+}
+
+test_that("regression_predictions reads every design input kind alike", {
+  # The no-offset values recorded at the top of this file.
+  golden <- c(
+    1.4000000000000001,
+    1.9500000000000002,
+    1.25,
+    0.083499999999999991,
+    0.085875000000000007,
+    0.246,
+    0.83364162270876663,
+    1.3756435982535691,
+    0.2778894765044696,
+    1.9663583772912336,
+    2.5243564017464313,
+    2.2221105234955303
+  )
+
+  kinds <- regression_design_kinds()
+
+  for (kind in names(kinds)) {
+    result <- regression_predictions(
+      kinds[[kind]],
+      golden_regression_theta(),
+      golden_regression_covariance()
+    )
+
+    expect_golden(unlist(result, use.names = FALSE), golden, kind)
+    expect_s3_class(result, "data.frame")
+    expect_identical(
+      names(result),
+      c("predicted", "variance", "lower", "upper"),
+      label = kind
+    )
+    expect_identical(dim(result), c(3L, 4L), label = kind)
+  }
+})
+
+test_that("regression_predictions labels the rows of an unnamed design by position", {
+  result <- regression_predictions(
+    regression_design_kinds()[["unnamed matrix"]],
+    golden_regression_theta(),
+    golden_regression_covariance()
+  )
+
+  expect_identical(rownames(result), c("1", "2", "3"))
+})
+
+test_that("regression_predictions labels the rows of a named design by position", {
+  kinds <- regression_design_kinds()
+
+  for (kind in c("named matrix", "data frame")) {
+    result <- regression_predictions(
+      kinds[[kind]],
+      golden_regression_theta(),
+      golden_regression_covariance()
+    )
+
+    expect_identical(rownames(result), c("1", "2", "3"), label = kind)
+  }
+})
+
+test_that("aft_predictions_individual reads every design input kind alike", {
+  kinds <- matrix_input_kinds(
+    golden_aft_individual_design(),
+    c("p1", "p2", "p3"),
+    c("intercept", "x")
+  )
+  predict_from <- function(X) {
+    aft_predictions_individual(
+      X,
+      golden_aft_times(),
+      golden_aft_theta(),
+      "weibull"
+    )
+  }
+  reference <- predict_from(kinds[["unnamed matrix"]])
+
+  for (kind in names(kinds)) {
+    result <- predict_from(kinds[[kind]])
+
+    expect_identical(
+      unlist(result, use.names = FALSE),
+      unlist(reference, use.names = FALSE),
+      label = kind
+    )
+    expect_s3_class(result, "data.frame")
+    expect_identical(names(result), c("t_0.5", "t_3"), label = kind)
+    expect_identical(dim(result), c(3L, 2L), label = kind)
+    expect_identical(rownames(result), c("1", "2", "3"), label = kind)
+  }
+})
+
+test_that("aft_predictions_function reads every design input kind alike", {
+  kinds <- matrix_input_kinds(
+    golden_aft_pattern(),
+    "p1",
+    c("intercept", "x")
+  )
+  predict_from <- function(X) {
+    aft_predictions_function(
+      X,
+      golden_aft_times(),
+      golden_aft_theta(),
+      golden_aft_covariance(),
+      "weibull",
+      deriv_method = "exact"
+    )
+  }
+  reference <- predict_from(kinds[["unnamed matrix"]])
+
+  for (kind in names(kinds)) {
+    result <- predict_from(kinds[[kind]])
+
+    expect_identical(
+      unlist(result, use.names = FALSE),
+      unlist(reference, use.names = FALSE),
+      label = kind
+    )
+    expect_s3_class(result, "data.frame")
+    expect_identical(
+      names(result),
+      c("time", "predicted", "variance", "lower", "upper"),
+      label = kind
+    )
+    expect_identical(dim(result), c(2L, 5L), label = kind)
+    expect_identical(rownames(result), c("1", "2"), label = kind)
+  }
+})
+
+test_that("plogit_predict reads every covariate design input kind alike", {
+  d <- golden_plogit_data()
+  kinds <- matrix_input_kinds(d$X, paste0("s", seq_len(5)), "x")
+  predict_from <- function(X) {
+    plogit_predict(
+      c(0.4, -1.5, 0.3, -0.2),
+      time = d$time,
+      event = d$event,
+      X = X,
+      measure = "survival"
+    )
+  }
+  reference <- predict_from(kinds[["unnamed matrix"]])
+
+  for (kind in names(kinds)) {
+    result <- predict_from(kinds[[kind]])
+
+    expect_identical(result, reference, label = kind)
+    expect_true(is.matrix(result), label = kind)
+    expect_identical(dim(result), c(3L, 5L), label = kind)
+    expect_null(dimnames(result), label = kind)
+  }
+})
+
+test_that("plogit_predict reads every time design input kind alike", {
+  d <- golden_plogit_data()
+  kinds <- matrix_input_kinds(
+    cbind(1, seq_len(3)),
+    c("k1", "k2", "k3"),
+    c("intercept", "time")
+  )
+  predict_from <- function(S) {
+    plogit_predict(
+      c(0.4, -1.5, 0.25),
+      time = d$time,
+      event = d$event,
+      X = d$X,
+      S = S,
+      measure = "survival"
+    )
+  }
+  reference <- predict_from(kinds[["unnamed matrix"]])
+
+  for (kind in names(kinds)) {
+    result <- predict_from(kinds[[kind]])
+
+    expect_identical(result, reference, label = kind)
+    expect_true(is.matrix(result), label = kind)
+    expect_identical(dim(result), c(3L, 5L), label = kind)
+    expect_null(dimnames(result), label = kind)
+  }
+})
+
+test_that("survival_predictions reads every covariance input kind alike", {
+  # This one has no design argument. Its covariance is the matrix a caller may
+  # spell three ways.
+  kinds <- matrix_input_kinds(
+    golden_survival_covariance(),
+    c("lambda", "gamma"),
+    c("lambda", "gamma")
+  )
+  predict_from <- function(covariance) {
+    survival_predictions(
+      golden_survival_times(),
+      golden_survival_theta(),
+      covariance,
+      "weibull",
+      deriv_method = "exact"
+    )
+  }
+  reference <- predict_from(kinds[["unnamed matrix"]])
+
+  for (kind in names(kinds)) {
+    result <- predict_from(kinds[[kind]])
+
+    expect_identical(
+      unlist(result, use.names = FALSE),
+      unlist(reference, use.names = FALSE),
+      label = kind
+    )
+    expect_s3_class(result, "data.frame")
+    expect_identical(
+      names(result),
+      c("time", "predicted", "variance", "lower", "upper"),
+      label = kind
+    )
+    expect_identical(dim(result), c(2L, 5L), label = kind)
+    expect_identical(rownames(result), c("1", "2"), label = kind)
+  }
 })

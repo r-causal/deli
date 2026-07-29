@@ -18,7 +18,8 @@
 #'   Default `0.05` (95% CIs).
 #'
 #' @returns A data frame with n rows and columns: `predicted`, `variance`,
-#'   `lower`, `upper`.
+#'   `lower`, `upper`. The rows are labeled by position regardless of the row
+#'   names of `X`, which say nothing about the predictions made from it.
 #'
 #' @examples
 #' set.seed(1)
@@ -43,7 +44,7 @@ regression_predictions <- function(
 ) {
   check_prediction_alpha(alpha)
 
-  X <- as.matrix(X)
+  X <- coerce_design(X)
   theta <- as.numeric(theta)
   covariance <- as.matrix(covariance)
 
@@ -281,7 +282,7 @@ aft_predictions_individual <- function(
   distribution,
   measure = "survival"
 ) {
-  X <- as.matrix(X)
+  X <- coerce_design(X)
   theta <- as.numeric(theta)
   distribution <- tolower(distribution)
   n <- nrow(X)
@@ -415,7 +416,7 @@ aft_predictions_function <- function(
   check_prediction_alpha(alpha)
   check_dx(dx)
 
-  X <- as.matrix(X)
+  X <- coerce_design(X)
 
   # A single covariate pattern is required: each pattern has its own variance,
   # so more than one row is rejected rather than tracked jointly.
@@ -576,7 +577,7 @@ plogit_predict <- function(
 ) {
   time <- as.numeric(time)
   event <- as.numeric(event)
-  X <- as.matrix(X)
+  X <- coerce_design(X)
   n <- nrow(X)
   xp <- ncol(X)
 
@@ -597,7 +598,7 @@ plogit_predict <- function(
     time_design_matrix <- diag(n_time_steps)
     time_design_matrix[, 1] <- 1
   } else {
-    S <- as.matrix(S)
+    S <- coerce_design(S)
     time_design_matrix <- S
     # The grid is the function's to build, and `nrow(S)` and `unique_times` may
     # only agree with it; see `plogit_unit_time_grid()`. Without the row check a
