@@ -820,18 +820,22 @@ test_that("a parameter name cli would reject prints literally", {
   expect_true(any(grepl("beta{", output, fixed = TRUE)))
 })
 
-test_that("printing an estimator with no parameter names still fails loudly", {
+test_that("printing an estimator with no parameter names numbers them", {
   # A fitted estimator always names its parameters, so an unnamed @theta is
-  # reachable only by assigning one. The escape step has to pass NULL straight
-  # back: gsub() answers it with character(0), and stats::setNames() pads a
-  # short name vector with NA, so an escaped NULL would relabel every
-  # coefficient NA instead of leaving cli to refuse an unnamed list.
+  # reachable only by assigning one. print() numbers such a vector positionally
+  # rather than handing cli an unnamed list, which is the fallback the summary
+  # path takes as well; test-print-summary.R pins the two against each other.
+  # The escape step still passes NULL straight back, because gsub() answers it
+  # with character(0) and stats::setNames() pads a short name vector with NA, so
+  # an escaped NULL would relabel every coefficient NA.
   y <- mean_variance_y()
   m <- m_estimate(stacked_equations = mean_variance_psi(y), init = c(0, 1))
   m@theta <- unname(m@theta)
 
   expect_null(escape_cli_braces(NULL))
-  expect_error(cli::cli_fmt(print(m)), "must be a named character vector")
+  output <- expect_no_error(cli::cli_fmt(print(m)))
+  expect_true(any(grepl("theta_1:", output, fixed = TRUE)))
+  expect_true(any(grepl("theta_2:", output, fixed = TRUE)))
 })
 
 test_that("a summary prints a brace-bearing parameter name unaltered", {

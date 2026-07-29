@@ -233,3 +233,78 @@ test_that("print() errors on an out-of-range subset", {
   m <- make_fitted_named()
   expect_error(print(m, subset = c(1, 5)), "between 1 and 3")
 })
+
+# print() parameter-name fallback ----------------------------------------------
+#
+# A fitted estimator always names its parameters: `resolve_param_names()` fills
+# every gap positionally, so `names(theta)` is a complete character vector for
+# every fit reachable through `estimate()`. Three display paths nevertheless read
+# those names, and only two of them say what to do when the vector is not
+# complete. `print(summary())` and the subset labels of `summarize_estimator()`
+# run the names through `default_param_names()`; `print_estimator()` reads
+# `names(theta)` directly, and an `@theta` assigned to the property directly is
+# what tells the three apart. The labels the fallback supplies are the fit's own,
+# so the fallback path has to print what the fit it was stripped from prints,
+# which is what the first two tests below assert.
+
+strip_theta_names <- function(m) {
+  m@theta <- unname(m@theta)
+  m
+}
+
+label_theta <- function(m, nm) {
+  theta <- m@theta
+  names(theta) <- nm
+  m@theta <- theta
+  m
+}
+
+test_that("print() numbers the parameters of an unnamed theta", {
+  m <- make_fitted_mean_variance()
+  stripped <- strip_theta_names(m)
+
+  expect_null(names(stripped@theta))
+  expect_identical(
+    capture_messages(print(stripped)),
+    capture_messages(print(m))
+  )
+})
+
+test_that("print() fills the gaps of a partially named theta", {
+  m <- make_fitted_mean_variance()
+  partial <- label_theta(m, c("mean", ""))
+  filled <- label_theta(m, c("mean", "theta_2"))
+
+  expect_identical(
+    capture_messages(print(partial)),
+    capture_messages(print(filled))
+  )
+})
+
+test_that("print() numbers an unnamed theta by its position in the full fit", {
+  stripped <- strip_theta_names(make_fitted_mean_variance())
+  shown <- capture_messages(print(stripped, subset = 2L))
+
+  # The label is filled before the subset is taken, so it reports which
+  # parameter of the whole fit is on show, as the summary path does.
+  expect_true(any(grepl("theta_2:", shown, fixed = TRUE)))
+  expect_false(any(grepl("theta_1:", shown, fixed = TRUE)))
+})
+
+test_that("print() keeps the names a named theta carries", {
+  shown <- capture_messages(print(make_fitted_named()))
+
+  expect_true(any(grepl("intercept: 37.2273", shown, fixed = TRUE)))
+  expect_false(any(grepl("theta_", shown, fixed = TRUE)))
+})
+
+test_that("print(summary()) already numbers an unnamed theta", {
+  m <- make_fitted_mean_variance()
+  stripped <- strip_theta_names(m)
+
+  # The path print() is being brought into line with.
+  expect_identical(
+    capture_messages(print(summary(stripped))),
+    capture_messages(print(summary(m)))
+  )
+})

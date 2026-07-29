@@ -11,12 +11,12 @@
 # without a word of complaint. A name the package's own accessors return intact
 # has to survive its printing too.
 #
-# `NULL` is passed straight back rather than escaped. `gsub()` answers it with
-# `character(0)`, and `stats::setNames()` pads a short name vector with `NA`, so
-# escaping an unnamed theta would relabel every coefficient `NA` instead of
-# leaving cli to refuse an unnamed list. A fitted estimator always names its
-# parameters; an unnamed one is reachable only by assigning `@theta` directly,
-# and that should keep failing loudly.
+# `NULL` is passed straight back rather than escaped, because `gsub()` answers it
+# with `character(0)` and `stats::setNames()` pads a short name vector with `NA`,
+# so an escaped `NULL` would relabel every coefficient `NA`. Nothing hands it one:
+# `print_estimator()` resolves the labels through `default_param_names()` before
+# escaping them, so what arrives here always has one entry per displayed
+# parameter.
 
 #' @noRd
 escape_cli_braces <- function(x) {
@@ -44,6 +44,10 @@ print_estimator <- function(x, label, subset = NULL) {
       " " = "Observations: {x@n_obs}"
     ))
     theta <- x@theta
+    # Filled before the subset is taken, so a numbered label reports which
+    # parameter of the whole fit is on show rather than its position among the
+    # displayed ones, which is how the summary path labels a subset as well.
+    names(theta) <- default_param_names(names(theta), length(theta))
     if (!is.null(subset)) {
       theta <- theta[subset]
     }
