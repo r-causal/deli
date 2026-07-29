@@ -10,7 +10,10 @@
 
 \item{conf.level}{Numeric confidence level for intervals. Default \code{0.95}.}
 
-\item{...}{Additional arguments (unused).}
+\item{...}{Not used. \code{tidy()} requires them to be empty, so that a misspelled
+\code{conf.int} or \code{conf.level} is an error rather than a table silently
+returned without intervals or at the default level. \code{glance()} has no
+optional argument for a wrong name to displace and ignores them.}
 }
 \value{
 \itemize{

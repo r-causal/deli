@@ -89,7 +89,10 @@ print_estimator <- function(x, label, subset = NULL) {
 #'   `summary()`, between 0 and 1. Default `0.05` for 95% limits.
 #' @param subset Integer vector of parameter indices to display, or `NULL`
 #'   (default) to display all of them.
-#' @param ... Not used.
+#' @param ... Not used. Must be empty, so that a name neither method recognizes
+#'   is an error rather than silently ignored: a misspelled `alpha` would report
+#'   limits at the default width and a misspelled `subset` would display every
+#'   parameter, each while the call still read as the one that was meant.
 #'
 #' @returns
 #' - `print()`: its input, invisibly.
@@ -121,6 +124,11 @@ NULL
 
 #' @noRd
 method(print, deli_estimator) <- function(x, ..., subset = NULL) {
+  # `sys.call(-1)` names the `print()` call the caller wrote; see the comment on
+  # the same call in `predict()` for why the default would name the wrong frame.
+  # `subset` follows the dots, so it matches only exactly and every misspelling
+  # of it reaches this guard.
+  rlang::check_dots_empty(call = sys.call(-1))
   print_estimator(x, S7::S7_class(x)@name, subset = subset)
 }
 
@@ -199,6 +207,7 @@ method(summary, deli_estimator) <- function(
   subset = NULL,
   ...
 ) {
+  rlang::check_dots_empty(call = sys.call(-1))
   summarize_estimator(
     object,
     S7::S7_class(object)@name,

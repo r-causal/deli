@@ -8,7 +8,10 @@
 #' @param x A fitted `MEstimator` or `GMMEstimator` object.
 #' @param conf.int Logical. Include confidence intervals? Default `FALSE`.
 #' @param conf.level Numeric confidence level for intervals. Default `0.95`.
-#' @param ... Additional arguments (unused).
+#' @param ... Not used. `tidy()` requires them to be empty, so that a misspelled
+#'   `conf.int` or `conf.level` is an error rather than a table silently
+#'   returned without intervals or at the default level. `glance()` has no
+#'   optional argument for a wrong name to displace and ignores them.
 #'
 #' @returns
 #' - `tidy()`: A data.frame with columns `term`, `estimate`, `std.error`,
@@ -46,6 +49,9 @@ method(generics_tidy, deli_estimator) <- function(
   conf.level = 0.95,
   ...
 ) {
+  # `sys.call(-1)` names the `tidy()` call the caller wrote; see the comment on
+  # the same call in `predict()` for why the default would name the wrong frame.
+  rlang::check_dots_empty(call = sys.call(-1))
   tidy_estimator(x, conf.int = conf.int, conf.level = conf.level)
 }
 

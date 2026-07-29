@@ -14,7 +14,10 @@
 \item{subset}{Integer vector of parameter indices to display, or \code{NULL}
 (default) to display all of them.}
 
-\item{...}{Not used.}
+\item{...}{Not used. Must be empty, so that a name neither method recognizes
+is an error rather than silently ignored: a misspelled \code{alpha} would report
+limits at the default width and a misspelled \code{subset} would display every
+parameter, each while the call still read as the one that was meant.}
 }
 \value{
 \itemize{

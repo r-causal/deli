@@ -6,11 +6,14 @@
 # default tolerance, and `deriv_methods` silently keeps the default Jacobian, so
 # a typo changes a reported number without changing any visible code.
 #
-# The base-generic methods (`coef()`, `vcov()`, `nobs()`, `confint()`,
-# `summary()`, `generics::tidy()`, `generics::glance()`) also carry a `...` they
-# never forward, and deliberately tolerate it: accepting `...` is the convention
-# for those generics, and none of them has an optional argument a typo could
-# quietly redirect. They are outside the guarded surface, and not tested here.
+# The base-generic methods also carry a `...` they never forward, and they
+# divide on whether a wrong name in it could displace anything. `summary()`,
+# `confint()`, `generics::tidy()`, `print()`, and `model.matrix()` each carry a
+# setting a typo could quietly redirect, so each of them is guarded the same way
+# and the section after the inference generics covers them. `coef()`, `vcov()`,
+# `nobs()`, and `generics::glance()` have no optional argument at all, so a
+# stray name cannot change what they return and they stay tolerant, which is the
+# convention for those generics.
 #
 # Each guarded entry point gets two tests. The first passes a name a user might
 # plausibly reach for by mistake, either a misspelling or a name borrowed from a
@@ -366,6 +369,214 @@ test_that("the inference generics accept every documented argument", {
   expect_length(p_values(fit, null = c(4, 5)), 2L)
   expect_length(s_values(fit, null = c(4, 5)), 2L)
   expect_equal(dim(influence_functions(fit, allow_pinv = FALSE)), c(8L, 2L))
+})
+
+# ---- Base-generic methods that carry a displaceable setting ------------------
+#
+# `summary()`, `confint()`, `generics::tidy()`, `print()`, and `model.matrix()`
+# each have an optional argument a wrong name can displace: the significance
+# level and the displayed subset, the interval level and the parameters chosen,
+# whether an interval is returned and at what level, the displayed subset again,
+# and the data a design is built from. Each wrong name changes a reported number
+# or a reported row set while leaving the call looking like the one that was
+# meant, which is the failure the first section of this file describes, so each
+# of the five carries the same guard.
+#
+# `coef()`, `vcov()`, `nobs()`, and `generics::glance()` have no optional
+# argument for a name to displace, so a stray name cannot change what they
+# return. They stay tolerant, and the last test here pins that.
+#
+# Which wrong name reaches `...` depends on where the argument it was meant for
+# sits in the signature. `alpha` and `subset` precede `summary()`'s dots, so
+# `alph`, `a`, `subse`, and `s` all resolve by partial matching before the dots
+# collect anything and no guard can see them. The same holds for `lev` and `par`
+# on `confint()`, `conf.i` and `conf.l` on `tidy()`, and `dat` on
+# `model.matrix()`; a bare `conf` on `tidy()` matches two formals and R rejects
+# it on its own. `print()` is the exception, because `subset` follows its dots
+# and therefore matches only exactly: every misspelling of it, `subse` and `sub`
+# included, reaches the guard.
+
+dots_gmm_fit <- function() {
+  gmm_estimate(stacked_equations = dots_psi(), init = dots_init)
+}
+
+# `model.matrix()` reports on a recorded design, which only the formula
+# interface records, so its guard is checked on a formula fit. The factor is
+# what makes a `contrasts.arg` a request the method could conceivably have
+# honored rather than a name with nothing to act on.
+dots_design_data <- function() {
+  data <- mtcars
+  data$gear <- factor(data$gear)
+  data
+}
+
+dots_design_fit <- function(data = dots_design_data()) {
+  m_estimate(
+    mpg ~ wt + gear,
+    data = data,
+    .ee = ee_regression,
+    model = "linear"
+  )
+}
+
+test_that("summary() rejects a misspelled argument", {
+  fit <- dots_fit()
+  expect_error(
+    summary(fit, alfa = 0.1),
+    "alfa",
+    class = "rlib_error_dots_nonempty"
+  )
+  expect_error(
+    summary(fit, subst = 1),
+    "subst",
+    class = "rlib_error_dots_nonempty"
+  )
+})
+
+test_that("summary() rejects a misspelled argument for a GMMEstimator", {
+  fit <- dots_gmm_fit()
+  expect_error(
+    summary(fit, alfa = 0.1),
+    "alfa",
+    class = "rlib_error_dots_nonempty"
+  )
+})
+
+test_that("summary() accepts both of its own arguments", {
+  fit <- dots_fit()
+  s <- summary(fit, alpha = 0.1, subset = 1L)
+  expect_equal(s@alpha, 0.1)
+  expect_named(s@theta, "mean")
+})
+
+test_that("confint() rejects a misspelled level", {
+  fit <- dots_fit()
+  expect_error(
+    confint(fit, levl = 0.9),
+    "levl",
+    class = "rlib_error_dots_nonempty"
+  )
+  expect_error(
+    confint(fit, lvl = 0.9),
+    "lvl",
+    class = "rlib_error_dots_nonempty"
+  )
+})
+
+test_that("confint() rejects a misspelled level for a GMMEstimator", {
+  fit <- dots_gmm_fit()
+  expect_error(
+    confint(fit, levl = 0.9),
+    "levl",
+    class = "rlib_error_dots_nonempty"
+  )
+})
+
+test_that("confint() accepts both of its own arguments", {
+  fit <- dots_fit()
+  wide <- confint(fit, level = 0.99)
+  narrow <- confint(fit, level = 0.5)
+  expect_true(all(
+    wide[, "upper"] - wide[, "lower"] > narrow[, "upper"] - narrow[, "lower"]
+  ))
+  expect_identical(rownames(confint(fit, parm = "variance")), "variance")
+  expect_equal(
+    confint(fit, parm = 1L, level = 0.5),
+    narrow[1L, , drop = FALSE]
+  )
+})
+
+test_that("tidy() rejects a misspelled argument", {
+  fit <- dots_fit()
+  expect_error(
+    generics::tidy(fit, conf.intt = TRUE),
+    "conf.intt",
+    class = "rlib_error_dots_nonempty"
+  )
+  expect_error(
+    generics::tidy(fit, conf.int = TRUE, conf.levell = 0.5),
+    "conf.levell",
+    class = "rlib_error_dots_nonempty"
+  )
+})
+
+test_that("tidy() accepts both of its own arguments", {
+  fit <- dots_fit()
+  plain <- generics::tidy(fit)
+  narrow <- generics::tidy(fit, conf.int = TRUE, conf.level = 0.5)
+  expect_false("conf.low" %in% names(plain))
+  expect_true(all(c("conf.low", "conf.high") %in% names(narrow)))
+  expect_equal(
+    narrow$conf.low,
+    unname(confint(fit, level = 0.5)[, "lower"])
+  )
+})
+
+test_that("print() rejects a misspelled subset", {
+  fit <- dots_fit()
+  expect_error(
+    print(fit, subst = 1),
+    "subst",
+    class = "rlib_error_dots_nonempty"
+  )
+  # `subset` follows the dots, so it matches only exactly and a dropped final
+  # letter reaches the guard rather than the argument it was meant for.
+  expect_error(
+    print(fit, subse = 1),
+    "subse",
+    class = "rlib_error_dots_nonempty"
+  )
+})
+
+test_that("print() accepts its own subset", {
+  fit <- dots_fit()
+  shown <- testthat::capture_messages(print(fit, subset = 1L))
+  expect_true(any(grepl("mean", shown, fixed = TRUE)))
+  expect_false(any(grepl("variance", shown, fixed = TRUE)))
+})
+
+test_that("model.matrix() rejects an argument it has no answer for", {
+  fit <- dots_design_fit()
+  # A design is coded with the contrasts the fit recorded rather than with a
+  # coding supplied at the call, so there is no `contrasts.arg` to honor and a
+  # supplied one has to be refused rather than dropped.
+  expect_error(
+    stats::model.matrix(fit, contrasts.arg = list(gear = "contr.sum")),
+    "contrasts.arg",
+    class = "rlib_error_dots_nonempty"
+  )
+})
+
+test_that("model.matrix() accepts its own data", {
+  data <- dots_design_data()
+  fit <- dots_design_fit(data)
+  expect_identical(stats::model.matrix(fit), fit@model_spec$X)
+  expect_identical(
+    nrow(stats::model.matrix(fit, data = data[1:3, ])),
+    3L
+  )
+})
+
+test_that("coef(), vcov(), nobs(), and glance() stay tolerant of a stray name", {
+  fit <- dots_fit()
+  expect_equal(unname(coef(fit, junk = 1)[1]), 4.5, tolerance = 1e-6)
+  expect_equal(dim(vcov(fit, junk = 1)), c(2L, 2L))
+  expect_equal(nobs(fit, junk = 1), 8L)
+  expect_equal(generics::glance(fit, junk = 1)$nobs, 8L)
+})
+
+test_that("the dots guard names the user's call at each guarded method", {
+  fit <- dots_fit()
+  design_fit <- dots_design_fit()
+
+  expect_reported_call(quote(summary(fit, alfa = 0.1)))
+  expect_reported_call(quote(confint(fit, levl = 0.9)))
+  expect_reported_call(quote(generics::tidy(fit, conf.intt = TRUE)))
+  expect_reported_call(quote(print(fit, subst = 1)))
+  expect_reported_call(quote(stats::model.matrix(
+    design_fit,
+    contrasts.arg = list(gear = "contr.sum")
+  )))
 })
 
 # ---- Guard ordering ----------------------------------------------------------

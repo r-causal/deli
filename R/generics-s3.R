@@ -52,9 +52,13 @@
 # a rebuild from the recorded frame produces anyway. With `data`, the response is
 # deleted from the terms first, so covariate values that carry none are enough.
 # That is where a design parts company with a model frame, which holds every
-# variable the formula names and says so when the response is absent. There is no
-# `contrasts.arg`: the argument that would take one is the fit, which has already
-# answered the question.
+# variable the formula names and says so when the response is absent.
+#
+# A supplied `contrasts.arg` is refused rather than honored. The argument that
+# would take one is the fit, which has already answered the question, so a coding
+# named at the call describes a design this method does not build. It reaches
+# `...`, which is required to be empty, and is therefore an error rather than a
+# request silently dropped.
 #
 # ---- Why model.frame() takes the rest of its formals -------------------------
 # `model.frame()` honors `data` for the reason every base method does. A method
@@ -148,9 +152,13 @@
 #'   model frame. `xlev` defaults to the factor levels the fit recorded. All
 #'   four describe how to build a frame from `data`, so supplying one without
 #'   `data` is an error rather than a silent no-op.
-#' @param ... Additional arguments. `model.frame()` requires them to be empty,
-#'   so that a name it does not recognize is an error rather than silently
-#'   ignored; the rest of the methods ignore them.
+#' @param ... Not used. `confint()`, `model.frame()`, and `model.matrix()`
+#'   require them to be empty, so that a name none of them recognizes is an
+#'   error rather than silently ignored: a misspelled `level` would report the
+#'   default limits, and a misspelled `data` would report on the fitted rows
+#'   while the caller believed they had asked for rows of their own. The rest
+#'   ignore them, which is the convention for a base generic with no optional
+#'   argument for a wrong name to displace.
 #'
 #' @returns
 #' - `coef()`: Named numeric vector of parameter estimates.
@@ -232,6 +240,10 @@ method(stats_confint, deli_estimator) <- function(
   level = 0.95,
   ...
 ) {
+  # `sys.call(-1)` names the `confint()` call the caller wrote; see the comment
+  # on the same call in `predict()` for why the default would name the wrong
+  # frame.
+  rlang::check_dots_empty(call = sys.call(-1))
   check_estimated(object)
   ci <- confidence_intervals(object, alpha = 1 - level)
   if (!missing(parm)) {
@@ -341,6 +353,7 @@ method(stats_model_matrix, deli_estimator) <- function(
   data = NULL,
   ...
 ) {
+  rlang::check_dots_empty(call = sys.call(-1))
   spec <- model_spec_or_abort(object, "model.matrix")
 
   if (is.null(data)) {
