@@ -39,7 +39,11 @@ Should NOT include A itself.}
 \item{weights}{Optional numeric vector of n weights. Default \code{NULL}.}
 }
 \value{
-A matrix of estimating equation contributions.
+A matrix of estimating equation contributions. The structural mean
+model rows are named \verb{SNM phi_0} through \verb{SNM phi_(b-1)}, matching the
+zero-based subscripts the literature gives those parameters. The propensity
+score rows are named \code{W_1} through \code{W_c}, and, for the efficient
+g-estimator, the outcome model rows are named \code{X_1} through \code{X_d}.
 }
 \description{
 Estimates the parameters of a structural nested mean model via

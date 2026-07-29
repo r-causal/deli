@@ -13,7 +13,8 @@ deviation, \code{theta[2]} is the median.}
 \item{y}{Numeric vector of observed values.}
 }
 \value{
-A 2-by-n matrix.
+A 2-by-n matrix, with rows named \code{positive_mean_deviation} and
+\code{median}.
 }
 \description{
 Returns a 2-by-n matrix for the positive mean deviation and median.

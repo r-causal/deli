@@ -11,7 +11,8 @@
 #' @param r Numeric indicator: 1 for main study data, 0 for external validation.
 #' @param weights Optional numeric vector of n weights. Default `NULL`.
 #'
-#' @returns A 4-by-n matrix.
+#' @returns A 4-by-n matrix, with rows named `corrected_proportion`,
+#'   `naive_proportion`, `sensitivity`, and `specificity`.
 #'
 #' @examples
 #' # A main study measures a binary outcome with an imperfect test. An external
@@ -74,7 +75,14 @@ ee_rogan_gladen <- function(theta, y, y_star, r, weights = NULL) {
   # Specificity: P(Y*=0 | Y=0) among validation (r=0)
   ef_spec <- matrix((1 - y_star - spec) * (1 - r) * (1 - y) * w, nrow = 1)
 
-  rbind(ef_corrected, ef_naive, ef_sens, ef_spec)
+  out <- rbind(ef_corrected, ef_naive, ef_sens, ef_spec)
+  rownames(out) <- c(
+    "corrected_proportion",
+    "naive_proportion",
+    "sensitivity",
+    "specificity"
+  )
+  out
 }
 
 #' Estimating equation for extended Rogan-Gladen correction
@@ -92,7 +100,9 @@ ee_rogan_gladen <- function(theta, y, y_star, r, weights = NULL) {
 #' @param X Numeric n-by-p design matrix for sensitivity/specificity models.
 #' @param weights Optional numeric vector of n weights. Default `NULL`.
 #'
-#' @returns A `(1+2*p)`-by-n matrix.
+#' @returns A `(1+2*p)`-by-n matrix, with rows named `corrected_proportion`,
+#'   then `sens_1` through `sens_p` for the sensitivity model, then `spec_1`
+#'   through `spec_p` for the specificity model.
 #'
 #' @examples
 #' # The same validation design as ee_rogan_gladen(), with sensitivity and
@@ -162,7 +172,15 @@ ee_rogan_gladen_extended <- function(theta, y, y_star, r, X, weights = NULL) {
   rg_equation <- (y_star + spec_i - 1) / (sens_i + spec_i - 1)
   ef_corrected <- matrix(r * (rg_equation - mu) * w, nrow = 1)
 
-  rbind(ef_corrected, ee_sens, ee_spec)
+  out <- rbind(ef_corrected, ee_sens, ee_spec)
+  # Both nuisance blocks fit the same design, so a shared prefix would repeat
+  # every label. Each block is named for what its model estimates instead.
+  rownames(out) <- c(
+    "corrected_proportion",
+    block_param_names("sens", p),
+    block_param_names("spec", p)
+  )
+  out
 }
 
 #' Estimating equation for regression calibration
@@ -185,7 +203,9 @@ ee_rogan_gladen_extended <- function(theta, y, y_star, r, X, weights = NULL) {
 #' @param weights Optional numeric vector of n weights. Default `NULL`.
 #'
 #' @returns A `length(theta)`-by-n matrix (`2 + ncol(X)` rows, or `3` rows
-#'   when `X = NULL`).
+#'   when `X = NULL`). The first row is named `corrected_beta` and the second
+#'   `a_star`. The remaining rows are named `X_1` through `X_p` for the columns
+#'   of `X`, or `intercept` when `X = NULL`.
 #'
 #' @examples
 #' # A binary exposure is measured with error in the main study. The external
@@ -234,8 +254,12 @@ ee_regression_calibration <- function(
   # Default to a_star + intercept design matrix (matches Python column order)
   if (is.null(X)) {
     Xcal <- cbind(a_star, 1)
+    # The default design is the mismeasured action and an intercept, both of
+    # which the function put there, so both are named for what they are.
+    cal_names <- c("a_star", "intercept")
   } else {
     Xcal <- cbind(a_star, coerce_design(X))
+    cal_names <- c("a_star", block_param_names("X", ncol(Xcal) - 1L))
   }
   p <- ncol(Xcal)
 
@@ -254,5 +278,7 @@ ee_regression_calibration <- function(
   resid <- a - eta
   ef_cal <- t(Xcal * (w * (1 - r) * resid))
 
-  rbind(ef_corrected, ef_cal)
+  out <- rbind(ef_corrected, ef_cal)
+  rownames(out) <- c("corrected_beta", cal_names)
+  out
 }

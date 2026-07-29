@@ -19,7 +19,11 @@
 #' @param weights Optional numeric vector of n weights. Default `NULL`.
 #' @param offset Optional numeric vector of n offsets. Default `NULL`.
 #'
-#' @returns A p-by-n matrix where p is the number of parameters.
+#' @returns A p-by-n matrix where p is the number of parameters. For the
+#'   exponential distribution, whose parameters are all regression
+#'   coefficients, the rows are unnamed. For every other distribution the
+#'   regression rows are named `X_1` through `X_b` for the columns of `X` and
+#'   the final row is named `log_inv_scale`.
 #'
 #' @examplesIf requireNamespace("nleqslv", quietly = TRUE)
 #' # A Weibull AFT model for times generated from one binary covariate, with
@@ -120,6 +124,9 @@ ee_aft <- function(
   # Return based on distribution
 
   if (distribution == "exponential") {
+    # Sigma is fixed at 1 here, so every parameter is a coefficient on a column
+    # of X and the only labels available would be positional. The return is left
+    # unnamed, as the regression family's is.
     return(ef_beta)
   }
 
@@ -127,7 +134,13 @@ ee_aft <- function(
   score_shape <- (-1 / sigma) * lambda_epsilon * z_i - event / sigma
   ef_shape <- matrix(w * score_shape, nrow = 1) # 1-by-n matrix
 
-  rbind(ef_beta, ef_shape)
+  out <- rbind(ef_beta, ef_shape)
+  # The trailing row is log(1/sigma), a parameter of the error distribution
+  # rather than a coefficient on a design column, and it is the row a caller is
+  # most likely to mistake for one. The design rows are named positionally so
+  # that the set is complete, since a partial set is discarded whole.
+  rownames(out) <- c(block_param_names("X", beta_dim), "log_inv_scale")
+  out
 }
 
 #' Estimating equation for parametric survival models
@@ -148,7 +161,9 @@ ee_aft <- function(
 #' @param distribution Character string: `"exponential"`, `"weibull"`, or
 #'   `"gompertz"`.
 #'
-#' @returns A p-by-n matrix where p is the number of parameters.
+#' @returns A p-by-n matrix where p is the number of parameters. The row is
+#'   named `lambda` for the exponential distribution, and the rows are named
+#'   `lambda` and `gamma` for the Weibull and Gompertz distributions.
 #'
 #' @examplesIf requireNamespace("nleqslv", quietly = TRUE)
 #' # Weibull survival times for 45 women with breast cancer, with no covariates.
@@ -216,13 +231,17 @@ ee_survival_model <- function(theta, time, event, distribution) {
 
   # Return stacked estimating equations
   if (distribution == "exponential") {
-    return(matrix(ef_lambda, nrow = 1))
+    out <- matrix(ef_lambda, nrow = 1)
+    rownames(out) <- "lambda"
+    return(out)
   }
 
-  rbind(
+  out <- rbind(
     matrix(ef_lambda, nrow = 1),
     matrix(ef_gamma, nrow = 1)
   )
+  rownames(out) <- c("lambda", "gamma")
+  out
 }
 
 #' Estimating equation for pooled logistic regression

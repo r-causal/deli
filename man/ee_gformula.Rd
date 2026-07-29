@@ -24,7 +24,11 @@ Default \code{NULL}.}
 is binary? Default \code{FALSE}.}
 }
 \value{
-A matrix of estimating equation contributions.
+A matrix of estimating equation contributions. When \code{X0 = NULL} the
+first row is named \code{causal_mean}; when \code{X0} is provided the first three
+rows are named \code{ACE}, \code{E[Y^1]}, and \code{E[Y^0]}, where 1 and 0 index the two
+plans. The outcome model rows are named \code{X_1} through \code{X_p} for the
+columns of \code{X}.
 }
 \description{
 Returns a stacked set of estimating equations for the g-formula. When

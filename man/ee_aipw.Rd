@@ -31,7 +31,10 @@ clip propensity scores. Bounds must be in ascending order
 model? Default \code{FALSE}.}
 }
 \value{
-A \code{(3+b+c)}-by-n matrix of estimating equation contributions.
+A \code{(3+b+c)}-by-n matrix of estimating equation contributions, with
+the first three rows named \code{ACE}, \code{E[Y^1]}, and \code{E[Y^0]}, the propensity
+score rows named \code{W_1} through \code{W_b}, and the outcome model rows named
+\code{X_1} through \code{X_c}.
 }
 \description{
 Estimates the average causal effect using AIPW, which combines a

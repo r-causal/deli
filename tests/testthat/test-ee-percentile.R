@@ -100,6 +100,7 @@ test_that("ee_positive_mean_deviation returns the correct contributions despite 
     c(-3, -3, -3, -3, -3, -1, 1, 3, 5),
     c(-0.5, -0.5, -0.5, -0.5, -0.5, 0.5, 0.5, 0.5, 0.5)
   )
+  rownames(expected) <- c("positive_mean_deviation", "median")
   expect_equal(result, expected)
 })
 

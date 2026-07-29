@@ -19,7 +19,8 @@ ED50, steepness.}
 \item{k}{Optional numeric tuning parameter for robust loss.}
 }
 \value{
-A 4-by-n matrix.
+A 4-by-n matrix, with rows named \code{lower}, \code{upper}, \code{ed50}, and
+\code{steepness}.
 }
 \description{
 Implements the 4-parameter log-logistic model:

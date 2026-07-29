@@ -336,9 +336,12 @@ test_that("base rbind's variable-name labels reach the parameter names", {
 
 test_that("a matrix argument to base rbind carries no variable-name label", {
   # The labels come only from vector arguments. A stack mixing a labeled vector
-  # with a matrix is therefore incomplete and is discarded, which is what keeps
-  # the built-in ee_*() functions out of the naming channel: each returns a
-  # matrix and none of them carries row names.
+  # with a matrix is therefore incomplete and is discarded, unless the matrix
+  # brought row names of its own. That is what keeps the unlabeled built-in
+  # equations, the regression family among them, out of the naming channel: each
+  # returns a matrix, and a matrix contributes only the row names it was given.
+  # The equations that do write their own are covered in
+  # test-param-names-builtin.R.
   y <- mean_variance_y()
   psi <- function(theta) {
     mu <- y - theta[1]
@@ -442,7 +445,10 @@ test_that("ee_aft() does not name the parameters from its design columns", {
   # coerce_design(), which drops the dimnames, so the caller's column headings
   # cannot reach the row names of the return. ee_aft() under the exponential
   # distribution is the case that would otherwise supply a complete set: it has
-  # one parameter per design column and builds its return as t(X * ...).
+  # one parameter per design column and builds its return as t(X * ...). Sigma
+  # is fixed at 1 there, so every parameter is a design coefficient and the
+  # return is left unnamed. The other distributions carry log(1/sigma) as well
+  # and do name their rows; test-param-names-builtin.R covers that.
   d <- aft_fixture()
   psi <- function(theta) {
     ee_aft(

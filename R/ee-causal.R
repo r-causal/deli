@@ -16,7 +16,11 @@
 #' @param force_continuous Logical. Force linear regression even when `y`
 #'   is binary? Default `FALSE`.
 #'
-#' @returns A matrix of estimating equation contributions.
+#' @returns A matrix of estimating equation contributions. When `X0 = NULL` the
+#'   first row is named `causal_mean`; when `X0` is provided the first three
+#'   rows are named `ACE`, `E[Y^1]`, and `E[Y^0]`, where 1 and 0 index the two
+#'   plans. The outcome model rows are named `X_1` through `X_p` for the
+#'   columns of `X`.
 #'
 #' @examples
 #' # A binary treatment, two confounders, and a continuous outcome whose true
@@ -76,7 +80,13 @@ ee_gformula <- function(theta, y, X, X1, X0 = NULL, force_continuous = FALSE) {
     ya1 <- transform_fn(pt_as_vector(X1 %*% beta)) - mu1
 
     # Stack: (1+p)-by-n
-    rbind(matrix(ya1, nrow = 1), preds_reg)
+    out <- rbind(matrix(ya1, nrow = 1), preds_reg)
+    # The two branches name the same quantity differently. With two plans the
+    # superscripts of `E[Y^1]` and `E[Y^0]` index the pair, and the pair is what
+    # makes them readable. One plan has no second element to index, so the row
+    # takes a bare name for the bare mean it holds.
+    rownames(out) <- c("causal_mean", block_param_names("X", ncol(X)))
+    out
   } else {
     # Two plans: theta = c(mud, mu1, mu0, beta)
     mud <- theta[1]
@@ -97,12 +107,19 @@ ee_gformula <- function(theta, y, X, X1, X0 = NULL, force_continuous = FALSE) {
     ace <- mu1 - mu0 - mud
 
     # Stack: (3+p)-by-n
-    rbind(
+    out <- rbind(
       matrix(ace, nrow = 1, ncol = n),
       matrix(ya1, nrow = 1),
       matrix(ya0, nrow = 1),
       preds_reg
     )
+    rownames(out) <- c(
+      "ACE",
+      "E[Y^1]",
+      "E[Y^0]",
+      block_param_names("X", ncol(X))
+    )
+    out
   }
 }
 
@@ -121,7 +138,9 @@ ee_gformula <- function(theta, y, X, X1, X0 = NULL, force_continuous = FALSE) {
 #'   (`lower <= upper`). Default `NULL`.
 #' @param weights Optional numeric vector of n weights. Default `NULL`.
 #'
-#' @returns A `(3+b)`-by-n matrix of estimating equation contributions.
+#' @returns A `(3+b)`-by-n matrix of estimating equation contributions, with
+#'   the first three rows named `ACE`, `E[Y^1]`, and `E[Y^0]` and the propensity
+#'   score rows named `W_1` through `W_b` for the columns of `W`.
 #'
 #' @examples
 #' # A binary treatment, two confounders, and a continuous outcome whose true
@@ -182,12 +201,19 @@ ee_ipw <- function(theta, y, A, W, truncate = NULL, weights = NULL) {
   ace <- theta[2] - theta[3] - theta[1]
 
   # Stack: (3+b)-by-n
-  rbind(
+  out <- rbind(
     matrix(ace, nrow = 1, ncol = n),
     matrix(ya1, nrow = 1),
     matrix(ya0, nrow = 1),
     preds_reg
   )
+  rownames(out) <- c(
+    "ACE",
+    "E[Y^1]",
+    "E[Y^0]",
+    block_param_names("W", ncol(W))
+  )
+  out
 }
 
 #' Estimating equations for augmented inverse probability weighting (AIPW)
@@ -210,7 +236,10 @@ ee_ipw <- function(theta, y, A, W, truncate = NULL, weights = NULL) {
 #' @param force_continuous Logical. Force linear regression for outcome
 #'   model? Default `FALSE`.
 #'
-#' @returns A `(3+b+c)`-by-n matrix of estimating equation contributions.
+#' @returns A `(3+b+c)`-by-n matrix of estimating equation contributions, with
+#'   the first three rows named `ACE`, `E[Y^1]`, and `E[Y^0]`, the propensity
+#'   score rows named `W_1` through `W_b`, and the outcome model rows named
+#'   `X_1` through `X_c`.
 #'
 #' @examples
 #' # A binary treatment, two confounders, and a continuous outcome whose true
@@ -306,13 +335,21 @@ ee_aipw <- function(
     mu0
 
   # Stack: (3+b+c)-by-n
-  rbind(
+  out <- rbind(
     matrix(ace, nrow = 1, ncol = n),
     matrix(y1_star, nrow = 1),
     matrix(y0_star, nrow = 1),
     pi_model,
     m_model
   )
+  rownames(out) <- c(
+    "ACE",
+    "E[Y^1]",
+    "E[Y^0]",
+    block_param_names("W", b),
+    block_param_names("X", ncol(X))
+  )
+  out
 }
 
 #' Estimating equations for IPW marginal structural model
@@ -345,7 +382,11 @@ ee_aipw <- function(
 #'   (`lower <= upper`). Default `NULL`.
 #' @param weights Optional numeric vector of n weights. Default `NULL`.
 #'
-#' @returns A `(c+b)`-by-n matrix of estimating equation contributions.
+#' @returns A `(c+b)`-by-n matrix of estimating equation contributions. The
+#'   marginal structural model rows are named `MSM alpha_0` through
+#'   `MSM alpha_(c-1)`, matching the zero-based subscripts the literature gives
+#'   those parameters. The propensity score rows are named `W_1` through `W_b`
+#'   for the columns of `W`.
 #'
 #' @examples
 #' # A confounded binary treatment whose true effect on the outcome is -2.
@@ -440,7 +481,18 @@ ee_ipw_msm <- function(
   )
 
   # Stack: (c+b)-by-n
-  rbind(ee_msm, preds_reg)
+  out <- rbind(ee_msm, preds_reg)
+  # The marginal structural model coefficients are subscripted from zero, as
+  # alpha_0 and alpha_1 are in the literature this implements, so the sequence
+  # starts one below the row position. The `hyperparameter` documentation
+  # explains why the MSM block is always exactly ncol(V) rows: the outcome
+  # families that carry an estimated nuisance parameter have no slot in the
+  # theta partition and cannot reach this stack.
+  rownames(out) <- c(
+    sprintf("MSM alpha_%d", seq_len(c_params) - 1L),
+    block_param_names("W", ncol(W))
+  )
+  out
 }
 
 #' Estimating equations for g-estimation of structural nested mean models
@@ -465,7 +517,11 @@ ee_ipw_msm <- function(
 #'   `"linear"`.
 #' @param weights Optional numeric vector of n weights. Default `NULL`.
 #'
-#' @returns A matrix of estimating equation contributions.
+#' @returns A matrix of estimating equation contributions. The structural mean
+#'   model rows are named `SNM phi_0` through `SNM phi_(b-1)`, matching the
+#'   zero-based subscripts the literature gives those parameters. The propensity
+#'   score rows are named `W_1` through `W_c`, and, for the efficient
+#'   g-estimator, the outcome model rows are named `X_1` through `X_d`.
 #'
 #' @examples
 #' # A confounded binary treatment whose true effect on the outcome is -2.
@@ -574,12 +630,19 @@ ee_gestimation_snmm <- function(
   # ee_smm: b-by-n matrix
   ee_smm <- t(V * (w * a_resid * y0_resid))
 
-  # Stack estimating equations
+  # Stack estimating equations. The structural mean model parameters are
+  # subscripted from zero, as phi_0 and phi_1 are in the literature this
+  # implements, so the sequence starts one below the row position.
+  smm_names <- sprintf("SNM phi_%d", seq_len(pdiv) - 1L)
+  ps_names <- block_param_names("W", ncol(W))
   if (!is.null(X)) {
-    rbind(ee_smm, ee_log, ee_out)
+    out <- rbind(ee_smm, ee_log, ee_out)
+    rownames(out) <- c(smm_names, ps_names, block_param_names("X", ncol(X)))
   } else {
-    rbind(ee_smm, ee_log)
+    out <- rbind(ee_smm, ee_log)
+    rownames(out) <- c(smm_names, ps_names)
   }
+  out
 }
 
 #' Estimating equations for instrumental variable (IV) estimation
@@ -595,7 +658,8 @@ ee_gestimation_snmm <- function(
 #' @param Z Numeric vector of n binary instrument values (0/1).
 #' @param weights Optional numeric vector of n weights. Default `NULL`.
 #'
-#' @returns A 2-by-n matrix of estimating equation contributions.
+#' @returns A 2-by-n matrix of estimating equation contributions, with rows
+#'   named `causal_effect` and `mean_Z`.
 #'
 #' @examples
 #' # An unmeasured confounder U biases the association between A and Y, but the
@@ -631,10 +695,12 @@ ee_iv_causal <- function(theta, y, A, Z, weights = NULL) {
   ee_iva <- w * (y - theta[1] * A) * (Z - theta[2])
 
   # Stack: 2-by-n
-  rbind(
+  out <- rbind(
     matrix(ee_iva, nrow = 1),
     matrix(ee_prz, nrow = 1)
   )
+  rownames(out) <- c("causal_effect", "mean_Z")
+  out
 }
 
 #' Estimating equations for Two-Stage Least Squares (2SLS)
@@ -656,7 +722,12 @@ ee_iv_causal <- function(theta, y, A, Z, weights = NULL) {
 #'   both stages. Default `NULL`.
 #' @param weights Optional numeric vector of n weights. Default `NULL`.
 #'
-#' @returns A `(1+b+2c)`-by-n matrix of estimating equation contributions.
+#' @returns A `(1+b+2c)`-by-n matrix of estimating equation contributions. The
+#'   second-stage rows are named `stage2_A` for the fitted treatment and
+#'   `stage2_W_1` through `stage2_W_c`; the first-stage rows are named
+#'   `stage1_Z_1` through `stage1_Z_b` and `stage1_W_1` through `stage1_W_c`.
+#'   The columns of `W` appear in both stages, so each name carries the stage it
+#'   belongs to.
 #'
 #' @examples
 #' # A continuous treatment confounded by an unmeasured U, a strong instrument
@@ -742,7 +813,24 @@ ee_2sls <- function(theta, y, A, Z, W = NULL, weights = NULL) {
 
   # Output: stack second stage on top of first stage
 
-  rbind(ee_stagetwo, ee_stageone)
+  out <- rbind(ee_stagetwo, ee_stageone)
+  # Every column of W is fitted twice, once per stage, so the stage is part of
+  # each name. Without it the two blocks would repeat every W label, and a
+  # repeated label costs the whole return its names.
+  if (is.null(W)) {
+    w2_names <- character(0)
+    w1_names <- character(0)
+  } else {
+    w2_names <- block_param_names("stage2_W", ncol(W))
+    w1_names <- block_param_names("stage1_W", ncol(W))
+  }
+  rownames(out) <- c(
+    "stage2_A",
+    w2_names,
+    block_param_names("stage1_Z", ncol(Z)),
+    w1_names
+  )
+  out
 }
 
 #' Estimating equations for weighted sensitivity analysis of the mean
@@ -766,7 +854,9 @@ ee_2sls <- function(theta, y, A, Z, W = NULL, weights = NULL) {
 #' @param H_function A function mapping real values to `[0, 1]` that
 #'   is monotone increasing (e.g., [inverse_logit()]).
 #'
-#' @returns A `(1+b)`-by-n matrix of estimating equation contributions.
+#' @returns A `(1+b)`-by-n matrix of estimating equation contributions, with the
+#'   first row named `corrected_mean` and the missingness model rows named `X_1`
+#'   through `X_b` for the columns of `X`.
 #'
 #' @examples
 #' # An outcome observed for only part of the sample, with missingness driven by
@@ -816,6 +906,9 @@ ee_mean_sensitivity_analysis <- function(
   qy <- as.numeric(q_eval)
   beta <- theta[-1] # Nuisance parameters
 
+  # Read the column count before the scalar-design branch below, which strips
+  # the dim off a one-column design and would leave ncol() answering NULL.
+  b <- ncol(X)
   n <- length(y)
 
   # q_eval and delta are per-observation data, never tangent containers, so a
@@ -846,8 +939,10 @@ ee_mean_sensitivity_analysis <- function(
   ef_H <- h_factor * X
 
   # Returning stacked estimating equations
-  rbind(
+  out <- rbind(
     matrix(ef_mean, nrow = 1), # theta[1]: sensitivity mean
     t(ef_H) # theta[2:]: nuisance parameters
   )
+  rownames(out) <- c("corrected_mean", block_param_names("X", b))
+  out
 }

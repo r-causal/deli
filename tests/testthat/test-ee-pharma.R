@@ -49,7 +49,11 @@ test_that("ee_emax at true parameters has near-zero sum", {
 
   # At true parameters, residuals should be zero
   result <- ee_emax(c(e0, emax, e50), dose = dose, response = response)
-  expect_equal(rowSums(result), rep(0, 3), tolerance = 1e-10)
+  expect_equal(
+    rowSums(result),
+    c(e0 = 0, emax = 0, ed50 = 0),
+    tolerance = 1e-10
+  )
 })
 
 test_that("ee_emax with robust loss works", {

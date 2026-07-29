@@ -20,7 +20,7 @@ maximum response (\code{emax}), ED50.}
 \item{k}{Optional numeric tuning parameter for robust loss.}
 }
 \value{
-A 3-by-n matrix.
+A 3-by-n matrix, with rows named \code{e0}, \code{emax}, and \code{ed50}.
 }
 \description{
 Implements the hyperbolic E-max (Hill) model:

@@ -19,7 +19,9 @@ a single parameter (lambda). For Weibull and Gompertz, two parameters
 \code{"gompertz"}.}
 }
 \value{
-A p-by-n matrix where p is the number of parameters.
+A p-by-n matrix where p is the number of parameters. The row is
+named \code{lambda} for the exponential distribution, and the rows are named
+\code{lambda} and \code{gamma} for the Weibull and Gompertz distributions.
 }
 \description{
 Returns a p-by-n matrix of estimating equation contributions for parametric

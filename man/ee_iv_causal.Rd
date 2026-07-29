@@ -19,7 +19,8 @@ mean of the instrument.}
 \item{weights}{Optional numeric vector of n weights. Default \code{NULL}.}
 }
 \value{
-A 2-by-n matrix of estimating equation contributions.
+A 2-by-n matrix of estimating equation contributions, with rows
+named \code{causal_effect} and \code{mean_Z}.
 }
 \description{
 Estimates the causal effect using the usual IV / Wald estimator.

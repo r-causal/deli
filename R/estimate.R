@@ -32,6 +32,14 @@
 #' evaluation at the solved values, and deli registers the setter as an S3
 #' method so that an estimating function written anywhere reaches it.
 #'
+#' Many of the built-in estimating equations name their own rows, so a fit that
+#' passes one of them a wholly unnamed `init` comes back labeled rather than
+#' numbered. Each documents its labels under **Value**. The rule above still
+#' governs a stack built from them: two blocks that name the same parameter, as
+#' two [ee_ipw()] blocks do, repeat a label and the fit is numbered instead, and
+#' one named block stacked with an unnamed one is incomplete and is numbered as
+#' well. Name `init` where a stack needs labels the blocks cannot agree on.
+#'
 #' @param object An `MEstimator` or `GMMEstimator` object.
 #' @param solver Character string specifying the solver algorithm, or a custom
 #'   function. When `NULL` (default), uses `"rootSolve"` for `MEstimator`

@@ -183,7 +183,10 @@ test_that("ee_ipw_msm tweedie stacked EE has ncol(V)+ncol(W) rows at init", {
 
   # Row sums at the starting values pin the exact form of every stacked equation.
   # This is a direct evaluation with no sandwich, so the tighter 1e-6 applies.
-  expect_equal(rowSums(ee), ref$ee_sum_at_init, tolerance = 1e-6)
+  # Unnamed, as every Python comparison is: ee_ipw_msm() names its rows and the
+  # reference arrays carry no labels. The names are pinned in
+  # test-param-names-builtin.R.
+  expect_equal(unname(rowSums(ee)), ref$ee_sum_at_init, tolerance = 1e-6)
 })
 
 test_that("ee_ipw_msm tweedie hyperparameter=1.5 matches Python Delicatessen", {

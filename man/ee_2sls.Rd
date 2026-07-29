@@ -24,7 +24,12 @@ both stages. Default \code{NULL}.}
 \item{weights}{Optional numeric vector of n weights. Default \code{NULL}.}
 }
 \value{
-A \verb{(1+b+2c)}-by-n matrix of estimating equation contributions.
+A \verb{(1+b+2c)}-by-n matrix of estimating equation contributions. The
+second-stage rows are named \code{stage2_A} for the fitted treatment and
+\code{stage2_W_1} through \code{stage2_W_c}; the first-stage rows are named
+\code{stage1_Z_1} through \code{stage1_Z_b} and \code{stage1_W_1} through \code{stage1_W_c}.
+The columns of \code{W} appear in both stages, so each name carries the stage it
+belongs to.
 }
 \description{
 Estimates the causal effect using two-stage least squares for

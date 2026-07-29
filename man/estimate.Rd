@@ -111,6 +111,14 @@ Row names survive exact differentiation. Assigning them is ignored while a
 value carries derivatives, since the labels are read from the plain
 evaluation at the solved values, and deli registers the setter as an S3
 method so that an estimating function written anywhere reaches it.
+
+Many of the built-in estimating equations name their own rows, so a fit that
+passes one of them a wholly unnamed \code{init} comes back labeled rather than
+numbered. Each documents its labels under \strong{Value}. The rule above still
+governs a stack built from them: two blocks that name the same parameter, as
+two \code{\link[=ee_ipw]{ee_ipw()}} blocks do, repeat a label and the fit is numbered instead, and
+one named block stacked with an unnamed one is incomplete and is numbered as
+well. Name \code{init} where a stack needs labels the blocks cannot agree on.
 }
 \examples{
 psi <- function(theta) {

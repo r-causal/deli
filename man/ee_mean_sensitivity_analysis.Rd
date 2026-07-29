@@ -27,7 +27,9 @@ values, i.e. \code{q(Y, alpha)}.}
 is monotone increasing (e.g., \code{\link[=inverse_logit]{inverse_logit()}}).}
 }
 \value{
-A \code{(1+b)}-by-n matrix of estimating equation contributions.
+A \code{(1+b)}-by-n matrix of estimating equation contributions, with the
+first row named \code{corrected_mean} and the missingness model rows named \code{X_1}
+through \code{X_b} for the columns of \code{X}.
 }
 \description{
 Estimates the mean of an outcome with missing data using a weighted

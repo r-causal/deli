@@ -20,7 +20,8 @@ in external validation sample where \code{r = 0}).}
 \item{weights}{Optional numeric vector of n weights. Default \code{NULL}.}
 }
 \value{
-A 4-by-n matrix.
+A 4-by-n matrix, with rows named \code{corrected_proportion},
+\code{naive_proportion}, \code{sensitivity}, and \code{specificity}.
 }
 \description{
 Corrects for mismeasured binary outcomes using external validation data

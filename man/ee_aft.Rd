@@ -25,7 +25,11 @@ is \code{log(1/sigma)} (the log-inverse scale).}
 \item{offset}{Optional numeric vector of n offsets. Default \code{NULL}.}
 }
 \value{
-A p-by-n matrix where p is the number of parameters.
+A p-by-n matrix where p is the number of parameters. For the
+exponential distribution, whose parameters are all regression
+coefficients, the rows are unnamed. For every other distribution the
+regression rows are named \code{X_1} through \code{X_b} for the columns of \code{X} and
+the final row is named \code{log_inv_scale}.
 }
 \description{
 Returns a p-by-n matrix of estimating equation contributions for

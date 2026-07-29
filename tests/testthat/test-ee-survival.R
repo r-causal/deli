@@ -690,7 +690,11 @@ test_that("ee_survival_model accepts time/event with correct semantics", {
   lambda <- 2
   time <- c(3, 5, 7)
   event <- c(1, 0, 1)
-  expected <- matrix(event / lambda - time, nrow = 1)
+  expected <- matrix(
+    event / lambda - time,
+    nrow = 1,
+    dimnames = list("lambda", NULL)
+  )
 
   result <- ee_survival_model(
     lambda,

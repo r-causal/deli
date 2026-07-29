@@ -33,7 +33,7 @@ ee_mean <- function(theta, y, weights = NULL) {
 #'   `theta[2]` is the variance.
 #' @param y Numeric vector of observed values.
 #'
-#' @returns A 2-by-n matrix.
+#' @returns A 2-by-n matrix, with rows named `mean` and `variance`.
 #'
 #' @examples
 #' y <- c(1, 2, 3, 1, 4, 5, 3, 2, 6, 7)
@@ -44,10 +44,12 @@ ee_mean <- function(theta, y, weights = NULL) {
 #' @export
 ee_mean_variance <- function(theta, y) {
   y <- as.numeric(y)
-  rbind(
+  out <- rbind(
     y - theta[1],
     (y - theta[1])^2 - theta[2]
   )
+  rownames(out) <- c("mean", "variance")
+  out
 }
 
 #' Estimating equation for the robust mean
@@ -214,7 +216,8 @@ ee_percentile <- function(theta, y, q) {
 #'   deviation, `theta[2]` is the median.
 #' @param y Numeric vector of observed values.
 #'
-#' @returns A 2-by-n matrix.
+#' @returns A 2-by-n matrix, with rows named `positive_mean_deviation` and
+#'   `median`.
 #'
 #' @examplesIf requireNamespace("minpack.lm", quietly = TRUE)
 #' y <- c(1, 2, 3, 1, 4, 5, 3, 2, 6, 7)
@@ -237,8 +240,10 @@ ee_positive_mean_deviation <- function(theta, y) {
      the bread matrix is not defined for finite samples, and the sandwich should
      not be used to estimate the variance."
   )
-  rbind(
+  out <- rbind(
     2 * (y - theta[2]) * as.numeric(y > theta[2]) - theta[1],
     0.5 - as.numeric(y <= theta[2])
   )
+  rownames(out) <- c("positive_mean_deviation", "median")
+  out
 }

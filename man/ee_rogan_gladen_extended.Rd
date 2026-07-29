@@ -23,7 +23,9 @@ where \code{r = 0}).}
 \item{weights}{Optional numeric vector of n weights. Default \code{NULL}.}
 }
 \value{
-A \code{(1+2*p)}-by-n matrix.
+A \code{(1+2*p)}-by-n matrix, with rows named \code{corrected_proportion},
+then \code{sens_1} through \code{sens_p} for the sensitivity model, then \code{spec_1}
+through \code{spec_p} for the specificity model.
 }
 \description{
 Extended version that conditions sensitivity and specificity on covariates

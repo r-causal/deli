@@ -13,7 +13,7 @@ ee_mean_variance(theta, y)
 \item{y}{Numeric vector of observed values.}
 }
 \value{
-A 2-by-n matrix.
+A 2-by-n matrix, with rows named \code{mean} and \code{variance}.
 }
 \description{
 Returns a 2-by-n matrix of estimating equation contributions for the mean

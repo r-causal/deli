@@ -29,7 +29,9 @@ uses intercept only.}
 }
 \value{
 A \code{length(theta)}-by-n matrix (\code{2 + ncol(X)} rows, or \code{3} rows
-when \code{X = NULL}).
+when \code{X = NULL}). The first row is named \code{corrected_beta} and the second
+\code{a_star}. The remaining rows are named \code{X_1} through \code{X_p} for the columns
+of \code{X}, or \code{intercept} when \code{X = NULL}.
 }
 \description{
 Corrects for measurement error in a binary predictor using external

@@ -53,7 +53,11 @@ clip estimated propensity scores. Bounds must be in ascending order
 \item{weights}{Optional numeric vector of n weights. Default \code{NULL}.}
 }
 \value{
-A \code{(c+b)}-by-n matrix of estimating equation contributions.
+A \code{(c+b)}-by-n matrix of estimating equation contributions. The
+marginal structural model rows are named \verb{MSM alpha_0} through
+\verb{MSM alpha_(c-1)}, matching the zero-based subscripts the literature gives
+those parameters. The propensity score rows are named \code{W_1} through \code{W_b}
+for the columns of \code{W}.
 }
 \description{
 Estimates the parameters of a marginal structural model using inverse

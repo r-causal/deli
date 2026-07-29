@@ -23,7 +23,9 @@ clip estimated propensity scores. Bounds must be in ascending order
 \item{weights}{Optional numeric vector of n weights. Default \code{NULL}.}
 }
 \value{
-A \code{(3+b)}-by-n matrix of estimating equation contributions.
+A \code{(3+b)}-by-n matrix of estimating equation contributions, with
+the first three rows named \code{ACE}, \code{E[Y^1]}, and \code{E[Y^0]} and the propensity
+score rows named \code{W_1} through \code{W_b} for the columns of \code{W}.
 }
 \description{
 Estimates the average causal effect using IPW with a logistic propensity

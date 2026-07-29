@@ -11,7 +11,7 @@
 #'   `NULL` (no robust loss). See [robust_loss_functions()].
 #' @param k Optional numeric tuning parameter for robust loss.
 #'
-#' @returns A 3-by-n matrix.
+#' @returns A 3-by-n matrix, with rows named `e0`, `emax`, and `ed50`.
 #'
 #' @examples
 #' # Dose-response of a herbicide on ryegrass root length. The response falls
@@ -53,11 +53,13 @@ ee_emax <- function(theta, dose, response, loss = NULL, k = NULL) {
   d_emax <- dose / (e50 + dose)
   d_e50 <- -(emax * dose) / (e50 + dose)^2
 
-  rbind(
+  out <- rbind(
     matrix(resid * d_e0, nrow = 1),
     matrix(resid * d_emax, nrow = 1),
     matrix(resid * d_e50, nrow = 1)
   )
+  rownames(out) <- c("e0", "emax", "ed50")
+  out
 }
 
 #' Estimating equation for delta-effective dose (E-max)
@@ -114,7 +116,8 @@ ee_emax_ed <- function(theta, dose, delta, ed50) {
 #' @param loss Optional character string for robust loss function.
 #' @param k Optional numeric tuning parameter for robust loss.
 #'
-#' @returns A 4-by-n matrix.
+#' @returns A 4-by-n matrix, with rows named `lower`, `upper`, `ed50`, and
+#'   `steepness`.
 #'
 #' @examplesIf requireNamespace("nleqslv", quietly = TRUE)
 #' # Four-parameter log-logistic dose-response for the ryegrass data.
@@ -166,12 +169,16 @@ ee_loglogistic <- function(theta, dose, response, loss = NULL, k = NULL) {
   nested_log <- log(dose) - log(e50)
   d_steep <- (emax - e0) * nested_log * rho / (1 + rho)^2
 
-  rbind(
+  out <- rbind(
     matrix(resid * d_lower, nrow = 1),
     matrix(resid * d_upper, nrow = 1),
     matrix(resid * d_ed50, nrow = 1),
     matrix(resid * d_steep, nrow = 1)
   )
+  # The names match the arguments of ee_loglogistic_ed(), which takes these four
+  # values from a stacked ee_loglogistic() block.
+  rownames(out) <- c("lower", "upper", "ed50", "steepness")
+  out
 }
 
 #' Estimating equation for delta-effective dose (log-logistic)

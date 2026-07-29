@@ -96,3 +96,54 @@ psi_param_names <- function(evald, p) {
   }
   nm
 }
+
+#' Positional names for one block of coefficients
+#'
+#' Labels the `p` coefficients of a regression block `prefix_1` through
+#' `prefix_p`. The built-in estimating equations use it for the nuisance blocks
+#' they stack beneath the parameters a caller came for, taking the prefix from
+#' the design argument that supplied the block, so `W_2` names the coefficient
+#' on the second column of `W`.
+#'
+#' Positional is all that is available and all that is claimed. Every design
+#' argument runs through `coerce_design()`, which drops its column headings, so
+#' an estimating equation knows how many coefficients a block holds and which
+#' argument they belong to but not what the caller called them.
+#'
+#' Labeling these blocks at all is what lets the interesting parameters keep
+#' their names. `psi_param_names()` above discards a row-name vector that does
+#' not label every parameter, so leaving a nuisance block blank would cost the
+#' causal estimates beside it their labels as well.
+#'
+#' Which built-in equations name their rows follows from that. An equation names
+#' them when at least one row carries a label a design position cannot supply:
+#' a quantity the equation defines, such as `ACE` or `lambda` or
+#' `log_inv_scale`, or a symbol the literature gives a whole block, such as
+#' `SNM phi` or `MSM alpha`. The design blocks stacked beside that row are then
+#' named here so the set is complete. An equation whose parameters are all
+#' coefficients on a design has no such row, and positional labels alone would
+#' say no more than the numbering they replace, so `ee_regression()`,
+#' `ee_plogit()`, `ee_glm()` under every distribution but gamma and negative
+#' binomial, and `ee_aft()` under the exponential distribution leave their rows
+#' unnamed. So do the single-quantity helpers built to be stacked more than
+#' once, `ee_mean()` and `ee_percentile()` and the two `_ed()` equations among
+#' them, because a fixed label repeated across a stack costs that stack its
+#' names.
+#'
+#' Four returns the rule identifies as nameable go unnamed. `ee_glm()` under the
+#' gamma and negative binomial distributions, `ee_tobit()`, and
+#' `ee_beta_regression()` each hold one row more than their design has columns,
+#' and that row is a parameter of the outcome distribution rather than a
+#' coefficient on a design column, which is the property that earns `ee_aft()`'s
+#' `log_inv_scale` its label. None of the four carries row names, so a caller
+#' who wants the trailing row labeled names `init` instead. The gap between the
+#' rule and those four returns is known rather than overlooked.
+#'
+#' @param prefix The name of the block, ordinarily the design argument that
+#'   supplied it.
+#' @param p The number of coefficients in the block.
+#' @returns A character vector of length `p`.
+#' @noRd
+block_param_names <- function(prefix, p) {
+  sprintf("%s_%d", prefix, seq_len(p))
+}
