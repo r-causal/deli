@@ -65,7 +65,7 @@ m <- m_estimate(
 # Rows are the requested times and columns are individuals, so this shows
 # disease-free survival at 12, 24, and 59 months for the first five people.
 plogit_predict(
-  m@theta,
+  coef(m),
   time = d$time, event = d$delta, X = W,
   times_to_predict = c(12, 24, 59), measure = "survival"
 )[, 1:5]

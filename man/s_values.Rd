@@ -32,6 +32,6 @@ s_values(fit)
 
 }
 \seealso{
-\code{\link[=summary]{summary()}} and \code{\link[generics:tidy]{generics::tidy()}}, which report the same S-values
-in table form alongside the other parameter-level results.
+\code{\link[=deli-display]{summary()}} and \code{\link[generics:tidy]{generics::tidy()}}, which report the
+same S-values in table form alongside the other parameter-level results.
 }

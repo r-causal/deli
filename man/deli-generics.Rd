@@ -67,9 +67,9 @@ R modeling ecosystem.
 The last five report on the model a fit was specified as, which only the
 formula interface records, so each of them is an error for a fit built from a
 \code{stacked_equations} function. \code{fitted()} and \code{residuals()} are also an error
-for a formula fit of an estimating equation \code{\link[=predict]{predict()}} does not support,
-since a fitted value is a prediction; see \link{deli-predict} for the equations it
-covers.
+for a formula fit of an estimating equation \code{\link[=deli-predict]{predict()}} does
+not support, since a fitted value is a prediction; see \link{deli-predict} for the
+equations it covers.
 
 \code{fitted()} is the conditional mean of the response, so it is on the response
 scale rather than the link scale, matching \code{\link[stats:fitted]{stats::fitted()}} on a \code{glm}
@@ -84,9 +84,9 @@ supports. Under a non-identity link it is heteroscedastic by construction.
 of \code{data} when one is supplied, through the terms and factor levels the fit
 recorded. A data-dependent term such as \code{poly(x, 2)} is therefore evaluated
 at its fitted basis and a factor gets its fitted levels, as they are under
-\code{\link[=predict]{predict()}}. \code{data} has to carry the response, since a model frame holds
-every variable the formula names; covariate values that carry no response are
-what \code{predict()} and \link{deli-augment} take a \code{newdata} for.
+\code{\link[=deli-predict]{predict()}}. \code{data} has to carry the response, since a model
+frame holds every variable the formula names; covariate values that carry no
+response are what \code{predict()} and \link{deli-augment} take a \code{newdata} for.
 }
 \examples{
 fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,

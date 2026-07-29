@@ -9,10 +9,9 @@ regression_predictions(X, theta, covariance, offset = NULL, alpha = 0.05)
 \arguments{
 \item{X}{Numeric n-by-p design matrix of covariate values for prediction.}
 
-\item{theta}{Numeric vector of p estimated coefficients (from
-\code{m@theta}).}
+\item{theta}{Numeric vector of p estimated coefficients (from \code{coef(m)}).}
 
-\item{covariance}{Numeric p-by-p covariance matrix (from \code{m@variance}).}
+\item{covariance}{Numeric p-by-p covariance matrix (from \code{vcov(m)}).}
 
 \item{offset}{Optional numeric vector of n offsets. Default \code{NULL}.}
 

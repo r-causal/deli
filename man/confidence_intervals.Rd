@@ -35,11 +35,11 @@ psi <- function(theta) {
   y <- c(1, 2, 3, 4, 5)
   matrix(y - theta[1], nrow = 1)
 }
-m <- m_estimate(stacked_equations = psi, init = c(0))
+m <- m_estimate(stacked_equations = psi, init = 0)
 confidence_intervals(m)
 }
 \seealso{
-\code{\link[=confint]{confint()}}, the standard R accessor for the same intervals. It
-returns identical values but is parameterized by \code{level = 0.95} where this
-function takes \code{alpha = 0.05}.
+\code{\link[=deli-generics]{confint()}}, the standard R accessor for the same
+intervals. It returns identical values but is parameterized by
+\code{level = 0.95} where this function takes \code{alpha = 0.05}.
 }

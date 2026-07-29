@@ -39,27 +39,28 @@ beside it.
 }
 \details{
 The columns added are \code{.fitted}, \code{.se.fit}, \code{.lower}, \code{.upper}, and, when
-\code{newdata} is not supplied, \code{.resid}. They are exactly what \code{\link[=predict]{predict()}} and
-\code{\link[=residuals]{residuals()}} return for the same fit, so \code{.fitted} is \code{predict()},
-\code{.lower} and \code{.upper} are \code{predict(interval = "confidence")}, and \code{.resid} is
-\code{residuals()}.
+\code{newdata} is not supplied, \code{.resid}. They are exactly what
+\code{\link[=deli-predict]{predict()}} and \code{\link[=deli-generics]{residuals()}} return for the
+same fit, so \code{.fitted} is \code{predict()}, \code{.lower} and \code{.upper} are
+\code{predict(interval = "confidence")}, and \code{.resid} is \code{residuals()}.
 
-\code{.fitted} is on the link scale by default, matching both \code{\link[=predict]{predict()}} and
-\code{broom::augment()} on a \code{glm}, and \code{type.predict = "response"} puts it and
-its interval on the scale of the response. \code{.resid} is the response residual
-either way, since a residual measured against a linear predictor would be a
-response minus a quantity the response is not measured in.
+\code{.fitted} is on the link scale by default, matching both
+\code{\link[=deli-predict]{predict()}} and \code{broom::augment()} on a \code{glm}, and
+\code{type.predict = "response"} puts it and its interval on the scale of the
+response. \code{.resid} is the response residual either way, since a residual
+measured against a linear predictor would be a response minus a quantity the
+response is not measured in.
 
 Rows the fit dropped for missing data are not reported, so the result has one
-row per \code{\link[=nobs]{nobs()}} and its row names are those of the retained rows. A
-\code{newdata} row with a missing value is kept, with \code{NA} in the added columns,
-so that the result lines up with the rows handed in.
+row per \code{\link[=deli-generics]{nobs()}} and its row names are those of the retained
+rows. A \code{newdata} row with a missing value is kept, with \code{NA} in the added
+columns, so that the result lines up with the rows handed in.
 
 \code{augment()} covers the estimating equations whose linear predictor
-\code{\link[=predict]{predict()}} forms, and refuses the same fits with the same reasons; see
-\link{deli-predict}. It has no counterpart to that method's \code{times} argument: a
-survival measure is one value per row of the data and time rather than one
-per row, so the predictions do not go beside the data as columns.
+\code{\link[=deli-predict]{predict()}} forms, and refuses the same fits with the same
+reasons; see \link{deli-predict}. It has no counterpart to that method's \code{times}
+argument: a survival measure is one value per row of the data and time rather
+than one per row, so the predictions do not go beside the data as columns.
 }
 \examples{
 fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,

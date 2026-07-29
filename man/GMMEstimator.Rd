@@ -48,40 +48,39 @@ minimization of estimating equations with empirical sandwich variance
 estimation.
 }
 \examples{
-# Estimating equations for the mean (just-identified)
+# The constructor builds the estimator and `estimate()` solves it, so an
+# object that has not been through `estimate()` reports only what it was
+# given. `gmm_estimate()` does both steps in one call.
 y <- c(1, 2, 3, 4, 5)
 psi <- function(theta) {
   matrix(y - theta[1], nrow = 1)
 }
-g <- GMMEstimator(stacked_equations = psi, init = 0) |>
+GMMEstimator(stacked_equations = psi, init = 0)
+
+# One moment condition for one parameter is just-identified, so the minimizer
+# lands where `MEstimator()` would have found the root.
+GMMEstimator(stacked_equations = psi, init = 0) |>
   estimate()
-coef(g)
 
-# Instrumental variables with two instruments for a single treatment
-# effect: 2 estimating equations, 1 parameter, so the system is
-# over-identified and `MEstimator()` cannot solve it.
+# A Poisson mean is identified twice over, by the mean and by the variance,
+# so these two moment conditions estimate one parameter and the system is
+# over-identified. That is the case `MEstimator()` cannot solve, and the case
+# the `overid_maxiter` and `overid_tolerance` properties govern: they stop
+# the two-step weight matrix update that reconciles the two conditions.
 set.seed(42)
-n <- 200
-Z1 <- rbinom(n, 1, 0.5)
-Z2 <- rnorm(n)
-U <- rnorm(n)
-A <- 0.5 * Z1 + 0.3 * Z2 + U + rnorm(n)
-Y <- 2 * A - U + rnorm(n)
+counts <- rpois(200, lambda = 3)
 
-psi_iv <- function(theta) {
+psi_pois <- function(theta) {
   rbind(
-    Z1 * (Y - theta[1] * A),
-    Z2 * (Y - theta[1] * A)
+    counts - theta[1],
+    (counts - theta[1])^2 - theta[1]
   )
 }
 
-# The two-step weight matrix update needs more than the default 10
-# iterations to converge here.
-g2 <- GMMEstimator(
-  stacked_equations = psi_iv,
-  init = 0,
-  overid_maxiter = 200L
-) |>
+g <- GMMEstimator(stacked_equations = psi_pois, init = 1) |>
   estimate()
-summary(g2)
+
+# With more conditions than parameters neither is solved exactly. The weight
+# matrix is what decides how the disagreement between them is split.
+summary(g)
 }

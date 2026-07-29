@@ -24,7 +24,7 @@ More than one row is an error, since each pattern has its own variance.}
 
 \item{theta}{Numeric vector of estimated parameters from \code{ee_aft}.}
 
-\item{covariance}{Numeric covariance matrix from \code{m@variance}.}
+\item{covariance}{Numeric covariance matrix from \code{vcov(m)}.}
 
 \item{distribution}{Character string matching the distribution used in
 \code{ee_aft}.}
@@ -106,7 +106,7 @@ m <- m_estimate(
 
 aft_predictions_function(
   X = matrix(c(1, 1), nrow = 1), times = c(5, 10, 20),
-  theta = m@theta, covariance = m@variance,
+  theta = coef(m), covariance = vcov(m),
   distribution = "weibull", measure = "risk"
 )
 \dontshow{\}) # examplesIf}

@@ -71,7 +71,6 @@
 #'   or `log_dispersion`. Every other distribution estimates one coefficient
 #'   per design column and leaves its rows unnamed.
 #'
-#' @export
 #' @examples
 #' # Negative binomial GLM with a log link estimates the regression
 #' # coefficients plus one log-dispersion parameter, so init has ncol(X) + 1
@@ -88,7 +87,7 @@
 #' }
 #'
 #' m <- m_estimate(stacked_equations = psi, init = c(0, 0, 0, 0))
-#' m@theta
+#' coef(m)
 #'
 #' # Tweedie GLM with a log link. The power p is a fixed hyperparameter, not an
 #' # estimated parameter, so init has ncol(X) entries. Here p = 1.5 sits in the
@@ -104,7 +103,9 @@
 #' }
 #'
 #' m_tw <- m_estimate(stacked_equations = psi_tw, init = c(0, 0, 0))
-#' m_tw@theta
+#' coef(m_tw)
+#'
+#' @export
 ee_glm <- function(
   theta,
   X,
@@ -222,8 +223,13 @@ ee_glm <- function(
 #' @returns A p-by-n matrix.
 #'
 #' @examples
-#' # Robust losses can have several roots, so seeding the search from a
-#' # least-squares fit is standard practice. Starting from zero stalls here.
+#' # The Huber loss is convex, so its estimating function has a single root and
+#' # seeding the search is about reaching that root rather than choosing among
+#' # several. What makes the seed necessary is that the Huber psi is bounded:
+#' # far from the solution every residual is past the tuning constant k, every
+#' # contribution saturates at k, and the estimating function is constant with a
+#' # Jacobian of exactly zero. Starting from zero lands in that flat region,
+#' # where the solver has no slope to follow, so start from a least-squares fit.
 #' start <- coef(lm(weight ~ height, data = robust_regress))
 #'
 #' fit <- m_estimate(

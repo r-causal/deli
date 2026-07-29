@@ -34,8 +34,9 @@
 #'
 #' Row names survive exact differentiation. Assigning them is ignored while a
 #' value carries derivatives, since the labels are read from the plain
-#' evaluation at the solved values, and deli registers the setter as an S3
-#' method so that an estimating function written anywhere reaches it.
+#' evaluation at the solved values. `rownames<-` hands its work to `dimnames<-`,
+#' which is a generic, so deli registers the setter there and an estimating
+#' function can label its rows from anywhere.
 #'
 #' Many of the built-in estimating equations name their own rows, so a fit that
 #' passes one of them a wholly unnamed `init` comes back labeled rather than
@@ -94,9 +95,9 @@
 #'   y <- c(1, 2, 3, 4, 5)
 #'   matrix(y - theta[1], nrow = 1)
 #' }
-#' m <- MEstimator(stacked_equations = psi, init = c(0)) |>
+#' m <- MEstimator(stacked_equations = psi, init = 0) |>
 #'   estimate()
-#' m@theta
+#' coef(m)
 estimate <- new_generic(
   "estimate",
   "object",

@@ -27,7 +27,8 @@ Wald intervals at \code{level}.}
 \item{level}{The confidence level for \code{interval}. Default \code{0.95}. The
 critical value comes from the standard normal distribution, or from the
 t-distribution with \eqn{n - p} degrees of freedom when a
-\code{finite_correction} is set on the fit, matching \code{\link[=confint]{confint()}}.}
+\code{finite_correction} is set on the fit, matching
+\code{\link[=deli-generics]{confint()}}.}
 
 \item{times}{Numeric vector of times to predict a survival measure at, or
 \code{NULL} (default) to predict the linear predictor instead. Supported for a

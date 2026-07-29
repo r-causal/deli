@@ -146,27 +146,46 @@ rather than silently ignoring it. The formula interface forwards \code{...} to
 # estimating equation per parameter.
 set.seed(42)
 n <- 200
-Z1 <- rbinom(n, 1, 0.5)
-Z2 <- rnorm(n)
+d <- data.frame(Z1 = rbinom(n, 1, 0.5), Z2 = rnorm(n))
 U <- rnorm(n)
-A <- 0.5 * Z1 + 0.3 * Z2 + U + rnorm(n)
-Y <- 2 * A - U + rnorm(n)
+d$A <- 0.5 * d$Z1 + 0.3 * d$Z2 + U + rnorm(n)
+d$Y <- 2 * d$A - U + rnorm(n)
 
-psi_iv <- function(theta) {
-  residual <- Y - theta[1] * A
-  rbind(Z1 * residual, Z2 * residual)
+# One moment condition per instrument: an instrument should be uncorrelated
+# with the residual of the outcome on the treatment.
+ee_iv_moments <- function(theta, X, y, Z) {
+  t(Z * (y - as.numeric(X \%*\% theta)))
 }
 
-# The two-step weight matrix update needs more than the default 10
-# iterations to converge here.
+# The formula interface reads the design and the starting values off the
+# model and passes anything else, here the instruments, on to `.ee`. The
+# two-step weight matrix update needs more than the default 10 iterations.
 g <- gmm_estimate(
+  Y ~ A - 1,
+  data = d,
+  .ee = ee_iv_moments,
+  Z = cbind(Z1, Z2),
+  overid_maxiter = 200L
+)
+
+# The instruments move the estimate toward the treatment effect of 2 that
+# generated the data. The least-squares fit of Y on A ignores the confounding
+# and stays further from it.
+coef(g)
+coef(lm(Y ~ A - 1, data = d))
+
+# The function interface takes a `stacked_equations` closure instead, for a
+# system no formula describes. It has no design to read parameter names from,
+# so names on `init` are what label the results.
+psi_iv <- function(theta) {
+  residual <- d$Y - theta[1] * d$A
+  rbind(d$Z1 * residual, d$Z2 * residual)
+}
+
+g2 <- gmm_estimate(
   stacked_equations = psi_iv,
   init = c(effect = 0),
   overid_maxiter = 200L
 )
-
-# The instruments recover the treatment effect of 2 that generated the data.
-# The least-squares fit of Y on A, which ignores the confounding, does not.
-coef(g)
-coef(lm(Y ~ A - 1))
+coef(g2)
 }

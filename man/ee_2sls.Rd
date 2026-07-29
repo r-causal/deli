@@ -50,9 +50,11 @@ A <- 1.5 * Z[, 1] + 0.3 * W1 + U + rnorm(n, sd = 0.5)
 Y <- 2 * A - U + 0.5 * W1 + rnorm(n)
 W <- cbind(1, W1)
 
-# Starting every parameter at zero leaves the two stages unidentified and the
-# solver stalls, so seed the starting values with the ordinary least squares
-# fit of each stage: the first stage regresses A on the instrument and the
+# At a first stage of all zeros the fitted treatment is identically zero, so
+# the second stage degenerates: its leading design column vanishes and the
+# coefficient on it, the causal effect, has nothing left to be estimated
+# from. Seed the starting values with the ordinary least squares fit of each
+# stage instead: the first stage regresses A on the instrument and the
 # exogenous covariates, the second regresses Y on the fitted A and the same
 # covariates.
 alpha_init <- as.numeric(coef(lm(A ~ cbind(Z, W) - 1)))

@@ -3,8 +3,10 @@
 #' Implements the hyperbolic E-max (Hill) model:
 #' \deqn{R_i = \theta_0 + \frac{\theta_{max} D_i}{\theta_{50} + D_i}}
 #'
-#' @param theta Numeric vector of length 3: zero-dose response (`e0`),
-#'   maximum response (`emax`), ED50.
+#' @param theta Numeric vector of length 3: zero-dose response (`e0`), maximum
+#'   change in response (`emax`), ED50. `emax` is the change the response
+#'   approaches as the dose grows without bound, not the response itself, so the
+#'   asymptote is `e0 + emax`.
 #' @param dose Numeric vector of n dose values.
 #' @param response Numeric vector of n response values.
 #' @param loss Optional character string for robust loss function. Default
@@ -13,9 +15,12 @@
 #'
 #' @returns A 3-by-n matrix, with rows named `e0`, `emax`, and `ed50`.
 #'
+#' @seealso [ee_emax_ed()] for the effective dose at a given level, which is
+#'   stacked with this equation to give it a sandwich standard error.
+#'
 #' @examples
 #' # Dose-response of a herbicide on ryegrass root length. The response falls
-#' # with dose, so the maximum response parameter is initialized negative.
+#' # with dose, so the maximum change in response is initialized negative.
 #' psi <- function(theta) {
 #'   ee_emax(theta, dose = inderjit$dose, response = inderjit$response)
 #' }
@@ -74,6 +79,8 @@ ee_emax <- function(theta, dose, response, loss = NULL, k = NULL) {
 #'
 #' @returns A 1-by-n matrix.
 #'
+#' @seealso [ee_emax()], the dose-response equation this one is stacked with.
+#'
 #' @examples
 #' # This equation carries no information on its own, so stack it with the
 #' # E-max equation that supplies the ED50. Here delta = 0.9 requests the ED90.
@@ -94,8 +101,9 @@ ee_emax <- function(theta, dose, response, loss = NULL, k = NULL) {
 #'
 #' m <- m_estimate(stacked_equations = psi, init = c(8, -8, 2, 10))
 #'
-#' # theta_4 is the ED90, and stacking gives it its own sandwich standard error
-#' coef(m)
+#' # theta_4 is the ED90. Stacking is what gives it a standard error of its own,
+#' # so summary() rather than coef() is what shows the gain.
+#' summary(m)
 #'
 #' @export
 ee_emax_ed <- function(theta, dose, delta, ed50) {
@@ -118,6 +126,9 @@ ee_emax_ed <- function(theta, dose, delta, ed50) {
 #'
 #' @returns A 4-by-n matrix, with rows named `lower`, `upper`, `ed50`, and
 #'   `steepness`.
+#'
+#' @seealso [ee_loglogistic_ed()] for the effective dose at a given level, which
+#'   is stacked with this equation to give it a sandwich standard error.
 #'
 #' @examplesIf requireNamespace("nleqslv", quietly = TRUE)
 #' # Four-parameter log-logistic dose-response for the ryegrass data.
@@ -196,6 +207,9 @@ ee_loglogistic <- function(theta, dose, response, loss = NULL, k = NULL) {
 #'
 #' @returns A 1-by-n matrix.
 #'
+#' @seealso [ee_loglogistic()], the dose-response equation this one is stacked
+#'   with.
+#'
 #' @examples
 #' # The lower limit is held at zero instead of being estimated: root length
 #' # cannot fall below zero, and the five-parameter stack diverges on these
@@ -224,8 +238,10 @@ ee_loglogistic <- function(theta, dose, response, loss = NULL, k = NULL) {
 #' # init matters more here than it does for most equations.
 #' m <- m_estimate(stacked_equations = psi, init = c(8, 2, 1, 5))
 #'
-#' # Upper limit, ED50, steepness, and the ED90
-#' coef(m)
+#' # Upper limit, ED50, steepness, and the ED90. Stacking is what gives the ED90
+#' # a standard error of its own, so summary() rather than coef() shows the
+#' # gain.
+#' summary(m)
 #'
 #' @export
 ee_loglogistic_ed <- function(

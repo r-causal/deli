@@ -39,9 +39,9 @@
 #' rest of R's warning machinery working unchanged. Calling handlers run before
 #' the default handling of a warning, so under `options(warn = 2)` the first
 #' warning is converted into an error where it was signalled exactly as it would
-#' be without this scope, and an enclosing [withCallingHandlers()] or
-#' [tryCatch()] established by the caller still sees it with its own class and
-#' call intact.
+#' be without this scope, and an enclosing [base::withCallingHandlers()] or
+#' [base::tryCatch()] established by the caller still sees it with its own class
+#' and call intact.
 #'
 #' Nested scopes are governed by the outermost one. The inner handler is the more
 #' recently established, so it sees a warning first, records it and lets it
@@ -81,22 +81,22 @@ without_repeated_warnings <- function(expr) {
 #' warnings that say different things, and the classes cli attaches to an
 #' unclassed warning are shared by all of them.
 #'
-#' Not the call, although base R's own [warnings()] keys on it. The cost is real:
-#' two warnings that read alike but were raised from different frames collapse to
-#' one, and the second is dropped rather than merged. It is accepted because
-#' including the call would separate nothing that matters while destroying the
-#' de-duplication itself. No warning this package raises carries a call. All of
-#' them come from `cli::cli_warn()`, which records a call only when one is
-#' passed through to [rlang::warn()], and no site here passes one.
+#' Not the call, although base R's own [base::warnings()] keys on it. The cost
+#' is real: two warnings that read alike but were raised from different frames
+#' collapse to one, and the second is dropped rather than merged. It is accepted
+#' because including the call would separate nothing that matters while
+#' destroying the de-duplication itself. No warning this package raises carries
+#' a call. All of them come from `cli::cli_warn()`, which records a call only
+#' when one is passed through to [rlang::warn()], and no site here passes one.
 #' `conditionCall()` is therefore empty for every one of them, so the call
 #' distinguishes none of them. Among warnings raised by user code with
-#' [warning()], the reported call is the call to the frame that raised it, and
-#' that is a different frame at each site the function is evaluated from: a fit
-#' reports `psi(init)` at the initial values and
+#' [base::warning()], the reported call is the call to the frame that raised it,
+#' and that is a different frame at each site the function is evaluated from: a
+#' fit reports `psi(init)` at the initial values and
 #' `stacked_equations(full_theta)` after the solve, and [delta_method()] reports
 #' `g(theta)` for its shape check and `g(t)` for its finite differences. The
 #' formula interface is worse still, because it builds its estimating function
-#' with [do.call()], which inlines the current parameter values into the
+#' with [base::do.call()], which inlines the current parameter values into the
 #' constructed call, so no two evaluations ever report the same one.
 #'
 #' @param w A warning condition.

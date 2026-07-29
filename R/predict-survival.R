@@ -113,8 +113,8 @@ resolve_predict_survival_kind <- function(object, fn = "predict") {
 
 #' Predictions of a survival measure at a set of times
 #'
-#' The body of [predict()] when `times` is supplied. Everything the two surfaces
-#' share is decided by the caller and passed in.
+#' The body of [`predict()`][deli-predict] when `times` is supplied. Everything
+#' the two surfaces share is decided by the caller and passed in.
 #'
 #' @param object A fitted estimator.
 #' @param newdata A data frame, or `NULL`.

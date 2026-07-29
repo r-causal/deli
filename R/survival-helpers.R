@@ -9,7 +9,7 @@
 #' @param measure Character string specifying the desired measure. One of:
 #'   `"survival"`, `"risk"`, `"cumulative_hazard"`, `"hazard"`, or `"density"`.
 #'
-#' @return Numeric value or vector of the requested measure.
+#' @returns Numeric value or vector of the requested measure.
 #'
 #' @examples
 #' # Risk is the complement of survival

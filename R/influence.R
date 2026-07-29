@@ -17,7 +17,7 @@
 #'
 #' @returns An n-by-p matrix of influence function values, where n is the
 #'   number of observations and p is the number of parameters. Columns are named
-#'   for the parameters, as in [coef()].
+#'   for the parameters, as in [`coef()`][deli-generics].
 #'
 #' @examples
 #' fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,

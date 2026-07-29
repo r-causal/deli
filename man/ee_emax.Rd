@@ -7,8 +7,10 @@
 ee_emax(theta, dose, response, loss = NULL, k = NULL)
 }
 \arguments{
-\item{theta}{Numeric vector of length 3: zero-dose response (\code{e0}),
-maximum response (\code{emax}), ED50.}
+\item{theta}{Numeric vector of length 3: zero-dose response (\code{e0}), maximum
+change in response (\code{emax}), ED50. \code{emax} is the change the response
+approaches as the dose grows without bound, not the response itself, so the
+asymptote is \code{e0 + emax}.}
 
 \item{dose}{Numeric vector of n dose values.}
 
@@ -28,7 +30,7 @@ Implements the hyperbolic E-max (Hill) model:
 }
 \examples{
 # Dose-response of a herbicide on ryegrass root length. The response falls
-# with dose, so the maximum response parameter is initialized negative.
+# with dose, so the maximum change in response is initialized negative.
 psi <- function(theta) {
   ee_emax(theta, dose = inderjit$dose, response = inderjit$response)
 }
@@ -38,4 +40,8 @@ m <- m_estimate(stacked_equations = psi, init = c(8, -8, 2))
 # Zero-dose response, maximum change in response, and ED50
 coef(m)
 
+}
+\seealso{
+\code{\link[=ee_emax_ed]{ee_emax_ed()}} for the effective dose at a given level, which is
+stacked with this equation to give it a sandwich standard error.
 }

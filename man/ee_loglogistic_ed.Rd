@@ -56,7 +56,13 @@ psi <- function(theta) {
 # init matters more here than it does for most equations.
 m <- m_estimate(stacked_equations = psi, init = c(8, 2, 1, 5))
 
-# Upper limit, ED50, steepness, and the ED90
-coef(m)
+# Upper limit, ED50, steepness, and the ED90. Stacking is what gives the ED90
+# a standard error of its own, so summary() rather than coef() shows the
+# gain.
+summary(m)
 
+}
+\seealso{
+\code{\link[=ee_loglogistic]{ee_loglogistic()}}, the dose-response equation this one is stacked
+with.
 }

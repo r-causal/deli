@@ -7,7 +7,7 @@
 #' @param penalty Numeric penalty term (scalar or vector).
 #' @param center Numeric center for penalty (scalar or vector).
 #'
-#' @return Invisible `NULL`. Raises an error if shapes are invalid.
+#' @returns Invisible `NULL`. Raises an error if shapes are invalid.
 #' @keywords internal
 check_penalty_shape <- function(theta, penalty, center) {
   # Check penalty length
@@ -47,7 +47,7 @@ check_penalty_shape <- function(theta, penalty, center) {
 #' @param n The number of observations the argument must match.
 #' @param arg The argument name, used in the error message.
 #'
-#' @return Invisible `NULL`. Raises an error if the length does not match.
+#' @returns Invisible `NULL`. Raises an error if the length does not match.
 #' @keywords internal
 check_data_length <- function(x, n, arg) {
   len <- if (is_tangent_container(x)) {
@@ -76,7 +76,7 @@ check_data_length <- function(x, n, arg) {
 #' @param x_arg The reference argument name, used in the error message.
 #' @param y_arg The compared argument name, used in the error message.
 #'
-#' @return Invisible `NULL`. Raises an error if the dimensions differ.
+#' @returns Invisible `NULL`. Raises an error if the dimensions differ.
 #' @keywords internal
 check_design_dims_match <- function(x, y, x_arg, y_arg) {
   if (!identical(dim(x), dim(y))) {
@@ -98,7 +98,7 @@ check_design_dims_match <- function(x, y, x_arg, y_arg) {
 #'
 #' @param epsilon The approximation parameter supplied by the caller.
 #'
-#' @return Invisible `NULL`. Raises an error if `epsilon` is negative.
+#' @returns Invisible `NULL`. Raises an error if `epsilon` is negative.
 #' @keywords internal
 check_epsilon <- function(epsilon) {
   if (epsilon < 0) {
@@ -117,7 +117,7 @@ check_epsilon <- function(epsilon) {
 #'
 #' @param truncate Length-2 numeric vector `c(lower, upper)`.
 #'
-#' @return Invisible `NULL`. Raises an error if bounds are out of order.
+#' @returns Invisible `NULL`. Raises an error if bounds are out of order.
 #' @keywords internal
 check_truncate_order <- function(truncate) {
   if (truncate[1] > truncate[2]) {
@@ -136,7 +136,7 @@ check_truncate_order <- function(truncate) {
 #' @param delta Numeric vector of event indicators (0 or 1).
 #' @param time Numeric vector of observation times.
 #'
-#' @return Invisible `NULL`. Raises an error if data is invalid.
+#' @returns Invisible `NULL`. Raises an error if data is invalid.
 #' @keywords internal
 check_survival_data_valid <- function(delta, time) {
   # Check delta values are 0 or 1 (ignoring NAs)
@@ -165,7 +165,7 @@ check_survival_data_valid <- function(delta, time) {
 #'
 #' @param init The initial parameter vector supplied to an estimator.
 #'
-#' @return Invisible `NULL`. Raises an error if `init` is invalid.
+#' @returns Invisible `NULL`. Raises an error if `init` is invalid.
 #' @keywords internal
 check_estimator_init <- function(init) {
   if (!is.numeric(init)) {
@@ -188,7 +188,7 @@ check_estimator_init <- function(init) {
 #' @param finite_correction The finite-sample correction supplied to an
 #'   estimator.
 #'
-#' @return Invisible `NULL`. Raises an error if the value is unsupported.
+#' @returns Invisible `NULL`. Raises an error if the value is unsupported.
 #' @keywords internal
 check_finite_correction <- function(finite_correction) {
   if (is.null(finite_correction)) {
@@ -217,7 +217,7 @@ check_finite_correction <- function(finite_correction) {
 #' @param subset The parameter subset supplied to an estimator.
 #' @param n_params The number of parameters, taken from `length(init)`.
 #'
-#' @return Invisible `NULL`. Raises an error if `subset` is invalid.
+#' @returns Invisible `NULL`. Raises an error if `subset` is invalid.
 #' @keywords internal
 check_estimator_subset <- function(subset, n_params) {
   if (is.null(subset)) {
@@ -291,7 +291,7 @@ check_estimator_subset <- function(subset, n_params) {
 #'   estimating equations may exceed the number of parameters (the GMM case) and
 #'   only a shortfall is rejected. Default `FALSE`.
 #'
-#' @return Invisible `NULL`. Raises an error if the return is invalid. A
+#' @returns Invisible `NULL`. Raises an error if the return is invalid. A
 #'   mismatch between the number of estimating equations and the number of
 #'   parameters carries the class `deli_psi_shape_error`, which is the one
 #'   failure here that an automatically generated `init` can explain.
@@ -409,7 +409,7 @@ check_psi_at_init <- function(vals, init, allow_over_identification = FALSE) {
 #'   estimating function may return more equations than parameters, so only a
 #'   shortfall is rejected. Default `FALSE`.
 #'
-#' @return The value of `psi(init)`. Raises an error if it is not a valid
+#' @returns The value of `psi(init)`. Raises an error if it is not a valid
 #'   estimating-function return. A failure reframed as a problem with the
 #'   automatic length carries the class `deli_formula_auto_init_error`, so a
 #'   caller can recognize it without matching the message.
@@ -453,7 +453,7 @@ eval_psi_at_init <- function(psi, init, allow_over_identification = FALSE) {
 #'   `NULL` when the estimating function returned a wrong-shaped value instead
 #'   of failing.
 #'
-#' @return Never returns; always raises an error carrying the class
+#' @returns Never returns; always raises an error carrying the class
 #'   `deli_formula_auto_init_error`.
 #' @noRd
 abort_formula_auto_init <- function(init, appended = NULL, parent = NULL) {
@@ -517,7 +517,7 @@ abort_formula_auto_init <- function(init, appended = NULL, parent = NULL) {
 #' @param theta The value returned by the custom solver.
 #' @param n_params The expected number of solved parameters.
 #'
-#' @return Invisible `NULL`. Raises an error if the return is invalid.
+#' @returns Invisible `NULL`. Raises an error if the return is invalid.
 #' @keywords internal
 check_solver_return <- function(theta, n_params) {
   if (is.null(theta) || !is.numeric(theta) || length(theta) != n_params) {
@@ -541,7 +541,7 @@ check_solver_return <- function(theta, n_params) {
 #' @param deriv_method The derivative method supplied by the caller. One of
 #'   `"capprox"`, `"fapprox"`, `"bapprox"`, or `"exact"`, in any case.
 #'
-#' @return The lower-cased method string. Raises an error if the value is not a
+#' @returns The lower-cased method string. Raises an error if the value is not a
 #'   single supported string.
 #' @keywords internal
 check_deriv_method <- function(deriv_method) {
@@ -573,7 +573,7 @@ check_deriv_method <- function(deriv_method) {
 #' @param value The control value supplied to [GMMEstimator()].
 #' @param arg The argument name, used in the error message.
 #'
-#' @return Invisible `NULL`. Raises an error if the value is invalid.
+#' @returns Invisible `NULL`. Raises an error if the value is invalid.
 #' @keywords internal
 check_overid_scalar <- function(value, arg) {
   if (!is.numeric(value) || length(value) != 1L || is.na(value)) {

@@ -8,7 +8,7 @@
 A data frame with 86 rows and 6 columns:
 \describe{
 \item{patient}{Patient ID}
-\item{time}{Follow-up time}
+\item{time}{Follow-up time, in months}
 \item{delta}{Event indicator}
 \item{treat}{Treatment group}
 \item{init}{Number of initial tumors}

@@ -18,7 +18,7 @@ documented arguments is an error rather than silently ignored.}
 \value{
 An n-by-p matrix of influence function values, where n is the
 number of observations and p is the number of parameters. Columns are named
-for the parameters, as in \code{\link[=coef]{coef()}}.
+for the parameters, as in \code{\link[=deli-generics]{coef()}}.
 }
 \description{
 Computes the influence function values for individual observations:

@@ -26,10 +26,10 @@
 #' y_star <- ifelse(y_true == 1, rbinom(n, 1, 0.9), 1 - rbinom(n, 1, 0.85))
 #' r <- c(rep(1, n_main), rep(0, n_validation))
 #'
-#' # The gold standard is unobserved in the main study, so those positions carry
-#' # a 0 placeholder. The placeholder never reaches an estimate: the sensitivity
-#' # and specificity equations are multiplied by (1 - r).
-#' y <- ifelse(r == 1, 0, y_true)
+#' # The gold standard is observed only in the validation sample, so the main
+#' # study positions carry a 0 placeholder. It never reaches an estimate: the
+#' # sensitivity and specificity equations are multiplied by (1 - r).
+#' y <- ifelse(r == 0, y_true, 0)
 #'
 #' psi <- function(theta) {
 #'   ee_rogan_gladen(theta, y = y, y_star = y_star, r = r)
@@ -105,16 +105,17 @@ ee_rogan_gladen <- function(theta, y, y_star, r, weights = NULL) {
 #'   through `spec_p` for the specificity model.
 #'
 #' @examples
-#' # The same validation design as ee_rogan_gladen(), with sensitivity and
-#' # specificity now modeled by logistic regression. The design matrix here is
-#' # intercept only, so both models estimate a single log-odds.
-#' set.seed(123)
+#' # A validation design of the kind ee_rogan_gladen() takes, with sensitivity
+#' # and specificity now modeled by logistic regression. The design matrix here
+#' # is intercept only, so both models estimate a single log-odds.
+#' set.seed(1)
 #' n <- 500
 #' y_true <- rbinom(n, 1, 0.3)
 #' y_star <- ifelse(y_true == 1, rbinom(n, 1, 0.9), 1 - rbinom(n, 1, 0.85))
 #' r <- c(rep(0, 200), rep(1, 300))
 #'
-#' # Gold standard observed only in the validation sample (r == 0)
+#' # The gold standard is observed only in the validation sample, so the main
+#' # study positions carry a 0 placeholder, as on ee_rogan_gladen().
 #' y <- ifelse(r == 0, y_true, 0)
 #' X <- cbind(rep(1, n))
 #'
@@ -217,7 +218,9 @@ ee_rogan_gladen_extended <- function(theta, y, y_star, r, X, weights = NULL) {
 #' a_star <- ifelse(a_true == 1, rbinom(n, 1, 0.85), rbinom(n, 1, 0.1))
 #' r <- c(rep(0, 200), rep(1, 300))
 #'
-#' # Gold standard observed only in the validation sample (r == 0)
+#' # The gold standard is observed only in the validation sample, so the main
+#' # study positions carry a 0 placeholder. It never reaches an estimate: the
+#' # calibration model is multiplied by (1 - r).
 #' a <- ifelse(r == 0, a_true, 0)
 #'
 #' # `beta` is the naive coefficient for the mismeasured exposure, supplied here

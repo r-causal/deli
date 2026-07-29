@@ -65,6 +65,7 @@ reference:
     desc: Tools for statistical inference from fitted estimators.
     contents:
       - deli-generics
+      - deli-display
       - deli-tidiers
       - confidence_intervals
       - z_scores

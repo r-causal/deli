@@ -44,7 +44,7 @@ set.seed(42)
 n <- 500
 W <- rbinom(n, 1, 0.5)
 Y_full <- 200 - 35 * W + rnorm(n, sd = 5)
-delta <- rbinom(n, 1, plogis(2 + W))
+delta <- rbinom(n, 1, inverse_logit(2 + W))
 
 # Missing outcomes never enter the estimating equation, so any placeholder
 # value works; a zero keeps the arithmetic finite.

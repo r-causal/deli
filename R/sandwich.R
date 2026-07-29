@@ -13,7 +13,7 @@
 #'   at the floating-point resolution of each estimate; see
 #'   [approx_differentiation()].
 #'
-#' @return A p-by-p bread matrix.
+#' @returns A p-by-p bread matrix.
 #'
 #' @keywords internal
 compute_bread <- function(
@@ -108,7 +108,7 @@ compute_bread <- function(
 #' @param evaluations A p-by-n matrix of estimating equation evaluations, where
 #'   p is the number of parameters and n is the number of observations.
 #'
-#' @return A p-by-p meat matrix.
+#' @returns A p-by-p meat matrix.
 #'
 #' @keywords internal
 compute_meat <- function(evaluations) {
@@ -125,7 +125,7 @@ compute_meat <- function(evaluations) {
 #' @param allow_pinv Logical. If `TRUE` (default), uses the pseudo-inverse
 #'   when the bread matrix is singular.
 #'
-#' @return A p-by-p sandwich covariance matrix, or `NULL` if the bread
+#' @returns A p-by-p sandwich covariance matrix, or `NULL` if the bread
 #'   contains `NA` values.
 #'
 #' @keywords internal
@@ -167,7 +167,7 @@ build_sandwich <- function(bread, meat, allow_pinv = TRUE) {
 #' @param adjustment Character string or `NULL`. Currently only `"HC1"` is
 #'   supported.
 #'
-#' @return The corrected meat matrix.
+#' @returns The corrected meat matrix.
 #'
 #' @keywords internal
 finite_sample_correction <- function(meat, n, p, adjustment = NULL) {
@@ -238,11 +238,11 @@ finite_sample_correction <- function(meat, n, p, adjustment = NULL) {
 #'   applied to the meat matrix. `NULL` (default) applies no correction; `"HC1"`
 #'   rescales the meat by \eqn{n / (n - p)}, where p is the number of parameters.
 #'
-#' @return A p-by-p covariance matrix on the asymptotic scale. The bread and meat
-#'   are each divided by n internally, so the returned matrix is the variance
-#'   that corresponds to the standard deviation. Dividing it by the number of
-#'   observations gives the standard-error-scale variance, whose square-rooted
-#'   diagonal is the vector of standard errors.
+#' @returns A p-by-p covariance matrix on the asymptotic scale. The bread and
+#'   meat are each divided by n internally, so the returned matrix is the
+#'   variance that corresponds to the standard deviation. Dividing it by the
+#'   number of observations gives the standard-error-scale variance, whose
+#'   square-rooted diagonal is the vector of standard errors.
 #'
 #' @seealso [MEstimator()] and [GMMEstimator()], which solve for `theta` and
 #'   report this variance internally, and [delta_method()] for the variance of a
@@ -340,8 +340,10 @@ compute_sandwich <- function(
 #' @param ... Not used. Must be empty, so a name that is not one of the
 #'   documented arguments is an error rather than silently ignored.
 #'
-#' @returns A p-by-2 matrix with columns `"lower"` and `"upper"`. Rows are named
-#'   for the parameters, as in [confint()].
+#' @returns A p-by-2 matrix with columns `"lower"` and `"upper"`. For a fitted
+#'   estimator the rows are named for the parameters, as in
+#'   [`confint()`][deli-generics]. For a numeric `object` they take their names
+#'   from it, when it has any.
 #'
 #' @examplesIf requireNamespace("MASS", quietly = TRUE)
 #' # Two independent samples, each contributing one mean parameter

@@ -20,9 +20,9 @@
 #'
 #' @returns A p-by-2 matrix with columns `"lower"` and `"upper"`.
 #'
-#' @seealso [confint()], the standard R accessor for the same intervals. It
-#'   returns identical values but is parameterized by `level = 0.95` where this
-#'   function takes `alpha = 0.05`.
+#' @seealso [`confint()`][deli-generics], the standard R accessor for the same
+#'   intervals. It returns identical values but is parameterized by
+#'   `level = 0.95` where this function takes `alpha = 0.05`.
 #'
 #' @export
 #' @examples
@@ -30,7 +30,7 @@
 #'   y <- c(1, 2, 3, 4, 5)
 #'   matrix(y - theta[1], nrow = 1)
 #' }
-#' m <- m_estimate(stacked_equations = psi, init = c(0))
+#' m <- m_estimate(stacked_equations = psi, init = 0)
 #' confidence_intervals(m)
 confidence_intervals <- new_generic(
   "confidence_intervals",
@@ -80,8 +80,8 @@ method(confidence_intervals, deli_estimator) <- function(
 #'
 #' @returns A numeric vector of Z-scores.
 #'
-#' @seealso [summary()] and [generics::tidy()], which report the same Z-scores
-#'   in table form alongside the other parameter-level results.
+#' @seealso [`summary()`][deli-display] and [generics::tidy()], which report the
+#'   same Z-scores in table form alongside the other parameter-level results.
 #'
 #' @examples
 #' fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
@@ -121,8 +121,8 @@ method(z_scores, deli_estimator) <- function(object, null = 0, ...) {
 #'
 #' @returns A numeric vector of P-values.
 #'
-#' @seealso [summary()] and [generics::tidy()], which report the same P-values
-#'   in table form alongside the other parameter-level results.
+#' @seealso [`summary()`][deli-display] and [generics::tidy()], which report the
+#'   same P-values in table form alongside the other parameter-level results.
 #'
 #' @examples
 #' fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
@@ -157,8 +157,8 @@ method(p_values, deli_estimator) <- function(object, null = 0, ...) {
 #'
 #' @returns A numeric vector of S-values.
 #'
-#' @seealso [summary()] and [generics::tidy()], which report the same S-values
-#'   in table form alongside the other parameter-level results.
+#' @seealso [`summary()`][deli-display] and [generics::tidy()], which report the
+#'   same S-values in table form alongside the other parameter-level results.
 #'
 #' @examples
 #' fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,

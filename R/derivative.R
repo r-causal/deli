@@ -44,7 +44,7 @@
 #'   step is absolute, floored at the floating-point resolution of each
 #'   parameter.
 #'
-#' @return A matrix where element `[i, j]` is the partial derivative of the
+#' @returns A matrix where element `[i, j]` is the partial derivative of the
 #'   `i`-th output with respect to the `j`-th parameter.
 #'
 #' @keywords internal

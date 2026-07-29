@@ -57,6 +57,68 @@ print_estimator <- function(x, label, subset = NULL) {
   invisible(x)
 }
 
+#' Display methods for deli estimators
+#'
+#' Methods for [base::print()] and [base::summary()] so that a fitted estimator
+#' shows its coefficients at the console and reports its parameter-level
+#' inference as a table.
+#'
+#' @details
+#' `print()` reports the parameter and observation counts followed by the
+#' estimates, rounded to four decimal places. An estimator that has not been
+#' through [estimate()] has no estimates to show, so it reports its parameter
+#' count and says so.
+#'
+#' `summary()` collects the estimates, their standard errors, Z-scores,
+#' confidence limits, P-values, and S-values into one object, which prints as a
+#' table with one row per parameter. The values are those
+#' [`confint()`][deli-generics], [z_scores()], [p_values()], and [s_values()]
+#' return individually, so `alpha` here means what it means there: `0.05` gives
+#' 95% limits.
+#'
+#' `subset` restricts which parameters are displayed and nothing else. The
+#' reported parameter count and every reported value are computed from the whole
+#' fit, so displaying a subset of a stacked estimator is a way to read the
+#' parameters of interest without the nuisance parameters, not a way to refit
+#' without them. Row labels keep the names the full fit gave them.
+#'
+#' @param x,object A fitted `MEstimator` or `GMMEstimator` object. Named `x` for
+#'   `print()` and `object` for `summary()`, because [base::print()] and
+#'   [base::summary()] name their first argument that.
+#' @param alpha Numeric significance level for the confidence limits reported by
+#'   `summary()`, between 0 and 1. Default `0.05` for 95% limits.
+#' @param subset Integer vector of parameter indices to display, or `NULL`
+#'   (default) to display all of them.
+#' @param ... Not used.
+#'
+#' @returns
+#' - `print()`: its input, invisibly.
+#' - `summary()`: an object holding the estimates, standard errors, Z-scores,
+#'   confidence limits, P-values, and S-values, which prints as a table.
+#'
+#' @seealso [deli-generics] for the accessors that return these quantities as
+#'   plain vectors and matrices, and [deli-tidiers] for the same results as a
+#'   data frame.
+#'
+#' @examples
+#' fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
+#'                   model = "linear")
+#'
+#' fit
+#'
+#' # `subset` is an argument of the method rather than of the fit, so showing it
+#' # here means calling the generic by name.
+#' print(fit, subset = 2:3)
+#'
+#' summary(fit)
+#'
+#' # `summary()` takes `subset` as well, alongside `alpha` for the width of the
+#' # reported limits.
+#' summary(fit, subset = 2:3, alpha = 0.1)
+#'
+#' @name deli-display
+NULL
+
 #' @noRd
 method(print, deli_estimator) <- function(x, ..., subset = NULL) {
   print_estimator(x, S7::S7_class(x)@name, subset = subset)

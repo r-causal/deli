@@ -16,7 +16,7 @@
 #' @param k Numeric tuning constant. For `"hampel"`, a length-3 vector
 #'   `c(a, b, c)` where `a < b < c`.
 #'
-#' @return Numeric vector the same length as `residuals`.
+#' @returns Numeric vector the same length as `residuals`.
 #'
 #' @export
 #' @examples

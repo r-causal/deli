@@ -77,7 +77,8 @@
 #'   `TRUE`.
 #'
 #' @returns A fitted `MEstimator` object with populated `theta`, `variance`,
-#'   etc. Use [coef()], [vcov()], [confint()], [summary()], or
+#'   etc. Use [`coef()`][deli-generics], [`vcov()`][deli-generics],
+#'   [`confint()`][deli-generics], [`summary()`][deli-display], or
 #'   [generics::tidy()] to extract results.
 #'
 #' @export
@@ -209,29 +210,48 @@ m_estimate.default <- function(
 #' # estimating equation per parameter.
 #' set.seed(42)
 #' n <- 200
-#' Z1 <- rbinom(n, 1, 0.5)
-#' Z2 <- rnorm(n)
+#' d <- data.frame(Z1 = rbinom(n, 1, 0.5), Z2 = rnorm(n))
 #' U <- rnorm(n)
-#' A <- 0.5 * Z1 + 0.3 * Z2 + U + rnorm(n)
-#' Y <- 2 * A - U + rnorm(n)
+#' d$A <- 0.5 * d$Z1 + 0.3 * d$Z2 + U + rnorm(n)
+#' d$Y <- 2 * d$A - U + rnorm(n)
 #'
-#' psi_iv <- function(theta) {
-#'   residual <- Y - theta[1] * A
-#'   rbind(Z1 * residual, Z2 * residual)
+#' # One moment condition per instrument: an instrument should be uncorrelated
+#' # with the residual of the outcome on the treatment.
+#' ee_iv_moments <- function(theta, X, y, Z) {
+#'   t(Z * (y - as.numeric(X %*% theta)))
 #' }
 #'
-#' # The two-step weight matrix update needs more than the default 10
-#' # iterations to converge here.
+#' # The formula interface reads the design and the starting values off the
+#' # model and passes anything else, here the instruments, on to `.ee`. The
+#' # two-step weight matrix update needs more than the default 10 iterations.
 #' g <- gmm_estimate(
+#'   Y ~ A - 1,
+#'   data = d,
+#'   .ee = ee_iv_moments,
+#'   Z = cbind(Z1, Z2),
+#'   overid_maxiter = 200L
+#' )
+#'
+#' # The instruments move the estimate toward the treatment effect of 2 that
+#' # generated the data. The least-squares fit of Y on A ignores the confounding
+#' # and stays further from it.
+#' coef(g)
+#' coef(lm(Y ~ A - 1, data = d))
+#'
+#' # The function interface takes a `stacked_equations` closure instead, for a
+#' # system no formula describes. It has no design to read parameter names from,
+#' # so names on `init` are what label the results.
+#' psi_iv <- function(theta) {
+#'   residual <- d$Y - theta[1] * d$A
+#'   rbind(d$Z1 * residual, d$Z2 * residual)
+#' }
+#'
+#' g2 <- gmm_estimate(
 #'   stacked_equations = psi_iv,
 #'   init = c(effect = 0),
 #'   overid_maxiter = 200L
 #' )
-#'
-#' # The instruments recover the treatment effect of 2 that generated the data.
-#' # The least-squares fit of Y on A, which ignores the confounding, does not.
-#' coef(g)
-#' coef(lm(Y ~ A - 1))
+#' coef(g2)
 gmm_estimate <- function(stacked_equations, ...) {
   UseMethod("gmm_estimate")
 }
@@ -334,7 +354,7 @@ gmm_estimate.default <- function(
 #' @param dots A list of quosures captured from `...`.
 #' @param init The user-supplied `init`, or `NULL` to auto-generate it.
 #'
-#' @return A list with `psi` (the closure), `init` (the resolved vector), and
+#' @returns A list with `psi` (the closure), `init` (the resolved vector), and
 #'   `model_spec` (what the fit was specified as; see `formula_model_spec()`).
 #' @noRd
 prepare_formula_psi <- function(formula, data, .ee, dots, init) {
@@ -422,7 +442,7 @@ prepare_formula_psi <- function(formula, data, .ee, dots, init) {
 #'
 #' @param y The response extracted with [stats::model.response()].
 #'
-#' @return A numeric or logical response vector.
+#' @returns A numeric or logical response vector.
 #' @noRd
 coerce_formula_response <- function(y) {
   if (is.character(y)) {
@@ -459,7 +479,7 @@ coerce_formula_response <- function(y) {
 #' @param y The response extracted with [stats::model.response()], before
 #'   coercion.
 #'
-#' @return A character vector of levels, or `NULL`.
+#' @returns A character vector of levels, or `NULL`.
 #' @noRd
 formula_response_levels <- function(y) {
   if (is.character(y)) {
@@ -478,7 +498,7 @@ formula_response_levels <- function(y) {
 #' @param omit The `na.action` attribute of the model frame.
 #' @param n The number of rows in the original data.
 #'
-#' @return The argument with omitted rows removed when it spanned the data.
+#' @returns The argument with omitted rows removed when it spanned the data.
 #' @noRd
 align_omitted_rows <- function(a, omit, n) {
   if (NROW(a) != n) {

@@ -47,7 +47,9 @@ a_true <- rbinom(n, 1, 0.5)
 a_star <- ifelse(a_true == 1, rbinom(n, 1, 0.85), rbinom(n, 1, 0.1))
 r <- c(rep(0, 200), rep(1, 300))
 
-# Gold standard observed only in the validation sample (r == 0)
+# The gold standard is observed only in the validation sample, so the main
+# study positions carry a 0 placeholder. It never reaches an estimate: the
+# calibration model is multiplied by (1 - r).
 a <- ifelse(r == 0, a_true, 0)
 
 # `beta` is the naive coefficient for the mismeasured exposure, supplied here

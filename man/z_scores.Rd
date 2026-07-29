@@ -32,6 +32,6 @@ z_scores(fit)
 
 }
 \seealso{
-\code{\link[=summary]{summary()}} and \code{\link[generics:tidy]{generics::tidy()}}, which report the same Z-scores
-in table form alongside the other parameter-level results.
+\code{\link[=deli-display]{summary()}} and \code{\link[generics:tidy]{generics::tidy()}}, which report the
+same Z-scores in table form alongside the other parameter-level results.
 }

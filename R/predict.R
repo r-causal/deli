@@ -151,7 +151,8 @@
 #' @param level The confidence level for `interval`. Default `0.95`. The
 #'   critical value comes from the standard normal distribution, or from the
 #'   t-distribution with \eqn{n - p} degrees of freedom when a
-#'   `finite_correction` is set on the fit, matching [confint()].
+#'   `finite_correction` is set on the fit, matching
+#'   [`confint()`][deli-generics].
 #' @param times Numeric vector of times to predict a survival measure at, or
 #'   `NULL` (default) to predict the linear predictor instead. Supported for a
 #'   fit of [ee_aft()] or [ee_plogit()].
@@ -507,8 +508,9 @@ predict_design <- function(spec, newdata) {
 #' Answers the two questions that decide whether a fit can be predicted from at
 #' all: whether it records a model specification, and whether its estimating
 #' equation is one whose linear predictor `predict_link_name()` can name a link
-#' for. Both are asked here, in one place, so that [predict()], `fitted()`,
-#' `residuals()`, and `augment()` refuse the same fits on the same terms.
+#' for. Both are asked here, in one place, so that [`predict()`][deli-predict],
+#' `fitted()`, `residuals()`, and `augment()` refuse the same fits on the same
+#' terms.
 #'
 #' `fn` is what makes it worth sharing. Every one of those functions reaches the
 #' supported-equation table through this helper, and a user who called

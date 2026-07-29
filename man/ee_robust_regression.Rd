@@ -42,8 +42,13 @@ function (linear regression only):
 \deqn{\psi_i(\theta) = f_k(Y_i - X_i^T \theta) X_i}
 }
 \examples{
-# Robust losses can have several roots, so seeding the search from a
-# least-squares fit is standard practice. Starting from zero stalls here.
+# The Huber loss is convex, so its estimating function has a single root and
+# seeding the search is about reaching that root rather than choosing among
+# several. What makes the seed necessary is that the Huber psi is bounded:
+# far from the solution every residual is past the tuning constant k, every
+# contribution saturates at k, and the estimating function is constant with a
+# Jacobian of exactly zero. Starting from zero lands in that flat region,
+# where the solver has no slope to follow, so start from a least-squares fit.
 start <- coef(lm(weight ~ height, data = robust_regress))
 
 fit <- m_estimate(

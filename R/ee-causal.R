@@ -29,7 +29,7 @@
 #' n <- 1000
 #' W1 <- rnorm(n)
 #' W2 <- rbinom(n, 1, 0.4)
-#' A <- rbinom(n, 1, plogis(-0.5 + 0.5 * W1 + 0.3 * W2))
+#' A <- rbinom(n, 1, inverse_logit(-0.5 + 0.5 * W1 + 0.3 * W2))
 #' Y <- 2 + 1.5 * A + W1 - 0.5 * W2 + rnorm(n)
 #'
 #' X <- cbind(1, A, W1, W2) # Observed design matrix
@@ -149,7 +149,7 @@ ee_gformula <- function(theta, y, X, X1, X0 = NULL, force_continuous = FALSE) {
 #' n <- 1000
 #' W1 <- rnorm(n)
 #' W2 <- rbinom(n, 1, 0.4)
-#' A <- rbinom(n, 1, plogis(-0.5 + 0.5 * W1 + 0.3 * W2))
+#' A <- rbinom(n, 1, inverse_logit(-0.5 + 0.5 * W1 + 0.3 * W2))
 #' Y <- 2 + 1.5 * A + W1 - 0.5 * W2 + rnorm(n)
 #'
 #' W_ps <- cbind(1, W1, W2) # Propensity score design matrix
@@ -248,7 +248,7 @@ ee_ipw <- function(theta, y, A, W, truncate = NULL, weights = NULL) {
 #' n <- 1000
 #' W1 <- rnorm(n)
 #' W2 <- rbinom(n, 1, 0.4)
-#' A <- rbinom(n, 1, plogis(-0.5 + 0.5 * W1 + 0.3 * W2))
+#' A <- rbinom(n, 1, inverse_logit(-0.5 + 0.5 * W1 + 0.3 * W2))
 #' Y <- 2 + 1.5 * A + W1 - 0.5 * W2 + rnorm(n)
 #'
 #' W_ps <- cbind(1, W1, W2) # Propensity score design matrix
@@ -668,7 +668,7 @@ ee_gestimation_snmm <- function(
 #' n <- 500
 #' Z <- rbinom(n, 1, 0.5)
 #' U <- rnorm(n)
-#' A <- rbinom(n, 1, plogis(-1 + 3 * Z + U))
+#' A <- rbinom(n, 1, inverse_logit(-1 + 3 * Z + U))
 #' Y <- 3 * A - U + rnorm(n, sd = 0.5)
 #'
 #' psi <- function(theta) ee_iv_causal(theta, y = Y, A = A, Z = Z)
@@ -741,9 +741,11 @@ ee_iv_causal <- function(theta, y, A, Z, weights = NULL) {
 #' Y <- 2 * A - U + 0.5 * W1 + rnorm(n)
 #' W <- cbind(1, W1)
 #'
-#' # Starting every parameter at zero leaves the two stages unidentified and the
-#' # solver stalls, so seed the starting values with the ordinary least squares
-#' # fit of each stage: the first stage regresses A on the instrument and the
+#' # At a first stage of all zeros the fitted treatment is identically zero, so
+#' # the second stage degenerates: its leading design column vanishes and the
+#' # coefficient on it, the causal effect, has nothing left to be estimated
+#' # from. Seed the starting values with the ordinary least squares fit of each
+#' # stage instead: the first stage regresses A on the instrument and the
 #' # exogenous covariates, the second regresses Y on the fitted A and the same
 #' # covariates.
 #' alpha_init <- as.numeric(coef(lm(A ~ cbind(Z, W) - 1)))
@@ -865,7 +867,7 @@ ee_2sls <- function(theta, y, A, Z, W = NULL, weights = NULL) {
 #' n <- 500
 #' W <- rbinom(n, 1, 0.5)
 #' Y_full <- 200 - 35 * W + rnorm(n, sd = 5)
-#' delta <- rbinom(n, 1, plogis(2 + W))
+#' delta <- rbinom(n, 1, inverse_logit(2 + W))
 #'
 #' # Missing outcomes never enter the estimating equation, so any placeholder
 #' # value works; a zero keeps the arithmetic finite.

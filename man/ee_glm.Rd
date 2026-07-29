@@ -118,7 +118,7 @@ psi <- function(theta) {
 }
 
 m <- m_estimate(stacked_equations = psi, init = c(0, 0, 0, 0))
-m@theta
+coef(m)
 
 # Tweedie GLM with a log link. The power p is a fixed hyperparameter, not an
 # estimated parameter, so init has ncol(X) entries. Here p = 1.5 sits in the
@@ -134,5 +134,6 @@ psi_tw <- function(theta) {
 }
 
 m_tw <- m_estimate(stacked_equations = psi_tw, init = c(0, 0, 0))
-m_tw@theta
+coef(m_tw)
+
 }

@@ -34,7 +34,7 @@ set.seed(123)
 n <- 500
 Z <- rbinom(n, 1, 0.5)
 U <- rnorm(n)
-A <- rbinom(n, 1, plogis(-1 + 3 * Z + U))
+A <- rbinom(n, 1, inverse_logit(-1 + 3 * Z + U))
 Y <- 3 * A - U + rnorm(n, sd = 0.5)
 
 psi <- function(theta) ee_iv_causal(theta, y = Y, A = A, Z = Z)

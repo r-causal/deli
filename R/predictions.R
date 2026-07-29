@@ -11,9 +11,8 @@
 #' with `deriv_method = "exact"`.
 #'
 #' @param X Numeric n-by-p design matrix of covariate values for prediction.
-#' @param theta Numeric vector of p estimated coefficients (from
-#'   `m@theta`).
-#' @param covariance Numeric p-by-p covariance matrix (from `m@variance`).
+#' @param theta Numeric vector of p estimated coefficients (from `coef(m)`).
+#' @param covariance Numeric p-by-p covariance matrix (from `vcov(m)`).
 #' @param offset Optional numeric vector of n offsets. Default `NULL`.
 #' @param alpha Numeric significance level for confidence intervals.
 #'   Default `0.05` (95% CIs).
@@ -80,7 +79,7 @@ regression_predictions <- function(
 #' @param times Numeric vector of time points for prediction.
 #' @param theta Numeric vector of estimated parameters from
 #'   `ee_survival_model`.
-#' @param covariance Numeric covariance matrix from `m@variance`.
+#' @param covariance Numeric covariance matrix from `vcov(m)`.
 #' @param distribution Character string matching the distribution used in
 #'   `ee_survival_model`: `"exponential"`, `"weibull"`, or `"gompertz"`. Any
 #'   other value is an error.
@@ -133,11 +132,11 @@ regression_predictions <- function(
 #' )
 #'
 #' # The survival function at three follow-up times, with delta-method
-#' # confidence intervals. Observed times run from 5 to 225 days.
+#' # confidence intervals. Observed times run from 5 to 225 months.
 #' survival_predictions(
 #'   times = c(50, 100, 150),
-#'   theta = m@theta,
-#'   covariance = m@variance,
+#'   theta = coef(m),
+#'   covariance = vcov(m),
 #'   distribution = "weibull",
 #'   measure = "survival"
 #' )
@@ -269,7 +268,7 @@ survival_predictions <- function(
 #' # predictions agree.
 #' aft_predictions_individual(
 #'   X = Xd[1:4, ], times = c(5, 10, 20),
-#'   theta = m@theta, distribution = "weibull", measure = "survival"
+#'   theta = coef(m), distribution = "weibull", measure = "survival"
 #' )
 #'
 #' @export
@@ -342,7 +341,7 @@ aft_predictions_individual <- function(
 #'   More than one row is an error, since each pattern has its own variance.
 #' @param times Numeric vector of time points for prediction.
 #' @param theta Numeric vector of estimated parameters from `ee_aft`.
-#' @param covariance Numeric covariance matrix from `m@variance`.
+#' @param covariance Numeric covariance matrix from `vcov(m)`.
 #' @param distribution Character string matching the distribution used in
 #'   `ee_aft`.
 #' @param measure Character string: `"survival"`, `"risk"`, `"density"`,
@@ -394,7 +393,7 @@ aft_predictions_individual <- function(
 #'
 #' aft_predictions_function(
 #'   X = matrix(c(1, 1), nrow = 1), times = c(5, 10, 20),
-#'   theta = m@theta, covariance = m@variance,
+#'   theta = coef(m), covariance = vcov(m),
 #'   distribution = "weibull", measure = "risk"
 #' )
 #'
@@ -534,7 +533,7 @@ aft_predictions_function <- function(
 #' # Rows are the requested times and columns are individuals, so this shows
 #' # disease-free survival at 12, 24, and 59 months for the first five people.
 #' plogit_predict(
-#'   m@theta,
+#'   coef(m),
 #'   time = d$time, event = d$delta, X = W,
 #'   times_to_predict = c(12, 24, 59), measure = "survival"
 #' )[, 1:5]

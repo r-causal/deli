@@ -56,7 +56,7 @@
 #' @format A data frame with 45 rows and 3 columns:
 #' \describe{
 #'   \item{delta}{Event indicator (1 = event, 0 = censored)}
-#'   \item{times}{Observation time}
+#'   \item{times}{Observation time, in months}
 #'   \item{stain}{Tumor HPA stain indicator (1 = positive, 0 = negative)}
 #' }
 #'
@@ -100,7 +100,7 @@
 #' @format A data frame with 86 rows and 6 columns:
 #' \describe{
 #'   \item{patient}{Patient ID}
-#'   \item{time}{Follow-up time}
+#'   \item{time}{Follow-up time, in months}
 #'   \item{delta}{Event indicator}
 #'   \item{treat}{Treatment group}
 #'   \item{init}{Number of initial tumors}

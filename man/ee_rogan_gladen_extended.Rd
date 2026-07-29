@@ -32,16 +32,17 @@ Extended version that conditions sensitivity and specificity on covariates
 using logistic regression models.
 }
 \examples{
-# The same validation design as ee_rogan_gladen(), with sensitivity and
-# specificity now modeled by logistic regression. The design matrix here is
-# intercept only, so both models estimate a single log-odds.
-set.seed(123)
+# A validation design of the kind ee_rogan_gladen() takes, with sensitivity
+# and specificity now modeled by logistic regression. The design matrix here
+# is intercept only, so both models estimate a single log-odds.
+set.seed(1)
 n <- 500
 y_true <- rbinom(n, 1, 0.3)
 y_star <- ifelse(y_true == 1, rbinom(n, 1, 0.9), 1 - rbinom(n, 1, 0.85))
 r <- c(rep(0, 200), rep(1, 300))
 
-# Gold standard observed only in the validation sample (r == 0)
+# The gold standard is observed only in the validation sample, so the main
+# study positions carry a 0 placeholder, as on ee_rogan_gladen().
 y <- ifelse(r == 0, y_true, 0)
 X <- cbind(rep(1, n))
 

@@ -67,8 +67,9 @@ m <- m_estimate(
 )
 
 # The first three parameters are the covariate coefficients, which
-# approximate log hazard ratios. The remaining parameters are the
-# pooled-logistic time intercepts.
+# approximate log hazard ratios. The rest describe the baseline hazard over
+# time: the first of them is the log-odds of an event at the earliest event
+# time, and each one after it is that time's departure from it.
 summary(m, subset = 1:3)
 
 }

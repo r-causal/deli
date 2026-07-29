@@ -111,7 +111,8 @@ so a large parameter magnitude cannot silently reduce it to nothing; see
 }
 \value{
 A fitted \code{MEstimator} object with populated \code{theta}, \code{variance},
-etc. Use \code{\link[=coef]{coef()}}, \code{\link[=vcov]{vcov()}}, \code{\link[=confint]{confint()}}, \code{\link[=summary]{summary()}}, or
+etc. Use \code{\link[=deli-generics]{coef()}}, \code{\link[=deli-generics]{vcov()}},
+\code{\link[=deli-generics]{confint()}}, \code{\link[=deli-display]{summary()}}, or
 \code{\link[generics:tidy]{generics::tidy()}} to extract results.
 }
 \description{

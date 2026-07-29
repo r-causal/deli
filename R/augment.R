@@ -40,27 +40,28 @@
 #'
 #' @details
 #' The columns added are `.fitted`, `.se.fit`, `.lower`, `.upper`, and, when
-#' `newdata` is not supplied, `.resid`. They are exactly what [predict()] and
-#' [residuals()] return for the same fit, so `.fitted` is `predict()`,
-#' `.lower` and `.upper` are `predict(interval = "confidence")`, and `.resid` is
-#' `residuals()`.
+#' `newdata` is not supplied, `.resid`. They are exactly what
+#' [`predict()`][deli-predict] and [`residuals()`][deli-generics] return for the
+#' same fit, so `.fitted` is `predict()`, `.lower` and `.upper` are
+#' `predict(interval = "confidence")`, and `.resid` is `residuals()`.
 #'
-#' `.fitted` is on the link scale by default, matching both [predict()] and
-#' `broom::augment()` on a `glm`, and `type.predict = "response"` puts it and
-#' its interval on the scale of the response. `.resid` is the response residual
-#' either way, since a residual measured against a linear predictor would be a
-#' response minus a quantity the response is not measured in.
+#' `.fitted` is on the link scale by default, matching both
+#' [`predict()`][deli-predict] and `broom::augment()` on a `glm`, and
+#' `type.predict = "response"` puts it and its interval on the scale of the
+#' response. `.resid` is the response residual either way, since a residual
+#' measured against a linear predictor would be a response minus a quantity the
+#' response is not measured in.
 #'
 #' Rows the fit dropped for missing data are not reported, so the result has one
-#' row per [nobs()] and its row names are those of the retained rows. A
-#' `newdata` row with a missing value is kept, with `NA` in the added columns,
-#' so that the result lines up with the rows handed in.
+#' row per [`nobs()`][deli-generics] and its row names are those of the retained
+#' rows. A `newdata` row with a missing value is kept, with `NA` in the added
+#' columns, so that the result lines up with the rows handed in.
 #'
 #' `augment()` covers the estimating equations whose linear predictor
-#' [predict()] forms, and refuses the same fits with the same reasons; see
-#' [deli-predict]. It has no counterpart to that method's `times` argument: a
-#' survival measure is one value per row of the data and time rather than one
-#' per row, so the predictions do not go beside the data as columns.
+#' [`predict()`][deli-predict] forms, and refuses the same fits with the same
+#' reasons; see [deli-predict]. It has no counterpart to that method's `times`
+#' argument: a survival measure is one value per row of the data and time rather
+#' than one per row, so the predictions do not go beside the data as columns.
 #'
 #' @param x A fitted `MEstimator` or `GMMEstimator` object made with the formula
 #'   interface (after calling [estimate()]).

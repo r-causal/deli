@@ -21,7 +21,7 @@ survival_predictions(
 \item{theta}{Numeric vector of estimated parameters from
 \code{ee_survival_model}.}
 
-\item{covariance}{Numeric covariance matrix from \code{m@variance}.}
+\item{covariance}{Numeric covariance matrix from \code{vcov(m)}.}
 
 \item{distribution}{Character string matching the distribution used in
 \code{ee_survival_model}: \code{"exponential"}, \code{"weibull"}, or \code{"gompertz"}. Any
@@ -88,11 +88,11 @@ m <- m_estimate(
 )
 
 # The survival function at three follow-up times, with delta-method
-# confidence intervals. Observed times run from 5 to 225 days.
+# confidence intervals. Observed times run from 5 to 225 months.
 survival_predictions(
   times = c(50, 100, 150),
-  theta = m@theta,
-  covariance = m@variance,
+  theta = coef(m),
+  covariance = vcov(m),
   distribution = "weibull",
   measure = "survival"
 )

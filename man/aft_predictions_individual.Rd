@@ -54,7 +54,7 @@ m <- m_estimate(
 # predictions agree.
 aft_predictions_individual(
   X = Xd[1:4, ], times = c(5, 10, 20),
-  theta = m@theta, distribution = "weibull", measure = "survival"
+  theta = coef(m), distribution = "weibull", measure = "survival"
 )
 \dontshow{\}) # examplesIf}
 }

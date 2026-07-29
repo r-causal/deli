@@ -49,11 +49,11 @@ applied to the meat matrix. \code{NULL} (default) applies no correction; \code{"
 rescales the meat by \eqn{n / (n - p)}, where p is the number of parameters.}
 }
 \value{
-A p-by-p covariance matrix on the asymptotic scale. The bread and meat
-are each divided by n internally, so the returned matrix is the variance
-that corresponds to the standard deviation. Dividing it by the number of
-observations gives the standard-error-scale variance, whose square-rooted
-diagonal is the vector of standard errors.
+A p-by-p covariance matrix on the asymptotic scale. The bread and
+meat are each divided by n internally, so the returned matrix is the
+variance that corresponds to the standard deviation. Dividing it by the
+number of observations gives the standard-error-scale variance, whose
+square-rooted diagonal is the vector of standard errors.
 }
 \description{
 Computes the empirical sandwich variance estimator directly from a set of

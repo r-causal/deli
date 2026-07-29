@@ -80,9 +80,9 @@
 #' The last five report on the model a fit was specified as, which only the
 #' formula interface records, so each of them is an error for a fit built from a
 #' `stacked_equations` function. `fitted()` and `residuals()` are also an error
-#' for a formula fit of an estimating equation [predict()] does not support,
-#' since a fitted value is a prediction; see [deli-predict] for the equations it
-#' covers.
+#' for a formula fit of an estimating equation [`predict()`][deli-predict] does
+#' not support, since a fitted value is a prediction; see [deli-predict] for the
+#' equations it covers.
 #'
 #' `fitted()` is the conditional mean of the response, so it is on the response
 #' scale rather than the link scale, matching [stats::fitted()] on a `glm`
@@ -97,9 +97,9 @@
 #' of `data` when one is supplied, through the terms and factor levels the fit
 #' recorded. A data-dependent term such as `poly(x, 2)` is therefore evaluated
 #' at its fitted basis and a factor gets its fitted levels, as they are under
-#' [predict()]. `data` has to carry the response, since a model frame holds
-#' every variable the formula names; covariate values that carry no response are
-#' what `predict()` and [deli-augment] take a `newdata` for.
+#' [`predict()`][deli-predict]. `data` has to carry the response, since a model
+#' frame holds every variable the formula names; covariate values that carry no
+#' response are what `predict()` and [deli-augment] take a `newdata` for.
 #'
 #' @param object A fitted `MEstimator` or `GMMEstimator` object (after calling
 #'   [estimate()]).

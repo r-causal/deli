@@ -44,3 +44,7 @@ m <- m_estimate(
 coef(m)
 \dontshow{\}) # examplesIf}
 }
+\seealso{
+\code{\link[=ee_loglogistic_ed]{ee_loglogistic_ed()}} for the effective dose at a given level, which
+is stacked with this equation to give it a sandwich standard error.
+}

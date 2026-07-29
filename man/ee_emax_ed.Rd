@@ -42,7 +42,11 @@ psi <- function(theta) {
 
 m <- m_estimate(stacked_equations = psi, init = c(8, -8, 2, 10))
 
-# theta_4 is the ED90, and stacking gives it its own sandwich standard error
-coef(m)
+# theta_4 is the ED90. Stacking is what gives it a standard error of its own,
+# so summary() rather than coef() is what shows the gain.
+summary(m)
 
+}
+\seealso{
+\code{\link[=ee_emax]{ee_emax()}}, the dose-response equation this one is stacked with.
 }

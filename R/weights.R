@@ -11,7 +11,7 @@
 #' @param weights Numeric vector of weights, an n-row weight matrix, or `NULL`
 #'   for equal weights.
 #'
-#' @return A numeric vector of length `n`, or the supplied n-row matrix.
+#' @returns A numeric vector of length `n`, or the supplied n-row matrix.
 #'
 #' @keywords internal
 generate_weights <- function(n, weights = NULL) {

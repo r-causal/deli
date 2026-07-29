@@ -39,10 +39,10 @@ y_true <- rbinom(n, 1, 0.25)
 y_star <- ifelse(y_true == 1, rbinom(n, 1, 0.9), 1 - rbinom(n, 1, 0.85))
 r <- c(rep(1, n_main), rep(0, n_validation))
 
-# The gold standard is unobserved in the main study, so those positions carry
-# a 0 placeholder. The placeholder never reaches an estimate: the sensitivity
-# and specificity equations are multiplied by (1 - r).
-y <- ifelse(r == 1, 0, y_true)
+# The gold standard is observed only in the validation sample, so the main
+# study positions carry a 0 placeholder. It never reaches an estimate: the
+# sensitivity and specificity equations are multiplied by (1 - r).
+y <- ifelse(r == 0, y_true, 0)
 
 psi <- function(theta) {
   ee_rogan_gladen(theta, y = y, y_star = y_star, r = r)
