@@ -350,3 +350,50 @@ test_that("a genuinely flat function differentiates to zero without warning", {
     expect_identical(result[1, 1], 0)
   }
 })
+
+# ---- a difference lost against the function values ---------------------------
+#
+# The floor above rescues a step lost against a large `theta`. The other way a
+# difference vanishes is untouched by it. Where the step is applied exactly but
+# the function values are large, the change it produces falls below the spacing
+# of the doubles holding them: both evaluations round to the same value and the
+# quotient is exactly zero. Nothing about the step is wrong, so no reading of the
+# step can see this, and the result is indistinguishable from the genuinely flat
+# function pinned above. What separates the two is the significance of the
+# difference against the magnitude of the values it was taken between. A
+# difference carrying none of it, at a step fine enough that a real derivative
+# would have shown, has to be reported rather than returned as a zero.
+
+test_that("a difference lost against large function values is reported", {
+  # The values are about 1e11, whose neighboring doubles are 1.53e-05 away,
+  # while the default step moves the function by 4e-07. Both evaluations return
+  # the same double, so the derivative comes back as zero rather than 200.
+  f <- function(x) 1e11 + 200 * x
+
+  for (method in c("capprox", "fapprox", "bapprox")) {
+    expect_warning(
+      approx_differentiation(func = f, theta = 0, method = method, dx = 1e-9),
+      class = "deli_finite_difference_lost",
+      label = method
+    )
+  }
+})
+
+test_that("the same values differentiate quietly at a step that resolves them", {
+  # Nothing about the function has changed, only the step: 1e-03 moves it by
+  # 0.4, some 26,000 times the spacing of the values, so the difference keeps
+  # its digits and the derivative is the right one.
+  f <- function(x) 1e11 + 200 * x
+
+  for (method in c("capprox", "fapprox", "bapprox")) {
+    expect_no_warning({
+      result <- approx_differentiation(
+        func = f,
+        theta = 0,
+        method = method,
+        dx = 1e-3
+      )
+    })
+    expect_equal(result[1, 1], 200, tolerance = 1e-4, label = method)
+  }
+})

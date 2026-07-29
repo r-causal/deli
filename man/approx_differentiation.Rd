@@ -23,7 +23,13 @@ parameter.}
 }
 \value{
 A matrix where element \verb{[i, j]} is the partial derivative of the
-\code{i}-th output with respect to the \code{j}-th parameter.
+\code{i}-th output with respect to the \code{j}-th parameter. A Jacobian holding an
+entry whose difference was lost against the magnitude of the values of
+\code{func} is returned all the same, with a warning carrying the class
+\code{deli_finite_difference_lost}. One warning covers the call however many
+entries were lost, and its wording is the same at every call, so a caller
+wrapping several calls in \code{without_repeated_warnings()} reports it once for
+the operation.
 }
 \description{
 Computes the Jacobian matrix of a vector-valued function using forward,
@@ -58,5 +64,15 @@ Where the floor does engage, the derivative is accurate to a few parts in ten
 thousand rather than to the roughly \code{1e-7} a representable step reaches.
 \code{deriv_method = "exact"} takes no step at all and is unaffected by parameter
 magnitude, so it is the better choice for a badly scaled problem.
+
+The floor rescues a step lost against a large \code{theta}. A difference is lost a
+second way that no reading of the step can see, because nothing about the step
+is wrong: where the step is applied exactly but the values of \code{func} are
+large, the change it produces falls below the spacing of the doubles holding
+them, both evaluations round to the same double, and the quotient is exactly
+zero. That is indistinguishable, in the returned value, from a function that
+is genuinely flat. What separates the two is the significance of the
+difference against the magnitude of the values it was taken between, which is
+what \code{deli_finite_difference_lost} reports; see \strong{Value}.
 }
 \keyword{internal}
