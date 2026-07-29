@@ -921,6 +921,22 @@ multiroot_self_report <- function(messages) {
     )
 }
 
+#' Whether a message is `minpack.lm::nls.lm()` talking about itself
+#'
+#' `nls.lm()` reports an exhausted budget twice: once as a bare warning out of
+#' the MINPACK driver, carrying the info code, and once in the return value,
+#' which is where `solve_equations()` reads it and words deli's own report. The
+#' bare warning is written by the C code as the driver's name, the info code,
+#' and the explanation, and the two drivers `nls.lm()` calls are `lmdif`, for a
+#' Jacobian it approximates itself, and `lmder`, for one supplied to it.
+#'
+#' @param messages A character vector of warning messages.
+#' @returns A logical vector of the same length.
+#' @noRd
+nls_lm_self_report <- function(messages) {
+  grepl("^lm(dif|der): info = ", messages)
+}
+
 #' Evaluate a solver call with the solver's own warnings muffled and recorded
 #'
 #' @param expr The call to the solver.
@@ -1074,7 +1090,13 @@ solve_equations <- function(func, init, method, maxiter, tolerance) {
       maxfev = maxiter,
       maxiter = min(maxiter, 1024L)
     )
-    result <- minpack.lm::nls.lm(par = init, fn = func, control = control)
+    # nls.lm reports an exhausted budget as a bare warning as well as in the
+    # return value read below, so the bare one is muffled where it is raised.
+    # Warnings from `func` itself pass through untouched.
+    result <- with_muffled_self_reports(
+      minpack.lm::nls.lm(par = init, fn = func, control = control),
+      nls_lm_self_report
+    )$value
     solved <- list(
       par = result$par,
       solver = "lm",
