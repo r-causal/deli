@@ -10,6 +10,15 @@
 # The property definitions live here and are inherited by both children.
 # MEstimator adds nothing beyond them; GMMEstimator adds the weight matrix and
 # the over-identification controls.
+#
+# model_spec is the one property no constructor takes. A fit built by hand from
+# a `stacked_equations` closure has no model to describe: the estimator is
+# handed an arbitrary function and cannot recover a formula, a design, or a
+# response from it. Only the formula interface knows those, so
+# `m_estimate.formula()` and `gmm_estimate.formula()` set the property by
+# assignment after construction and every other route leaves it `NULL`. Keeping
+# it out of the constructors is what lets the public signatures stay as they
+# are; see `formula_model_spec()` in R/model-spec.R for what the list holds.
 deli_estimator <- new_class(
   "deli_estimator",
   abstract = TRUE,
@@ -22,6 +31,10 @@ deli_estimator <- new_class(
     ),
     finite_correction = new_property(
       class = NULL | class_character,
+      default = NULL
+    ),
+    model_spec = new_property(
+      class = NULL | class_list,
       default = NULL
     ),
     n_obs = new_property(

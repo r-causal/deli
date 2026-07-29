@@ -130,6 +130,7 @@ m_estimate.formula <- function(
     subset = subset,
     finite_correction = finite_correction
   )
+  obj@model_spec <- prep$model_spec
   estimate(
     obj,
     solver = solver,
@@ -270,6 +271,7 @@ gmm_estimate.formula <- function(
     overid_maxiter = overid_maxiter,
     overid_tolerance = overid_tolerance
   )
+  obj@model_spec <- prep$model_spec
   estimate(
     obj,
     solver = solver,
@@ -332,11 +334,13 @@ gmm_estimate.default <- function(
 #' @param dots A list of quosures captured from `...`.
 #' @param init The user-supplied `init`, or `NULL` to auto-generate it.
 #'
-#' @return A list with `psi` (the closure) and `init` (the resolved vector).
+#' @return A list with `psi` (the closure), `init` (the resolved vector), and
+#'   `model_spec` (what the fit was specified as; see `formula_model_spec()`).
 #' @noRd
 prepare_formula_psi <- function(formula, data, .ee, dots, init) {
   mf <- stats::model.frame(formula, data = data)
-  y <- coerce_formula_response(stats::model.response(mf))
+  response <- stats::model.response(mf)
+  y <- coerce_formula_response(response)
   X <- stats::model.matrix(formula, data = mf)
 
   # Evaluate ... with tidy evaluation in data context.
@@ -395,7 +399,18 @@ prepare_formula_psi <- function(formula, data, .ee, dots, init) {
     attr(psi, "deli_auto_init_appended") <- appended
   }
 
-  list(psi = psi, init = init)
+  list(
+    psi = psi,
+    init = init,
+    model_spec = formula_model_spec(
+      mf = mf,
+      X = X,
+      y = y,
+      .ee = .ee,
+      ee_args = ee_args,
+      response_levels = formula_response_levels(response)
+    )
+  )
 }
 
 #' Coerce a formula response for the regression contract
@@ -426,6 +441,31 @@ coerce_formula_response <- function(y) {
     y <- as.numeric(y != levels(y)[1])
   }
   y
+}
+
+#' The levels a formula response was scored against
+#'
+#' Answers, for a response that `coerce_formula_response()` turns into a 0/1
+#' indicator, which category the 0 stands for and which the 1 does. `NULL` for a
+#' response that arrives numeric or logical and is scored against nothing.
+#'
+#' Kept beside `coerce_formula_response()` because the two have to agree on how
+#' a character response becomes a factor: the levels reported here are the ones
+#' the coercion scores against, and a change to either has to be made in both.
+#' The levels are read here rather than returned by the coercion so that the
+#' response handed to the estimating equation stays a plain numeric vector,
+#' carrying no attribute that could travel into an estimating function's return.
+#'
+#' @param y The response extracted with [stats::model.response()], before
+#'   coercion.
+#'
+#' @return A character vector of levels, or `NULL`.
+#' @noRd
+formula_response_levels <- function(y) {
+  if (is.character(y)) {
+    y <- factor(y)
+  }
+  if (is.factor(y)) levels(y) else NULL
 }
 
 #' Drop NA-omitted rows from a dots-supplied argument
