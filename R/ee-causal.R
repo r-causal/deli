@@ -41,9 +41,9 @@
 #'
 #' @export
 ee_gformula <- function(theta, y, X, X1, X0 = NULL, force_continuous = FALSE) {
-  X <- as.matrix(X)
+  X <- coerce_design(X)
   y <- as.numeric(y)
-  X1 <- as.matrix(X1)
+  X1 <- coerce_design(X1)
   n <- nrow(X)
 
   # Reject misaligned plan designs with a clear message rather than the opaque
@@ -51,7 +51,7 @@ ee_gformula <- function(theta, y, X, X1, X0 = NULL, force_continuous = FALSE) {
   check_design_dims_match(X, X1, "X", "X1")
 
   if (!is.null(X0)) {
-    X0 <- as.matrix(X0)
+    X0 <- coerce_design(X0)
     check_design_dims_match(X, X0, "X", "X0")
   }
 
@@ -145,7 +145,7 @@ ee_gformula <- function(theta, y, X, X1, X0 = NULL, force_continuous = FALSE) {
 #'
 #' @export
 ee_ipw <- function(theta, y, A, W, truncate = NULL, weights = NULL) {
-  W <- as.matrix(W)
+  W <- coerce_design(W)
   A <- as.numeric(A)
   y <- as.numeric(y)
   n <- length(y)
@@ -251,10 +251,10 @@ ee_aipw <- function(
 ) {
   y <- as.numeric(y)
   A <- as.numeric(A)
-  W <- as.matrix(W)
-  X <- as.matrix(X)
-  X1 <- as.matrix(X1)
-  X0 <- as.matrix(X0)
+  W <- coerce_design(W)
+  X <- coerce_design(X)
+  X1 <- coerce_design(X1)
+  X0 <- coerce_design(X0)
   n <- length(y)
 
   # Misaligned counterfactual designs would otherwise recycle silently into the
@@ -389,8 +389,8 @@ ee_ipw_msm <- function(
   weights = NULL
 ) {
   # Coerce inputs
-  W <- as.matrix(W)
-  V <- as.matrix(V)
+  W <- coerce_design(W)
+  V <- coerce_design(V)
   A <- as.numeric(A)
   y <- as.numeric(y)
   n <- length(y)
@@ -504,8 +504,8 @@ ee_gestimation_snmm <- function(
   # Coerce inputs
   y <- as.numeric(y)
   A <- as.numeric(A)
-  W <- as.matrix(W)
-  V <- as.matrix(V)
+  W <- coerce_design(W)
+  V <- coerce_design(V)
   n <- length(y)
 
   # Parameter indexing
@@ -519,7 +519,7 @@ ee_gestimation_snmm <- function(
   phi <- theta[1:pdiv] # SMM parameters
   alpha <- theta[(pdiv + 1):qdiv] # PS model parameters
   if (!is.null(X)) {
-    X <- as.matrix(X)
+    X <- coerce_design(X)
     beta <- theta[(qdiv + 1):length(theta)] # Outcome model parameters
   }
 
@@ -696,13 +696,13 @@ ee_2sls <- function(theta, y, A, Z, W = NULL, weights = NULL) {
   # Coerce inputs
   y <- as.numeric(y)
   a <- as.numeric(A)
-  Z <- as.matrix(Z)
+  Z <- coerce_design(Z)
 
   # Processing parameter vector
   if (is.null(W)) {
     id2s <- 1 # Split point: no exogenous covariates
   } else {
-    W <- as.matrix(W)
+    W <- coerce_design(W)
     id2s <- 1 + ncol(W) # Split point for first/second stage
   }
   beta <- theta[1:id2s] # Second-stage parameters
@@ -812,7 +812,7 @@ ee_mean_sensitivity_analysis <- function(
   # Coerce inputs
   delta <- as.numeric(delta)
   y <- as.numeric(y)
-  X <- as.matrix(X)
+  X <- coerce_design(X)
   qy <- as.numeric(q_eval)
   beta <- theta[-1] # Nuisance parameters
 

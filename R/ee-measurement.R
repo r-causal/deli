@@ -122,7 +122,7 @@ ee_rogan_gladen_extended <- function(theta, y, y_star, r, X, weights = NULL) {
   y <- as.numeric(y)
   y_star <- as.numeric(y_star)
   r <- as.numeric(r)
-  X <- as.matrix(X)
+  X <- coerce_design(X)
   n <- length(y_star)
   p <- ncol(X)
   w <- generate_weights(n, weights)
@@ -235,7 +235,7 @@ ee_regression_calibration <- function(
   if (is.null(X)) {
     Xcal <- cbind(a_star, 1)
   } else {
-    Xcal <- cbind(a_star, as.matrix(X))
+    Xcal <- cbind(a_star, coerce_design(X))
   }
   p <- ncol(Xcal)
 

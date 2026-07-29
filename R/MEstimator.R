@@ -5,9 +5,12 @@
 #'
 #' @param stacked_equations A function that takes a numeric vector `theta` and
 #'   returns a p-by-n matrix of estimating equation contributions, where p is
-#'   the number of parameters and n is the number of observations.
+#'   the number of parameters and n is the number of observations. Row names on
+#'   that matrix name the parameters when `init` has none and every parameter is
+#'   labeled; see [estimate()].
 #' @param init Numeric vector of initial parameter values for the root-finding
-#'   algorithm.
+#'   algorithm. Names on it label the parameters and take precedence over the
+#'   row names of `stacked_equations`.
 #' @param subset Integer vector of parameter indices to solve for, or `NULL`
 #'   (default) to solve for all parameters.
 #' @param finite_correction Character string for finite-sample correction

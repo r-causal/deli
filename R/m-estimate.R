@@ -20,9 +20,10 @@
 #'
 #' @param stacked_equations A formula or a function. When a formula, `data` and
 #'   `.ee` must also be provided. When a function, it should take a numeric
-#'   vector `theta` and return a p-by-n matrix. A two-level factor or character
-#'   response is converted to a 0/1 indicator against its first level; an
-#'   `offset()` term in the formula is passed to `.ee` through its `offset`
+#'   vector `theta` and return a p-by-n matrix, whose row names name the
+#'   parameters when `init` has none; see [estimate()]. A two-level factor or
+#'   character response is converted to a 0/1 indicator against its first level;
+#'   an `offset()` term in the formula is passed to `.ee` through its `offset`
 #'   argument.
 #' @param data A data frame (required when `stacked_equations` is a formula).
 #' @param .ee An estimating equation function that accepts `theta`, `X`, and
@@ -39,7 +40,8 @@
 #'   to be empty.
 #' @param init Numeric vector of initial parameter values. When `NULL`
 #'   (default) and using the formula interface, a zero vector with names from
-#'   the model matrix columns is generated automatically.
+#'   the model matrix columns is generated automatically. Names on it label the
+#'   parameters and take precedence over the row names of `stacked_equations`.
 #' @param subset Integer vector of parameter indices to solve for, or `NULL`
 #'   (default) to solve for all parameters. Indices are 1-based; parameters not
 #'   listed are held fixed at their `init` values while the rest are solved.

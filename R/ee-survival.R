@@ -57,7 +57,7 @@ ee_aft <- function(
   weights = NULL,
   offset = NULL
 ) {
-  X <- as.matrix(X)
+  X <- coerce_design(X)
   time <- as.numeric(time)
   event <- as.numeric(event)
   n <- nrow(X)
@@ -284,7 +284,7 @@ ee_plogit <- function(
   weights = NULL,
   offset = NULL
 ) {
-  X <- as.matrix(X)
+  X <- coerce_design(X)
   time <- as.numeric(time) # observed times
   event <- as.numeric(event) # event indicator
   n <- nrow(X)
@@ -308,7 +308,7 @@ ee_plogit <- function(
     time_design_matrix <- diag(n_time_steps)
     time_design_matrix[, 1] <- 1 # first column is intercept
   } else {
-    S <- as.matrix(S)
+    S <- coerce_design(S)
     time_design_matrix <- S
     unique_times <- seq_len(max(time)) # 1:max(time)
     n_time_steps <- length(unique_times)

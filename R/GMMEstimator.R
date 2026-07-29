@@ -8,9 +8,12 @@
 #'   returns a p-by-n matrix of estimating equation contributions, where p is
 #'   the number of estimating equations and n is the number of observations.
 #'   The number of equations p must be greater than or equal to the number of
-#'   parameters (length of `init`).
+#'   parameters (length of `init`). Row names on that matrix name the parameters
+#'   when `init` has none and there is exactly one row per parameter, so an
+#'   over-identified system is numbered instead; see [estimate()].
 #' @param init Numeric vector of initial parameter values for the minimization
-#'   algorithm.
+#'   algorithm. Names on it label the parameters and take precedence over the
+#'   row names of `stacked_equations`.
 #' @param subset Integer vector of parameter indices to solve for, or `NULL`
 #'   (default) to solve for all parameters.
 #' @param finite_correction Character string for finite-sample correction

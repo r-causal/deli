@@ -389,6 +389,13 @@ default otherwise. Where you would reach for `ifelse()`, write
 `ind * yes + (1 - ind) * no`, which is ordinary arithmetic and differentiates
 exactly.
 
+Assigning row names does not run into that boundary. deli labels the parameters
+from the row names of an estimating function that returns them, and the
+assignment is ignored while a value carries derivatives, because the labels are
+read from the plain evaluation at the solved values instead. `rownames<-` hands
+its work to `dimnames<-`, which is a generic, so deli registers the setter there
+and an estimating function can label its rows from anywhere.
+
 Arithmetic, `%*%`, `t()`, `[`, `c()`, and `mean()` are the operations that
 always carry derivatives, because deli registers each as an S3 method and S3
 dispatch does not depend on where the call is written. Build a p-by-n return

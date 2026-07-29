@@ -62,13 +62,14 @@ y2 <- rnorm(n, mean = 2, sd = 1)
 
 psi <- function(theta) {
   # Row 1: estimating equation for the mean of y1
-  row1 <- y1 - theta[1]
+  mu1 <- y1 - theta[1]
   # Row 2: estimating equation for the mean of y2
-  row2 <- y2 - theta[2]
+  mu2 <- y2 - theta[2]
   # Row 3: estimating equation for the ratio (repeated n times)
-  row3 <- rep(theta[1] / theta[2] - theta[3], n)
-  # Stack into a 3-by-n matrix
-  rbind(row1, row2, row3)
+  ratio <- rep(theta[1] / theta[2] - theta[3], n)
+  # Stack into a 3-by-n matrix. `rbind()` labels each row with the name of the
+  # variable it came from, and those labels become the parameter names.
+  rbind(mu1, mu2, ratio)
 }
 
 m <- m_estimate(stacked_equations = psi, init = c(1, 1, 1))
@@ -98,6 +99,19 @@ mean(y1) / mean(y2)
 - **Deterministic equations** (like the ratio above) should repeat the same
   value across all n columns. This is necessary so the matrix dimensions are
   consistent with the other rows.
+- **Row names name the parameters.** The row names of the returned matrix
+  become the labels on `coef()`, `vcov()`, `confint()`, and `summary()`. Names
+  on `init` take precedence when it has any. Row names are read only when every
+  parameter is labeled and no two labels are alike, so a stack that names some
+  rows and not others, or that repeats a name, is numbered `theta_1` through
+  `theta_p` instead. `rbind()` supplies a label for each plain vector it is
+  given, taken from the variable name, as in the example above; a matrix
+  argument contributes whatever row names it already carries, and the built-in
+  `ee_*()` functions carry none, since each drops the dimnames of the design it
+  was handed. Set them yourself with `rownames()` where the ones you want are
+  not the ones `rbind()` produces. The assignment works under
+  `deriv_method = "exact"` as well, unlike the reshaping helpers described in
+  `vignette("getting-started")`.
 
 ## Stacking custom EEs with built-in ones
 

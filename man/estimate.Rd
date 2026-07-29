@@ -83,6 +83,35 @@ A modified \code{MEstimator} object with populated \code{theta}, \code{bread},
 Solves the estimating equations for the parameter vector \code{theta} and
 computes the empirical sandwich variance estimator.
 }
+\details{
+The estimates and every matrix built from them carry parameter names, taken
+from the first of two channels that supplies them. Names on \code{init} come
+first: a parameter the caller named keeps that name, and one left unnamed is
+numbered by position, so \code{init = c(mu = 0, 1)} gives \code{c("mu", "theta_2")}.
+Where \code{init} carries no names at all, the row names of the estimating
+functions are read instead. That is how a \code{stacked_equations} function names
+the parameters it defines, since the estimator otherwise sees only an opaque
+closure returning a matrix. The formula interface always names \code{init} from
+the model matrix columns, so the row names matter to the function interface.
+
+Row names are read only when they label every parameter distinctly: one name
+per parameter, none empty, none missing, and no two alike. An incomplete or
+repetitive set is discarded rather than patched up, because it is usually an
+accident of how the stack was built. \code{rbind()} pads the rows of an unlabeled
+block with empty strings, and \code{t(X * resid)} on a design whose intercept
+column has no name produces the same shape; \code{rbind()} also names each row
+after the variable that supplied it, so two blocks that each begin with a
+variable of the same name repeat a label. The count has to match as well,
+which is what keeps an over-identified \code{GMMEstimator} out: its rows are
+moment conditions and outnumber the parameters, so their labels describe the
+equations. Where neither channel applies, the parameters are numbered
+\code{theta_1} through \code{theta_p}.
+
+Row names survive exact differentiation. Assigning them is ignored while a
+value carries derivatives, since the labels are read from the plain
+evaluation at the solved values, and deli registers the setter as an S3
+method so that an estimating function written anywhere reaches it.
+}
 \examples{
 psi <- function(theta) {
   y <- c(1, 2, 3, 4, 5)

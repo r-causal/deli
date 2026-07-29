@@ -3,6 +3,35 @@
 #' Solves the estimating equations for the parameter vector `theta` and
 #' computes the empirical sandwich variance estimator.
 #'
+#' @details
+#' The estimates and every matrix built from them carry parameter names, taken
+#' from the first of two channels that supplies them. Names on `init` come
+#' first: a parameter the caller named keeps that name, and one left unnamed is
+#' numbered by position, so `init = c(mu = 0, 1)` gives `c("mu", "theta_2")`.
+#' Where `init` carries no names at all, the row names of the estimating
+#' functions are read instead. That is how a `stacked_equations` function names
+#' the parameters it defines, since the estimator otherwise sees only an opaque
+#' closure returning a matrix. The formula interface always names `init` from
+#' the model matrix columns, so the row names matter to the function interface.
+#'
+#' Row names are read only when they label every parameter distinctly: one name
+#' per parameter, none empty, none missing, and no two alike. An incomplete or
+#' repetitive set is discarded rather than patched up, because it is usually an
+#' accident of how the stack was built. `rbind()` pads the rows of an unlabeled
+#' block with empty strings, and `t(X * resid)` on a design whose intercept
+#' column has no name produces the same shape; `rbind()` also names each row
+#' after the variable that supplied it, so two blocks that each begin with a
+#' variable of the same name repeat a label. The count has to match as well,
+#' which is what keeps an over-identified `GMMEstimator` out: its rows are
+#' moment conditions and outnumber the parameters, so their labels describe the
+#' equations. Where neither channel applies, the parameters are numbered
+#' `theta_1` through `theta_p`.
+#'
+#' Row names survive exact differentiation. Assigning them is ignored while a
+#' value carries derivatives, since the labels are read from the plain
+#' evaluation at the solved values, and deli registers the setter as an S3
+#' method so that an estimating function written anywhere reaches it.
+#'
 #' @param object An `MEstimator` or `GMMEstimator` object.
 #' @param solver Character string specifying the solver algorithm, or a custom
 #'   function. When `NULL` (default), uses `"rootSolve"` for `MEstimator`
@@ -236,8 +265,14 @@ estimate_m_estimator <- function(
     var_mat <- asymp_var / n_obs
   }
 
-  # Apply parameter names
-  param_names <- default_param_names(names(object@init), length(full_theta))
+  # Apply parameter names, from `init` where it has any and otherwise from the
+  # row names of the evaluation already made above. No second call to the
+  # estimating functions is needed to read them.
+  param_names <- resolve_param_names(
+    names(object@init),
+    evald,
+    length(full_theta)
+  )
   names(full_theta) <- param_names
   dimnames(bread) <- list(param_names, param_names)
   dimnames(meat_mat) <- list(param_names, param_names)
@@ -1036,22 +1071,37 @@ estimate_gmm_estimator <- function(
     var_mat <- asymp_var / n_obs
   }
 
-  # Apply parameter names
-  param_names <- default_param_names(
+  # Apply parameter names, from `init` where it has any and otherwise from the
+  # row names of the evaluation already made above. No second call to the
+  # estimating functions is needed to read them.
+  param_names <- resolve_param_names(
     names(object@init),
+    evald,
     length(current_theta)
   )
   names(current_theta) <- param_names
   # Bread and meat may be non-square in the over-identified case
-  # (n_eqs x n_params for bread, n_eqs x n_eqs for meat)
+  # (n_eqs x n_params for bread, n_eqs x n_eqs for meat). Where they are, they
+  # are indexed by the moment conditions rather than by the parameters, so they
+  # are left unlabeled rather than carrying labels a reader could line up
+  # against coef(). Row names on the estimating functions used to reach the meat
+  # regardless, through tcrossprod(), and the weight matrix through the solve()
+  # of it; the strips below are what keep the three matrices consistent.
   if (nrow(bread) == ncol(bread) && nrow(bread) == length(param_names)) {
     dimnames(bread) <- list(param_names, param_names)
+  } else {
+    dimnames(bread) <- NULL
   }
   if (
     nrow(meat_mat) == ncol(meat_mat) && nrow(meat_mat) == length(param_names)
   ) {
     dimnames(meat_mat) <- list(param_names, param_names)
+  } else {
+    dimnames(meat_mat) <- NULL
   }
+  # The weight matrix is indexed by the moment conditions on every path, and is
+  # the identity on a just-identified fit, so it is never parameter-labeled.
+  dimnames(weight_matrix) <- NULL
   if (!is.null(asymp_var)) {
     dimnames(asymp_var) <- list(param_names, param_names)
   }

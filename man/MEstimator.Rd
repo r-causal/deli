@@ -9,10 +9,13 @@ MEstimator(stacked_equations, init, subset = NULL, finite_correction = NULL)
 \arguments{
 \item{stacked_equations}{A function that takes a numeric vector \code{theta} and
 returns a p-by-n matrix of estimating equation contributions, where p is
-the number of parameters and n is the number of observations.}
+the number of parameters and n is the number of observations. Row names on
+that matrix name the parameters when \code{init} has none and every parameter is
+labeled; see \code{\link[=estimate]{estimate()}}.}
 
 \item{init}{Numeric vector of initial parameter values for the root-finding
-algorithm.}
+algorithm. Names on it label the parameters and take precedence over the
+row names of \code{stacked_equations}.}
 
 \item{subset}{Integer vector of parameter indices to solve for, or \code{NULL}
 (default) to solve for all parameters.}

@@ -503,7 +503,7 @@ dlasso_penalty <- function(theta, n, penalty, s, center) {
 #'
 #' @export
 ee_mlogit <- function(theta, X, y, weights = NULL, offset = NULL) {
-  X <- as.matrix(X)
+  X <- coerce_design(X)
   y <- as.matrix(y)
   n <- nrow(X)
   b <- ncol(X)
@@ -589,7 +589,7 @@ ee_mlogit <- function(theta, X, y, weights = NULL, offset = NULL) {
 #'
 #' @export
 ee_beta_regression <- function(theta, X, y, weights = NULL, offset = NULL) {
-  X <- as.matrix(X)
+  X <- coerce_design(X)
   y <- as.numeric(y)
   n <- nrow(X)
   b <- ncol(X)
@@ -673,7 +673,7 @@ ee_tobit <- function(
   weights = NULL,
   offset = NULL
 ) {
-  X <- as.matrix(X)
+  X <- coerce_design(X)
   y <- as.numeric(y)
   n <- nrow(X)
   b <- ncol(X)

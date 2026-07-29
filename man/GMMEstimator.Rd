@@ -18,10 +18,13 @@ GMMEstimator(
 returns a p-by-n matrix of estimating equation contributions, where p is
 the number of estimating equations and n is the number of observations.
 The number of equations p must be greater than or equal to the number of
-parameters (length of \code{init}).}
+parameters (length of \code{init}). Row names on that matrix name the parameters
+when \code{init} has none and there is exactly one row per parameter, so an
+over-identified system is numbered instead; see \code{\link[=estimate]{estimate()}}.}
 
 \item{init}{Numeric vector of initial parameter values for the minimization
-algorithm.}
+algorithm. Names on it label the parameters and take precedence over the
+row names of \code{stacked_equations}.}
 
 \item{subset}{Integer vector of parameter indices to solve for, or \code{NULL}
 (default) to solve for all parameters.}

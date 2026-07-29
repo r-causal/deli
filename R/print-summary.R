@@ -1,3 +1,32 @@
+# ---- cli brace escaping -----------------------------------------------------
+# cli reads a brace in a string it formats as the start of an expression to
+# evaluate, and a parameter name is written by whoever wrote the estimating
+# function, so it can hold anything. Doubling each brace is how cli's own parser
+# is told to take one literally; cli has an internal helper that does this, but
+# it is not exported.
+#
+# Escaping rather than validating is the only workable choice, because cli does
+# not reliably refuse a name it cannot format. "{foo}" and "beta{" do raise an
+# error, but "theta{1}" prints as theta1 and "E[Y^{a=1}]" as "E[Y^1: ]", each
+# without a word of complaint. A name the package's own accessors return intact
+# has to survive its printing too.
+#
+# `NULL` is passed straight back rather than escaped. `gsub()` answers it with
+# `character(0)`, and `stats::setNames()` pads a short name vector with `NA`, so
+# escaping an unnamed theta would relabel every coefficient `NA` instead of
+# leaving cli to refuse an unnamed list. A fitted estimator always names its
+# parameters; an unnamed one is reachable only by assigning `@theta` directly,
+# and that should keep failing loudly.
+
+#' @noRd
+escape_cli_braces <- function(x) {
+  if (is.null(x)) {
+    return(NULL)
+  }
+  x <- gsub("{", "{{", x, fixed = TRUE)
+  gsub("}", "}}", x, fixed = TRUE)
+}
+
 #' @noRd
 print_estimator <- function(x, label, subset = NULL) {
   check_estimator_subset(subset, x@n_params)
@@ -20,7 +49,9 @@ print_estimator <- function(x, label, subset = NULL) {
     }
     theta_fmt <- format(round(theta, 4), nsmall = 4)
     cli::cli_text("Coefficients:")
-    cli::cli_dl(stats::setNames(theta_fmt, names(theta)))
+    # cli_dl() interpolates its labels, so the parameter names are escaped on
+    # the way in. The values are formatted numbers and carry no braces.
+    cli::cli_dl(stats::setNames(theta_fmt, escape_cli_braces(names(theta))))
   }
 
   invisible(x)
@@ -127,7 +158,9 @@ method(print, EstimatorSummary) <- function(x, ...) {
   lcl_lab <- sprintf("%.0f%% LCL", pct)
   ucl_lab <- sprintf("%.0f%% UCL", pct)
 
-  # Determine column widths
+  # Determine column widths. The rows below go out through cli_verbatim(),
+  # which prints its argument as given, so the names need no escaping here;
+  # print_estimator() escapes because cli_dl() interpolates its labels.
   param_names <- default_param_names(names(x@theta), length(x@theta))
   name_width <- max(nchar(param_names), 5)
 

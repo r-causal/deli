@@ -1991,6 +1991,51 @@ test_that("a base ifelse in a transform aborts with the indicator-arithmetic adv
   expect_match(flat, "ind * yes + (1 - ind) * no", fixed = TRUE)
 })
 
+# ---- tangent-aware row-name assignment --------------------------------------
+
+test_that("row-name assignment leaves a shaped tangent container untouched", {
+  # Labels are read off the plain numeric evaluation estimate() makes at the
+  # solved values, never off a differentiated one, so the setter has nothing to
+  # record and hands the container back. base::`rownames<-` is named explicitly
+  # to pin the route a user's estimating function takes: it is base R's closure
+  # that reaches deli's `dimnames<-` methods, and the test environment is a
+  # clone of the package namespace, so a mask on the setter would otherwise
+  # stand in for the dispatch under test.
+  containers <- list(
+    primal_tangent(
+      base::matrix(c(1, 2, 3, 4), nrow = 2),
+      base::matrix(0, 2, 2)
+    ),
+    primal_tangent_array(
+      base::matrix(c(1, 2, 3, 4), nrow = 2),
+      base::matrix(0, 2, 2)
+    )
+  )
+
+  for (x in containers) {
+    expect_identical(base::`rownames<-`(x, c("a", "b")), x)
+    expect_identical(base::`rownames<-`(x, NULL), x)
+  }
+})
+
+test_that("row-name assignment on a shapeless tangent container errors as base R does", {
+  # base::`rownames<-` consults dim() before it reaches `dimnames<-`, so a
+  # container that answers no dimensions never reaches deli's methods and
+  # raises exactly the error a plain numeric vector raises. Both passes stop in
+  # the same place rather than the exact pass being the more permissive one, so
+  # nothing succeeds under exact differentiation that would fail without it.
+  msg <- "attempt to set 'rownames' on an object with no dimensions"
+  shapeless <- list(
+    c(1, 2),
+    primal_tangent(1, 2),
+    primal_tangent_vector(list(primal_tangent(1, 1), primal_tangent(2, 0)))
+  )
+
+  for (x in shapeless) {
+    expect_error(base::`rownames<-`(x, c("a", "b")), msg)
+  }
+})
+
 # ---- plain-list branch in pt_arrays ----
 
 test_that("masked rbind of a c() tangent array keeps tangents under exact mode", {

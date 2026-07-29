@@ -17,6 +17,72 @@ mean_variance_y <- function() {
   c(1.2, 2.4, 3.1, 4.8, 5.5, 6.9, 7.2, 8.1)
 }
 
+# The same two equations with the parameters labeled on the rows of the return.
+# Row names are the naming channel a `stacked_equations` function has, since it
+# is an opaque closure to the estimator and nothing else it returns is per-row.
+labelled_mean_variance_psi <- function(y, labels = c("mu", "sigma2")) {
+  function(theta) {
+    out <- rbind(
+      y - theta[1],
+      (y - theta[1])^2 - theta[2]
+    )
+    rownames(out) <- labels
+    out
+  }
+}
+
+# A two-parameter linear regression and a psi that labels its rows, written the
+# way a user writes one. Every operation in the psi is an S3 method, so the
+# return carries tangents under exact differentiation no matter which
+# environment the function was written in; a `rbind()` stack would reach base
+# R's binder from outside the package and lose them.
+regression_fixture <- function() {
+  list(
+    X = base::cbind(1, c(-1.1, 0.3, 1.7, -0.4, 0.9, 2.2, -1.8, 0.5)),
+    y = c(0.8, 2.1, 4.6, 1.2, 3.0, 5.4, -0.6, 2.4)
+  )
+}
+
+labelled_regression_psi <- function(d, labels = c("intercept", "slope")) {
+  function(theta) {
+    resid <- d$y - c(d$X %*% theta)
+    out <- t(d$X * resid)
+    rownames(out) <- labels
+    out
+  }
+}
+
+# An accelerated failure time fit whose design carries column headings, so an
+# `ee_*()` function that inherited them would name the parameters after them.
+# The exponential distribution is the case that would supply a complete set:
+# it has exactly one parameter per design column.
+aft_fixture <- function() {
+  list(
+    X = base::cbind(intercept = 1, treated = c(0, 1, 0, 1, 0, 1, 0, 1, 0, 1)),
+    time = c(2.1, 5.4, 1.2, 6.8, 3.3, 4.9, 0.8, 7.2, 2.7, 5.1),
+    event = c(1, 1, 0, 1, 1, 1, 0, 1, 1, 0)
+  )
+}
+
+# A pooled logistic fit whose covariate design and time design both carry
+# column headings, so between them they would supply a complete set. The
+# observations come from the exact-mode reference fixture, which is large enough
+# for the fit to converge from a zero start; the intercept lives in the time
+# design alone, since one in each design would make the two collinear.
+plogit_fixture <- function() {
+  ref <- load_fixture("ee_plogit_exact")
+  n <- length(ref$time)
+  list(
+    X = base::cbind(
+      exposure = as.numeric(ref$X),
+      treated = rep(c(0, 1), length.out = n)
+    ),
+    time = ref$time,
+    event = ref$event,
+    S = base::cbind(t_intercept = 1, t_linear = 1:max(ref$time))
+  )
+}
+
 # A summary object built directly, so the printing path can be reached with a
 # parameter vector carrying whatever names the test needs. A fitted estimator
 # always names its parameters, so this is the only way to exercise the fallback
@@ -172,4 +238,361 @@ test_that("printing a summary fills the unnamed rows of a partial name vector", 
 
   expect_true(any(grepl("^mu ", output)))
   expect_true(any(grepl("^theta_2 ", output)))
+})
+
+# Parameter names from estimating-function row names ---------------------------
+
+test_that("estimate() reads parameter names from the row names of psi", {
+  y <- mean_variance_y()
+  m <- m_estimate(
+    stacked_equations = labelled_mean_variance_psi(y),
+    init = c(0, 1)
+  )
+
+  expect_equal(names(coef(m)), c("mu", "sigma2"))
+  expect_equal(
+    dimnames(vcov(m)),
+    list(c("mu", "sigma2"), c("mu", "sigma2"))
+  )
+  expect_equal(rownames(confint(m)), c("mu", "sigma2"))
+  expect_equal(tidy(m)$term, c("mu", "sigma2"))
+})
+
+test_that("gmm_estimate() reads parameter names from the row names of psi", {
+  y <- mean_variance_y()
+  g <- gmm_estimate(
+    stacked_equations = labelled_mean_variance_psi(y),
+    init = c(0, 1)
+  )
+
+  expect_equal(names(coef(g)), c("mu", "sigma2"))
+  expect_equal(
+    dimnames(vcov(g)),
+    list(c("mu", "sigma2"), c("mu", "sigma2"))
+  )
+})
+
+test_that("names on init override the row names of psi", {
+  y <- mean_variance_y()
+  m <- m_estimate(
+    stacked_equations = labelled_mean_variance_psi(y),
+    init = c(a = 0, b = 1)
+  )
+
+  expect_equal(names(coef(m)), c("a", "b"))
+})
+
+test_that("a partially named init closes the row-name channel", {
+  # The two channels are never merged. Once `init` carries any name at all it
+  # is the only one read, and its unnamed entries are numbered by position, so
+  # a reader can tell which channel produced a label from `init` alone.
+  y <- mean_variance_y()
+  m <- m_estimate(
+    stacked_equations = labelled_mean_variance_psi(y),
+    init = c(a = 0, 1)
+  )
+
+  expect_equal(names(coef(m)), c("a", "theta_2"))
+})
+
+test_that("a partially labelled psi stack is discarded rather than filled", {
+  # `rbind()` pads the rows of an unlabeled block with empty strings, so a
+  # stack that labels only some of its blocks returns an incomplete vector.
+  # Unlike a partially named `init`, that is rarely deliberate, so the whole
+  # vector is dropped and every parameter is numbered.
+  y <- mean_variance_y()
+  psi <- function(theta) {
+    labelled <- matrix(y - theta[1], nrow = 1, dimnames = list("mu", NULL))
+    unlabelled <- matrix((y - theta[1])^2 - theta[2], nrow = 1)
+    rbind(labelled, unlabelled)
+  }
+
+  expect_equal(rownames(psi(c(0, 1))), c("mu", ""))
+
+  m <- m_estimate(stacked_equations = psi, init = c(0, 1))
+
+  expect_equal(names(coef(m)), c("theta_1", "theta_2"))
+})
+
+test_that("base rbind's variable-name labels reach the parameter names", {
+  # base::rbind() labels a row with the name of the variable supplying it
+  # whenever that variable is a plain vector, so a stack of vectors written
+  # outside the package arrives already labeled and those labels are read.
+  # base:: is named explicitly because deli's own rbind() is masked inside the
+  # namespace and forwards deparse.level = 0, which suppresses exactly these
+  # labels; a test written against the masked binder would assert nothing about
+  # what a user of the installed package gets.
+  y <- mean_variance_y()
+  psi <- function(theta) {
+    mu <- y - theta[1]
+    sigma2 <- (y - theta[1])^2 - theta[2]
+    base::rbind(mu, sigma2)
+  }
+
+  m <- m_estimate(stacked_equations = psi, init = c(0, 1))
+
+  expect_equal(names(coef(m)), c("mu", "sigma2"))
+})
+
+test_that("a matrix argument to base rbind carries no variable-name label", {
+  # The labels come only from vector arguments. A stack mixing a labeled vector
+  # with a matrix is therefore incomplete and is discarded, which is what keeps
+  # the built-in ee_*() functions out of the naming channel: each returns a
+  # matrix and none of them carries row names.
+  y <- mean_variance_y()
+  psi <- function(theta) {
+    mu <- y - theta[1]
+    sigma2 <- base::matrix((y - theta[1])^2 - theta[2], nrow = 1)
+    base::rbind(mu, sigma2)
+  }
+
+  expect_equal(rownames(psi(c(0, 1))), c("mu", ""))
+
+  m <- m_estimate(stacked_equations = psi, init = c(0, 1))
+
+  expect_equal(names(coef(m)), c("theta_1", "theta_2"))
+})
+
+test_that("an over-identified GMM fit numbers its parameters", {
+  # Two moment conditions label the rows against a single parameter, so the row
+  # names describe the equations rather than the parameters and are not read.
+  y <- c(1, 2, 4, 1, 2, 3, 1, 5, 2)
+  psi <- function(theta) {
+    out <- rbind(
+      y - theta[1],
+      (y - theta[1])^2 - 2
+    )
+    rownames(out) <- c("mean_eq", "var_eq")
+    out
+  }
+
+  g <- gmm_estimate(stacked_equations = psi, init = 2)
+
+  expect_equal(names(coef(g)), "theta_1")
+  # Row names on psi reached @meat and @weight_matrix before this naming
+  # channel existed, carried there by tcrossprod() and then by solve(). Neither
+  # matrix is indexed by the parameters in an over-identified fit, so both are
+  # now unlabeled, as @bread already was.
+  expect_null(dimnames(g@meat))
+  expect_null(dimnames(g@weight_matrix))
+  expect_null(dimnames(g@bread))
+})
+
+test_that("a row-labelled psi gives the same fit under exact differentiation", {
+  # `rownames<-` is an ordinary closure in base R and cannot take a method, so
+  # deli registers its no-op on `dimnames<-`, which `rownames<-` delegates to
+  # and which is a generic. That dispatch is what lets an estimating function
+  # written outside the package label its rows under exact mode, and the
+  # assertion below is what keeps this test honest about it: testthat's test
+  # environment is a clone of the package namespace, so a mask on the setter
+  # would stand in for the dispatch and the test would pass while asserting
+  # nothing about what a user of the installed package gets.
+  expect_identical(`rownames<-`, base::`rownames<-`)
+
+  d <- regression_fixture()
+  psi <- labelled_regression_psi(d)
+
+  expect_equal(rownames(psi(c(0, 0))), c("intercept", "slope"))
+
+  approx <- m_estimate(stacked_equations = psi, init = c(0, 0))
+  exact <- m_estimate(
+    stacked_equations = psi,
+    init = c(0, 0),
+    deriv_method = "exact"
+  )
+
+  expect_equal(names(coef(exact)), c("intercept", "slope"))
+  expect_equal(coef(exact), coef(approx), tolerance = 1e-6)
+  expect_equal(vcov(exact), vcov(approx), tolerance = 1e-6)
+})
+
+test_that("a psi that repeats a row name numbers the parameters", {
+  # A repeated label is worse than no label: coef() would show one name twice
+  # and confint(m)["mu", ] would silently return only the first row. The stack
+  # that produces one need not look unusual, since rbind() names each row after
+  # the variable that supplied it, so it is discarded whole as an incomplete
+  # set is.
+  y <- mean_variance_y()
+  psi <- labelled_mean_variance_psi(y, labels = c("mu", "mu"))
+
+  expect_equal(rownames(psi(c(0, 1))), c("mu", "mu"))
+
+  m <- m_estimate(stacked_equations = psi, init = c(0, 1))
+
+  expect_equal(names(coef(m)), c("theta_1", "theta_2"))
+})
+
+test_that("names the caller typed on init may repeat", {
+  # The rule above belongs to the row-name channel alone. A caller who writes
+  # the repetition out on `init` has said what they meant, and that has always
+  # been allowed, so it stays allowed.
+  y <- mean_variance_y()
+  m <- m_estimate(
+    stacked_equations = mean_variance_psi(y),
+    init = c(mu = 0, mu = 1)
+  )
+
+  expect_equal(names(coef(m)), c("mu", "mu"))
+})
+
+# ee_*() functions and the naming channel --------------------------------------
+
+test_that("ee_aft() does not name the parameters from its design columns", {
+  # Every built-in estimating equation routes its design through
+  # coerce_design(), which drops the dimnames, so the caller's column headings
+  # cannot reach the row names of the return. ee_aft() under the exponential
+  # distribution is the case that would otherwise supply a complete set: it has
+  # one parameter per design column and builds its return as t(X * ...).
+  d <- aft_fixture()
+  psi <- function(theta) {
+    ee_aft(
+      theta,
+      X = d$X,
+      time = d$time,
+      event = d$event,
+      distribution = "exponential"
+    )
+  }
+
+  expect_equal(colnames(d$X), c("intercept", "treated"))
+  expect_null(rownames(psi(c(0, 0))))
+
+  m <- m_estimate(stacked_equations = psi, init = c(0, 0))
+
+  expect_equal(names(coef(m)), c("theta_1", "theta_2"))
+})
+
+test_that("ee_plogit() does not name the parameters from either design", {
+  # ee_plogit() stacks a covariate design and a time design, and both used to
+  # contribute their column headings, so a named `S` completed the set that a
+  # named `X` started.
+  d <- plogit_fixture()
+  psi <- function(theta) {
+    ee_plogit(
+      theta,
+      X = d$X,
+      time = d$time,
+      event = d$event,
+      S = d$S
+    )
+  }
+
+  expect_equal(colnames(d$X), c("exposure", "treated"))
+  expect_equal(colnames(d$S), c("t_intercept", "t_linear"))
+  expect_null(rownames(psi(rep(0, 4))))
+
+  m <- m_estimate(stacked_equations = psi, init = rep(0, 4))
+
+  expect_equal(names(coef(m)), paste0("theta_", 1:4))
+})
+
+test_that("a caller still names an ee_*() fit through init", {
+  # Closing the design-column route leaves the deliberate channels intact.
+  d <- aft_fixture()
+  psi <- function(theta) {
+    ee_aft(
+      theta,
+      X = d$X,
+      time = d$time,
+      event = d$event,
+      distribution = "exponential"
+    )
+  }
+
+  m <- m_estimate(
+    stacked_equations = psi,
+    init = c(intercept = 0, treated = 0)
+  )
+
+  expect_equal(names(coef(m)), c("intercept", "treated"))
+})
+
+test_that("a clustered fit keeps the row names through aggregate_efuncs()", {
+  set.seed(42)
+  group <- rep(1:20, each = 4)
+  y <- rnorm(80, mean = 3)
+  psi <- function(theta) {
+    out <- rbind(
+      y - theta[1],
+      (y - theta[1])^2 - theta[2]
+    )
+    rownames(out) <- c("mu", "sigma2")
+    aggregate_efuncs(out, group = group)
+  }
+
+  m <- m_estimate(stacked_equations = psi, init = c(0, 1))
+
+  expect_equal(names(coef(m)), c("mu", "sigma2"))
+  expect_equal(m@n_obs, 20L)
+})
+
+test_that("a brace in a parameter name is escaped rather than interpolated", {
+  # cli reads a brace in a label as the start of an interpolated expression.
+  # Some brace-bearing names error there, but several corrupt silently:
+  # "theta{1}" prints as "theta1" and "E[Y^{a=1}]" as "E[Y^1: ]". The names
+  # themselves are kept exactly as the estimating function wrote them.
+  y <- mean_variance_y()
+  m <- m_estimate(
+    stacked_equations = labelled_mean_variance_psi(
+      y,
+      labels = c("theta{1}", "E[Y^{a=1}]")
+    ),
+    init = c(0, 1)
+  )
+
+  expect_equal(names(coef(m)), c("theta{1}", "E[Y^{a=1}]"))
+
+  output <- cli::cli_fmt(print(m))
+  expect_true(any(grepl("theta{1}", output, fixed = TRUE)))
+  expect_true(any(grepl("E[Y^{a=1}]", output, fixed = TRUE)))
+})
+
+test_that("a parameter name cli would reject prints literally", {
+  # "{foo}" and "beta{" are the brace-bearing names that do raise a cli error,
+  # so escaping has to reach them as well as the ones that corrupt quietly.
+  y <- mean_variance_y()
+  m <- m_estimate(
+    stacked_equations = labelled_mean_variance_psi(
+      y,
+      labels = c("{foo}", "beta{")
+    ),
+    init = c(0, 1)
+  )
+
+  output <- expect_no_error(cli::cli_fmt(print(m)))
+  expect_true(any(grepl("{foo}", output, fixed = TRUE)))
+  expect_true(any(grepl("beta{", output, fixed = TRUE)))
+})
+
+test_that("printing an estimator with no parameter names still fails loudly", {
+  # A fitted estimator always names its parameters, so an unnamed @theta is
+  # reachable only by assigning one. The escape step has to pass NULL straight
+  # back: gsub() answers it with character(0), and stats::setNames() pads a
+  # short name vector with NA, so an escaped NULL would relabel every
+  # coefficient NA instead of leaving cli to refuse an unnamed list.
+  y <- mean_variance_y()
+  m <- m_estimate(stacked_equations = mean_variance_psi(y), init = c(0, 1))
+  m@theta <- unname(m@theta)
+
+  expect_null(escape_cli_braces(NULL))
+  expect_error(cli::cli_fmt(print(m)), "must be a named character vector")
+})
+
+test_that("a summary prints a brace-bearing parameter name unaltered", {
+  # The summary table is written with cli_verbatim(), which does not
+  # interpolate, so its rows are safe as they stand. Pinned so a later switch
+  # to an interpolating cli function has to account for the names.
+  y <- mean_variance_y()
+  m <- m_estimate(
+    stacked_equations = labelled_mean_variance_psi(
+      y,
+      labels = c("theta{1}", "E[Y^{a=1}]")
+    ),
+    init = c(0, 1)
+  )
+
+  output <- cli::cli_fmt(print(summary(m)))
+
+  expect_true(any(grepl("theta{1}", output, fixed = TRUE)))
+  expect_true(any(grepl("E[Y^{a=1}]", output, fixed = TRUE)))
 })

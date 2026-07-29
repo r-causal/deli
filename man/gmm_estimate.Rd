@@ -45,9 +45,10 @@ gmm_estimate(stacked_equations, ...)
 \arguments{
 \item{stacked_equations}{A formula or a function. When a formula, \code{data} and
 \code{.ee} must also be provided. When a function, it should take a numeric
-vector \code{theta} and return a p-by-n matrix. A two-level factor or character
-response is converted to a 0/1 indicator against its first level; an
-\code{offset()} term in the formula is passed to \code{.ee} through its \code{offset}
+vector \code{theta} and return a p-by-n matrix, whose row names name the
+parameters when \code{init} has none; see \code{\link[=estimate]{estimate()}}. A two-level factor or
+character response is converted to a 0/1 indicator against its first level;
+an \code{offset()} term in the formula is passed to \code{.ee} through its \code{offset}
 argument.}
 
 \item{...}{For the formula interface, additional arguments passed to \code{.ee}.
@@ -68,7 +69,8 @@ argument (\code{y} for \link{ee_regression} or \link{ee_glm}, \code{time} for \l
 
 \item{init}{Numeric vector of initial parameter values. When \code{NULL}
 (default) and using the formula interface, a zero vector with names from
-the model matrix columns is generated automatically.}
+the model matrix columns is generated automatically. Names on it label the
+parameters and take precedence over the row names of \code{stacked_equations}.}
 
 \item{subset}{Integer vector of parameter indices to solve for, or \code{NULL}
 (default) to solve for all parameters. Indices are 1-based; parameters not

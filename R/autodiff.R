@@ -1118,11 +1118,29 @@ coerce_design <- function(X) {
   # coerce_design runs on every solver and Jacobian evaluation. A matrix is
   # never a tangent container (those are classed lists with no dim attribute),
   # so returning it directly skips both the tangent check and the as.matrix
-  # redispatch, each of which would hand back the same object. Dimnames are
-  # dropped so the returned score matrix is unnamed regardless of whether the
-  # caller passed a plain matrix, a named matrix, or a data frame; the Python
-  # reference operates on unnamed arrays, and the score dimnames otherwise leak
-  # a data frame's column names into the estimating-function output.
+  # redispatch, each of which would hand back the same object.
+  #
+  # Dimnames are dropped so the returned score matrix is unnamed regardless of
+  # whether the caller passed a plain matrix, a named matrix, or a data frame.
+  # The Python reference operates on unnamed arrays. The two axes of the score
+  # are dropped for different reasons, and only one of them is now a channel
+  # for anything.
+  #
+  # The score's columns are the observations, and its column names would be the
+  # design's row labels, which mean nothing downstream.
+  #
+  # The score's rows are the parameters, and `estimate()` does read their names
+  # when `init` carries none, so a `p`-by-`n` return is how an estimating
+  # function names the parameters it defines. What a design matrix supplies is
+  # not that. The score is built as `t(X * resid)`, so the row names would be
+  # whatever the caller's data frame happened to call its columns, with nothing
+  # at all for an intercept, which is exactly the incomplete vector the naming
+  # rule discards. An `ee_*` function that wants to name its parameters has to
+  # say so deliberately rather than inherit the caller's column headings. Every
+  # design argument of every built-in estimating equation runs through here, `S`
+  # and `W` and `V` and the counterfactual plans as much as `X`, so that the
+  # rule holds for all of them and not only for the ones whose score happens to
+  # discard the labels on its way out.
   if (is.matrix(X)) {
     if (!is.null(dimnames(X))) {
       dimnames(X) <- NULL
@@ -1255,6 +1273,38 @@ cbind <- function(..., deparse.level = 1) {
   }
   base::cbind(..., deparse.level = 0)
 }
+
+# ---- row labels -------------------------------------------------------------
+# An estimating function labels the rows of its return to name the parameters,
+# and it has to be able to do so under both passes. Unlike the binders above,
+# this is reached by dispatch rather than by masking. `rownames<-` is an
+# ordinary closure in base R and cannot be given a method, but what it delegates
+# to, `dimnames<-`, is an internal generic, so a method on it is selected from
+# whatever environment the estimating function was written in. That is the whole
+# point: users write estimating functions in the global environment, and a mask
+# inside the package namespace would serve only the package's own code.
+#
+# A tangent container is returned unchanged rather than made to carry labels.
+# `estimate()` reads the labels off the plain numeric evaluation it makes at the
+# solved values, never off a differentiated one, so there is nothing for a
+# tangent container to record, and dimnames stored on the primal slot would leak
+# into the Jacobian.
+#
+# Only the two containers that answer `dim()` get a setter, and that is what
+# keeps the exact pass matching the numeric one rather than being more
+# permissive than it. Base R's `rownames<-` consults `dim()` before it reaches
+# `dimnames<-` and stops on anything with fewer than one dimension, so a
+# PrimalTangentVector, and a PrimalTangent whose primal is a plain vector, both
+# raise the error that a plain numeric vector raises on the numeric pass.
+# Assigning `NULL` returns earlier still and reaches neither setter, which is
+# why the `rownames(out) <- NULL` lines in `R/ee-glm.R` have always survived the
+# exact pass.
+
+#' @export
+`dimnames<-.PrimalTangent` <- function(x, value) x
+
+#' @export
+`dimnames<-.PrimalTangentArray` <- function(x, value) x
 
 # ---- indexing ---------------------------------------------------------------
 
