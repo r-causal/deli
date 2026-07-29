@@ -1848,3 +1848,415 @@ test_that("a full-rank design of the same shape stays quiet", {
     tolerance = 1e-6
   )
 })
+
+# ---- conditions crossing the solver boundary ---------------------------------
+#
+# One fit evaluates its estimating function many times: at the starting values,
+# inside the solver, at the point the solver returned, and once or twice per
+# parameter while the bread is built. A warning the estimating function raises is
+# the user's business whichever of those evaluations raised it, so no solver
+# branch may swallow one. What is not the user's business is a solver's own
+# account of itself, which `solve_equations()` reads and rewords, and which is
+# therefore recognised by what it says and muffled where it is raised.
+
+# A psi whose warning names the evaluation that raised it, so no two of its
+# warnings share a message and the de-duplication scope collapses none of them.
+# The count delivered is then the count raised. The counter lives in an
+# environment so the test can read the total back after the fit.
+new_evaluation_counter <- function() {
+  counter <- new.env(parent = emptyenv())
+  counter$n <- 0L
+  counter
+}
+
+counting_warn_psi <- function(y, counter) {
+  function(theta) {
+    counter$n <- counter$n + 1L
+    cli::cli_warn("evaluation {counter$n}")
+    matrix(y - theta[1], nrow = 1)
+  }
+}
+
+# A mean whose estimating function is otherwise quiet, small enough that every
+# solver reaches the solution in a handful of steps.
+warning_psi_data <- function() {
+  set.seed(1)
+  stats::rnorm(40)
+}
+
+test_that("the default solver delivers every warning its psi raises", {
+  counter <- new_evaluation_counter()
+  psi <- counting_warn_psi(warning_psi_data(), counter)
+
+  seen <- collect_warnings(m_estimate(psi, init = 0))
+
+  # Four evaluations happen outside the solver: one at the starting values, one
+  # at the point returned, and two for the bread of a one-parameter fit. More
+  # than four in total is what makes the count evidence about the evaluations
+  # the solver made itself.
+  expect_gt(counter$n, 4L)
+  expect_equal(
+    vapply(seen, conditionMessage, character(1)),
+    paste("evaluation", seq_len(counter$n))
+  )
+})
+
+test_that("the nleqslv solver delivers every warning its psi raises", {
+  skip_if_not_installed("nleqslv")
+  counter <- new_evaluation_counter()
+  psi <- counting_warn_psi(warning_psi_data(), counter)
+
+  seen <- collect_warnings(m_estimate(psi, init = 0, solver = "nleqslv"))
+
+  expect_gt(counter$n, 4L)
+  expect_equal(
+    vapply(seen, conditionMessage, character(1)),
+    paste("evaluation", seq_len(counter$n))
+  )
+})
+
+test_that("the lm solver delivers every warning its psi raises", {
+  skip_if_not_installed("minpack.lm")
+  counter <- new_evaluation_counter()
+  psi <- counting_warn_psi(warning_psi_data(), counter)
+
+  seen <- collect_warnings(m_estimate(psi, init = 0, solver = "lm"))
+
+  expect_gt(counter$n, 4L)
+  expect_equal(
+    vapply(seen, conditionMessage, character(1)),
+    paste("evaluation", seq_len(counter$n))
+  )
+})
+
+# multiroot reports its own convergence test failing as a warning reading
+# "steady-state not reached", and reports a singular factorisation as one naming
+# the LINPACK routine dgefa. Both are the solver talking about itself, both are
+# read by `solve_equations()` and reworded, and neither may reach the user twice.
+test_that("multiroot's own account of a diverging solve stays inside the solver", {
+  psi <- beta_runaway_psi()
+
+  seen <- collect_warnings(
+    estimate(MEstimator(stacked_equations = psi, init = c(0, 0, log(10))))
+  )
+
+  reported <- paste(
+    vapply(seen, conditionMessage, character(1)),
+    collapse = " "
+  )
+  expect_no_match(reported, "steady-state not reached", fixed = TRUE)
+  expect_no_match(reported, "dgefa", fixed = TRUE)
+  expect_length(seen, 1L)
+  expect_s3_class(seen[[1]], "deli_solver_not_converged")
+})
+
+test_that("multiroot's own account of an exhausted budget stays inside the solver", {
+  psi <- ratio_psi(3)
+
+  seen <- collect_warnings(
+    estimate(
+      MEstimator(stacked_equations = psi, init = c(1, 1, 1)),
+      maxiter = 1
+    )
+  )
+
+  reported <- paste(
+    vapply(seen, conditionMessage, character(1)),
+    collapse = " "
+  )
+  expect_no_match(reported, "steady-state not reached", fixed = TRUE)
+  expect_length(seen, 1L)
+  expect_s3_class(seen[[1]], "deli_solver_not_converged")
+})
+
+# The de-duplication scope keys on the class vector and the message, so an
+# estimating function that raises one wording at every evaluation reports once
+# however many of those evaluations reach the caller. Delivering the solver's own
+# evaluations therefore leaves the warn-once promise where it was.
+test_that("one wording raised at every evaluation still reports once", {
+  skip_if_not_installed("nleqslv")
+  skip_if_not_installed("minpack.lm")
+  y <- warning_psi_data()
+
+  for (solver in c("rootSolve", "nleqslv", "lm")) {
+    counter <- new_evaluation_counter()
+    psi <- function(theta) {
+      counter$n <- counter$n + 1L
+      cli::cli_warn("the estimating equation is not differentiable")
+      matrix(y - theta[1], nrow = 1)
+    }
+
+    seen <- collect_warnings(m_estimate(psi, init = 0, solver = solver))
+
+    expect_gt(counter$n, 4L)
+    expect_length(seen, 1L)
+  }
+})
+
+# ---- nested solves -----------------------------------------------------------
+#
+# rootSolve::multiroot() cannot be called from inside itself. Its C code keeps
+# the environment the estimating function is evaluated in in a single slot, so an
+# inner call overwrites what the outer call is still using and the outer solve
+# carries on over corrupted state. What that looks like depends on the shape of
+# the two problems: the outer solve may fail out of the C code with a type error,
+# or it may return quietly with the inner fit's estimates in place of its own.
+# Neither may be allowed to happen, so a rootSolve solve started while another
+# one is running is refused outright.
+
+# Two independent samples with different means, so an outer fit that comes back
+# with the inner fit's answer is visible in the estimate rather than only in the
+# diagnostics.
+nested_solve_data <- function() {
+  set.seed(11)
+  list(
+    inner = stats::rnorm(40, mean = 2),
+    outer = stats::rnorm(40, mean = 1),
+    z = stats::rnorm(40)
+  )
+}
+
+# An outer estimating function that fits an inner M-estimator before returning
+# its own contributions. `inner_solver` names the solver the inner fit uses, and
+# NULL leaves it on the default.
+nested_mean_psi <- function(d, inner_solver = NULL) {
+  inner <- function(theta) matrix(d$inner - theta[1], nrow = 1)
+  function(theta) {
+    estimate(
+      MEstimator(stacked_equations = inner, init = 0),
+      solver = inner_solver
+    )
+    matrix(d$outer - theta[1], nrow = 1)
+  }
+}
+
+# The same nesting with a two-parameter outer problem, which corrupts the C
+# state differently from the one-parameter one.
+nested_regression_psi <- function(d) {
+  inner <- function(theta) matrix(d$inner - theta[1], nrow = 1)
+  x <- cbind(1, d$z)
+  function(theta) {
+    estimate(MEstimator(stacked_equations = inner, init = 0))
+    t(x * as.vector(d$outer - x %*% theta))
+  }
+}
+
+test_that("a rootSolve solve inside a rootSolve solve is refused", {
+  d <- nested_solve_data()
+
+  err <- expect_error(
+    m_estimate(nested_mean_psi(d), init = 0),
+    class = "deli_nested_solver_error"
+  )
+
+  reported <- gsub("\\s+", " ", conditionMessage(err))
+  expect_match(reported, "rootSolve", fixed = TRUE)
+  expect_match(reported, "nested", fixed = TRUE)
+  # The remedy is a different solver for one of the two fits, and the message
+  # has to name one that will work.
+  expect_match(reported, "nleqslv", fixed = TRUE)
+})
+
+test_that("a nested rootSolve solve is refused whatever the outer problem", {
+  d <- nested_solve_data()
+
+  expect_error(
+    m_estimate(nested_regression_psi(d), init = c(0, 0)),
+    class = "deli_nested_solver_error"
+  )
+})
+
+test_that("a plain fit still solves after a nested solve has been refused", {
+  d <- nested_solve_data()
+  expect_error(
+    m_estimate(nested_mean_psi(d), init = 0),
+    class = "deli_nested_solver_error"
+  )
+
+  m <- m_estimate(
+    function(theta) matrix(d$outer - theta[1], nrow = 1),
+    init = 0
+  )
+
+  expect_equal(unname(coef(m)), mean(d$outer), tolerance = 1e-8)
+})
+
+# Only a rootSolve solve started inside another one is refused. An inner
+# rootSolve fit under an outer fit on any other solver is the pattern a
+# two-stage estimator is written in, and it works.
+test_that("a rootSolve solve inside a fit on another solver is allowed", {
+  skip_if_not_installed("nleqslv")
+  skip_if_not_installed("minpack.lm")
+  d <- nested_solve_data()
+  least_squares <- function(stacked_equations, init) {
+    stats::optim(
+      init,
+      function(theta) sum(stacked_equations(theta)^2),
+      method = "BFGS"
+    )$par
+  }
+
+  for (solver in list(least_squares, "nleqslv", "lm")) {
+    m <- estimate(
+      MEstimator(stacked_equations = nested_mean_psi(d), init = 0),
+      solver = solver
+    )
+    expect_equal(unname(coef(m)), mean(d$outer), tolerance = 1e-6)
+  }
+})
+
+test_that("a fit on another solver inside a rootSolve solve is allowed", {
+  skip_if_not_installed("nleqslv")
+  skip_if_not_installed("minpack.lm")
+  d <- nested_solve_data()
+
+  for (solver in c("nleqslv", "lm")) {
+    m <- m_estimate(nested_mean_psi(d, inner_solver = solver), init = 0)
+    expect_equal(unname(coef(m)), mean(d$outer), tolerance = 1e-8)
+  }
+})
+
+# ---- the lm solver's own warnings --------------------------------------------
+#
+# minpack.lm::nls.lm() reports an exhausted iteration budget twice: once as a
+# bare warning out of lmdif carrying the MINPACK info code, and once in its
+# return value, which is where `solve_equations()` reads it and words deli's own
+# report. Only the second is the user's business, so the first is muffled by
+# what it says, exactly as multiroot's own reports are.
+
+test_that("a capped lm fit reports deli's warning alone", {
+  skip_if_not_installed("minpack.lm")
+  ref <- load_fixture("ee_solver_lm_logistic")
+  psi <- function(theta) {
+    ee_regression(theta, X = ref$X, y = ref$y, model = "logistic")
+  }
+
+  seen <- collect_warnings(
+    estimate(
+      MEstimator(stacked_equations = psi, init = ref$init),
+      solver = "lm",
+      maxiter = 1
+    )
+  )
+
+  expect_length(seen, 1L)
+  expect_s3_class(seen[[1]], "deli_solver_not_converged")
+  reported <- paste(
+    vapply(seen, conditionMessage, character(1)),
+    collapse = " "
+  )
+  expect_no_match(reported, "lmdif", fixed = TRUE)
+  expect_no_match(reported, "info = -1", fixed = TRUE)
+})
+
+test_that("muffling lm's own warning leaves its psi's warnings alone", {
+  skip_if_not_installed("minpack.lm")
+  ref <- load_fixture("ee_solver_lm_logistic")
+  counter <- new_evaluation_counter()
+  psi <- function(theta) {
+    counter$n <- counter$n + 1L
+    cli::cli_warn("evaluation {counter$n}")
+    ee_regression(theta, X = ref$X, y = ref$y, model = "logistic")
+  }
+
+  seen <- collect_warnings(
+    estimate(
+      MEstimator(stacked_equations = psi, init = ref$init),
+      solver = "lm"
+    )
+  )
+
+  expect_gt(counter$n, 4L)
+  expect_equal(
+    vapply(seen, conditionMessage, character(1)),
+    paste("evaluation", seq_len(counter$n))
+  )
+})
+
+# ---- an ill-conditioned nleqslv Jacobian -------------------------------------
+#
+# nleqslv reports termination code 5 where the Jacobian of the estimating
+# equations is too ill-conditioned for it to take another step. That is not a
+# report that the root was missed: a stack whose two blocks differ by orders of
+# magnitude reaches code 5 at the exact solution, with the returned values equal
+# to the ones the fit started from to the last digit. What an ill-conditioned
+# Jacobian does put in doubt is the bread matrix built there, and so the
+# variance, which is what the report has to say.
+
+# Two independent means whose estimating functions differ by fifteen orders of
+# magnitude. The scaling changes neither solution, and each block on its own is
+# well behaved, so the only thing wrong at the solution is the conditioning.
+ill_conditioned_means <- function() {
+  set.seed(5)
+  list(
+    first = stats::rnorm(40, mean = 3),
+    second = stats::rnorm(40, mean = 7)
+  )
+}
+
+ill_conditioned_psi <- function(d) {
+  function(theta) {
+    rbind(1e9 * (d$first - theta[1]), 1e-6 * (d$second - theta[2]))
+  }
+}
+
+test_that("an ill-conditioned nleqslv Jacobian is reported as a doubt about the variance", {
+  skip_if_not_installed("nleqslv")
+  d <- ill_conditioned_means()
+  solution <- c(mean(d$first), mean(d$second))
+
+  seen <- collect_warnings({
+    m <- estimate(
+      MEstimator(stacked_equations = ill_conditioned_psi(d), init = solution),
+      solver = "nleqslv"
+    )
+  })
+
+  expect_length(seen, 1L)
+  expect_s3_class(seen[[1]], "deli_solver_not_converged")
+  reported <- gsub("\\s+", " ", conditionMessage(seen[[1]]))
+  expect_match(reported, "ill-conditioned", fixed = TRUE)
+  expect_match(reported, "variance", fixed = TRUE)
+  # The point being reported on is the solution the fit started from, unmoved,
+  # so nothing in the report may read as a search that missed it.
+  expect_equal(unname(m@theta), solution, tolerance = 1e-15)
+  expect_no_match(reported, "did not converge", fixed = TRUE)
+  expect_no_match(reported, "stopped without solving", fixed = TRUE)
+  # rootSolve is the solver that returns a spurious root silently, so no
+  # non-convergence message may send a user to it as the remedy.
+  expect_no_match(reported, "rootSolve", fixed = TRUE)
+})
+
+test_that("a stalled nleqslv fit keeps its own wording", {
+  skip_if_not_installed("nleqslv")
+  # theta^2 + 1 has no real root, and nleqslv stalls rather than failing hard.
+  psi <- function(theta) matrix(rep((theta[1]^2 + 1) / 10, 10), nrow = 1)
+
+  seen <- collect_warnings(
+    estimate(MEstimator(stacked_equations = psi, init = 1), solver = "nleqslv")
+  )
+
+  expect_length(seen, 1L)
+  reported <- gsub("\\s+", " ", conditionMessage(seen[[1]]))
+  expect_match(
+    reported,
+    "stopped without solving the estimating equations (code 3)",
+    fixed = TRUE
+  )
+  expect_no_match(reported, "ill-conditioned", fixed = TRUE)
+})
+
+test_that("a singular nleqslv Jacobian keeps the non-convergence wording", {
+  skip_if_not_installed("nleqslv")
+  y <- rep(5, 40)
+  psi <- function(theta) matrix(inverse_logit(theta[1]) - y, nrow = 1)
+
+  seen <- collect_warnings(
+    estimate(MEstimator(stacked_equations = psi, init = 0), solver = "nleqslv")
+  )
+
+  expect_length(seen, 1L)
+  reported <- gsub("\\s+", " ", conditionMessage(seen[[1]]))
+  expect_match(reported, "nleqslv did not converge (code 6)", fixed = TRUE)
+  expect_no_match(reported, "ill-conditioned", fixed = TRUE)
+})

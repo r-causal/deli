@@ -64,7 +64,10 @@
 #'   zero, and a `subset` one holds some parameters fixed while still summing
 #'   every equation into the objective, so neither is judged either way and
 #'   neither warns. For those, inspect `rowSums()` of the estimating functions
-#'   at the returned values.
+#'   at the returned values. [rootSolve::multiroot()] cannot run inside itself,
+#'   so a fit whose estimating function fits a second M-estimator cannot leave
+#'   both on the default solver; that is refused rather than attempted, and
+#'   naming `"nleqslv"` for either of the two fits resolves it.
 #' @param maxiter Integer maximum iterations for the solver (default 5000).
 #' @param tolerance Numeric tolerance for the solver (default 1e-9).
 #' @param deriv_method Character string for the derivative method used to
@@ -211,7 +214,17 @@ estimate_m_estimator <- function(
 
   # Solve
   if (is.character(solver)) {
-    solved <- solve_equations(summed_ee, inits, solver, maxiter, tolerance)
+    # The errors solve_equations() raises are about what the caller asked for,
+    # so they name the frame of the method that was called rather than either of
+    # the internal functions in between.
+    solved <- solve_equations(
+      summed_ee,
+      inits,
+      solver,
+      maxiter,
+      tolerance,
+      call = rlang::caller_env()
+    )
   } else if (is.function(solver)) {
     par <- solver(stacked_equations = summed_ee, init = inits)
     check_solver_return(par, length(inits))
@@ -324,10 +337,10 @@ estimate_m_estimator <- function(
   object
 }
 
-# ---- solver convergence conditions -------------------------------------------
-# The warnings raised when a solver does not solve the estimating equations
-# carry a condition class, so a caller or a test can match on the class rather
-# than on the prose, as the exact-mode aborts in `R/autodiff.R` do.
+# ---- solver conditions -------------------------------------------------------
+# The conditions raised about a solve carry a condition class, so a caller or a
+# test can match on the class rather than on the prose, as the exact-mode aborts
+# in `R/autodiff.R` do.
 #
 #   deli_solver_not_converged
 #     The solver stopped without solving the estimating equations, either
@@ -343,6 +356,11 @@ estimate_m_estimator <- function(
 #     repeatedly and can raise it once per pass, though the scope described in
 #     R/conditions.R delivers the passes that report the same thing as one
 #     warning.
+#
+#   deli_nested_solver_error
+#     A rootSolve solve was asked for while another one was running. This one is
+#     an error rather than a warning, because the solve cannot be attempted at
+#     all rather than attempted and reported on. See `run_multiroot()`.
 
 # Score magnitude below which a returned point is treated as solved, where the
 # solver has not reported a convergence failure of its own. Both the
@@ -937,6 +955,71 @@ nls_lm_self_report <- function(messages) {
   grepl("^lm(dif|der): info = ", messages)
 }
 
+# ---- nested rootSolve solves -------------------------------------------------
+# `rootSolve::multiroot()` cannot be called from inside itself. Its C code holds
+# the environment it evaluates the function argument in in a single slot, so a
+# second call started while the first is still running overwrites what the first
+# is using, and the first then carries on over state belonging to the second.
+# What that looks like depends on the two problems: the outer solve may fail out
+# of the C code with a type error naming an environment, or it may return
+# quietly with the inner fit's estimates in place of its own. The silent wrong
+# answer is the worse of the two and neither is acceptable, so a rootSolve solve
+# asked for while another one is running is refused instead of attempted.
+#
+# The marker below records that a `multiroot()` call is running, and it is set
+# for the duration of that call and no longer. A fit evaluates its estimating
+# function at the starting values, at the point the solver returned, and once or
+# twice per parameter while the bread is built, all of them outside the solver;
+# an inner rootSolve fit started from one of those is safe, and it is how a
+# two-stage estimator whose outer fit runs on another solver is written.
+
+solver_state <- new.env(parent = emptyenv())
+solver_state$in_multiroot <- FALSE
+
+#' Run `rootSolve::multiroot()` with the nested-solve marker set
+#'
+#' The marker is restored rather than cleared, and on the error path as well as
+#' the ordinary one, so a solve that is refused or that fails leaves the marker
+#' where it found it and the next fit solves normally.
+#'
+#' @param ... Arguments for [rootSolve::multiroot()].
+#' @returns What `multiroot()` returns.
+#' @noRd
+run_multiroot <- function(...) {
+  previous <- solver_state$in_multiroot
+  solver_state$in_multiroot <- TRUE
+  on.exit(
+    {
+      solver_state$in_multiroot <- previous
+    },
+    add = TRUE
+  )
+  rootSolve::multiroot(...)
+}
+
+#' Refuse a rootSolve solve asked for while another one is running
+#'
+#' @param call The frame to report the error against.
+#' @returns Invisible `NULL` where no solve is running; otherwise it throws.
+#' @noRd
+check_not_nested_multiroot <- function(call) {
+  if (!isTRUE(solver_state$in_multiroot)) {
+    return(invisible(NULL))
+  }
+  cli::cli_abort(
+    c(
+      "!" = "A {.val rootSolve} solve cannot be nested inside another one.",
+      "i" = "{.fn rootSolve::multiroot} evaluates the estimating function in a
+             single environment it holds on to, so the inner solve overwrites
+             what the outer one is still using and the outer one carries on
+             over corrupted state.",
+      "i" = "Give one of the two fits {.code solver = \"nleqslv\"}."
+    ),
+    class = "deli_nested_solver_error",
+    call = call
+  )
+}
+
 #' Evaluate a solver call with the solver's own warnings muffled and recorded
 #'
 #' @param expr The call to the solver.
@@ -1004,6 +1087,9 @@ with_muffled_self_reports <- function(expr, self_report) {
 #' @param method The name of the solver.
 #' @param maxiter Iteration budget.
 #' @param tolerance Solver tolerance.
+#' @param call The frame the errors raised here report against, which is the
+#'   [estimate()] method the user called rather than either of the internal
+#'   functions between it and this one.
 #' @returns A list holding the returned parameter vector in `par`, the name of
 #'   the solver in `solver`, whether a warning has already been raised about the
 #'   solve in `warned`, and whatever the solver reports that the warning needs:
@@ -1012,8 +1098,16 @@ with_muffled_self_reports <- function(expr, self_report) {
 #'   convergence test failing after moving and the caller has still to report it.
 #' @keywords internal
 #' @noRd
-solve_equations <- function(func, init, method, maxiter, tolerance) {
+solve_equations <- function(
+  func,
+  init,
+  method,
+  maxiter,
+  tolerance,
+  call = rlang::caller_env()
+) {
   if (method == "rootSolve") {
+    check_not_nested_multiroot(call)
     # rootSolve's Fortran code prints diagnostic messages to stdout, which stay
     # suppressed. Its warnings are read rather than suppressed wholesale: one of
     # them is the only report multiroot makes of its own convergence test
@@ -1023,7 +1117,7 @@ solve_equations <- function(func, init, method, maxiter, tolerance) {
     # and pass through untouched; see `with_muffled_self_reports()`.
     run <- with_muffled_self_reports(
       without_output(
-        rootSolve::multiroot(
+        run_multiroot(
           f = func,
           start = init,
           maxiter = maxiter,
@@ -1191,7 +1285,7 @@ solve_equations <- function(func, init, method, maxiter, tolerance) {
     return(solved)
   }
 
-  cli::cli_abort("The solver {.val {method}} is not supported.")
+  cli::cli_abort("The solver {.val {method}} is not supported.", call = call)
 }
 
 # ---- GMMEstimator estimate method --------------------------------------------

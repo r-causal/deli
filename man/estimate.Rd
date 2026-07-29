@@ -47,7 +47,10 @@ fits are exceptions: an over-identified one cannot drive every moment to
 zero, and a \code{subset} one holds some parameters fixed while still summing
 every equation into the objective, so neither is judged either way and
 neither warns. For those, inspect \code{rowSums()} of the estimating functions
-at the returned values.}
+at the returned values. \code{\link[rootSolve:multiroot]{rootSolve::multiroot()}} cannot run inside itself,
+so a fit whose estimating function fits a second M-estimator cannot leave
+both on the default solver; that is refused rather than attempted, and
+naming \code{"nleqslv"} for either of the two fits resolves it.}
 
 \item{maxiter}{Integer maximum iterations for the solver (default 5000).}
 
