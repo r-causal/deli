@@ -11,10 +11,28 @@
 # model and applies unchanged to any data the model is later evaluated on. An
 # argument such as `weights`, `offset`, or `event` is one value per observation
 # of the data the model was fitted to, and has no counterpart in data the model
-# has not seen. Only the first kind belongs in a reusable specification, so
-# `spec_ee_args()` keeps those and drops the rest. The per-observation values are
-# not lost: `X`, `y`, and `offset` are recorded as their own fields, and the rest
-# stay reachable through the closure's environment.
+# has not seen. Only the first kind may be applied to new data, so
+# `spec_ee_args()` keeps those in `ee_spec_args` and `spec_obs_args()` puts the
+# rest in `ee_obs_args`.
+#
+# Both halves are recorded, in separate fields, because a quantity of the fitted
+# sample is sometimes needed to predict on data the fit has not seen.
+# `plogit_predict()` is the case that settled it: the time grid a pooled logistic
+# fit is defined on comes from the observed times and event indicators of the
+# fitted sample, so predicting new covariate patterns on that grid needs the
+# fitted `event` alongside the new design. Keeping the two halves apart is what
+# stops such a value from being applied to new data as though it described the
+# model. `offset` also has a field of its own, because `predict()` asks a
+# question about it that no other per-observation argument raises: an offset in
+# the terms is evaluated on `newdata` while one supplied through `...` cannot be,
+# and that comparison is made before anything looks at the rest.
+#
+# Both halves hold whatever the fit happened to forward, which for most
+# equations is a subset of what they take, so a reader of either has to treat
+# absence as the ordinary case rather than as a fault. Every such read is
+# written `args[["name"]]`, which is `NULL` for a name the fit did not forward,
+# rather than `args$name`, which would partially match one recorded argument to
+# another's name.
 
 #' The arguments of the built-in estimating equations that vary by observation
 #'
@@ -85,6 +103,20 @@ spec_ee_args <- function(ee_args) {
   ee_args[!names(ee_args) %in% per_observation_ee_args()]
 }
 
+#' The per-observation subset of the arguments forwarded to an equation
+#'
+#' The complement of `spec_ee_args()`: the arguments named by
+#' `per_observation_ee_args()`, which carry one value per row of the data the
+#' fit was made on.
+#'
+#' @param ee_args The evaluated `...` arguments forwarded to the estimating
+#'   equation.
+#' @returns A named list, empty when nothing forwarded varies by observation.
+#' @noRd
+spec_obs_args <- function(ee_args) {
+  ee_args[names(ee_args) %in% per_observation_ee_args()]
+}
+
 #' Record what a formula fit was specified as
 #'
 #' Builds the list stored in a fitted estimator's `model_spec` property. Called
@@ -142,9 +174,6 @@ spec_ee_args <- function(ee_args) {
 #' @noRd
 formula_model_spec <- function(mf, X, y, .ee, ee_args, response_levels) {
   model_terms <- stats::terms(mf)
-  # `[[` on an absent name errors, and `$` partially matches, so the offset is
-  # looked up by an exact membership test.
-  offset <- if ("offset" %in% names(ee_args)) ee_args[["offset"]] else NULL
 
   list(
     terms = model_terms,
@@ -152,11 +181,12 @@ formula_model_spec <- function(mf, X, y, .ee, ee_args, response_levels) {
     contrasts = attr(X, "contrasts"),
     ee = .ee,
     ee_spec_args = spec_ee_args(ee_args),
+    ee_obs_args = spec_obs_args(ee_args),
     n_coef = ncol(X),
     model_frame = mf,
     X = X,
     y = y,
-    offset = offset,
+    offset = ee_args[["offset"]],
     response_levels = response_levels
   )
 }

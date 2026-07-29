@@ -287,7 +287,7 @@ test_that("augment() aborts for an equation predict() does not support", {
 
   # The abort names augment() rather than predict(), which it reaches the
   # supported-equation table through.
-  err <- expect_error(generics::augment(m), "estimating equation")
+  err <- expect_error(generics::augment(m), "linear predictor")
   expect_match(flatten_message(err), "augment()", fixed = TRUE)
 })
 

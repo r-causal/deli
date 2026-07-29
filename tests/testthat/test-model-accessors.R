@@ -526,12 +526,12 @@ test_that("fitted() and residuals() abort for an equation predict() declines", {
   # The abort names the function the user called rather than predict(), which
   # every one of them reaches the supported-equation table through.
   expect_match(
-    flatten_message(expect_error(fitted(m), "estimating equation")),
+    flatten_message(expect_error(fitted(m), "linear predictor")),
     "fitted()",
     fixed = TRUE
   )
   expect_match(
-    flatten_message(expect_error(residuals(m), "estimating equation")),
+    flatten_message(expect_error(residuals(m), "linear predictor")),
     "residuals()",
     fixed = TRUE
   )

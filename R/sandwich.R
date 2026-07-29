@@ -690,25 +690,42 @@ delta_method_impl <- function(
     )
   }
 
-  # Wrap g to always return a numeric vector. The finite-difference methods need
-  # plain numeric output, so they use this wrapper. Exact autodiff must instead
-  # receive the raw transform: as.numeric() would strip the tangents and yield a
-  # zero Jacobian. extract_tangent_column() already handles every shape the raw
-  # transform can return.
-  g_vec <- function(t) as.numeric(g(t))
-
-  # Compute Jacobian of g at theta
-  if (deriv_method == "exact") {
-    g_prime <- auto_differentiation(theta, g)
-  } else {
-    g_prime <- approx_differentiation(
-      func = g_vec,
-      theta = theta,
-      method = deriv_method,
-      dx = dx
-    )
-  }
-
   # Delta method: G * Sigma * G^T
+  g_prime <- transform_jacobian(theta, g, deriv_method, dx)
   g_prime %*% covariance %*% t(g_prime)
+}
+
+#' The Jacobian of a transform at a parameter vector
+#'
+#' The derivative half of the delta method, separated from the product that
+#' follows it because not every caller wants the whole covariance matrix. A
+#' caller predicting one quantity per row of a design needs the variance of each
+#' row on its own, which is the diagonal of that product, and forming the whole
+#' matrix to take its diagonal costs the square of the number of rows in memory.
+#' Such a caller takes the Jacobian from here and forms
+#' `rowSums((G %*% Sigma) * G)` instead.
+#'
+#' `deriv_method` is expected already normalized by [check_deriv_method()].
+#'
+#' @param theta The parameter vector to differentiate at.
+#' @param g The transform.
+#' @param deriv_method The normalized derivative method.
+#' @param dx The finite-difference step.
+#' @returns A matrix with one row per element of `g(theta)` and one column per
+#'   parameter.
+#' @noRd
+transform_jacobian <- function(theta, g, deriv_method, dx) {
+  # Exact autodiff must receive the raw transform: as.numeric() would strip the
+  # tangents and yield a zero Jacobian. extract_tangent_column() already handles
+  # every shape the raw transform can return. The finite-difference methods need
+  # plain numeric output, so they see the wrapped one.
+  if (deriv_method == "exact") {
+    return(auto_differentiation(theta, g))
+  }
+  approx_differentiation(
+    func = function(t) as.numeric(g(t)),
+    theta = theta,
+    method = deriv_method,
+    dx = dx
+  )
 }

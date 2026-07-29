@@ -16,7 +16,7 @@ of zero.}
 
 \item{type}{Character string. \code{"link"} (default) returns the linear
 predictor; \code{"response"} applies the inverse link, giving the conditional
-mean of the response.}
+mean of the response. Cannot be supplied beside \code{times}.}
 
 \item{se.fit}{Logical. Return standard errors beside the predictions?
 Default \code{FALSE}.}
@@ -29,22 +29,65 @@ critical value comes from the standard normal distribution, or from the
 t-distribution with \eqn{n - p} degrees of freedom when a
 \code{finite_correction} is set on the fit, matching \code{\link[=confint]{confint()}}.}
 
+\item{times}{Numeric vector of times to predict a survival measure at, or
+\code{NULL} (default) to predict the linear predictor instead. Supported for a
+fit of \code{\link[=ee_aft]{ee_aft()}} or \code{\link[=ee_plogit]{ee_plogit()}}.}
+
+\item{measure}{Character string naming the survival measure, one of
+\code{"survival"} (default), \code{"risk"}, \code{"cumulative_hazard"}, \code{"hazard"}, or
+\code{"density"}; see \code{\link[=convert_survival_measures]{convert_survival_measures()}}. Only meaningful beside
+\code{times}.}
+
+\item{deriv_method}{Character string for the derivative method used to build
+the Jacobian of the survival measure. One of \code{"capprox"} (central
+difference, the default), \code{"fapprox"}, \code{"bapprox"}, or \code{"exact"}
+(forward-mode automatic differentiation, available for an AFT fit and an
+error for a pooled logistic one). Only meaningful beside \code{times}.}
+
+\item{dx}{Numeric step size for the finite-difference methods, ignored when
+\code{deriv_method = "exact"}. Default \code{1e-9}. Only meaningful beside \code{times}.}
+
 \item{...}{Not used. Must be empty, so a name that is not one of the
 documented arguments is an error rather than silently ignored.}
 }
 \value{
-With the defaults, a named numeric vector of predictions, one per row of
-\code{newdata} or of the fitted design. With \code{interval = "confidence"}, a matrix
-with columns \code{"fit"}, \code{"lwr"}, and \code{"upr"}. With \code{se.fit = TRUE}, a list
-whose \code{fit} element is whichever of those two the other arguments call for
-and whose \code{se.fit} element is a numeric vector of standard errors.
+Without \code{times}, a named numeric vector of predictions, one per row of
+\code{newdata} or of the fitted design, and with \code{interval = "confidence"} a matrix
+with columns \code{"fit"}, \code{"lwr"}, and \code{"upr"}.
+
+With \code{times}, a data frame with one row per row of the design and time, every
+time for the first row before any time for the second, and columns \code{.row}, the
+row label of the design, \code{time}, and \code{fit}. With \code{interval = "confidence"} it
+also has \code{"lwr"} and \code{"upr"}.
+
+With \code{se.fit = TRUE}, either shape becomes a list whose \code{fit} element is
+whichever of the two the other arguments call for and whose \code{se.fit} element
+is a numeric vector of standard errors.
 }
 \description{
-A method for \code{\link[stats:predict]{stats::predict()}} that forms the linear predictor of a fit made
-through the formula interface, on either the link or the response scale, with
-sandwich standard errors and Wald confidence intervals.
+A method for \code{\link[stats:predict]{stats::predict()}} that predicts from a fit made through the
+formula interface, with sandwich standard errors and Wald confidence
+intervals. It forms the linear predictor of a regression fit on either the
+link or the response scale, and evaluates a survival measure at a set of
+\code{times} for a fit of \code{\link[=ee_aft]{ee_aft()}} or \code{\link[=ee_plogit]{ee_plogit()}}.
 }
-\details{
+\section{Two surfaces}{
+\code{times} chooses what is predicted. Without it, \code{predict()} returns the linear
+predictor on the scale \code{type} names. With it, \code{predict()} returns the survival
+measure \code{measure} names at each of the times, one prediction per row of the
+design at each time.
+
+The two cover disjoint sets of fits. An equation reaches the first surface by
+having a linear predictor that is a conditional mean of the response, and the
+two equations on the second surface are there because theirs is not:
+\code{\link[=ee_aft]{ee_aft()}} puts its linear predictor on the log-time scale, and \code{\link[=ee_plogit]{ee_plogit()}}
+has one linear predictor per person and time interval rather than one per
+person. Supplying \code{type} beside \code{times}, or \code{measure}, \code{deriv_method}, or \code{dx}
+without \code{times}, is an error rather than an argument silently ignored, since
+no fit takes both sets.
+}
+
+\section{The linear predictor}{
 The design for \code{newdata} is rebuilt through the terms, factor levels, and
 contrasts the fit recorded, so a factor whose new values cover only some of
 the fitted levels still produces the fitted set of columns, and a
@@ -73,6 +116,28 @@ from a \code{stacked_equations} function, is an error naming the reason;
 \code{\link[=regression_predictions]{regression_predictions()}} takes a design, estimates, and a covariance matrix
 directly and can be used wherever this method declines.
 }
+
+\section{Survival measures at a set of times}{
+\code{times} is supported for a fit of \code{\link[=ee_aft]{ee_aft()}} or of \code{\link[=ee_plogit]{ee_plogit()}}, and
+\code{measure} names any of the measures \code{\link[=convert_survival_measures]{convert_survival_measures()}} defines. The
+point estimates are those of \code{\link[=aft_predictions_individual]{aft_predictions_individual()}} and
+\code{\link[=plogit_predict]{plogit_predict()}} for the same fit.
+
+\code{\link[=ee_survival_model]{ee_survival_model()}} has no surface here because the formula interface cannot
+drive it: it takes no design matrix, and the interface always passes the one
+it built. Predict from such a fit with \code{\link[=survival_predictions]{survival_predictions()}}.
+
+Each covariate pattern has its own variance, so each row gets its own
+interval. The variance of the measure for a row at a time is the delta-method
+variance \eqn{G \hat{V} G^{T}} of that one prediction, where \eqn{G} is its
+row of the Jacobian of the whole grid with respect to the parameters, built by
+\code{deriv_method}. A pooled logistic fit is predicted through
+\code{\link[=plogit_predict]{plogit_predict()}}, whose matrix products cannot carry tangents, so
+\code{deriv_method = "exact"} is available for an AFT fit alone. Asking for it on a
+pooled logistic fit is an error whether or not a standard error is wanted,
+since the Jacobian that could not be built is only built when one is.
+}
+
 \examples{
 fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
                   model = "linear")
@@ -93,10 +158,27 @@ vs_fit <- m_estimate(vs ~ wt, data = mtcars, .ee = ee_regression,
 
 predict(vs_fit, newdata = data.frame(wt = c(2, 3)), type = "response")
 
+# A pooled logistic fit has no linear predictor to put on a scale, and
+# predicts a survival measure at a set of times instead. Every row of the
+# design gets its own interval.
+bladder <- collett_bladder
+bladder$novel <- bladder$treat - 1
+k <- length(unique(bladder$time[bladder$delta == 1]))
+
+plogit_fit <- m_estimate(
+  time ~ novel + init + size - 1, data = bladder, .ee = ee_plogit,
+  event = delta, init = c(rep(0, 3), -4, rep(0, k - 1))
+)
+
+head(predict(plogit_fit, times = c(12, 24), interval = "confidence"))
+
 }
 \seealso{
-\link{deli-augment}, which returns these predictions as columns beside
-the data, and \code{\link[=regression_predictions]{regression_predictions()}}, which computes the same
+\link{deli-augment}, which returns the linear-predictor predictions as
+columns beside the data; \code{\link[=regression_predictions]{regression_predictions()}}, which computes the same
 quantities from a design matrix, a vector of estimates, and a covariance
-matrix, for fits this method does not cover.
+matrix, for fits this method does not cover; and
+\code{\link[=aft_predictions_individual]{aft_predictions_individual()}}, \code{\link[=aft_predictions_function]{aft_predictions_function()}},
+\code{\link[=plogit_predict]{plogit_predict()}}, and \code{\link[=survival_predictions]{survival_predictions()}}, which compute the survival
+measures from estimates directly.
 }

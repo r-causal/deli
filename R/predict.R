@@ -34,8 +34,10 @@
 # linear predictor is not a link-scale mean is left out for that reason alone.
 # `ee_aft()` puts its linear predictor on the log-time scale and `ee_tobit()`
 # puts it on a latent scale, so `type = "response"` would not be the conditional
-# mean of the response for either; `aft_predictions_individual()` and
-# `aft_predictions_function()` answer the AFT question on its own terms.
+# mean of the response for either. An `ee_aft()` fit is still predictable, on
+# the other surface this method carries: `times` asks for a survival measure at
+# a set of times, which is the question that model answers. See
+# R/predict-survival.R for the two surfaces and for why no fit is on both.
 #
 # ---- Specification arguments, not a replay -----------------------------------
 # `predict()` reads the model from `model_spec$ee_spec_args` and never calls the
@@ -57,11 +59,31 @@
 
 #' Predictions from a fitted deli estimator
 #'
-#' A method for [stats::predict()] that forms the linear predictor of a fit made
-#' through the formula interface, on either the link or the response scale, with
-#' sandwich standard errors and Wald confidence intervals.
+#' A method for [stats::predict()] that predicts from a fit made through the
+#' formula interface, with sandwich standard errors and Wald confidence
+#' intervals. It forms the linear predictor of a regression fit on either the
+#' link or the response scale, and evaluates a survival measure at a set of
+#' `times` for a fit of [ee_aft()] or [ee_plogit()].
 #'
 #' @details
+#' # Two surfaces
+#'
+#' `times` chooses what is predicted. Without it, `predict()` returns the linear
+#' predictor on the scale `type` names. With it, `predict()` returns the survival
+#' measure `measure` names at each of the times, one prediction per row of the
+#' design at each time.
+#'
+#' The two cover disjoint sets of fits. An equation reaches the first surface by
+#' having a linear predictor that is a conditional mean of the response, and the
+#' two equations on the second surface are there because theirs is not:
+#' [ee_aft()] puts its linear predictor on the log-time scale, and [ee_plogit()]
+#' has one linear predictor per person and time interval rather than one per
+#' person. Supplying `type` beside `times`, or `measure`, `deriv_method`, or `dx`
+#' without `times`, is an error rather than an argument silently ignored, since
+#' no fit takes both sets.
+#'
+#' # The linear predictor
+#'
 #' The design for `newdata` is rebuilt through the terms, factor levels, and
 #' contrasts the fit recorded, so a factor whose new values cover only some of
 #' the fitted levels still produces the fitted set of columns, and a
@@ -90,6 +112,27 @@
 #' [regression_predictions()] takes a design, estimates, and a covariance matrix
 #' directly and can be used wherever this method declines.
 #'
+#' # Survival measures at a set of times
+#'
+#' `times` is supported for a fit of [ee_aft()] or of [ee_plogit()], and
+#' `measure` names any of the measures [convert_survival_measures()] defines. The
+#' point estimates are those of [aft_predictions_individual()] and
+#' [plogit_predict()] for the same fit.
+#'
+#' [ee_survival_model()] has no surface here because the formula interface cannot
+#' drive it: it takes no design matrix, and the interface always passes the one
+#' it built. Predict from such a fit with [survival_predictions()].
+#'
+#' Each covariate pattern has its own variance, so each row gets its own
+#' interval. The variance of the measure for a row at a time is the delta-method
+#' variance \eqn{G \hat{V} G^{T}} of that one prediction, where \eqn{G} is its
+#' row of the Jacobian of the whole grid with respect to the parameters, built by
+#' `deriv_method`. A pooled logistic fit is predicted through
+#' [plogit_predict()], whose matrix products cannot carry tangents, so
+#' `deriv_method = "exact"` is available for an AFT fit alone. Asking for it on a
+#' pooled logistic fit is an error whether or not a standard error is wanted,
+#' since the Jacobian that could not be built is only built when one is.
+#'
 #' @param object A fitted `MEstimator` or `GMMEstimator` object made with the
 #'   formula interface (after calling [estimate()]).
 #' @param newdata A data frame of covariate values to predict at, or `NULL`
@@ -100,7 +143,7 @@
 #'   of zero.
 #' @param type Character string. `"link"` (default) returns the linear
 #'   predictor; `"response"` applies the inverse link, giving the conditional
-#'   mean of the response.
+#'   mean of the response. Cannot be supplied beside `times`.
 #' @param se.fit Logical. Return standard errors beside the predictions?
 #'   Default `FALSE`.
 #' @param interval Character string. `"none"` (default) or `"confidence"` for
@@ -109,20 +152,44 @@
 #'   critical value comes from the standard normal distribution, or from the
 #'   t-distribution with \eqn{n - p} degrees of freedom when a
 #'   `finite_correction` is set on the fit, matching [confint()].
+#' @param times Numeric vector of times to predict a survival measure at, or
+#'   `NULL` (default) to predict the linear predictor instead. Supported for a
+#'   fit of [ee_aft()] or [ee_plogit()].
+#' @param measure Character string naming the survival measure, one of
+#'   `"survival"` (default), `"risk"`, `"cumulative_hazard"`, `"hazard"`, or
+#'   `"density"`; see [convert_survival_measures()]. Only meaningful beside
+#'   `times`.
+#' @param deriv_method Character string for the derivative method used to build
+#'   the Jacobian of the survival measure. One of `"capprox"` (central
+#'   difference, the default), `"fapprox"`, `"bapprox"`, or `"exact"`
+#'   (forward-mode automatic differentiation, available for an AFT fit and an
+#'   error for a pooled logistic one). Only meaningful beside `times`.
+#' @param dx Numeric step size for the finite-difference methods, ignored when
+#'   `deriv_method = "exact"`. Default `1e-9`. Only meaningful beside `times`.
 #' @param ... Not used. Must be empty, so a name that is not one of the
 #'   documented arguments is an error rather than silently ignored.
 #'
 #' @returns
-#' With the defaults, a named numeric vector of predictions, one per row of
-#' `newdata` or of the fitted design. With `interval = "confidence"`, a matrix
-#' with columns `"fit"`, `"lwr"`, and `"upr"`. With `se.fit = TRUE`, a list
-#' whose `fit` element is whichever of those two the other arguments call for
-#' and whose `se.fit` element is a numeric vector of standard errors.
+#' Without `times`, a named numeric vector of predictions, one per row of
+#' `newdata` or of the fitted design, and with `interval = "confidence"` a matrix
+#' with columns `"fit"`, `"lwr"`, and `"upr"`.
 #'
-#' @seealso [deli-augment], which returns these predictions as columns beside
-#'   the data, and [regression_predictions()], which computes the same
+#' With `times`, a data frame with one row per row of the design and time, every
+#' time for the first row before any time for the second, and columns `.row`, the
+#' row label of the design, `time`, and `fit`. With `interval = "confidence"` it
+#' also has `"lwr"` and `"upr"`.
+#'
+#' With `se.fit = TRUE`, either shape becomes a list whose `fit` element is
+#' whichever of the two the other arguments call for and whose `se.fit` element
+#' is a numeric vector of standard errors.
+#'
+#' @seealso [deli-augment], which returns the linear-predictor predictions as
+#'   columns beside the data; [regression_predictions()], which computes the same
 #'   quantities from a design matrix, a vector of estimates, and a covariance
-#'   matrix, for fits this method does not cover.
+#'   matrix, for fits this method does not cover; and
+#'   [aft_predictions_individual()], [aft_predictions_function()],
+#'   [plogit_predict()], and [survival_predictions()], which compute the survival
+#'   measures from estimates directly.
 #'
 #' @examples
 #' fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
@@ -144,6 +211,20 @@
 #'
 #' predict(vs_fit, newdata = data.frame(wt = c(2, 3)), type = "response")
 #'
+#' # A pooled logistic fit has no linear predictor to put on a scale, and
+#' # predicts a survival measure at a set of times instead. Every row of the
+#' # design gets its own interval.
+#' bladder <- collett_bladder
+#' bladder$novel <- bladder$treat - 1
+#' k <- length(unique(bladder$time[bladder$delta == 1]))
+#'
+#' plogit_fit <- m_estimate(
+#'   time ~ novel + init + size - 1, data = bladder, .ee = ee_plogit,
+#'   event = delta, init = c(rep(0, 3), -4, rep(0, k - 1))
+#' )
+#'
+#' head(predict(plogit_fit, times = c(12, 24), interval = "confidence"))
+#'
 #' @name deli-predict
 #' @importFrom stats predict
 NULL
@@ -161,6 +242,10 @@ method(stats_predict, deli_estimator) <- function(
   se.fit = FALSE,
   interval = c("none", "confidence"),
   level = 0.95,
+  times = NULL,
+  measure = "survival",
+  deriv_method = "capprox",
+  dx = 1e-9,
   ...
 ) {
   # Dispatch leaves the generic's frame directly beneath this method, so
@@ -172,10 +257,41 @@ method(stats_predict, deli_estimator) <- function(
   # which reports the message with no call at all.
   rlang::check_dots_empty(call = sys.call(-1))
   check_estimated(object)
-  type <- match.arg(type)
+  # Asked before `match.arg()`, which fills `type` in and so erases the
+  # difference between a caller who wrote it and one who did not.
+  check_predict_surface(
+    times,
+    type_given = !missing(type),
+    survival_given = c(
+      measure = !missing(measure),
+      deriv_method = !missing(deriv_method),
+      dx = !missing(dx)
+    )
+  )
   interval <- match.arg(interval)
   check_level(level)
 
+  if (!is.null(times)) {
+    check_predict_times(times)
+    check_predict_measure(measure)
+    # Validated here rather than where it is used, since it is only used when a
+    # standard error is asked for and a misspelling is worth reporting either
+    # way.
+    deriv_method <- check_deriv_method(deriv_method)
+    return(predict_survival(
+      object,
+      newdata = newdata,
+      times = as.numeric(times),
+      measure = measure,
+      se.fit = se.fit,
+      interval = interval,
+      level = level,
+      deriv_method = deriv_method,
+      dx = dx
+    ))
+  }
+
+  type <- match.arg(type)
   link <- resolve_predict_link(object, "predict")
   spec <- object@model_spec
 
@@ -316,9 +432,10 @@ link_arg_name <- function(link) {
 #' the check is what stops a design of the wrong width from being multiplied
 #' into a slice of the wrong parameters.
 #'
-#' Only equations `predict_link_name()` recognizes reach here, so a `NULL` from
-#' `appended_param_name()` means the equation appends nothing rather than that
-#' the equation is unknown to it.
+#' Only equations `appended_param_name()` lists reach here, whether through
+#' `predict_link_name()` or through the AFT branch of `predict_survival()`, so a
+#' `NULL` from it means the equation appends nothing rather than that the
+#' equation is unknown to it.
 #'
 #' @param spec The fit's `model_spec`.
 #' @param n_params The number of parameters the fit solved for.
@@ -465,6 +582,35 @@ abort_predict_unsupported_ee <- function(.ee, fn = "predict") {
         "i" = "Predict from the outcome model with
                {.fn regression_predictions}, using the trailing coefficients
                and the matching block of {.fn vcov}."
+      ),
+      call = NULL
+    )
+  }
+  if (identical(.ee, ee_aft)) {
+    cli::cli_abort(
+      c(
+        "{.fn {fn}} does not form a linear predictor for a fit of
+         {.fn ee_aft}.",
+        "i" = "An accelerated failure time model puts its linear predictor on
+               the log-time scale rather than on a link scale, so
+               {.code type = \"response\"} would not be the conditional mean of
+               the response.",
+        "i" = "Predict a survival measure at a set of times instead, with
+               {.code predict(object, times = , measure = )}."
+      ),
+      call = NULL
+    )
+  }
+  if (identical(.ee, ee_plogit)) {
+    cli::cli_abort(
+      c(
+        "{.fn {fn}} does not form a linear predictor for a fit of
+         {.fn ee_plogit}.",
+        "i" = "A pooled logistic model has one linear predictor per person and
+               time interval rather than one per person, so there is no
+               prediction to report against the rows of the data.",
+        "i" = "Predict a survival measure at a set of times instead, with
+               {.code predict(object, times = , measure = )}."
       ),
       call = NULL
     )

@@ -55,8 +55,11 @@ row per \code{\link[=nobs]{nobs()}} and its row names are those of the retained 
 \code{newdata} row with a missing value is kept, with \code{NA} in the added columns,
 so that the result lines up with the rows handed in.
 
-\code{augment()} covers the estimating equations \code{\link[=predict]{predict()}} covers, and refuses
-the same fits with the same reasons; see \link{deli-predict}.
+\code{augment()} covers the estimating equations whose linear predictor
+\code{\link[=predict]{predict()}} forms, and refuses the same fits with the same reasons; see
+\link{deli-predict}. It has no counterpart to that method's \code{times} argument: a
+survival measure is one value per row of the data and time rather than one
+per row, so the predictions do not go beside the data as columns.
 }
 \examples{
 fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,

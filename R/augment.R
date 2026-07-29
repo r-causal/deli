@@ -56,8 +56,11 @@
 #' `newdata` row with a missing value is kept, with `NA` in the added columns,
 #' so that the result lines up with the rows handed in.
 #'
-#' `augment()` covers the estimating equations [predict()] covers, and refuses
-#' the same fits with the same reasons; see [deli-predict].
+#' `augment()` covers the estimating equations whose linear predictor
+#' [predict()] forms, and refuses the same fits with the same reasons; see
+#' [deli-predict]. It has no counterpart to that method's `times` argument: a
+#' survival measure is one value per row of the data and time rather than one
+#' per row, so the predictions do not go beside the data as columns.
 #'
 #' @param x A fitted `MEstimator` or `GMMEstimator` object made with the formula
 #'   interface (after calling [estimate()]).

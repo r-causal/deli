@@ -49,6 +49,7 @@ test_that("formula_model_spec() records every field of the model spec", {
       "contrasts",
       "ee",
       "ee_spec_args",
+      "ee_obs_args",
       "n_coef",
       "model_frame",
       "X",
@@ -240,6 +241,30 @@ test_that("spec_ee_args() drops the event indicator of a survival fit", {
 
   expect_identical(spec$ee_spec_args, list(distribution = "exponential"))
   expect_false("event" %in% names(spec$ee_spec_args))
+
+  # It is recorded as one of the fit's per-observation values instead, which is
+  # where a later caller predicting on the fitted sample reads it.
+  expect_identical(spec$ee_obs_args, list(event = data$status))
+})
+
+test_that("spec_obs_args() keeps exactly what spec_ee_args() drops", {
+  mixed <- list(
+    distribution = "weibull",
+    event = c(1, 0, 1),
+    weights = c(1, 2, 1),
+    link = "log",
+    offset = c(0, 0, 0)
+  )
+  expect_identical(
+    spec_obs_args(mixed),
+    list(event = c(1, 0, 1), weights = c(1, 2, 1), offset = c(0, 0, 0))
+  )
+  # The two halves partition the list, so nothing forwarded is lost and nothing
+  # is recorded twice.
+  expect_identical(
+    sort(c(names(spec_ee_args(mixed)), names(spec_obs_args(mixed)))),
+    sort(names(mixed))
+  )
 })
 
 test_that("spec_ee_args() records nothing when nothing forwarded is a spec", {

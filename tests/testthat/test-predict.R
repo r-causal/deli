@@ -767,7 +767,11 @@ test_that("predict() aborts for an aft fit, whose response is not a mean", {
     distribution = "exponential",
     event = status
   )
-  expect_error(predict(m), "estimating equation")
+  # It declines the linear predictor while still offering the `times` surface,
+  # so the message says which of the two is unavailable and why.
+  err <- expect_error(predict(m), "linear predictor")
+  expect_match(flatten_message(err), "log-time")
+  expect_match(flatten_message(err), "times", fixed = TRUE)
 })
 
 test_that("predict() aborts before an estimator has been estimated", {
