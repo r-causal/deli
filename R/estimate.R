@@ -172,8 +172,11 @@ estimate_m_estimator <- function(
 
   # Validate the estimating-function return at the initial values before
   # handing off to the solver, so a malformed return produces an informative
-  # error instead of an opaque failure inside the solver.
-  eval_psi_at_init(stacked_equations, init)
+  # error instead of an opaque failure inside the solver. The summed equations
+  # there are kept for judging the returned point, which needs to know which
+  # equations the solver moved; nothing else evaluates the estimating function
+  # at the starting values, so keeping them costs no evaluation.
+  init_score <- equation_scores(eval_psi_at_init(stacked_equations, init))
 
   # Build the summed EE function for root-finding
   summed_ee <- function(theta) {
@@ -259,10 +262,11 @@ estimate_m_estimator <- function(
     unsolved <- unsolved_point(
       evald[judged, , drop = FALSE],
       full_theta[judged],
-      bread[judged, judged, drop = FALSE]
+      bread[judged, judged, drop = FALSE],
+      init_score[judged]
     )
     if (!is.null(unsolved)) {
-      warn_unsolved(solved)
+      warn_unsolved(solved, unsolved)
     }
   }
 
@@ -479,12 +483,16 @@ unsolved_equation <- function(ef, theta) {
 #' at round-off; where the solver stopped short of a root it is the distance
 #' still to travel.
 #'
-#' A bread that cannot be solved leaves the point unjudged. That is the excuse
-#' owed to a non-differentiable estimating equation, whose Jacobian is singular
-#' everywhere: where the derivative does not exist, the distance to a root cannot
-#' be measured with it. The same excuse is made when a finite-difference bread
-#' collapses to round-off, which is what happens when `dx` is far smaller than
-#' the resolution of the contributions themselves.
+#' A bread that cannot be solved leaves the point unjudged here. That is the
+#' excuse owed to a non-differentiable estimating equation, whose Jacobian is
+#' singular everywhere: where the derivative does not exist, the distance to a
+#' root cannot be measured with it. The same excuse is made when a
+#' finite-difference bread collapses to round-off, which is what happens when
+#' `dx` is far smaller than the resolution of the contributions themselves.
+#'
+#' The excuse is owed to the equation that is solved at the point, not to the one
+#' that is not. See `flat_equation()`, which judges the equations a singular
+#' bread would otherwise carry past this reading unexamined.
 #'
 #' @param bread The bread matrix at the returned point, already divided by the
 #'   number of observations.
@@ -503,30 +511,137 @@ relative_newton_step <- function(bread, moments, theta) {
   max(abs(step) / pmax(abs(theta), 1))
 }
 
+#' The summed value of each estimating equation
+#'
+#' The estimating function returns a p-by-n matrix, or a dimensionless vector
+#' where there is a single equation, and both shapes have to sum the same way.
+#'
+#' @param vals An estimating-function return.
+#' @returns A numeric vector with one entry per equation.
+#' @noRd
+equation_scores <- function(vals) {
+  if (is.null(dim(vals))) sum(vals) else rowSums(vals)
+}
+
+#' Find an equation the bread has gone flat under and which is not solved
+#'
+#' A row of the bread that is identically zero says that the equation owning it
+#' does not move when any parameter does, at the point under test and to the
+#' resolution the derivative was taken at. Such a row makes the whole bread
+#' singular, so `relative_newton_step()` cannot be taken and the point reaches
+#' that reading only to be excused by it.
+#'
+#' The excuse is owed to an equation that is solved at the point, and to one
+#' left where the caller put it. It is not owed to an equation that the solver
+#' moved into a worse state than the one it was handed: a solver working from a
+#' bread with this row in it has no reading of the equation at all, so any
+#' movement it made was a trade against some other equation, and the value it
+#' traded to is one nobody chose. No other reading catches that.
+#' `unsolved_equation()` does not, because the contributions of the equations
+#' this arises for are mixed-sign and cancel well at points that are not roots.
+#' That is how a median equation left to a Levenberg-Marquardt solver comes back
+#' at a value between two order statistics well away from the sample median,
+#' with the deviation equation it was traded against solved to round-off.
+#'
+#' The comparison against the starting values is the same excuse
+#' `solve_equations()` makes when rootSolve reports a failed convergence test
+#' without having moved, and it is owed to the same estimating equations. A
+#' median equation cannot be searched for at all, so the documentation of
+#' [ee_positive_mean_deviation()] tells the caller to start `theta[2]` at the
+#' sample median and expect the fit to hold there. Such a fit sums to a value
+#' that is not zero whenever the number of observations is odd or the data are
+#' tied, and it is the answer the caller asked for. The score floor is added to
+#' the comparison so that a score reproduced to round-off counts as unchanged.
+#'
+#' The floor on the score itself is what keeps a row quiet that is flat because
+#' its equation genuinely does not depend on the parameters. Such an equation is
+#' at a root wherever it vanishes, and only the pair, a flat row and a score that
+#' is not zero, is evidence of anything.
+#'
+#' @param ef A p-by-n matrix of per-observation contributions to the equations
+#'   being solved, evaluated at the point under test.
+#' @param bread The bread matrix at that point, with one row per equation.
+#' @param init_score The summed value of each of those equations at the starting
+#'   values, or `NULL` where the starting values are not known. Every judgement
+#'   this reading makes rests on the comparison, so it reports nothing without
+#'   them.
+#' @returns `NULL` when no equation is flat, unsolved, and worse than it was at
+#'   the starting values. Otherwise a list in the shape `unsolved_equation()`
+#'   returns, naming the flat equation with the largest summed score in `row`,
+#'   and carrying `flat = TRUE`.
+#' @noRd
+flat_equation <- function(ef, bread, init_score) {
+  if (is.null(init_score)) {
+    return(NULL)
+  }
+  zero_row <- vapply(
+    seq_len(nrow(bread)),
+    function(i) isTRUE(all(bread[i, ] == 0)),
+    logical(1)
+  )
+  score <- equation_scores(ef)
+  found <- which(
+    zero_row &
+      is.finite(score) &
+      abs(score) > score_floor &
+      abs(score) > abs(init_score) + score_floor
+  )
+  if (length(found) == 0L) {
+    return(NULL)
+  }
+  worst <- found[[which.max(abs(score[found]))]]
+  list(
+    row = worst,
+    finite = TRUE,
+    one_sided = FALSE,
+    constant = FALSE,
+    flat = TRUE,
+    score = score[[worst]],
+    step = NA_real_
+  )
+}
+
 #' Judge whether a returned point solves a just-identified system
 #'
-#' The two readings answer different questions and neither subsumes the other.
+#' The three readings answer different questions and none subsumes another.
 #' `unsolved_equation()` names an equation that cannot be at a root from its
 #' contributions alone, which is the only thing that sees a stack whose Jacobian
 #' does not exist. `relative_newton_step()` measures the distance still to
 #' travel, which is the only thing that sees a stack built from a design matrix,
 #' whose mixed-sign contributions cancel well however wrong the parameters are.
+#' `flat_equation()` covers what falls between them: an equation whose
+#' contributions cancel well at a point that is not its root, and whose own row
+#' of the bread is what makes the Newton step unavailable.
+#'
+#' `flat_equation()` is asked before the Newton step because it explains why no
+#' step can be taken, and asking it after would mean asking it only where the
+#' step came back `NA` for that very reason.
 #'
 #' @param ef A p-by-n matrix of per-observation contributions to the equations
 #'   being solved, evaluated at the point under test.
 #' @param theta The point under test.
 #' @param bread The bread matrix at that point, already divided by the number of
 #'   observations.
+#' @param init_score The summed value of each of those equations at the starting
+#'   values, passed on to `flat_equation()`, which is the only reading that uses
+#'   it. Defaults to `NULL`, which leaves that reading unmade.
 #' @returns `NULL` when the point solves the equations. Otherwise the list
-#'   `unsolved_equation()` returns, or, where that reading found nothing and the
-#'   Newton step did, a list whose `row` is `NA` and whose `step` is that step.
+#'   `unsolved_equation()` or `flat_equation()` returns, or, where neither
+#'   reading found anything and the Newton step did, a list whose `row` is `NA`
+#'   and whose `step` is that step. Every list carries `flat`, which is `TRUE`
+#'   only for the second of the three.
 #' @keywords internal
 #' @noRd
-unsolved_point <- function(ef, theta, bread) {
+unsolved_point <- function(ef, theta, bread, init_score = NULL) {
   found <- unsolved_equation(ef, theta)
   if (!is.null(found)) {
+    found$flat <- FALSE
     found$step <- NA_real_
     return(found)
+  }
+  flat <- flat_equation(ef, bread, init_score)
+  if (!is.null(flat)) {
+    return(flat)
   }
   step <- relative_newton_step(bread, rowSums(ef) / ncol(ef), theta)
   if (!isTRUE(step > newton_step_ceiling)) {
@@ -537,6 +652,7 @@ unsolved_point <- function(ef, theta, bread) {
     finite = TRUE,
     one_sided = FALSE,
     constant = FALSE,
+    flat = FALSE,
     score = NA_real_,
     step = step
   )
@@ -547,11 +663,30 @@ unsolved_point <- function(ef, theta, bread) {
 #' The remedy differs by solver, and no message may send a user to rootSolve,
 #' which is the solver that returns a spurious root silently.
 #'
+#' The diagnosis is reported alongside the solver's own account of itself only
+#' where it says something the solver cannot. A flat equation is such a case: the
+#' solver reports a convergence test that was met, since the equation it left
+#' unsolved is invisible to the Jacobian it was working with, so the message has
+#' to name the equation itself. The other readings say what the solver has
+#' already said in its own terms, so they add no bullet.
+#'
 #' @param solved The list `solve_equations()` returned.
+#' @param unsolved The list `unsolved_point()` returned, or `NULL` where the
+#'   solver reported the failure itself and no point was judged.
 #' @returns Invisible `NULL`, called for the warning.
 #' @keywords internal
 #' @noRd
-warn_unsolved <- function(solved) {
+warn_unsolved <- function(solved, unsolved = NULL) {
+  detail <- character(0)
+  if (isTRUE(unsolved$flat)) {
+    flat_row <- unsolved$row
+    flat_score <- signif(unsolved$score, 3)
+    detail <- c(
+      "i" = "Estimating equation {flat_row} does not move when any parameter
+             does, so no Newton step can measure the distance to its root, and
+             it sums to {.val {flat_score}} rather than to zero."
+    )
+  }
   if (identical(solved$solver, "rootSolve")) {
     cli::cli_warn(
       c(
@@ -559,6 +694,7 @@ warn_unsolved <- function(solved) {
                equations.",
         "i" = "The estimating functions are not solved at the returned values
                (achieved precision {.val {signif(solved$precision, 3)}}).",
+        detail,
         "i" = "Results may be unreliable. Consider using the {.val lm} solver or
                different starting values."
       ),
@@ -570,6 +706,7 @@ warn_unsolved <- function(solved) {
         "!" = "minpack.lm stopped without solving the estimating equations
                (code {solved$code}).",
         "i" = "{solved$message}",
+        detail,
         "i" = "Results may be unreliable. Consider increasing {.arg maxiter},
                using different starting values, or the {.val nleqslv} solver."
       ),
@@ -581,6 +718,7 @@ warn_unsolved <- function(solved) {
         "!" = "nleqslv stopped without solving the estimating equations
                (code {solved$code}).",
         "i" = "{solved$message}",
+        detail,
         "i" = "Results may be unreliable. Consider using the {.val lm} solver or
                different starting values."
       ),
@@ -591,6 +729,7 @@ warn_unsolved <- function(solved) {
       c(
         "!" = "The solver returned values that do not solve the estimating
                equations.",
+        detail,
         "i" = "Results may be unreliable. Consider different starting values or
                one of the built-in solvers."
       ),
@@ -1033,10 +1172,22 @@ estimate_gmm_estimator <- function(
   # subset at their initial values while still summing every equation into the
   # objective. None of those three can be judged this way, so none is.
   if (minimizer_converged && !over_identified && is.null(subset)) {
-    unsolved <- unsolved_point(evald, current_theta, bread)
+    unsolved <- unsolved_point(
+      evald,
+      current_theta,
+      bread,
+      equation_scores(vals_at_init)
+    )
     if (!is.null(unsolved)) {
       summed_moment <- signif(unsolved$score, 3)
-      detail <- if (is.na(unsolved$row)) {
+      detail <- if (unsolved$flat) {
+        # A flat row has a row number, so this branch comes ahead of the Newton
+        # step, and its contributions say nothing, so it comes ahead of the
+        # readings of them too.
+        "Moment condition {unsolved$row} does not move when any parameter does,
+         so no Newton step can measure the distance to its root, and it sums to
+         {.val {summed_moment}} rather than to zero."
+      } else if (is.na(unsolved$row)) {
         "A Newton step from the estimated values would move at least one of them
          by {.val {signif(unsolved$step, 3)}} times the larger of its own
          magnitude and one, so the minimizer stopped short of a root."

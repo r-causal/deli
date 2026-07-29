@@ -1393,3 +1393,198 @@ test_that("a moment condition that does not sum to a finite value is named as su
   expect_match(conditionMessage(seen[[1]]), "is not finite", fixed = TRUE)
   expect_no_match(conditionMessage(seen[[1]]), "do not cancel", fixed = TRUE)
 })
+
+# ---- a bread lost to the scale of the estimating functions --------------------
+#
+# The step floor in approx_differentiation() rescues a step lost against a large
+# `theta`. It cannot reach the fit below, where the step is applied exactly and
+# the summed equations are the large quantity: every difference falls below their
+# floating-point resolution, so the bread is a matrix of zeros and the variance
+# is zero with it. Nothing about the step is wrong, so the loss has to be
+# reported from the significance of the differences themselves. See the section
+# of test-derivative.R that pins the same reading on the derivative alone.
+
+test_that("a bread lost to the scale of the estimating functions is reported", {
+  set.seed(42)
+  n <- 200
+  w <- stats::rnorm(n)
+  # The same stack as the divergence test above, which reaches its own reading
+  # only under `deriv_method = "exact"`. Under the default finite difference the
+  # summed equations run to 1e11, whose neighboring doubles are 1.53e-05 away,
+  # and the default step moves them by 4e-07.
+  y <- 1e9 * (0.7 * w + stats::rnorm(n))
+  x <- cbind(1, w)
+  psi <- function(theta) ee_regression(theta, X = x, y = y, model = "linear")
+  seen <- collect_warnings({
+    m <- estimate(MEstimator(stacked_equations = psi, init = c(0, 0)))
+  })
+  lost <- Filter(
+    function(cnd) inherits(cnd, "deli_finite_difference_lost"),
+    seen
+  )
+  # One report for the operation, whatever the number of entries lost, which is
+  # what without_repeated_warnings() exists to deliver.
+  expect_length(lost, 1L)
+  # The derivative is nowhere near zero, so neither is the loss a property of the
+  # problem: exact differentiation at the same point returns a bread whose
+  # diagonal is of order one.
+  exact_bread <- compute_bread(psi, unname(m@theta), "exact") / n
+  expect_gt(min(abs(diag(exact_bread))), 0.9)
+})
+
+test_that("a well-scaled fit reports no lost bread", {
+  set.seed(42)
+  n <- 200
+  w <- stats::rnorm(n)
+  # The same stack on data of an ordinary magnitude. The summed equations vanish
+  # at the solution, so the differences taken there carry every digit they have
+  # and nothing may be reported.
+  y <- 0.7 * w + stats::rnorm(n)
+  x <- cbind(1, w)
+  psi <- function(theta) ee_regression(theta, X = x, y = y, model = "linear")
+  expect_no_warning({
+    m <- estimate(MEstimator(stacked_equations = psi, init = c(0, 0)))
+  })
+  expect_equal(
+    unname(coef(m)),
+    unname(stats::coef(stats::lm(y ~ w))),
+    tolerance = 1e-6
+  )
+})
+
+# ---- points a zero bread row leaves unjudged ---------------------------------
+#
+# relative_newton_step() is the only reading that sees a stack whose mixed-sign
+# contributions cancel well at points that are not roots, and it needs a bread
+# that can be solved. A bread carrying an identically zero row cannot be, so the
+# step is `NA` and the point is judged on the contribution readings alone. Where
+# the equation that owns the zero row is the one left unsolved, nothing is left
+# to catch it and a wrong root is returned in silence.
+#
+# The excuse a singular bread earns is owed to the equation that is solved at the
+# point, not to the one that is not: the fit in "a fit whose Jacobian does not
+# exist is left unjudged" above returns the median equation's own root and stays
+# quiet, and must go on doing so.
+
+test_that("a zero bread row does not excuse an equation that is not solved", {
+  skip_if_not_installed("minpack.lm")
+  set.seed(1)
+  y <- stats::rnorm(50)
+  seen <- collect_warnings({
+    m <- m_estimate(
+      function(t) ee_positive_mean_deviation(t, y),
+      init = c(0, 0),
+      solver = "lm"
+    )
+  })
+  theta <- unname(coef(m))
+  ef <- suppressWarnings(ee_positive_mean_deviation(theta, y))
+  # The median equation contributes 0.5 - (y <= theta[2]) per observation, so
+  # its summed score counts the observations either side of the returned value:
+  # 37 of the 50 fall below it, leaving 25 - 37. The returned value is not the
+  # sample median, 0.129, and sits between the 37th and 38th order statistics,
+  # 0.697 and 0.738.
+  expect_equal(rowSums(ef)[[2]], -12)
+  expect_gt(abs(theta[[2]] - stats::median(y)), 0.5)
+  # Neither contribution reading sees it: the contributions are mixed-sign and
+  # 48% of their mass fails to cancel, under the 90% ceiling.
+  expect_true(is_root(ef, theta))
+  # And the Newton step cannot be taken, because the median equation's row of the
+  # bread is identically zero.
+  expect_true(all(m@bread[2, ] == 0))
+  expect_true(is.na(relative_newton_step(
+    unname(m@bread),
+    rowSums(ef) / 50,
+    theta
+  )))
+  # None of which may leave the point passing for a root.
+  not_converged <- Filter(
+    function(cnd) inherits(cnd, "deli_solver_not_converged"),
+    seen
+  )
+  expect_length(not_converged, 1L)
+  # The solver reports a convergence test that was met, so nothing it says names
+  # the equation it left behind. The report has to name it and the score it left
+  # there, which is the whole of what this reading contributes over the solver's
+  # own account of itself.
+  reported <- conditionMessage(not_converged[[1]])
+  expect_match(
+    reported,
+    "Estimating equation 2 does not move when any parameter does",
+    fixed = TRUE
+  )
+  expect_match(reported, "it sums to -12 rather than to zero", fixed = TRUE)
+})
+
+test_that("the non-differentiability warning still surfaces once beside the report", {
+  skip_if_not_installed("minpack.lm")
+  set.seed(1)
+  y <- stats::rnorm(50)
+  # One fit evaluates the estimating function many times and every evaluation
+  # warns that the median is not differentiable, so the scope in R/conditions.R
+  # has to go on delivering that warning once for the operation while the report
+  # of the unsolved point arrives beside it.
+  seen <- collect_warnings(
+    m_estimate(
+      function(t) ee_positive_mean_deviation(t, y),
+      init = c(0, 0),
+      solver = "lm"
+    )
+  )
+  messages <- vapply(seen, conditionMessage, character(1))
+  expect_length(grep("not differentiable", messages, fixed = TRUE), 1L)
+  expect_length(
+    Filter(function(cnd) inherits(cnd, "deli_solver_not_converged"), seen),
+    1L
+  )
+  # The two of them and nothing else. A bread of zeros is not a bread lost to
+  # rounding, so the reading of the section above may not fire here.
+  expect_length(seen, 2L)
+})
+
+test_that("a fit whose bread has no zero row stays quiet under the lm solver", {
+  skip_if_not_installed("minpack.lm")
+  set.seed(11)
+  y <- stats::rnorm(100, mean = 2)
+  psi <- function(theta) ee_mean(theta, y = y)
+  expect_no_warning({
+    m <- m_estimate(stacked_equations = psi, init = 0, solver = "lm")
+  })
+  expect_equal(unname(coef(m)), mean(y), tolerance = 1e-8)
+})
+
+test_that("GMM names the moment condition its bread has gone flat under", {
+  set.seed(1)
+  y <- stats::rnorm(50)
+  # The same stack as the M-estimation fits above, minimized rather than solved.
+  # A flat row reaches the moment conditions the same way it reaches the
+  # estimating equations, so the reading is shared and each path words its own
+  # report.
+  psi <- function(theta) ee_positive_mean_deviation(theta, y = y)
+  seen <- collect_warnings({
+    g <- estimate(GMMEstimator(stacked_equations = psi, init = c(0, 0)))
+  })
+  theta <- unname(coef(g))
+  ef <- suppressWarnings(ee_positive_mean_deviation(theta, y))
+  # 28 of the 50 observations fall below the returned value, leaving 25 - 28,
+  # and the median moment's row of the bread is identically zero, so the
+  # minimizer had no reading of it at all.
+  expect_equal(rowSums(ef)[[2]], -3)
+  expect_true(all(g@bread[2, ] == 0))
+  expect_true(is_root(ef, theta))
+  not_converged <- Filter(
+    function(cnd) inherits(cnd, "deli_solver_not_converged"),
+    seen
+  )
+  expect_length(not_converged, 1L)
+  reported <- conditionMessage(not_converged[[1]])
+  expect_match(
+    reported,
+    "Moment condition 2 does not move when any parameter does",
+    fixed = TRUE
+  )
+  expect_match(reported, "it sums to -3 rather than to zero", fixed = TRUE)
+  # The flat branch rather than a reading of the contributions, which cancel
+  # well enough here to say nothing.
+  expect_no_match(reported, "do not cancel", fixed = TRUE)
+})

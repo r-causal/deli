@@ -195,7 +195,11 @@ ee_percentile <- function(theta, y, q) {
 #'   by trading `theta[2]` against `theta[1]`. Whether it makes that trade
 #'   depends on the starting values: from some it leaves the median at the value
 #'   it was given, and from others it moves the median to whatever value the
-#'   trade leaves it at. It reports no failure either way. Neither outcome
+#'   trade leaves it at. It reports no failure of its own either way, so the
+#'   second outcome is caught by the fit rather than by the solver: a median
+#'   equation that the solve left further from zero than it was at the starting
+#'   values, in a stack whose bread carries its row as zeros, warns that the
+#'   estimating equations are not solved at the returned values. Neither outcome
 #'   recovers the sample median on its own, and when the median does move, the
 #'   positive mean deviation returned belongs to that median rather than to the
 #'   sample median.
