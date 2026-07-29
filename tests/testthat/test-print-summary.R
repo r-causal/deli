@@ -35,6 +35,19 @@ make_fitted_mean_variance <- function() {
   estimate(m)
 }
 
+make_fitted_p_underflow <- function() {
+  # One hundred observations alternating 9 and 11: the mean is 10 with a
+  # sandwich standard error of 0.1, so Z is about 100 and the two-sided normal
+  # tail probability underflows to exactly zero. See the same fixture in
+  # test-inference.R for the arithmetic.
+  y <- rep(c(9, 11), 50)
+  psi <- function(theta) {
+    matrix(y - theta[1], nrow = 1)
+  }
+  m <- MEstimator(stacked_equations = psi, init = c(0))
+  estimate(m)
+}
+
 make_fitted_named <- function() {
   y <- mtcars$mpg
   X <- cbind(1, mtcars$wt, mtcars$hp)
@@ -177,6 +190,25 @@ test_that("print(summary()) GMMEstimator output", {
 test_that("print(summary()) with alpha = 0.10", {
   m <- make_fitted_mean()
   expect_snapshot(print(summary(m, alpha = 0.10)), transform = stabilize_svalue)
+})
+
+# an underflowed S-value in the table ------------------------------------------
+#
+# A P-value below 2^-1074 is not representable and arrives as exactly zero, so
+# its S-value is Inf. The table formats the column with sprintf("%10.4f"), which
+# writes an infinite value as "Inf" and pads it to the column width. The row is
+# read out of the rendered output rather than snapshotted, because the point is
+# that one cell says Inf and not the layout of the rest of the table, which the
+# snapshots above already hold.
+
+test_that("print(summary()) reports an underflowed S-value as Inf", {
+  m <- make_fitted_p_underflow()
+  lines <- cli::cli_fmt(expect_no_warning(print(summary(m))))
+  row <- grep("^theta_1", lines, value = TRUE)
+  expect_length(row, 1L)
+  expect_match(row, "Inf$")
+  # The P-value column reports the same underflow as its own smallest label.
+  expect_match(row, "<2e-16", fixed = TRUE)
 })
 
 # summary() subset tests -------------------------------------------------------

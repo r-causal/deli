@@ -80,6 +80,11 @@ print_estimator <- function(x, label, subset = NULL) {
 #' return individually, so `alpha` here means what it means there: `0.05` gives
 #' 95% limits.
 #'
+#' The `S` column reads `Inf` when a P-value underflows to exactly zero, for the
+#' reason [s_values()] gives. The `P` column reports that same underflow as
+#' `<2e-16`, the threshold below which [base::format.pval()] stops printing
+#' digits, while [generics::tidy()] returns the literal `0`.
+#'
 #' `subset` restricts which parameters are displayed and nothing else. The
 #' reported parameter count and every reported value are computed from the whole
 #' fit, so displaying a subset of a stacked estimator is a way to read the

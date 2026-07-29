@@ -16,7 +16,8 @@
 #' @returns
 #' - `tidy()`: A data.frame with columns `term`, `estimate`, `std.error`,
 #'   `statistic`, `p.value`, `s.value`. If `conf.int = TRUE`, also includes
-#'   `conf.low` and `conf.high`.
+#'   `conf.low` and `conf.high`. A `p.value` that underflows to exactly zero is
+#'   reported as `0` alongside an infinite `s.value`; see [s_values()].
 #' - `glance()`: A single-row data.frame with model-level summaries.
 #'
 #' @seealso [deli-augment], the third broom generic, which returns the

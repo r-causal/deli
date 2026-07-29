@@ -150,6 +150,14 @@ method(p_values, deli_estimator) <- function(object, null = 0, ...) {
 #' This function mirrors `m.s_values()` in Python delicatessen, so code
 #' translated from Python can keep its shape.
 #'
+#' @details
+#' A P-value small enough to underflow to exactly zero has an S-value of `Inf`.
+#' That is the limit the surprisal is heading toward rather than a defect. The
+#' smallest P a double can hold is about \eqn{2^{-1074}}, so a P that arrives as
+#' zero stands for more than a thousand bits of surprisal, past the range a
+#' double can name. The infinity reports evidence beyond measurement, where any
+#' finite substitute would name a number the fit does not support.
+#'
 #' @param object A fitted `MEstimator` object (after calling [estimate()]).
 #' @param null Numeric null hypothesis value(s). Default `0`.
 #' @param ... Not used. Must be empty, so a name that is not one of the

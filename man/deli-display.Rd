@@ -44,6 +44,11 @@ table with one row per parameter. The values are those
 return individually, so \code{alpha} here means what it means there: \code{0.05} gives
 95\% limits.
 
+The \code{S} column reads \code{Inf} when a P-value underflows to exactly zero, for the
+reason \code{\link[=s_values]{s_values()}} gives. The \code{P} column reports that same underflow as
+\verb{<2e-16}, the threshold below which \code{\link[base:format.pval]{base::format.pval()}} stops printing
+digits, while \code{\link[generics:tidy]{generics::tidy()}} returns the literal \code{0}.
+
 \code{subset} restricts which parameters are displayed and nothing else. The
 reported parameter count and every reported value are computed from the whole
 fit, so displaying a subset of a stacked estimator is a way to read the

@@ -120,6 +120,53 @@ test_that("s_values() are always non-negative", {
   expect_true(all(s >= 0))
 })
 
+# An underflowed P-value -------------------------------------------------------
+#
+# The largest surprisal a double can name is 1074 bits, because the smallest
+# positive double is 2^-1074. A P-value below that is not representable and
+# arrives as exactly zero, so S = -log2(0) is Inf. That is the limit the
+# surprisal is heading toward and the fit really does carry more bits than a
+# double can hold, so the value is reported as Inf rather than capped at the
+# representable maximum, which would name a number the evidence does not
+# support. These tests pin that.
+
+make_fitted_p_underflow <- function() {
+  # One hundred observations alternating 9 and 11: the mean is 10 with a
+  # sandwich standard error of 0.1, so Z is about 100 and the two-sided normal
+  # tail probability, around 1e-2174, underflows to zero. The surprisal it
+  # stands for is roughly 7220 bits against the 1074 a double can name.
+  y <- rep(c(9, 11), 50)
+  psi <- function(theta) {
+    matrix(y - theta[1], nrow = 1)
+  }
+  m <- MEstimator(stacked_equations = psi, init = c(0))
+  estimate(m)
+}
+
+test_that("s_values() reports Inf for a P-value that underflows to zero", {
+  m <- make_fitted_p_underflow()
+  # The Z-score itself is finite, so the zero is an underflowed tail
+  # probability rather than a degenerate standard error.
+  expect_equal(unname(z_scores(m)), 100, tolerance = 1e-6)
+  expect_identical(unname(p_values(m)), 0)
+  expect_identical(unname(s_values(m)), Inf)
+})
+
+test_that("s_values() stays finite for a P-value that does not underflow", {
+  m <- make_fitted_mean()
+  p <- p_values(m)
+  expect_true(all(p > 0))
+  expect_equal(s_values(m), -log2(p))
+  expect_true(all(is.finite(s_values(m))))
+})
+
+test_that("tidy() reports an underflowed S-value as Inf", {
+  m <- make_fitted_p_underflow()
+  td <- generics::tidy(m)
+  expect_identical(td$p.value, 0)
+  expect_identical(td$s.value, Inf)
+})
+
 # null length validation ------------------------------------------------------
 #
 # Python raises a broadcast ValueError when null has a length that is neither 1

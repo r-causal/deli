@@ -24,6 +24,14 @@ where \eqn{P} is the corresponding P-value.
 This function mirrors \code{m.s_values()} in Python delicatessen, so code
 translated from Python can keep its shape.
 }
+\details{
+A P-value small enough to underflow to exactly zero has an S-value of \code{Inf}.
+That is the limit the surprisal is heading toward rather than a defect. The
+smallest P a double can hold is about \eqn{2^{-1074}}, so a P that arrives as
+zero stands for more than a thousand bits of surprisal, past the range a
+double can name. The infinity reports evidence beyond measurement, where any
+finite substitute would name a number the fit does not support.
+}
 \examples{
 fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
                   model = "linear")

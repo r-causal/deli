@@ -19,7 +19,8 @@ optional argument for a wrong name to displace and ignores them.}
 \itemize{
 \item \code{tidy()}: A data.frame with columns \code{term}, \code{estimate}, \code{std.error},
 \code{statistic}, \code{p.value}, \code{s.value}. If \code{conf.int = TRUE}, also includes
-\code{conf.low} and \code{conf.high}.
+\code{conf.low} and \code{conf.high}. A \code{p.value} that underflows to exactly zero is
+reported as \code{0} alongside an infinite \code{s.value}; see \code{\link[=s_values]{s_values()}}.
 \item \code{glance()}: A single-row data.frame with model-level summaries.
 }
 }
