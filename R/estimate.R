@@ -251,22 +251,31 @@ estimate_m_estimator <- function(
   bread <- compute_bread(stacked_equations, full_theta, deriv_method, dx) /
     n_obs
 
-  # Judge the returned point, unless the solver reported a failure of its own
-  # and has already warned about it. This waits for the bread because the
-  # Jacobian is what measures the distance still to travel, and a solver whose
-  # own convergence test is relative to its starting residuals can report
-  # success without moving at all. A subset fit solves only the subset
-  # equations for the subset parameters, so only that block is judged.
+  # Account for the solve, unless the solver reported a failure the caller has
+  # already been warned about. Everything here waits for the bread: the Jacobian
+  # is what measures the distance still to travel, a solver whose own convergence
+  # test is relative to its starting residuals can report success without moving
+  # at all, and a solver that reports failure cannot say whether the search or
+  # the problem is what failed. A subset fit solves only the subset equations for
+  # the subset parameters, so only that block is read.
+  #
+  # The point is read once and reported through exactly one of two branches, so
+  # the solve raises at most one warning. Where the solver reported a failure the
+  # reading decides the wording rather than whether to speak, since a point that
+  # solves the equations says the search is not what went wrong.
   if (!solved$warned) {
     judged <- subset %||% seq_len(nrow(evald))
+    judged_bread <- bread[judged, judged, drop = FALSE]
     unsolved <- unsolved_point(
       evald[judged, , drop = FALSE],
       full_theta[judged],
-      bread[judged, judged, drop = FALSE],
+      judged_bread,
       init_score = init_score[judged],
       init = init[judged]
     )
-    if (!is.null(unsolved)) {
+    if (isTRUE(solved$not_converged)) {
+      warn_solver_failure(solved, judged_bread, unsolved)
+    } else if (!is.null(unsolved)) {
       warn_unsolved(solved, unsolved)
     }
   }
@@ -323,14 +332,17 @@ estimate_m_estimator <- function(
 #   deli_solver_not_converged
 #     The solver stopped without solving the estimating equations, either
 #     because it reported a failure of its own or because the returned point
-#     does not solve them. Every solver branch raises this one class. A solver
-#     that reported a failure warns from solve_equations() and its point is not
-#     judged again, so one M-estimation solve raises the class at most once. A
-#     just-identified GMM solve judges its moments only where the minimizer
-#     reported success, so it too raises it at most once; an over-identified
-#     solve calls the minimizer repeatedly and can raise it once per pass,
-#     though the scope described in R/conditions.R delivers the passes that
-#     report the same thing as one warning.
+#     does not solve them. Every solver branch raises this one class. An
+#     M-estimation solve reports itself through exactly one of three places, so
+#     it raises the class at most once: an exhausted iteration budget or a
+#     solver that failed outright warns from solve_equations(), a solver whose
+#     own convergence test failed warns from warn_solver_failure(), and a solver
+#     that reported success has only its returned point judged. A just-identified
+#     GMM solve judges its moments only where the minimizer reported success, so
+#     it too raises it at most once; an over-identified solve calls the minimizer
+#     repeatedly and can raise it once per pass, though the scope described in
+#     R/conditions.R delivers the passes that report the same thing as one
+#     warning.
 
 # Score magnitude below which a returned point is treated as solved, where the
 # solver has not reported a convergence failure of its own. Both the
@@ -686,7 +698,8 @@ unsolved_point <- function(ef, theta, bread, init_score = NULL, init = theta) {
 #'
 #' @param solved The list `solve_equations()` returned.
 #' @param unsolved The list `unsolved_point()` returned, or `NULL` where the
-#'   solver reported the failure itself and no point was judged.
+#'   solver reported the failure itself and its own account of itself is what is
+#'   reported.
 #' @returns Invisible `NULL`, called for the warning.
 #' @keywords internal
 #' @noRd
@@ -753,6 +766,81 @@ warn_unsolved <- function(solved, unsolved = NULL) {
   invisible(NULL)
 }
 
+#' Report a solver's own convergence failure, worded by what the bread says
+#'
+#' `solve_equations()` takes `rootSolve::multiroot()` at its word when it reports
+#' its convergence test failing after it moved, but that report describes the
+#' search rather than the problem, and one thing that produces it is a problem
+#' with no unique root to find. That diagnosis needs both halves of the evidence.
+#' A rank-deficient bread says the mean estimating equations do not change along
+#' at least one direction in the parameter space, so every point along it solves
+#' them exactly as well as the returned one. A returned point that the readings
+#' of `unsolved_point()` accept says the search is not what failed, since the
+#' equations are satisfied where it stopped. Together they say the parameters are
+#' not identified, and reporting a search that stopped short would then be true
+#' of the search and beside the point about the problem.
+#'
+#' Both halves are needed because a bread can lose rank without the design being
+#' the reason. Parameters that have run away leave a saturated estimating
+#' function whose derivative underflows to zero, which is a whole column of
+#' zeros; the point such a fit returns is not a root, and the solver's own
+#' account of stopping short is the accurate one. So every failure but the
+#' identified pair keeps that account.
+#'
+#' Neither wording can double up with the readings of the returned point.
+#' `estimate_m_estimator()` reads the point once and reports it through exactly
+#' one of the two branches, so one solve reports itself once.
+#'
+#' @param solved The list `solve_equations()` returned.
+#' @param bread The bread matrix at the returned point, for the block of
+#'   equations the solver worked on.
+#' @param unsolved What `unsolved_point()` made of the returned point, `NULL`
+#'   where it solves the equations.
+#' @returns Invisible `NULL`, called for the warning.
+#' @keywords internal
+#' @noRd
+warn_solver_failure <- function(solved, bread, unsolved) {
+  if (!is.null(unsolved) || !rank_deficient(bread)) {
+    return(warn_unsolved(solved))
+  }
+  cli::cli_warn(
+    c(
+      "!" = "The estimating equations are rank deficient at the returned values,
+             so the parameters are not identified.",
+      "i" = "At least one direction in the parameter space leaves the mean
+             estimating equations unchanged, so they have no unique root and
+             every point along that direction solves them as well as the values
+             returned here.",
+      "i" = "Results may be unreliable. Check the equations for a redundant
+             parameter and the design for linearly dependent columns."
+    ),
+    class = "deli_solver_not_converged"
+  )
+  invisible(NULL)
+}
+
+#' Whether a bread matrix leaves a direction the equations cannot see
+#'
+#' A square bread whose rank falls short of its dimension has at least one
+#' direction in the parameter space along which the mean estimating equations do
+#' not change, which is what a design with linearly dependent columns produces.
+#'
+#' A bread carrying values that are not finite is not read this way, both because
+#' `qr()` cannot factor one and because a derivative that is not finite is a
+#' different failure with a different remedy.
+#'
+#' @param bread The bread matrix at the returned point.
+#' @returns `TRUE` where the matrix is square, finite, and rank deficient.
+#' @keywords internal
+#' @noRd
+rank_deficient <- function(bread) {
+  square <- is.matrix(bread) && nrow(bread) == ncol(bread) && ncol(bread) > 0L
+  if (!square || !all(is.finite(bread))) {
+    return(FALSE)
+  }
+  qr(bread)$rank < ncol(bread)
+}
+
 #' Evaluate an expression with anything printed to stdout discarded
 #'
 #' Returns the value of `expr`, unlike [utils::capture.output()], which returns
@@ -795,6 +883,11 @@ without_output <- function(expr) {
 #' everywhere and returns the starting values with that report and a summed score
 #' that is not zero.
 #'
+#' Taking that report at face value is not the same as raising it here. What the
+#' report means for the caller depends on the bread, which does not exist until
+#' the solver has returned, so it is handed back in `not_converged` for the
+#' caller to word. See `warn_solver_failure()`.
+#'
 #' @param func The summed estimating equations as a function of the parameters.
 #' @param init The starting values.
 #' @param method The name of the solver.
@@ -803,7 +896,9 @@ without_output <- function(expr) {
 #' @returns A list holding the returned parameter vector in `par`, the name of
 #'   the solver in `solver`, whether a warning has already been raised about the
 #'   solve in `warned`, and whatever the solver reports that the warning needs:
-#'   `code` and `message`, or `precision`.
+#'   `code` and `message`, or `precision`. A `rootSolve` solve also carries
+#'   `not_converged`, which is `TRUE` where the solver reported its own
+#'   convergence test failing after moving and the caller has still to report it.
 #' @keywords internal
 #' @noRd
 solve_equations <- function(func, init, method, maxiter, tolerance) {
@@ -866,9 +961,12 @@ solve_equations <- function(func, init, method, maxiter, tolerance) {
         class = "deli_solver_not_converged"
       )
       solved$warned <- TRUE
-    } else if (not_converged && !isTRUE(all(result$root == init))) {
-      warn_unsolved(solved)
-      solved$warned <- TRUE
+    } else {
+      # The report is passed back rather than raised here, because what to say
+      # about it depends on the bread and the bread does not exist yet. See
+      # warn_solver_failure().
+      solved$not_converged <- not_converged &&
+        !isTRUE(all(result$root == init))
     }
     return(solved)
   }
