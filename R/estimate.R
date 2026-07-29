@@ -868,6 +868,88 @@ without_output <- function(expr) {
   force(expr)
 }
 
+# ---- a solver's own account of itself ----------------------------------------
+# A solver reports on itself through warnings as well as through its return
+# value, and `solve_equations()` reads those reports and words deli's own. A
+# report that reached the caller as well would describe one solve twice, in two
+# vocabularies, so each is muffled where it is raised.
+#
+# What may not be muffled is a warning the estimating function raised. One fit
+# evaluates that function at the starting values, at the point the solver
+# returned, once or twice per parameter while the bread is built, and as many
+# times as the solver likes in between. A warning from any of those is the
+# caller's business, and the evaluations made inside the solver are no
+# exception, so the muffling recognises the solver's own reports by what they
+# say and leaves everything else to propagate.
+#
+# The predicates below are what "recognisably the solver's own" means, one per
+# solver that reports this way. They are vectorised over messages so that a
+# recorded batch can be read in one call.
+
+#' Whether `rootSolve::multiroot()` reported its convergence test failing
+#'
+#' The returned list carries no status flag, so the warning reading
+#' "steady-state not reached" is the only account `multiroot()` gives of it. One
+#' predicate decides both that the warning is the solver's own and so must not
+#' reach the caller, and that the solve is to be reported as one whose
+#' convergence test failed, so the two readings cannot come apart.
+#'
+#' @param messages A character vector of warning messages.
+#' @returns A logical vector of the same length.
+#' @noRd
+multiroot_not_converged <- function(messages) {
+  grepl("steady-state not reached", messages, fixed = TRUE)
+}
+
+#' Whether a message is `rootSolve::multiroot()` talking about itself
+#'
+#' Two reports exist. One is the convergence test above. The other comes from
+#' the LINPACK routine that failed to factor the Jacobian, `dgefa` for a dense
+#' matrix and `dgbfa` for a banded one, and its fixed text carries a run of
+#' spaces before the reason. The pattern stops at the routine name rather than
+#' matching through that run, so the number of spaces is not something this has
+#' to know.
+#'
+#' @param messages A character vector of warning messages.
+#' @returns A logical vector of the same length.
+#' @noRd
+multiroot_self_report <- function(messages) {
+  multiroot_not_converged(messages) |
+    grepl(
+      "error during factorisation of matrix[[:space:]]*\\((dgefa|dgbfa)\\)",
+      messages
+    )
+}
+
+#' Evaluate a solver call with the solver's own warnings muffled and recorded
+#'
+#' @param expr The call to the solver.
+#' @param self_report A predicate taking a character vector of warning messages
+#'   and returning `TRUE` for each one that is the solver's own account of
+#'   itself.
+#' @returns A list holding the value of `expr` in `value` and the messages of
+#'   the warnings that were muffled, in the order they were raised, in
+#'   `reports`.
+#' @noRd
+with_muffled_self_reports <- function(expr, self_report) {
+  reports <- character()
+  value <- withCallingHandlers(
+    expr,
+    warning = function(w) {
+      message <- conditionMessage(w)
+      if (!self_report(message)) {
+        # Not the solver's own, so it belongs to whoever wrote the estimating
+        # function. Returning without muffling leaves it to the handlers
+        # outside, which is how it reaches the caller.
+        return()
+      }
+      reports <<- c(reports, message)
+      invokeRestart("muffleWarning")
+    }
+  )
+  list(value = value, reports = reports)
+}
+
 #' Internal root-finding dispatcher
 #'
 #' A solver reports its own status in its own terms, and none of those terms is
@@ -894,6 +976,13 @@ without_output <- function(expr) {
 #' the solver has returned, so it is handed back in `not_converged` for the
 #' caller to word. See `warn_solver_failure()`.
 #'
+#' Where a solver states its status in a warning rather than in its return
+#' value, that warning is muffled here, because what it says is said again in
+#' deli's own terms. Only what the solver says about itself is muffled: a
+#' warning raised by `func` reaches the caller whether the evaluation that
+#' raised it was made by this function or by the solver. See
+#' `with_muffled_self_reports()`.
+#'
 #' @param func The summed estimating equations as a function of the parameters.
 #' @param init The starting values.
 #' @param method The name of the solver.
@@ -909,15 +998,14 @@ without_output <- function(expr) {
 #' @noRd
 solve_equations <- function(func, init, method, maxiter, tolerance) {
   if (method == "rootSolve") {
-    # rootSolve's Fortran code prints diagnostic messages to stdout, and the
-    # call may emit warnings of its own as well as any raised inside func.
-    # Everything stays suppressed, as before, but the messages are kept, because
-    # one of them is the only report multiroot makes of its own convergence
-    # test failing: the returned list carries no status flag. If a future
+    # rootSolve's Fortran code prints diagnostic messages to stdout, which stay
+    # suppressed. Its warnings are read rather than suppressed wholesale: one of
+    # them is the only report multiroot makes of its own convergence test
+    # failing, since the returned list carries no status flag. If a future
     # rootSolve reworded it, the returned point still reaches the caller to be
-    # judged rather than breaking.
-    solver_messages <- character()
-    result <- withCallingHandlers(
+    # judged rather than breaking. Warnings from `func` itself are the caller's
+    # and pass through untouched; see `with_muffled_self_reports()`.
+    run <- with_muffled_self_reports(
       without_output(
         rootSolve::multiroot(
           f = func,
@@ -926,16 +1014,10 @@ solve_equations <- function(func, init, method, maxiter, tolerance) {
           atol = tolerance
         )
       ),
-      warning = function(w) {
-        solver_messages <<- c(solver_messages, conditionMessage(w))
-        invokeRestart("muffleWarning")
-      }
+      multiroot_self_report
     )
-    not_converged <- any(grepl(
-      "steady-state not reached",
-      solver_messages,
-      fixed = TRUE
-    ))
+    result <- run$value
+    not_converged <- any(multiroot_not_converged(run$reports))
     solved <- list(
       par = result$root,
       solver = "rootSolve",
