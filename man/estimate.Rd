@@ -64,9 +64,10 @@ the survival prediction helpers, exact differentiation is also available
 through \code{\link[=delta_method]{delta_method()}}.}
 
 \item{dx}{Numeric step size for numerical differentiation; ignored when
-\code{deriv_method = "exact"} (default 1e-9). The step is absolute and is
-floored at the floating-point resolution of each estimate, so a large
-parameter magnitude cannot silently reduce it to nothing; see
+\code{deriv_method = "exact"} (default 1e-9). Must be a single positive finite
+number, which is checked whichever \code{deriv_method} is in force. The step is
+absolute and is floored at the floating-point resolution of each estimate,
+so a large parameter magnitude cannot silently reduce it to nothing; see
 \code{\link[=approx_differentiation]{approx_differentiation()}}.}
 
 \item{allow_pinv}{Logical. Use pseudo-inverse if bread is singular? Default

@@ -69,10 +69,11 @@
 #' @param tolerance Numeric convergence tolerance (default 1e-9).
 #' @param deriv_method Character string for numerical differentiation method
 #'   (default `"capprox"`).
-#' @param dx Numeric step size for differentiation (default 1e-9). The step is
-#'   absolute and is floored at the floating-point resolution of each estimate,
-#'   so a large parameter magnitude cannot silently reduce it to nothing; see
-#'   [approx_differentiation()].
+#' @param dx Numeric step size for differentiation (default 1e-9). Must be a
+#'   single positive finite number, which is checked whichever `deriv_method` is
+#'   in force. The step is absolute and is floored at the floating-point
+#'   resolution of each estimate, so a large parameter magnitude cannot silently
+#'   reduce it to nothing; see [approx_differentiation()].
 #' @param allow_pinv Logical. Use pseudo-inverse if bread is singular? Default
 #'   `TRUE`.
 #'

@@ -35,10 +35,11 @@ the default.}
 
 \item{dx}{Numeric step size for the finite-difference methods; ignored when
 \code{deriv_method = "exact"}. A small value is recommended, since large steps
-can give poor approximations. Default \code{1e-9}. The step is absolute and is
-floored at the floating-point resolution of each estimate, so a large
-parameter magnitude cannot silently reduce it to nothing; see
-\code{\link[=approx_differentiation]{approx_differentiation()}}.}
+can give poor approximations. Default \code{1e-9}. Must be a single positive
+finite number, which is checked whichever \code{deriv_method} is in force. The
+step is absolute and is floored at the floating-point resolution of each
+estimate, so a large parameter magnitude cannot silently reduce it to
+nothing; see \code{\link[=approx_differentiation]{approx_differentiation()}}.}
 
 \item{allow_pinv}{Logical. When \code{TRUE} (default), the Moore-Penrose
 pseudo-inverse is used if the bread matrix is singular; when \code{FALSE}, a

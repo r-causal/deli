@@ -167,6 +167,9 @@
 #'   error for a pooled logistic one). Only meaningful beside `times`.
 #' @param dx Numeric step size for the finite-difference methods, ignored when
 #'   `deriv_method = "exact"`. Default `1e-9`. Only meaningful beside `times`.
+#'   Must be a single positive finite number, which is checked wherever it is
+#'   supplied beside `times`, including a prediction asking for no standard
+#'   error, which takes no step at all.
 #' @param ... Not used. Must be empty, so a name that is not one of the
 #'   documented arguments is an error rather than silently ignored.
 #'
@@ -275,10 +278,11 @@ method(stats_predict, deli_estimator) <- function(
   if (!is.null(times)) {
     check_predict_times(times)
     check_predict_measure(measure)
-    # Validated here rather than where it is used, since it is only used when a
-    # standard error is asked for and a misspelling is worth reporting either
-    # way.
+    # Validated here rather than where they are used, since they are only used
+    # when a standard error is asked for and a misspelled method or an
+    # impossible step is worth reporting either way.
     deriv_method <- check_deriv_method(deriv_method)
+    check_dx(dx)
     return(predict_survival(
       object,
       newdata = newdata,

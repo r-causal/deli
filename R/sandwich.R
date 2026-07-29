@@ -227,10 +227,11 @@ finite_sample_correction <- function(meat, n, p, adjustment = NULL) {
 #'   the default.
 #' @param dx Numeric step size for the finite-difference methods; ignored when
 #'   `deriv_method = "exact"`. A small value is recommended, since large steps
-#'   can give poor approximations. Default `1e-9`. The step is absolute and is
-#'   floored at the floating-point resolution of each estimate, so a large
-#'   parameter magnitude cannot silently reduce it to nothing; see
-#'   [approx_differentiation()].
+#'   can give poor approximations. Default `1e-9`. Must be a single positive
+#'   finite number, which is checked whichever `deriv_method` is in force. The
+#'   step is absolute and is floored at the floating-point resolution of each
+#'   estimate, so a large parameter magnitude cannot silently reduce it to
+#'   nothing; see [approx_differentiation()].
 #' @param allow_pinv Logical. When `TRUE` (default), the Moore-Penrose
 #'   pseudo-inverse is used if the bread matrix is singular; when `FALSE`, a
 #'   singular bread matrix raises an error.
@@ -280,6 +281,7 @@ compute_sandwich <- function(
   allow_pinv = TRUE,
   finite_correction = NULL
 ) {
+  check_dx(dx)
   # This evaluates the estimating function once for itself and once or twice per
   # parameter for the bread, so an estimating function that warns raises the same
   # warning several times for one call. See R/conditions.R. The body is short
@@ -560,9 +562,10 @@ compute_confidence_bands <- function(
 #'   `"fapprox"` (forward difference), `"bapprox"` (backward difference), or
 #'   `"exact"` (forward-mode automatic differentiation). Default `"capprox"`.
 #' @param dx Numeric step size for the finite-difference methods; ignored when
-#'   `deriv_method = "exact"`. Default `1e-9`. The step is absolute and is
-#'   floored at the floating-point resolution of each estimate, so a large
-#'   parameter magnitude cannot silently reduce it to nothing; see
+#'   `deriv_method = "exact"`. Default `1e-9`. Must be a single positive finite
+#'   number, which is checked whichever `deriv_method` is in force. The step is
+#'   absolute and is floored at the floating-point resolution of each estimate,
+#'   so a large parameter magnitude cannot silently reduce it to nothing; see
 #'   [approx_differentiation()].
 #' @param ... Not used. Must be empty, so a name that is not one of the
 #'   documented arguments is an error rather than silently ignored. Exact names
@@ -659,6 +662,7 @@ delta_method_impl <- function(
     ))
   }
   deriv_method <- check_deriv_method(deriv_method)
+  check_dx(dx)
   theta <- as.numeric(theta)
   covariance <- as.matrix(covariance)
 

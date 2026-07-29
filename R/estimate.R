@@ -77,9 +77,10 @@
 #'   the survival prediction helpers, exact differentiation is also available
 #'   through [delta_method()].
 #' @param dx Numeric step size for numerical differentiation; ignored when
-#'   `deriv_method = "exact"` (default 1e-9). The step is absolute and is
-#'   floored at the floating-point resolution of each estimate, so a large
-#'   parameter magnitude cannot silently reduce it to nothing; see
+#'   `deriv_method = "exact"` (default 1e-9). Must be a single positive finite
+#'   number, which is checked whichever `deriv_method` is in force. The step is
+#'   absolute and is floored at the floating-point resolution of each estimate,
+#'   so a large parameter magnitude cannot silently reduce it to nothing; see
 #'   [approx_differentiation()].
 #' @param allow_pinv Logical. Use pseudo-inverse if bread is singular? Default
 #'   `TRUE`.
@@ -126,6 +127,7 @@ method(estimate, MEstimator) <- function(
   ...
 ) {
   rlang::check_dots_empty(call = rlang::caller_env())
+  check_dx(dx)
   # One fit evaluates the estimating function many times, so an estimating
   # function that warns raises the same warning repeatedly for one operation.
   # See R/conditions.R. The scope wraps a worker rather than this body because a
@@ -822,6 +824,7 @@ method(estimate, GMMEstimator) <- function(
   ...
 ) {
   rlang::check_dots_empty(call = rlang::caller_env())
+  check_dx(dx)
   # See the MEstimator method above and R/conditions.R for why the body sits in
   # a worker and what the scope does.
   without_repeated_warnings(estimate_gmm_estimator(

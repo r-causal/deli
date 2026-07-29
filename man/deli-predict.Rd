@@ -46,7 +46,10 @@ difference, the default), \code{"fapprox"}, \code{"bapprox"}, or \code{"exact"}
 error for a pooled logistic one). Only meaningful beside \code{times}.}
 
 \item{dx}{Numeric step size for the finite-difference methods, ignored when
-\code{deriv_method = "exact"}. Default \code{1e-9}. Only meaningful beside \code{times}.}
+\code{deriv_method = "exact"}. Default \code{1e-9}. Only meaningful beside \code{times}.
+Must be a single positive finite number, which is checked wherever it is
+supplied beside \code{times}, including a prediction asking for no standard
+error, which takes no step at all.}
 
 \item{...}{Not used. Must be empty, so a name that is not one of the
 documented arguments is an error rather than silently ignored.}

@@ -446,3 +446,177 @@ test_that("check_survival_data_valid rejects non-positive times even when NAs pr
     "times.*positive"
   )
 })
+
+# check_dx ----------------------------------------------------------------
+
+# Every value the finite-difference step may not take, in one place, so that the
+# helper and each entry point taking `dx` are held to the same set. None of them
+# is caught anywhere at present: a zero or negative step is replaced by the step
+# floor of approx_differentiation() at any non-zero parameter and leaves a
+# division by zero at a parameter of exactly zero, a longer vector is recycled
+# one element per parameter, and a missing or infinite step reaches the quotient
+# and returns an NA or NaN derivative.
+invalid_dx <- list(
+  zero = 0,
+  negative = -1e-9,
+  vector = c(1e-9, 1e-8),
+  character = "1e-9",
+  missing = NA_real_,
+  infinite = Inf
+)
+
+# Each entry point is held to the whole set, and every rejection has to name the
+# argument rather than surface a base arithmetic error from inside the
+# difference quotient.
+expect_dx_rejected <- function(call_with) {
+  for (case in names(invalid_dx)) {
+    expect_error(
+      call_with(invalid_dx[[case]]),
+      regexp = "dx",
+      class = "rlang_error",
+      info = case
+    )
+  }
+  invisible(NULL)
+}
+
+test_that("check_dx accepts a single positive finite number", {
+  expect_no_error(check_dx(1e-9))
+  expect_no_error(check_dx(1))
+  # `ee_percentile()` is differentiated with a step of 1 to smooth an indicator,
+  # so a large step is as valid as a small one.
+  expect_no_error(check_dx(1e-3))
+})
+
+test_that("check_dx rejects every step that is not one positive finite number", {
+  expect_dx_rejected(check_dx)
+})
+
+test_that("check_dx says what a step has to be", {
+  # Three separate reasons to reject, each of which has to reach the message,
+  # however they are worded together.
+  expect_error(check_dx(0), "positive")
+  expect_error(check_dx(-1e-9), "positive")
+  expect_error(check_dx(c(1e-9, 1e-8)), "single")
+  expect_error(check_dx(numeric(0)), "single")
+  expect_error(check_dx(NA_real_), "finite")
+  expect_error(check_dx(Inf), "finite")
+})
+
+# `dx` at the user entry points -------------------------------------------
+
+test_that("estimate() rejects an invalid dx", {
+  psi <- function(theta) matrix(c(1, 2, 3, 4, 5) - theta[1], nrow = 1)
+  expect_dx_rejected(function(dx) {
+    estimate(MEstimator(stacked_equations = psi, init = 0), dx = dx)
+  })
+  expect_dx_rejected(function(dx) {
+    estimate(GMMEstimator(stacked_equations = psi, init = 0), dx = dx)
+  })
+})
+
+test_that("m_estimate() rejects an invalid dx on both interfaces", {
+  psi <- function(theta) matrix(c(1, 2, 3, 4, 5) - theta[1], nrow = 1)
+  expect_dx_rejected(function(dx) {
+    m_estimate(stacked_equations = psi, init = 0, dx = dx)
+  })
+  expect_dx_rejected(function(dx) {
+    m_estimate(
+      mpg ~ wt,
+      data = mtcars,
+      .ee = ee_regression,
+      model = "linear",
+      dx = dx
+    )
+  })
+})
+
+test_that("gmm_estimate() rejects an invalid dx on both interfaces", {
+  psi <- function(theta) matrix(c(1, 2, 3, 4, 5) - theta[1], nrow = 1)
+  expect_dx_rejected(function(dx) {
+    gmm_estimate(stacked_equations = psi, init = 0, dx = dx)
+  })
+  expect_dx_rejected(function(dx) {
+    gmm_estimate(
+      mpg ~ wt,
+      data = mtcars,
+      .ee = ee_regression,
+      model = "linear",
+      dx = dx
+    )
+  })
+})
+
+test_that("compute_sandwich() rejects an invalid dx", {
+  y <- c(1, 2, 3, 4, 5)
+  psi <- function(theta) matrix(y - theta[1], nrow = 1)
+  expect_dx_rejected(function(dx) {
+    compute_sandwich(psi, theta = mean(y), dx = dx)
+  })
+})
+
+test_that("delta_method() rejects an invalid dx on both methods", {
+  psi <- function(theta) matrix(c(1, 2, 3, 4, 5) - theta[1], nrow = 1)
+  fit <- m_estimate(stacked_equations = psi, init = 0)
+  expect_dx_rejected(function(dx) {
+    delta_method(fit, transform = function(theta) exp(theta[1]), dx = dx)
+  })
+  expect_dx_rejected(function(dx) {
+    delta_method(
+      coef(fit),
+      transform = function(theta) exp(theta[1]),
+      covariance = vcov(fit),
+      dx = dx
+    )
+  })
+})
+
+test_that("the survival prediction helpers reject an invalid dx", {
+  expect_dx_rejected(function(dx) {
+    survival_predictions(
+      times = c(1, 2),
+      theta = c(0.1, 0.2),
+      covariance = diag(2),
+      distribution = "weibull",
+      dx = dx
+    )
+  })
+  expect_dx_rejected(function(dx) {
+    aft_predictions_function(
+      X = matrix(c(1, 1), nrow = 1),
+      times = c(5, 10),
+      theta = c(1, 0.5, 0),
+      covariance = diag(3),
+      distribution = "weibull",
+      dx = dx
+    )
+  })
+})
+
+test_that("predict() rejects an invalid dx", {
+  set.seed(414)
+  n <- 200
+  d <- data.frame(x = round(stats::rnorm(n), 3))
+  event_time <- exp(1 + 0.5 * d$x + 0.7 * stats::rlogis(n))
+  censor_time <- stats::rexp(n, rate = 0.03)
+  d$time <- round(pmin(event_time, censor_time), 4)
+  d$status <- as.numeric(event_time <= censor_time)
+  fit <- m_estimate(
+    time ~ x,
+    data = d,
+    .ee = ee_aft,
+    distribution = "weibull",
+    event = status,
+    init = c(mean(log(d$time)), 0, 0)
+  )
+
+  expect_dx_rejected(function(dx) {
+    predict(fit, times = c(5, 10), measure = "survival", se.fit = TRUE, dx = dx)
+  })
+  # The step is validated where it is supplied rather than where it is used, so
+  # a prediction asking for no standard error reports it too rather than
+  # accepting a step it would never have taken.
+  expect_dx_rejected(function(dx) {
+    predict(fit, times = c(5, 10), measure = "survival", dx = dx)
+  })
+})
