@@ -919,3 +919,177 @@ test_that("predict() rejects an invalid dx", {
     predict(fit, times = c(5, 10), measure = "survival", dx = dx)
   })
 })
+
+# Every judgment of an estimating-function return is classed ---------------
+#
+# The two checks reject the same four returns, and only the shape failures
+# carried a class. A caller who wants to recognize a return the package refused
+# to build anything from had the other three to match on the prose, which is the
+# thing a message is free to change. All of them now carry
+# `deli_psi_return_error`, and the shape failures keep `deli_psi_shape_error`
+# ahead of it, so the reframing eval_psi_at_init() does still catches exactly
+# the failure an automatic `init` can explain.
+
+test_that("check_psi_at_init classes every return it rejects", {
+  expect_error(
+    check_psi_at_init(NULL, init = c(0)),
+    class = "deli_psi_return_error"
+  )
+  expect_error(
+    check_psi_at_init(matrix("a", nrow = 1), init = c(0)),
+    class = "deli_psi_return_error"
+  )
+  expect_error(
+    check_psi_at_init(matrix(1:5, nrow = 1), init = c(0, 0)),
+    class = "deli_psi_return_error"
+  )
+  expect_error(
+    check_psi_at_init(
+      matrix(1:5, nrow = 1),
+      init = c(0, 0),
+      allow_over_identification = TRUE
+    ),
+    class = "deli_psi_return_error"
+  )
+  expect_error(
+    check_psi_at_init(matrix(c(NA_real_, 1:4), nrow = 1), init = c(0)),
+    class = "deli_psi_return_error"
+  )
+})
+
+test_that("check_psi_at_theta classes every return it rejects", {
+  expect_error(
+    check_psi_at_theta(NULL, theta = c(0)),
+    class = "deli_psi_return_error"
+  )
+  expect_error(
+    check_psi_at_theta(matrix("a", nrow = 1), theta = c(0)),
+    class = "deli_psi_return_error"
+  )
+  expect_error(
+    check_psi_at_theta(matrix(1:5, nrow = 1), theta = c(0, 0)),
+    class = "deli_psi_return_error"
+  )
+  expect_error(
+    check_psi_at_theta(matrix(c(NA_real_, 1:4), nrow = 1), theta = c(0)),
+    class = "deli_psi_return_error"
+  )
+})
+
+test_that("the shape failures keep the class the reframing catches", {
+  shortfall <- expect_error(
+    check_psi_at_init(
+      matrix(1:5, nrow = 1),
+      init = c(0, 0),
+      allow_over_identification = TRUE
+    ),
+    class = "deli_psi_shape_error"
+  )
+  # The narrower class leads, so a caller reading class(cnd)[[1]] sees the
+  # specific failure rather than the family it belongs to.
+  expect_equal(class(shortfall)[[1L]], "deli_psi_shape_error")
+
+  # The family alone is not enough to be reframed as a short automatic `init`.
+  not_shape <- expect_error(
+    check_psi_at_init(NULL, init = c(0)),
+    class = "deli_psi_return_error"
+  )
+  expect_false(inherits(not_shape, "deli_psi_shape_error"))
+})
+
+# The frame the step and derivative-method aborts report -------------------
+#
+# check_dx() and check_deriv_method() judge arguments the caller wrote, from one
+# frame below whatever entry point they wrote them in. Both reported their own
+# frame, which names a helper's parameters and appears in no man page, so the
+# report named nothing the caller could act on. Each of them names the entry
+# point instead.
+
+expect_names_frame <- function(err, frame) {
+  expect_match(reported_call(err), frame, fixed = TRUE)
+  expect_false(grepl("check_dx", reported_call(err), fixed = TRUE))
+  expect_false(grepl("check_deriv_method", reported_call(err), fixed = TRUE))
+}
+
+test_that("compute_sandwich() names itself for a bad step and method", {
+  y <- c(1, 2, 3, 4, 5)
+  psi <- function(theta) matrix(y - theta[1], nrow = 1)
+
+  expect_names_frame(
+    expect_error(compute_sandwich(psi, theta = mean(y), dx = -1)),
+    "compute_sandwich("
+  )
+  expect_names_frame(
+    expect_error(compute_sandwich(psi, theta = mean(y), deriv_method = "nope")),
+    "compute_sandwich("
+  )
+})
+
+test_that("the estimate() methods name themselves for a bad step and method", {
+  psi <- function(theta) matrix(c(1, 2, 3, 4, 5) - theta[1], nrow = 1)
+
+  expect_names_frame(
+    expect_error(estimate(MEstimator(psi, init = 0), dx = -1)),
+    "method(estimate, deli::MEstimator)"
+  )
+  expect_names_frame(
+    expect_error(estimate(MEstimator(psi, init = 0), deriv_method = "nope")),
+    "method(estimate, deli::MEstimator)"
+  )
+  expect_names_frame(
+    expect_error(estimate(GMMEstimator(psi, init = 0), dx = -1)),
+    "method(estimate, deli::GMMEstimator)"
+  )
+})
+
+test_that("delta_method() names the method the caller reached", {
+  psi <- function(theta) matrix(c(1, 2, 3, 4, 5) - theta[1], nrow = 1)
+  fit <- m_estimate(stacked_equations = psi, init = 0)
+  transform <- function(theta) exp(theta[1])
+
+  expect_names_frame(
+    expect_error(delta_method(fit, transform = transform, dx = -1)),
+    "method(delta_method, deli::deli_estimator)"
+  )
+  expect_names_frame(
+    expect_error(
+      delta_method(fit, transform = transform, deriv_method = "nope")
+    ),
+    "method(delta_method, deli::deli_estimator)"
+  )
+  expect_names_frame(
+    expect_error(
+      delta_method(
+        coef(fit),
+        transform = transform,
+        covariance = vcov(fit),
+        deriv_method = "nope"
+      )
+    ),
+    "method(delta_method,"
+  )
+})
+
+test_that("the survival prediction helpers name themselves for a bad step", {
+  expect_names_frame(
+    expect_error(survival_predictions(
+      times = c(1, 2),
+      theta = c(0.1, 0.2),
+      covariance = diag(2),
+      distribution = "weibull",
+      dx = -1
+    )),
+    "survival_predictions("
+  )
+  expect_names_frame(
+    expect_error(aft_predictions_function(
+      X = matrix(c(1, 1), nrow = 1),
+      times = c(5, 10),
+      theta = c(1, 0.5, 0),
+      covariance = diag(3),
+      distribution = "weibull",
+      dx = -1
+    )),
+    "aft_predictions_function("
+  )
+})

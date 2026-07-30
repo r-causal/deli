@@ -131,7 +131,13 @@ method(estimate, MEstimator) <- function(
   ...
 ) {
   rlang::check_dots_empty(call = rlang::caller_env())
+  # The step and the derivative method are judged here, where the frame to
+  # report them against is this method rather than the worker below it. The
+  # method the caller reached is the nearest frame that appears in a man page.
+  # `compute_bread()` normalizes the method again for the callers that reach it
+  # by another route.
   check_dx(dx)
+  deriv_method <- check_deriv_method(deriv_method)
   # One fit evaluates the estimating function many times, so an estimating
   # function that warns raises the same warning repeatedly for one operation.
   # See R/conditions.R. The scope wraps a worker rather than this body because a
@@ -1551,6 +1557,7 @@ method(estimate, GMMEstimator) <- function(
 ) {
   rlang::check_dots_empty(call = rlang::caller_env())
   check_dx(dx)
+  deriv_method <- check_deriv_method(deriv_method)
   # See the MEstimator method above and R/conditions.R for why the body sits in
   # a worker and what the scope does.
   without_repeated_warnings(estimate_gmm_estimator(

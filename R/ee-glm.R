@@ -125,6 +125,14 @@ ee_glm <- function(
   }
   w <- generate_weights(n, weights)
 
+  # Both names are judged before either is used. The branch below reads
+  # `distribution` through an `if`, which is where a `NULL` or a longer vector
+  # failed as base R rather than as an argument of this function, and `link` is
+  # judged alongside it so that the pair is refused on the same terms whichever
+  # of them the caller got wrong.
+  check_family_name(distribution, "distribution")
+  check_family_name(link, "link")
+
   dist <- tolower(distribution)
 
   # Distributions with an extra parameter carry the log of that parameter as
@@ -144,8 +152,10 @@ ee_glm <- function(
     eta <- eta + as.numeric(offset)
   }
 
-  # Inverse link and its derivative
-  inv <- inverse_link(eta, link)
+  # Inverse link and its derivative. Both helpers are internal and appear in no
+  # man page, so an unsupported name is reported against the estimating equation
+  # the caller wrote rather than against the helper that read it.
+  inv <- inverse_link(eta, link, call = rlang::current_env())
   pred_y <- inv$mu
   deriv <- inv$dmu
 
@@ -154,7 +164,8 @@ ee_glm <- function(
     pred_y,
     distribution,
     alpha = alpha,
-    hyperparameter = hyperparameter
+    hyperparameter = hyperparameter,
+    call = rlang::current_env()
   )
 
   # Score: (y - mu) * d(mu)/d(eta) / V(mu) * X
@@ -205,8 +216,12 @@ ee_glm <- function(
 }
 
 #' Internal inverse link function dispatcher
+#'
+#' @param call The frame to report an unsupported link against. This function
+#'   appears in no man page, so the default is the frame one up, which is the
+#'   estimating equation or the prediction the caller reached.
 #' @noRd
-inverse_link <- function(eta, link) {
+inverse_link <- function(eta, link, call = rlang::caller_env()) {
   link <- tolower(link)
   if (link == "identity") {
     list(mu = eta, dmu = rep(1, length(eta)))
@@ -241,17 +256,21 @@ inverse_link <- function(eta, link) {
     dmu <- 2 * eta
     list(mu = mu, dmu = dmu)
   } else {
-    cli::cli_abort("Link function {.val {link}} is not supported.")
+    cli::cli_abort("Link function {.val {link}} is not supported.", call = call)
   }
 }
 
 #' Internal distribution variance function
+#'
+#' @param call The frame to report an unsupported distribution or an unusable
+#'   `hyperparameter` against, on the same terms as [inverse_link()]'s.
 #' @noRd
 distribution_variance <- function(
   mu,
   distribution,
   alpha = NULL,
-  hyperparameter = NULL
+  hyperparameter = NULL,
+  call = rlang::caller_env()
 ) {
   dist <- tolower(distribution)
   if (dist %in% c("normal", "gaussian")) {
@@ -271,16 +290,22 @@ distribution_variance <- function(
     # be supplied and non-negative.
     if (is.null(hyperparameter)) {
       cli::cli_abort(
-        "The {.val tweedie} distribution requires a {.arg hyperparameter}."
+        "The {.val tweedie} distribution requires a {.arg hyperparameter}.",
+        call = call
       )
     }
     if (hyperparameter < 0) {
       cli::cli_abort(
-        "The {.arg hyperparameter} for the {.val tweedie} distribution must be non-negative."
+        "The {.arg hyperparameter} for the {.val tweedie} distribution must be
+         non-negative.",
+        call = call
       )
     }
     mu^hyperparameter
   } else {
-    cli::cli_abort("Distribution {.val {distribution}} is not supported.")
+    cli::cli_abort(
+      "Distribution {.val {distribution}} is not supported.",
+      call = call
+    )
   }
 }

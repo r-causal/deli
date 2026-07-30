@@ -247,18 +247,26 @@ check_estimator_subset <- function(subset, n_params) {
   invisible(NULL)
 }
 
-# ---- initial-value failure conditions ---------------------------------------
-# The aborts raised while judging the estimating function at the initial values
-# carry condition classes, so a calling function or a test can match on the
-# class rather than on the prose, as the solver warnings in `R/estimate.R` and
-# the exact-mode aborts in `R/autodiff.R` do.
+# ---- estimating-function return conditions -----------------------------------
+# The aborts raised while judging what the estimating function returned carry
+# condition classes, so a calling function or a test can match on the class
+# rather than on the prose, as the solver warnings in `R/estimate.R` and the
+# exact-mode aborts in `R/autodiff.R` do.
+#
+#   deli_psi_return_error
+#     The estimating function returned something no sandwich can be built from.
+#     Every abort in check_psi_at_init() and check_psi_at_theta() carries it, so
+#     a caller who wants to recognize a refused return matches one class rather
+#     than four messages. It is the family rather than the diagnosis, and the
+#     narrower class below leads the vector where there is one.
 #
 #   deli_psi_shape_error
 #     The estimating function returned a number of equations that cannot be
 #     solved against the number of parameters: any mismatch under M-estimation,
-#     a shortfall under GMM. It is the one failure raised here that a short
-#     automatic `init` can explain, which is why eval_psi_at_init() catches
-#     this class alone rather than every error.
+#     a shortfall under GMM or at a point handed to compute_sandwich(). It is
+#     the one failure raised here that a short automatic `init` can explain,
+#     which is why eval_psi_at_init() catches this class alone rather than the
+#     family or every error.
 #
 #   deli_formula_auto_init_error
 #     A failure at an `init` the formula interface generated itself, reframed
@@ -330,6 +338,7 @@ check_psi_at_init <- function(
         "i" = "It must return a numeric vector or matrix of estimating-function
                contributions."
       ),
+      class = "deli_psi_return_error",
       call = error_call
     )
   }
@@ -342,6 +351,7 @@ check_psi_at_init <- function(
     cli::cli_abort(
       "{.arg stacked_equations} must return a numeric vector or matrix at the
        initial values, not {.obj_type_friendly {vals}}.",
+      class = "deli_psi_return_error",
       call = error_call
     )
   }
@@ -367,7 +377,7 @@ check_psi_at_init <- function(
         "i" = "M-estimation requires one estimating equation per parameter (a
                {n_params}-by-n matrix)."
       ),
-      class = "deli_psi_shape_error",
+      class = c("deli_psi_shape_error", "deli_psi_return_error"),
       call = error_call
     )
   }
@@ -387,7 +397,7 @@ check_psi_at_init <- function(
         "i" = "Return more moment conditions from {.arg stacked_equations}, or
                estimate fewer parameters."
       ),
-      class = "deli_psi_shape_error",
+      class = c("deli_psi_shape_error", "deli_psi_return_error"),
       call = error_call,
       # The count travels with the condition so that the formula path can name it
       # while reframing the failure against its automatic `init`, without
@@ -408,6 +418,7 @@ check_psi_at_init <- function(
                logarithm or square root of a non-positive number, or another
                undefined value in the estimating equations."
       ),
+      class = "deli_psi_return_error",
       call = error_call
     )
   }
@@ -453,6 +464,7 @@ check_psi_at_theta <- function(vals, theta, call = rlang::caller_env()) {
         "i" = "It must return a numeric vector or matrix of estimating-function
                contributions."
       ),
+      class = "deli_psi_return_error",
       call = call
     )
   }
@@ -460,6 +472,7 @@ check_psi_at_theta <- function(vals, theta, call = rlang::caller_env()) {
     cli::cli_abort(
       "{.arg stacked_equations} must return a numeric vector or matrix at
        {.arg theta}, not {.obj_type_friendly {vals}}.",
+      class = "deli_psi_return_error",
       call = call
     )
   }
@@ -477,7 +490,7 @@ check_psi_at_theta <- function(vals, theta, call = rlang::caller_env()) {
         "i" = "More estimating equations than parameters is the over-identified
                system, which is accepted."
       ),
-      class = "deli_psi_shape_error",
+      class = c("deli_psi_shape_error", "deli_psi_return_error"),
       call = call
     )
   }
@@ -488,6 +501,7 @@ check_psi_at_theta <- function(vals, theta, call = rlang::caller_env()) {
         "i" = "Both the bread and the meat are built from this return, so a
                non-finite value in it leaves the whole sandwich undefined."
       ),
+      class = "deli_psi_return_error",
       call = call
     )
   }
@@ -1096,27 +1110,66 @@ check_solver_return <- function(theta, n_params) {
 #'
 #' @param deriv_method The derivative method supplied by the caller. One of
 #'   `"capprox"`, `"fapprox"`, `"bapprox"`, or `"exact"`, in any case.
+#' @param call The frame to report the refusal against. This function judges an
+#'   argument the caller wrote and appears in no man page, so the default is the
+#'   frame one up rather than this one. Every caller runs the check in its own
+#'   body, so that frame is the entry point the caller reached, except in
+#'   `delta_method_impl()`, which is itself a worker and passes the frame it was
+#'   given.
 #'
 #' @returns The lower-cased method string. Raises an error if the value is not a
 #'   single supported string.
 #' @keywords internal
-check_deriv_method <- function(deriv_method) {
+check_deriv_method <- function(deriv_method, call = rlang::caller_env()) {
   if (!is.character(deriv_method) || length(deriv_method) != 1L) {
     cli::cli_abort(
       "{.arg deriv_method} must be a single string, not
-       {.obj_type_friendly {deriv_method}}."
+       {.obj_type_friendly {deriv_method}}.",
+      call = call
     )
   }
   normalized <- tolower(deriv_method)
   supported <- c("capprox", "fapprox", "bapprox", "exact")
   if (!normalized %in% supported) {
-    cli::cli_abort(c(
-      "{.arg deriv_method} value {.val {deriv_method}} is not supported.",
-      "i" = "Supported options: {.val capprox}, {.val fapprox},
-             {.val bapprox}, {.val exact}."
-    ))
+    cli::cli_abort(
+      c(
+        "{.arg deriv_method} value {.val {deriv_method}} is not supported.",
+        "i" = "Supported options: {.val capprox}, {.val fapprox},
+               {.val bapprox}, {.val exact}."
+      ),
+      call = call
+    )
   }
   normalized
+}
+
+#' Check that a distribution or link is a single string
+#'
+#' The generalized linear estimating equations read `distribution` and `link`
+#' by name, and the helpers that read them dispatch through `if` on a comparison
+#' with a single value. A `NULL` or a vector longer than one never reaches the
+#' unsupported-name diagnostic those helpers raise: it fails the `if` first, as
+#' base R's `argument is of length zero` or `the condition has length > 1`,
+#' reported against a branch the caller never wrote. `ee_glm()` partitions
+#' `theta` on a comparison of its own before either helper is reached, so the
+#' name is judged where the caller supplied it instead.
+#'
+#' @param value The distribution or link supplied by the caller.
+#' @param arg The argument name, used in the error message.
+#' @param call The frame to report the refusal against, which is the estimating
+#'   equation the caller wrote.
+#'
+#' @returns Invisible `NULL`. Raises an error if the value is not a single
+#'   non-missing string.
+#' @keywords internal
+check_family_name <- function(value, arg, call = rlang::caller_env()) {
+  if (is.character(value) && length(value) == 1L && !is.na(value)) {
+    return(invisible(NULL))
+  }
+  cli::cli_abort(
+    "{.arg {arg}} must be a single string, not {.obj_type_friendly {value}}.",
+    call = call
+  )
 }
 
 #' Check that a finite-difference step is a single positive number
@@ -1139,25 +1192,30 @@ check_deriv_method <- function(deriv_method) {
 #' alternative is accepting it in silence and rejecting it on the next call.
 #'
 #' @param dx The finite-difference step supplied by the caller.
+#' @param call The frame to report the refusal against, on the same terms as
+#'   [check_deriv_method()]'s.
 #'
 #' @returns Invisible `NULL`. Raises an error if the step is not a single
 #'   positive finite number.
 #' @keywords internal
-check_dx <- function(dx) {
+check_dx <- function(dx, call = rlang::caller_env()) {
   if (is.numeric(dx) && length(dx) == 1L && is.finite(dx) && dx > 0) {
     return(invisible(NULL))
   }
-  cli::cli_abort(c(
-    "{.arg dx} must be a single positive finite number.",
-    # A single number is reported by value, because naming its type reports it
-    # as "a number", which says nothing about which of the three requirements it
-    # missed. Anything else is reported by type, which is what it failed on.
-    "x" = if (is.numeric(dx) && length(dx) == 1L) {
-      "The step supplied was {.val {dx}}."
-    } else {
-      "The step supplied was {.obj_type_friendly {dx}}."
-    }
-  ))
+  cli::cli_abort(
+    c(
+      "{.arg dx} must be a single positive finite number.",
+      # A single number is reported by value, because naming its type reports it
+      # as "a number", which says nothing about which of the three requirements
+      # it missed. Anything else is reported by type, which is what it failed on.
+      "x" = if (is.numeric(dx) && length(dx) == 1L) {
+        "The step supplied was {.val {dx}}."
+      } else {
+        "The step supplied was {.obj_type_friendly {dx}}."
+      }
+    ),
+    call = call
+  )
 }
 
 #' Check that an over-identification control is a single number

@@ -489,6 +489,7 @@ compute_sandwich <- function(
   # is no longer this one. The frame is taken once, here, and passed to each of
   # them.
   call <- rlang::current_env()
+  deriv_method <- check_deriv_method(deriv_method, call = call)
   # This evaluates the estimating function once for itself and once or twice per
   # parameter for the bread, so an estimating function that warns raises the same
   # warning several times for one call. See R/conditions.R. The body is short
@@ -908,8 +909,8 @@ delta_method_impl <- function(
       call = call
     )
   }
-  deriv_method <- check_deriv_method(deriv_method)
-  check_dx(dx)
+  deriv_method <- check_deriv_method(deriv_method, call = call)
+  check_dx(dx, call = call)
   theta <- as.numeric(theta)
   covariance <- as.matrix(covariance)
 

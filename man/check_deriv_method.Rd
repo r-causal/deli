@@ -4,11 +4,18 @@
 \alias{check_deriv_method}
 \title{Normalize and validate a derivative-method argument}
 \usage{
-check_deriv_method(deriv_method)
+check_deriv_method(deriv_method, call = rlang::caller_env())
 }
 \arguments{
 \item{deriv_method}{The derivative method supplied by the caller. One of
 \code{"capprox"}, \code{"fapprox"}, \code{"bapprox"}, or \code{"exact"}, in any case.}
+
+\item{call}{The frame to report the refusal against. This function judges an
+argument the caller wrote and appears in no man page, so the default is the
+frame one up rather than this one. Every caller runs the check in its own
+body, so that frame is the entry point the caller reached, except in
+\code{delta_method_impl()}, which is itself a worker and passes the frame it was
+given.}
 }
 \value{
 The lower-cased method string. Raises an error if the value is not a

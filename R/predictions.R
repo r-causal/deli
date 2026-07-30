@@ -156,6 +156,9 @@ survival_predictions <- function(
 ) {
   check_prediction_alpha(alpha)
   check_dx(dx)
+  # Validated here rather than where it is used, which is inside the delta
+  # method, so that the report names the prediction the caller asked for.
+  deriv_method <- check_deriv_method(deriv_method)
 
   distribution <- tolower(distribution)
   times <- as.numeric(times)
@@ -415,6 +418,8 @@ aft_predictions_function <- function(
 ) {
   check_prediction_alpha(alpha)
   check_dx(dx)
+  # See survival_predictions() for why the method is judged here.
+  deriv_method <- check_deriv_method(deriv_method)
 
   X <- coerce_design(X)
 

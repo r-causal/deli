@@ -437,6 +437,12 @@ ee_ipw_msm <- function(
   y <- as.numeric(y)
   n <- length(y)
 
+  # The name is judged before it is compared, because the comparison below reads
+  # it through an `if`, which is where a `NULL` or a longer vector failed as
+  # base R rather than as an argument of this function.
+  check_family_name(distribution, "distribution")
+  check_family_name(link, "link")
+
   # An outcome family that estimates a nuisance parameter has nowhere to keep it
   # here. ee_glm() reads the last element of the coefficient vector it is handed
   # as that parameter, and the theta partition below reserves exactly ncol(V)

@@ -4,10 +4,13 @@
 \alias{check_dx}
 \title{Check that a finite-difference step is a single positive number}
 \usage{
-check_dx(dx)
+check_dx(dx, call = rlang::caller_env())
 }
 \arguments{
 \item{dx}{The finite-difference step supplied by the caller.}
+
+\item{call}{The frame to report the refusal against, on the same terms as
+\code{\link[=check_deriv_method]{check_deriv_method()}}'s.}
 }
 \value{
 Invisible \code{NULL}. Raises an error if the step is not a single
