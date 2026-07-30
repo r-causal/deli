@@ -386,3 +386,107 @@ test_that("a formula GMM fit carries the J-statistic", {
   # The measured P-value is 0.535.
   expect_gt(j_p_value(fit), 0.05)
 })
+
+# ---- moment conditions that repeat one another -------------------------------
+#
+# A stack whose moment conditions are linearly dependent has a singular moment
+# covariance, so the two-step update cannot invert it and reaches
+# `MASS::ginv()`. That happened without a word: the fit came back with the
+# estimates and the standard errors of the independent conditions on their own,
+# and the J-statistic said nothing either, because a repeated condition adds no
+# disagreement for J to measure and drives it to zero.
+#
+# The reading here is about the weight matrix alone. Whether the parameters are
+# identified is a separate question that the bread answers, and this stack
+# identifies them perfectly well.
+
+dependent_moment_case <- function() {
+  set.seed(7)
+  n <- 200
+  x <- stats::rnorm(n)
+  y <- 1 + 2 * x + stats::rnorm(n)
+  X <- cbind(1, x)
+  # The third condition repeats the first, so three conditions carry the
+  # information of two and the moment covariance is rank two of three.
+  function(theta) {
+    r <- as.numeric(y - X %*% theta)
+    rbind(r, r * x, r)
+  }
+}
+
+test_that("a repeated moment condition is reported rather than pseudo-inverted", {
+  skip_if_not_installed("MASS")
+  psi <- dependent_moment_case()
+
+  expect_warning(
+    fit <- gmm_estimate(
+      stacked_equations = psi,
+      init = c(0, 0),
+      overid_maxiter = settled_budget
+    ),
+    class = "deli_gmm_moments_dependent"
+  )
+
+  # The estimates are still the ones the objective asked for, so this is a
+  # report on the system rather than a refusal to fit it.
+  expect_length(coef(fit), 2L)
+  expect_equal(unname(coef(fit)), c(0.9477646, 2.0693459), tolerance = 1e-6)
+})
+
+test_that("the report names the conditions that carry no new information", {
+  skip_if_not_installed("MASS")
+  psi <- dependent_moment_case()
+
+  w <- expect_warning(
+    gmm_estimate(
+      stacked_equations = psi,
+      init = c(0, 0),
+      overid_maxiter = settled_budget
+    ),
+    class = "deli_gmm_moments_dependent"
+  )
+
+  expect_match(conditionMessage(w), "3")
+  expect_match(conditionMessage(w), "rank 2 of 3")
+})
+
+test_that("the J-statistic does not surface a repeated moment condition", {
+  skip_if_not_installed("MASS")
+  psi <- dependent_moment_case()
+
+  expect_warning(
+    fit <- gmm_estimate(
+      stacked_equations = psi,
+      init = c(0, 0),
+      overid_maxiter = settled_budget
+    ),
+    class = "deli_gmm_moments_dependent"
+  )
+
+  # A repeated condition agrees with the one it repeats by construction, so J
+  # is at round-off and its P-value is 1. Nothing about the reading J takes
+  # would ever have reported this stack.
+  expect_lt(fit@j_statistic, 1e-8)
+  expect_equal(j_p_value(fit), 1, tolerance = 1e-6)
+})
+
+test_that("an independent over-identified stack raises no dependence warning", {
+  skip_if_not_installed("MASS")
+  set.seed(7)
+  n <- 200
+  x <- stats::rnorm(n)
+  y <- 1 + 2 * x + stats::rnorm(n)
+  X <- cbind(1, x)
+  psi <- function(theta) {
+    r <- as.numeric(y - X %*% theta)
+    rbind(r, r * x, r * x^2)
+  }
+
+  expect_no_warning(
+    gmm_estimate(
+      stacked_equations = psi,
+      init = c(0, 0),
+      overid_maxiter = settled_budget
+    )
+  )
+})

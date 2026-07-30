@@ -263,7 +263,7 @@ inverse_link <- function(eta, link, call = rlang::caller_env()) {
 #' Internal distribution variance function
 #'
 #' @param call The frame to report an unsupported distribution or an unusable
-#'   `hyperparameter` against, on the same terms as [inverse_link()]'s.
+#'   `hyperparameter` against, on the same terms as `inverse_link()`'s.
 #' @noRd
 distribution_variance <- function(
   mu,

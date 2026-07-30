@@ -197,11 +197,15 @@ ee_line <- function(theta, X, y, ...) {
   t(X * as.vector(y - X %*% theta))
 }
 
-# The same model with the plain residual stacked on as a third moment, which
-# leaves the two coefficients over-identified and so needs GMM.
+# The same model with the residual against the squared covariate stacked on as a
+# third moment, which leaves the two coefficients over-identified and so needs
+# GMM. The plain residual will not do here: the design carries an intercept, so
+# its own score row is already the plain residual, and a third row repeating it
+# leaves the moment covariance singular and the system over-identified in name
+# only.
 ee_line_over <- function(theta, X, y, ...) {
   r <- as.vector(y - X %*% theta)
-  rbind(t(X * r), r)
+  rbind(t(X * r), r * X[, 2]^2)
 }
 
 test_that("m_estimate() reports the automatic init length for a gamma fit", {

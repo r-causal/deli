@@ -397,6 +397,15 @@ estimate_m_estimator <- function(
 #     settled, since an unsettled weight matrix leaves J no reference distribution
 #     to be judged against and the exhausted budget has been reported already.
 #
+#   deli_gmm_moments_dependent
+#     The moment conditions of an over-identified GMM fit are linearly dependent
+#     at the estimated values, so their covariance cannot be inverted and the
+#     two-step weight matrix is a pseudo-inverse. A warning rather than an error
+#     for the same reason as the one above: the estimates are the ones the
+#     objective asked for, and what is being reported on is the system. It is
+#     separate from the J-statistic reading because J cannot see this at all.
+#     Raised by `warn_dependent_moments()`.
+#
 #   deli_nested_solver_error
 #     A rootSolve solve was asked for while another one was running. This one is
 #     an error rather than a warning, because the solve cannot be attempted at
@@ -1717,6 +1726,14 @@ estimate_gmm_estimator <- function(
                 "MASS",
                 reason = "for pseudo-inverse when the meat matrix is singular."
               )
+              # The pseudo-inverse is what the update falls back to, and taking
+              # it in silence is what let a stack of repeated moment conditions
+              # fit as though it were over-identified. The report is raised
+              # where the fallback is reached, so it costs nothing on a stack
+              # that never needs one. The update runs once per pass and the
+              # conditions it names do not change between them, so the scope in
+              # R/conditions.R delivers the passes as one warning.
+              warn_dependent_moments(meat_q)
               MASS::ginv(meat_q)
             }
           )
@@ -1954,6 +1971,61 @@ estimate_gmm_estimator <- function(
   object@j_statistic <- j_statistic
 
   object
+}
+
+#' Report moment conditions that carry no information the others do not
+#'
+#' The two-step update sets the weight matrix to the inverse of the moment
+#' covariance, so a stack whose conditions are linearly dependent has no weight
+#' matrix to take: the covariance is singular and the update falls through to the
+#' pseudo-inverse. What the fit then reports is the fit of the independent
+#' conditions, with the dependent ones contributing nothing, and nothing about it
+#' says so. The J-statistic does not, either: a condition that repeats another
+#' agrees with it at every value of the parameters, so it adds no disagreement
+#' for J to measure and drives J towards zero, which is the direction that reads
+#' as a well-specified system.
+#'
+#' The conditions are named by the pivoting `qr()` does on the covariance, which
+#' drops one column per lost direction and reports which. Those are the
+#' conditions the remaining ones already account for, rather than the ones at
+#' fault: a dependence is a property of a set, and which member of the set is
+#' named is the factorization's choice. The message says so.
+#'
+#' This reading is about the weight matrix alone. Whether the parameters
+#' themselves are identified is a separate question, which the bread answers and
+#' `not_identified()` reports on for an M-estimation fit.
+#'
+#' @param meat The moment covariance the update could not invert.
+#' @returns Invisible `NULL`, called for the warning.
+#' @noRd
+warn_dependent_moments <- function(meat) {
+  factored <- qr(meat)
+  n_moments <- ncol(meat)
+  # cli reads a single number as the quantity to pluralize on rather than
+  # counting the values it was given, so one dependent condition at position 3
+  # would be described in the plural. The positions are written out as strings
+  # for the same reason default_param_names() writes its own out, and the count
+  # is stated with `qty()` because the marker ahead of the list would otherwise
+  # take the rank as its quantity.
+  dependent <- as.character(sort(factored$pivot[-seq_len(factored$rank)]))
+  cli::cli_warn(
+    c(
+      "!" = "The moment conditions are linearly dependent at the estimated
+             values, so the weight matrix is a pseudo-inverse.",
+      "i" = "Their covariance has rank {factored$rank} of {n_moments}.",
+      "i" = "{cli::qty(dependent)}Moment condition{?s} {dependent} {?is/are}
+             accounted for by the others, so {?it carries/they carry} no
+             information the rest do not. Which of a dependent set is named is
+             the factorization's choice rather than a verdict on that
+             condition.",
+      "i" = "The system is over-identified in name only, and the J-statistic
+             cannot report it: a condition the others already account for agrees
+             with them wherever the parameters sit, so it adds nothing for J to
+             measure."
+    ),
+    class = "deli_gmm_moments_dependent"
+  )
+  invisible(NULL)
 }
 
 #' Hansen's J-statistic at a GMM minimum

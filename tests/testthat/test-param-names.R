@@ -863,11 +863,12 @@ test_that("an equation whose extra parameter leads keeps its own row names", {
 
 test_that("a GMM formula fit labels an unnamed init as well", {
   d <- formula_gamma_data()
-  # The plain residual stacked beneath the two score rows leaves the two
-  # coefficients over-identified, which is the case GMM is for.
+  # The residual against the squared covariate, stacked beneath the two score
+  # rows, leaves the two coefficients over-identified, which is the case GMM is
+  # for. The plain residual would repeat the intercept score row instead.
   ee_over <- function(theta, X, y, ...) {
     r <- as.vector(y - X %*% theta)
-    base::rbind(t(X * r), r)
+    base::rbind(t(X * r), r * X[, 2]^2)
   }
 
   g <- gmm_estimate(y ~ x, data = d, .ee = ee_over, init = c(0, 0))
