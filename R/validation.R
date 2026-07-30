@@ -262,8 +262,8 @@ check_estimator_subset <- function(subset, n_params) {
 #
 #   deli_formula_auto_init_error
 #     A failure at an `init` the formula interface generated itself, reframed
-#     as a problem with the automatic length rather than reported against an
-#     argument the user never supplied. Raised only by
+#     as a failure at those automatic starting values rather than reported
+#     against an argument the user never supplied. Raised only by
 #     abort_formula_auto_init(), and so only on the formula path.
 
 #' Check the estimating-function return at the initial values
@@ -385,14 +385,16 @@ check_psi_at_init <- function(vals, init, allow_over_identification = FALSE) {
 #'
 #' When the formula interface generated `init` itself it records the vector on
 #' the closure as the `deli_auto_init` attribute, and this reframes a failure at
-#' exactly those starting values as a problem with the automatic length, which
-#' the user never chose. Some estimating equations append parameters beyond the
+#' exactly those starting values against the automatic `init`, which the user
+#' never chose. Some estimating equations append parameters beyond the
 #' regression coefficients (for example [ee_glm()] with `"gamma"` or
 #' `"negative_binomial"`, which add a scale or dispersion parameter), so the
 #' automatic `init` is one short and the estimating function either fails
 #' outright or returns the wrong number of rows. Where the equation is one the
 #' formula interface recognizes, the reframed message names the parameter the
-#' automatic length leaves out.
+#' automatic length leaves out; otherwise how much the message can claim about
+#' the length depends on the failure, which `abort_formula_auto_init()`
+#' documents.
 #'
 #' Only those two failures are reframed. A `NULL` or non-numeric return keeps
 #' its own message, because an `init` one element short cannot cause either. A
@@ -455,6 +457,15 @@ eval_psi_at_init <- function(psi, init, allow_over_identification = FALSE) {
 
 #' Abort with the automatic-`init` diagnostic
 #'
+#' The hint the diagnostic carries depends on what is known about the failure.
+#' A recognized equation has the parameter the automatic length leaves out named
+#' outright. Otherwise the length is offered as the likely cause only where the
+#' failure supports it: a wrong-shaped return is a length mismatch by
+#' definition, and an error the estimating function raised is one when the error
+#' itself reads as a length problem. An error that reads as anything else gets a
+#' hint that describes only what is known, because a user whose equation failed
+#' for a reason of its own was sent looking for a length that was never wrong.
+#'
 #' @param init The automatically generated initial parameter vector.
 #' @param appended The parameter the estimating equation estimates beyond the
 #'   design coefficients, or `NULL` when the equation is not one this package
@@ -488,42 +499,83 @@ abort_formula_auto_init <- function(
     "The automatic zero {.arg init} has length {n_params}, the number of
      model-matrix columns, which does not fit the estimating function."
   }
-  # A recognized equation can have the missing parameter named and counted
-  # rather than described, on both paths. Nothing is known about any other
-  # equation's parameters, so the hint stays general there.
-  if (!is.null(appended)) {
-    cli::cli_abort(
-      c(
-        header,
-        "i" = "This estimating equation estimates one parameter beyond the
-               design coefficients, {.val {appended}}, so it needs an
-               {.arg init} of length {n_params + 1}.",
-        "i" = "Supply an explicit {.arg init} of length {n_params + 1}."
-      ),
-      parent = parent,
-      call = error_call,
-      class = "deli_formula_auto_init_error"
-    )
-  }
-  hint <- if (errored) {
-    "A length mismatch is the most common cause. Estimating equations such as
-     {.fn ee_glm} with {.val gamma} or {.val negative_binomial} append an extra
-     parameter and need an {.arg init} one longer than the coefficients."
-  } else {
-    "Estimating equations such as {.fn ee_glm} with {.val gamma} or
+  length_hint <- "Estimating equations such as {.fn ee_glm} with {.val gamma} or
      {.val negative_binomial} append an extra parameter and need an
      {.arg init} one longer than the coefficients."
+  bullets <- if (!is.null(appended)) {
+    # A recognized equation can have the missing parameter named and counted
+    # rather than described, on both paths, and whatever the failure was. It is
+    # the equation's own layout that is known here, not anything read off the
+    # error, so this branch is judged first.
+    c(
+      "i" = "This estimating equation estimates one parameter beyond the
+             design coefficients, {.val {appended}}, so it needs an
+             {.arg init} of length {n_params + 1}.",
+      "i" = "Supply an explicit {.arg init} of length {n_params + 1}."
+    )
+  } else if (errored && !error_looks_length_related(parent)) {
+    # Nothing is known about an unrecognized equation's parameters, and an
+    # error that does not read as a length problem is no evidence that the
+    # length is one. Both bullets stay with what is known: the equation failed,
+    # its own error says why, and an explicit `init` is how to rule the
+    # automatic one out rather than the fix being asserted in advance.
+    c(
+      "i" = "The estimating function itself failed at those starting values;
+             the error it raised is reported below.",
+      "i" = "Supplying an explicit {.arg init} rules the automatic one out as
+             the cause."
+    )
+  } else {
+    # A wrong-shaped return, or an error that reads as a length problem. Only
+    # the second of those needs the cause offered as likely rather than stated,
+    # since the first is a length mismatch on the face of it.
+    hint <- if (errored) {
+      paste("A length mismatch is the most common cause.", length_hint)
+    } else {
+      length_hint
+    }
+    c("i" = hint, "i" = "Supply an explicit {.arg init} of the correct length.")
   }
   cli::cli_abort(
-    c(
-      header,
-      "i" = hint,
-      "i" = "Supply an explicit {.arg init} of the correct length."
-    ),
+    c(header, bullets),
     parent = parent,
     call = error_call,
     class = "deli_formula_auto_init_error"
   )
+}
+
+#' Whether an error reads as a length problem
+#'
+#' Decides whether the error an estimating function raised at the automatic
+#' `init` supports naming the length as the likely cause. The families a
+#' too-short automatic `init` actually produces are three: a matrix product
+#' against a parameter vector one element longer than the parameters reach,
+#' which R reports as non-conformable; `[[` past the end of the parameter
+#' vector; and the equation's own check on the length of `theta`, which says so
+#' in its own words.
+#'
+#' Out-of-bounds `[[` carries a condition class of its own, so that family is
+#' recognized without reading a message at all. The other two are matched on the
+#' text, which two things follow from. The first is that the parameter vector's
+#' name is not part of the match: the offending call belongs to whatever the
+#' equation calls its parameters, and [ee_glm()] with `"gamma"` fails in
+#' `X %*% beta`, so a match requiring the name `theta` would miss the very case
+#' this diagnostic was written for. The second is that a translated message will
+#' not match, which costs the hint rather than misdirecting: the caller falls
+#' back to the neutral wording, and the error itself is reported either way.
+#'
+#' @param cnd The condition raised while evaluating the estimating function.
+#'
+#' @returns `TRUE` when the error reads as a length problem, `FALSE` otherwise.
+#' @noRd
+error_looks_length_related <- function(cnd) {
+  if (inherits(cnd, "subscriptOutOfBoundsError")) {
+    return(TRUE)
+  }
+  any(grepl(
+    "non-conformable|subscript out of bounds|length",
+    conditionMessage(cnd)
+  ))
 }
 
 # ---- formula-interface conditions --------------------------------------------

@@ -187,6 +187,16 @@ collect_warnings <- function(expr) {
   seen
 }
 
+# The entry point an abort reports. `conditionCall()` is `NULL` for an error
+# raised with `call = NULL`, and rlang maps a method dispatched through
+# `UseMethod()` back to its generic, so the head of the reported call is the
+# function the caller typed rather than the `.formula` method or any of the
+# helpers beneath it.
+reported_entry_point <- function(err) {
+  call <- conditionCall(err)
+  if (is.null(call)) NULL else call[[1]]
+}
+
 make_line_data <- function() {
   set.seed(7)
   d <- data.frame(x = stats::rnorm(20))
@@ -295,12 +305,131 @@ test_that("the automatic-init diagnostic keeps the original error as its cause",
     fixed = TRUE
   )
   expect_match(flat, "failed", fixed = TRUE)
-  expect_match(flat, "A length mismatch is the most common cause", fixed = TRUE)
   expect_match(
     conditionMessage(err$parent),
     "the equation itself gave up",
     fixed = TRUE
   )
+})
+
+# An estimating function that fails at the automatic init fails for a reason,
+# and the reason is not always the length. The three tests below are the parent
+# errors a short automatic `init` really does produce, and the fourth is a
+# failure that has nothing to do with the length; only the first three are told
+# that a length mismatch is the likely cause.
+
+test_that("the automatic-init diagnostic keeps the length hint for a non-conformable failure", {
+  d <- make_line_data()
+  # The shape `ee_glm()` with "gamma" fails in: the equation multiplies the
+  # design matrix by a parameter vector one longer than the automatic `init`
+  # reaches, so the product is non-conformable.
+  ee_nonconformable <- function(theta, X, y, ...) {
+    r <- as.vector(y - X %*% theta[1:3])
+    rbind(t(X * r), r)
+  }
+  err <- expect_error(
+    m_estimate(y ~ x, data = d, .ee = ee_nonconformable),
+    class = "deli_formula_auto_init_error"
+  )
+  flat <- flatten_message(err)
+  expect_match(flat, "A length mismatch is the most common cause", fixed = TRUE)
+  expect_match(
+    conditionMessage(err$parent),
+    "non-conformable arguments",
+    fixed = TRUE
+  )
+  expect_identical(reported_entry_point(err), quote(m_estimate))
+})
+
+test_that("the automatic-init diagnostic keeps the length hint for a subscript out of bounds", {
+  d <- make_line_data()
+  # `[[` past the end of the parameter vector is the other way an equation that
+  # needs one more parameter fails outright rather than returning `NA`s.
+  ee_out_of_bounds <- function(theta, X, y, ...) {
+    r <- as.vector(y - X %*% theta) - theta[[3]]
+    rbind(t(X * r), r)
+  }
+  err <- expect_error(
+    m_estimate(y ~ x, data = d, .ee = ee_out_of_bounds),
+    class = "deli_formula_auto_init_error"
+  )
+  flat <- flatten_message(err)
+  expect_match(flat, "A length mismatch is the most common cause", fixed = TRUE)
+  expect_match(
+    conditionMessage(err$parent),
+    "subscript out of bounds",
+    fixed = TRUE
+  )
+  expect_identical(reported_entry_point(err), quote(m_estimate))
+})
+
+test_that("the automatic-init diagnostic keeps the length hint for an equation that names the length itself", {
+  d <- make_line_data()
+  # An equation that checks the length of `theta` before using it says so in
+  # its own words, which the hint agrees with rather than contradicting.
+  ee_checks_length <- function(theta, X, y, ...) {
+    cli::cli_abort("{.arg theta} must have length 3, not {length(theta)}.")
+  }
+  err <- expect_error(
+    m_estimate(y ~ x, data = d, .ee = ee_checks_length),
+    class = "deli_formula_auto_init_error"
+  )
+  expect_match(
+    flatten_message(err),
+    "A length mismatch is the most common cause",
+    fixed = TRUE
+  )
+})
+
+test_that("the automatic-init diagnostic claims no length mismatch for an unrelated failure", {
+  d <- make_line_data()
+  ee_unrelated <- function(theta, X, y, ...) {
+    cli::cli_abort("the observations reached the equation out of order")
+  }
+  err <- expect_error(
+    m_estimate(y ~ x, data = d, .ee = ee_unrelated),
+    class = "deli_formula_auto_init_error"
+  )
+  flat <- flatten_message(err)
+  expect_false(grepl("length mismatch", flat, fixed = TRUE))
+  # Nor the example of an equation that appends a parameter, which is the same
+  # claim by illustration.
+  expect_false(grepl("negative_binomial", flat, fixed = TRUE))
+  expect_match(
+    flat,
+    "The estimating function itself failed at those starting values",
+    fixed = TRUE
+  )
+  expect_match(
+    flat,
+    "Supplying an explicit `init` rules the automatic one out",
+    fixed = TRUE
+  )
+  expect_match(
+    conditionMessage(err$parent),
+    "out of order",
+    fixed = TRUE
+  )
+  expect_identical(reported_entry_point(err), quote(m_estimate))
+})
+
+test_that("gmm_estimate() reports an unrelated automatic-init failure against itself", {
+  d <- make_line_data()
+  ee_unrelated <- function(theta, X, y, ...) {
+    cli::cli_abort("the observations reached the equation out of order")
+  }
+  err <- expect_error(
+    gmm_estimate(y ~ x, data = d, .ee = ee_unrelated),
+    class = "deli_formula_auto_init_error"
+  )
+  flat <- flatten_message(err)
+  expect_false(grepl("length mismatch", flat, fixed = TRUE))
+  expect_match(
+    flat,
+    "The estimating function itself failed at those starting values",
+    fixed = TRUE
+  )
+  expect_identical(reported_entry_point(err), quote(gmm_estimate))
 })
 
 test_that("gmm_estimate() allows more equations than the automatic init", {
@@ -511,16 +640,6 @@ test_that("an explicit init is not described as the automatic one", {
   )
   expect_false(grepl("automatic zero", flatten_message(err), fixed = TRUE))
 })
-
-# The entry point an abort reports. `conditionCall()` is `NULL` for an error
-# raised with `call = NULL`, and rlang maps a method dispatched through
-# `UseMethod()` back to its generic, so the head of the reported call is the
-# function the caller typed rather than the `.formula` method or any of the
-# helpers beneath it.
-reported_entry_point <- function(err) {
-  call <- conditionCall(err)
-  if (is.null(call)) NULL else call[[1]]
-}
 
 # ---- exact-name matching of the dots forwarded to .ee -----------
 #

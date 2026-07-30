@@ -28,14 +28,16 @@ Performs the single evaluation of the estimating function at \code{init} that
 \details{
 When the formula interface generated \code{init} itself it records the vector on
 the closure as the \code{deli_auto_init} attribute, and this reframes a failure at
-exactly those starting values as a problem with the automatic length, which
-the user never chose. Some estimating equations append parameters beyond the
+exactly those starting values against the automatic \code{init}, which the user
+never chose. Some estimating equations append parameters beyond the
 regression coefficients (for example \code{\link[=ee_glm]{ee_glm()}} with \code{"gamma"} or
 \code{"negative_binomial"}, which add a scale or dispersion parameter), so the
 automatic \code{init} is one short and the estimating function either fails
 outright or returns the wrong number of rows. Where the equation is one the
 formula interface recognizes, the reframed message names the parameter the
-automatic length leaves out.
+automatic length leaves out; otherwise how much the message can claim about
+the length depends on the failure, which \code{abort_formula_auto_init()}
+documents.
 
 Only those two failures are reframed. A \code{NULL} or non-numeric return keeps
 its own message, because an \code{init} one element short cannot cause either. A

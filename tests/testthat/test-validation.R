@@ -266,6 +266,42 @@ test_that("eval_psi_at_init reframes only at the recorded automatic init", {
   expect_false(grepl("automatic zero", conditionMessage(err), fixed = TRUE))
 })
 
+# error_looks_length_related ----------------------------------------------
+
+# Most of what the predicate judges is the message, so the condition each
+# message is carried in is the same throughout.
+reads_as_length_problem <- function(message) {
+  error_looks_length_related(simpleError(message))
+}
+
+test_that("error_looks_length_related recognizes the failures a short init causes", {
+  expect_true(reads_as_length_problem("non-conformable arguments"))
+  expect_true(reads_as_length_problem("non-conformable arrays"))
+  expect_true(reads_as_length_problem("subscript out of bounds"))
+  expect_true(reads_as_length_problem("length(theta) == 3 is not TRUE"))
+  expect_true(reads_as_length_problem("`theta` must have length 3, not 2."))
+})
+
+test_that("error_looks_length_related reads an out-of-bounds subscript off the class", {
+  # The class is what makes this family recognizable in a locale whose messages
+  # are translated, so it is matched without reading the message at all.
+  cnd <- structure(
+    list(message = "not the English wording", call = NULL),
+    class = c("subscriptOutOfBoundsError", "error", "condition")
+  )
+  expect_true(error_looks_length_related(cnd))
+})
+
+test_that("error_looks_length_related rejects failures that say nothing about a length", {
+  expect_false(reads_as_length_problem("bad data"))
+  expect_false(reads_as_length_problem("object 'z' not found"))
+  # `%*%` on a non-numeric argument: a conformability error's neighbor, and not
+  # a length problem.
+  expect_false(
+    reads_as_length_problem("requires numeric/complex matrix/vector arguments")
+  )
+})
+
 # check_solver_return -----------------------------------------------------
 
 test_that("check_solver_return accepts a numeric vector of the right length", {
