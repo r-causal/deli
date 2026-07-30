@@ -56,6 +56,85 @@ ee_regression <- function(theta, X, y, model, weights = NULL, offset = NULL) {
   t(X * (w * residuals))
 }
 
+#' Estimating equation for robust regression
+#'
+#' Returns a p-by-n matrix for robust regression using the specified loss
+#' function (linear regression only):
+#' \deqn{\psi_i(\theta) = f_k(Y_i - X_i^T \theta) X_i}
+#'
+#' @param theta Numeric vector of length p.
+#' @param X Numeric n-by-p design matrix.
+#' @param y Numeric vector of n observed outcome values.
+#' @param model Character string. Currently only `"linear"` is supported.
+#' @param k Numeric tuning parameter for the loss function.
+#' @param loss Character string specifying the loss function. Default
+#'   `"huber"`. See [robust_loss_functions()].
+#' @param weights Optional numeric vector of n weights. Default `NULL`.
+#' @param offset Optional numeric vector of n offsets. Default `NULL`.
+#'
+#' @returns A p-by-n matrix.
+#'
+#' @examples
+#' # The Huber loss is convex, so its estimating function has a single root and
+#' # seeding the search is about reaching that root rather than choosing among
+#' # several. What makes the seed necessary is that the Huber psi is bounded:
+#' # far from the solution every residual is past the tuning constant k, every
+#' # contribution saturates at k, and the estimating function is constant with a
+#' # Jacobian of exactly zero. Starting from zero lands in that flat region,
+#' # where the solver has no slope to follow, so start from a least-squares fit.
+#' start <- coef(lm(weight ~ height, data = robust_regress))
+#'
+#' fit <- m_estimate(
+#'   weight ~ height,
+#'   data = robust_regress,
+#'   .ee = ee_robust_regression,
+#'   model = "linear",
+#'   k = 1.345,
+#'   loss = "huber",
+#'   init = start
+#' )
+#' coef(fit)
+#'
+#' @export
+ee_robust_regression <- function(
+  theta,
+  X,
+  y,
+  model,
+  k,
+  loss = "huber",
+  weights = NULL,
+  offset = NULL
+) {
+  model <- tolower(model)
+  if (model != "linear") {
+    cli::cli_abort(
+      "Only {.val linear} regression is supported for robust regression."
+    )
+  }
+
+  X <- coerce_design(X)
+  y <- coerce_outcome(y)
+  n <- nrow(X)
+  check_data_length(y, n, "y")
+  if (!is.null(offset)) {
+    check_data_length(offset, n, "offset")
+  }
+  w <- generate_weights(n, weights)
+
+  # Linear predictor
+  eta <- pt_as_vector(X %*% theta)
+  if (!is.null(offset)) {
+    eta <- eta + as.numeric(offset)
+  }
+
+  # Robust residuals
+  residuals <- robust_loss_functions(y - eta, loss = loss, k = k)
+
+  # Score
+  t(X * (w * residuals))
+}
+
 #' Estimating equation for ridge regression
 #'
 #' Returns a p-by-n matrix of estimating equation contributions for ridge
