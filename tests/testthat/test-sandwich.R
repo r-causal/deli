@@ -415,3 +415,83 @@ test_that("compute_sandwich() error for an unknown deriv_method lists exact", {
     regexp = "exact"
   )
 })
+
+# ---- the per-equation list classification under the exact pass ---------------
+#
+# An estimating function may return one value per equation in a plain list, which
+# an `lapply()` or `sapply()` over equations produces, and `summed_ee()` reduces
+# that with `lapply(ef, sum)`: every tangent surface has a `sum()` method, so the
+# reduction is a sum across observations within each equation whatever class the
+# elements hold. Reading the class of the first element alone decided that on
+# behalf of the whole list, so a list whose tangent-carrying element sat anywhere
+# else fell through to the guard below and was refused a reduction the branch
+# above would have carried out. The guard reads every element, and the
+# classification reads every element too.
+#
+# The guard's own refusals stand. A list holding no scalar pair at all is the
+# shape the abort describes, and a list holding no tangents anywhere is a lost
+# derivative rather than an unsupported shape.
+
+test_that("compute_bread() sums a per-equation list that leads with a constant", {
+  # The first equation does not involve theta, so its element arrives as a plain
+  # numeric vector with no tangent to read and a derivative of zero.
+  y <- c(2, 3, 4, 6)
+  per_equation <- function(theta) list(rep(0, length(y)), theta[2] - y)
+  # The same equations returned as one tangent-carrying matrix, differentiated by
+  # finite differences, which is the reference the list shape has to reproduce.
+  stacked <- function(theta) rbind(rep(0, length(y)), theta[2] - y)
+
+  expect_equal(
+    compute_bread(per_equation, c(2.5, 3.75), deriv_method = "exact"),
+    compute_bread(stacked, c(2.5, 3.75), deriv_method = "capprox"),
+    tolerance = 1e-6
+  )
+})
+
+test_that("compute_bread() sums a per-equation list that leads with an array", {
+  # c() on a scalar pair returns a tangent array, so an equation written that way
+  # puts a PrimalTangentArray first and the scalar pair second.
+  y1 <- c(1, 2, 3, 4)
+  y2 <- c(2, 3, 4, 6)
+  per_equation <- function(theta) list(c(theta[1] - y1), theta[2] - y2)
+  stacked <- function(theta) rbind(theta[1] - y1, theta[2] - y2)
+
+  expect_equal(
+    compute_bread(per_equation, c(2.5, 3.75), deriv_method = "exact"),
+    compute_bread(stacked, c(2.5, 3.75), deriv_method = "capprox"),
+    tolerance = 1e-6
+  )
+})
+
+test_that("compute_bread() still sums a per-equation list of scalar pairs", {
+  y1 <- c(1, 2, 3, 4)
+  y2 <- c(2, 3, 4, 6)
+  per_equation <- function(theta) list(theta[1] - y1, theta[2] - y2)
+  stacked <- function(theta) rbind(theta[1] - y1, theta[2] - y2)
+
+  expect_equal(
+    compute_bread(per_equation, c(2.5, 3.75), deriv_method = "exact"),
+    compute_bread(stacked, c(2.5, 3.75), deriv_method = "capprox"),
+    tolerance = 1e-6
+  )
+})
+
+test_that("compute_bread() keeps the guard for the lists it cannot reduce", {
+  # The boundary of the classification. A list holding no scalar pair keeps its
+  # derivatives and reports the container shape; a list holding no tangents at
+  # all reports the lost derivative. Neither is drawn into the reduction by
+  # reading every element rather than the first.
+  y1 <- c(1, 2, 3, 4)
+  y2 <- c(2, 3, 4, 6)
+  arrays <- function(theta) list(c(theta[1] - y1), c(theta[2] - y2))
+  expect_error(
+    compute_bread(arrays, c(2.5, 3.75), deriv_method = "exact"),
+    class = "deli_exact_unsupported_shape"
+  )
+
+  stripped <- function(theta) base::rbind(y1 - theta[1])
+  expect_error(
+    compute_bread(stripped, 2.5, deriv_method = "exact"),
+    class = "deli_exact_tangent_lost"
+  )
+})

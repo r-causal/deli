@@ -462,9 +462,17 @@ Math.PrimalTangentVector <- function(x, ...) {
 # `use.names` applies to the primal only. The tangent is a parallel derivative
 # array read positionally by `extract_tangent_column()`, so names on it would
 # serve nothing and would leak into the Jacobian's dimnames. `recursive` has no
-# analogue here and is accepted and ignored: `unlist()` is unconditionally
-# recursive, so the method always behaves as `recursive = TRUE` for a list
-# operand and both settings give the same value.
+# analogue here and is accepted and ignored: the one list operand that
+# concatenates is a list of scalar pairs, which `pt_flatten()` reduces to parallel
+# numeric vectors before either slot is unlisted, so no nesting survives for
+# `recursive` to act on and both settings give the same value.
+#
+# Every other list operand aborts. Both slots of a tangent-carrying value are
+# plain numeric objects of identical shape, and a list breaks that contract
+# silently in either direction: one that carries derivatives has no reduction
+# down to a pair of parallel vectors, and one that carries none would be paired
+# with the wrong number of zeros. Neither is a lost tangent, so the abort names
+# `do.call(c, ...)`, which reaches this method with each operand in its own right.
 #
 # The primal's names diverge from `base::c()` when an operand carries names of
 # its own: `c(a = pair, b = c(u = 1, v = 2))` yields `"a" "b1" "b2"` where base
@@ -479,6 +487,15 @@ pt_concat <- function(..., recursive = FALSE, use.names = TRUE) {
       parts <- pt_flatten(a)
       parts$tangent <- pt_recycle_tangent(parts$primal, parts$tangent)
       return(parts)
+    }
+    # A list operand holding no derivatives anywhere cannot be paired with a
+    # tangent slot: `as.vector()` hands a list back unchanged, so the fallback
+    # would pair it with one zero per top-level element while the `unlist()` below
+    # flattened its internals into the primal slot. The two slots would then have
+    # different lengths, and the Jacobian read off the tangent slot would have
+    # fewer rows than the value it claims to differentiate.
+    if (is.list(a)) {
+      pt_unsupported_shape_abort()
     }
     list(primal = as.vector(a), tangent = numeric(length(a)))
   })
@@ -1161,7 +1178,7 @@ pt_recycle_tangent <- function(primal, tangent) {
 # PrimalTangent (a scalar pair, possibly with a vector primal and a scalar
 # broadcast tangent), a PrimalTangentVector, a PrimalTangentArray, or a plain
 # list of scalar pairs (produced by an `lapply()` or `sapply()` over
-# tangent-carrying values).
+# tangent-carrying values). Any other list shape has no flattening and aborts.
 #' @noRd
 pt_flatten <- function(x) {
   if (is_pt_array(x)) {
@@ -1177,7 +1194,28 @@ pt_flatten <- function(x) {
   if (inherits(x, "PrimalTangentVector")) {
     x <- x$elements
   }
-  # x is now a plain list of scalar pairs (or numeric constants)
+  # x is now a plain list, which flattens only when every element contributes
+  # exactly one primal and one tangent: a scalar pair, or a length-1 constant
+  # whose tangent is zero. A list of tangent arrays, of parameter vectors, or of
+  # vector-payload pairs still holds every derivative it was given, so its
+  # container shape is the problem and it is reported as such. Reaching the
+  # `vapply()` below with one of those would instead raise an unclassed
+  # length error, and coercing an element with `as.numeric()` would report a lost
+  # tangent, which misdiagnoses an intact one.
+  flattens <- vapply(
+    x,
+    function(e) {
+      if (is_pt(e)) {
+        length(e$primal) == 1L
+      } else {
+        length(e) == 1L && (is.numeric(e) || is.logical(e))
+      }
+    },
+    logical(1)
+  )
+  if (!all(flattens)) {
+    pt_unsupported_shape_abort()
+  }
   primal <- vapply(
     x,
     function(e) if (is_pt(e)) e$primal else as.numeric(e),
@@ -1274,13 +1312,28 @@ coerce_outcome <- function(y) {
   as.numeric(y)
 }
 
+# Does `x` belong to one of the three tangent classes?
+#' @noRd
+is_tangent_value <- function(x) {
+  is_pt(x) || is_pt_array(x) || inherits(x, "PrimalTangentVector")
+}
+
 # Is `x` something a tangent-aware matrix() should reshape?
+#
+# Each of the three tangent classes is a container in its own right, and so is a
+# list holding any of them: which class an element belongs to is not the author's
+# choice, because `theta[k] * x` yields a scalar pair, `c(theta[k] * x)` yields a
+# tangent array, and `theta[i:j]` yields a parameter vector. All three carry
+# derivatives, so an `lapply()` over equations produces a container whichever of
+# them it collects and wherever in the list they fall. An operand this predicate
+# does not recognize takes the numeric-constant route instead, which replaces its
+# tangents with zeros.
 #' @noRd
 is_tangent_container <- function(x) {
-  is_pt(x) ||
-    inherits(x, "PrimalTangentVector") ||
-    is_pt_array(x) ||
-    (is.list(x) && length(x) > 0 && any(vapply(x, is_pt, logical(1))))
+  is_tangent_value(x) ||
+    (is.list(x) &&
+      length(x) > 0 &&
+      any(vapply(x, is_tangent_value, logical(1))))
 }
 
 # ---- matrix products --------------------------------------------------------

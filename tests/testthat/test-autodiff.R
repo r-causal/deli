@@ -3153,3 +3153,179 @@ test_that("two-index selection of a 1-by-1 payload keeps working in a psi", {
   f <- function(theta) sum((design * theta[1])[1, 1])
   expect_equal(auto_differentiation(3, f)[1, 1], 2)
 })
+
+# ---- container recognition across the three tangent classes ------------------
+#
+# `is_tangent_container()` is the predicate the masked reshaping helpers, the
+# masked binders, and `c()` consult before deciding whether an operand carries
+# derivatives, so an operand it does not recognize takes the numeric-constant
+# route and its tangents are replaced with zeros. A list is one of the shapes an
+# `lapply()` inside a differentiated function produces, and which of the three
+# tangent classes its elements hold is not the author's choice: `theta[k] * x`
+# yields a scalar pair, `c(theta[k] * x)` yields a tangent array, and
+# `theta[i:j]` yields a parameter vector. All three carry derivatives, so a list
+# of any of them is a container.
+
+test_that("a list of tangent arrays is a tangent container", {
+  arr <- primal_tangent_array(c(1, 2), c(1, 0))
+  expect_true(is_tangent_container(list(arr, arr)))
+})
+
+test_that("a list of parameter vectors is a tangent container", {
+  vec <- primal_tangent_vector(list(primal_tangent(1, 1), primal_tangent(2, 0)))
+  expect_true(is_tangent_container(list(vec, vec)))
+})
+
+test_that("a list mixing the tangent classes is a tangent container", {
+  pair <- primal_tangent(2, 1)
+  arr <- primal_tangent_array(c(1, 2), c(1, 0))
+  vec <- primal_tangent_vector(list(primal_tangent(1, 1), primal_tangent(2, 0)))
+  expect_true(is_tangent_container(list(arr, vec)))
+  expect_true(is_tangent_container(list(vec, arr)))
+  # A scalar pair anywhere in the list was already recognized, whichever
+  # position it took.
+  expect_true(is_tangent_container(list(pair, arr)))
+  expect_true(is_tangent_container(list(arr, pair)))
+})
+
+test_that("each tangent class is a container on its own", {
+  expect_true(is_tangent_container(primal_tangent(2, 1)))
+  expect_true(is_tangent_container(primal_tangent_array(c(1, 2), c(1, 0))))
+  expect_true(is_tangent_container(
+    primal_tangent_vector(list(primal_tangent(1, 1), primal_tangent(2, 0)))
+  ))
+})
+
+test_that("a list holding no tangent-carrying element is not a container", {
+  # A data frame is list-shaped and reaches this predicate on the
+  # finite-difference pass, where it has to keep its numeric route: rowSums()
+  # reduces it as intended, which is what pins a list-shaped return under
+  # capprox above.
+  expect_false(is_tangent_container(list(1, 2)))
+  expect_false(is_tangent_container(list(a = 1, b = list(2, 3))))
+  expect_false(is_tangent_container(list()))
+  expect_false(is_tangent_container(data.frame(a = c(1, 2))))
+})
+
+test_that("a plain value is not a tangent container", {
+  expect_false(is_tangent_container(c(1, 2)))
+  expect_false(is_tangent_container(base::matrix(c(1, 2, 3, 4), nrow = 2)))
+  expect_false(is_tangent_container(NULL))
+  expect_false(is_tangent_container("a"))
+})
+
+# ---- a list operand c() cannot flatten ---------------------------------------
+#
+# Both slots of a tangent-carrying value are plain numeric objects of identical
+# shape, and `pt_concat()` keeps that contract by normalizing every operand to
+# parallel primal and tangent vectors of the same length. A list operand breaks
+# it silently: `as.vector()` hands a list back unchanged, so the fallback pairs
+# it with one zero per top-level element while the `unlist()` that follows
+# flattens its internals into the primal slot. The two slots then have different
+# lengths, and the Jacobian read off the tangent slot has fewer rows than the
+# value it claims to differentiate, which the delta method goes on to multiply
+# into a covariance matrix of the wrong size.
+#
+# The one list shape that does flatten is a list of scalar pairs, which is what
+# an `lapply()` over `theta[k]` produces, and it keeps working. Any other list
+# still holds whatever derivatives it was given, so it is a container shape with
+# no reduction rather than a lost tangent, and the abort names
+# `do.call(c, ...)` as the concatenation that does work.
+
+test_that("c() aborts on a list operand rather than mis-shaping its slots", {
+  expect_error(
+    c(primal_tangent(2, 1), list(a = 1, b = list(2, 3))),
+    class = "deli_exact_unsupported_shape"
+  )
+})
+
+test_that("c() aborts on a list of tangent-carrying values it cannot flatten", {
+  arr <- primal_tangent_array(c(1, 2), c(1, 0))
+  vec <- primal_tangent_vector(list(primal_tangent(1, 1), primal_tangent(2, 0)))
+  expect_error(
+    c(primal_tangent(2, 1), list(arr, arr)),
+    class = "deli_exact_unsupported_shape"
+  )
+  expect_error(
+    c(primal_tangent(2, 1), list(vec, vec)),
+    class = "deli_exact_unsupported_shape"
+  )
+  expect_error(
+    c(primal_tangent(2, 1), list(primal_tangent(3, 0), arr)),
+    class = "deli_exact_unsupported_shape"
+  )
+})
+
+test_that("the list-operand abort names the concatenation that does work", {
+  # Reporting a lost tangent here would misdiagnose it twice over: nothing was
+  # lost, and the remedy that abort gives is to reach for c(), which is the call
+  # that failed. cli wraps the bullets, so the message is compared with runs of
+  # whitespace collapsed to a single space.
+  msg <- tryCatch(
+    c(primal_tangent(2, 1), list(a = 1, b = list(2, 3))),
+    error = conditionMessage
+  )
+  flat <- gsub("[[:space:]]+", " ", msg)
+  expect_match(flat, "do.call(c, ...)", fixed = TRUE)
+})
+
+test_that("c() on a list of scalar pairs still concatenates both slots", {
+  z <- c(primal_tangent(2, 1), list(primal_tangent(3, 0), primal_tangent(4, 1)))
+  expect_s3_class(z, "PrimalTangentArray")
+  expect_equal(z$primal, c(2, 3, 4))
+  expect_equal(z$tangent, c(1, 0, 1))
+})
+
+test_that("a transform concatenating a list of groups aborts under exact mode", {
+  # The shape a user reaches this by: one tangent-carrying value per group from
+  # an lapply(), concatenated onto a parameter with c(). The tangent slot then
+  # holds one zero per group where the primal holds every group's values, so the
+  # Jacobian comes back with a handful of rows rather than one per output and the
+  # delta method returns a covariance matrix of that size.
+  xs <- list(c(1, 2), c(3, 4), c(5, 6))
+  concat_groups <- function(theta) {
+    per_group <- lapply(xs, function(x) c(theta[2] * x))
+    c(theta[1], per_group)
+  }
+  expect_error(
+    auto_differentiation(c(0.5, 2), concat_groups),
+    class = "deli_exact_unsupported_shape"
+  )
+  expect_error(
+    delta_method(
+      c(0.5, 2),
+      transform = concat_groups,
+      covariance = diag(2),
+      deriv_method = "exact"
+    ),
+    class = "deli_exact_unsupported_shape"
+  )
+  # The finite-difference pass refuses the same transform, because c() on a
+  # plain numeric and a list returns a list rather than a vector. Nothing may
+  # succeed under exact differentiation that fails without it.
+  expect_error(
+    delta_method(c(0.5, 2), transform = concat_groups, covariance = diag(2)),
+    "cannot be coerced"
+  )
+})
+
+test_that("do.call(c, ...) over a list of groups differentiates exactly", {
+  # The supported route, which the abort above names. Every operand reaches
+  # pt_concat() in its own right rather than inside a list, so both slots grow
+  # together and the Jacobian has one row per output.
+  xs <- list(c(1, 2), c(3, 4), c(5, 6))
+  concat_groups <- function(theta) {
+    per_group <- lapply(xs, function(x) c(theta[2] * x))
+    do.call(c, c(list(theta[1]), per_group))
+  }
+  jacobian <- auto_differentiation(c(0.5, 2), concat_groups)
+  expect_equal(dim(jacobian), c(7L, 2L))
+  expect_equal(
+    jacobian,
+    approx_differentiation(
+      function(t) as.numeric(concat_groups(t)),
+      c(0.5, 2)
+    ),
+    tolerance = 1e-6
+  )
+})

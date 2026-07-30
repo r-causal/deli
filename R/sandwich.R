@@ -48,19 +48,27 @@ compute_bread <- function(
       }
       return(primal_tangent_array(rowSums(ef$primal), rowSums(ef$tangent)))
     }
-    if (is.list(ef) && length(ef) > 0 && is_pt(ef[[1]])) {
-      # A plain list of scalar pairs, one per equation, from an `lapply()` or
-      # `sapply()` inside the psi. `c()` returns a PrimalTangentArray and so
-      # takes the branch above instead.
+    if (is.list(ef) && any(vapply(ef, is_pt, logical(1)))) {
+      # A plain list holding one value per equation, from an `lapply()` or
+      # `sapply()` inside the psi. `c()` returns a PrimalTangentArray and so takes
+      # the branch above instead.
+      #
+      # Every element is reduced with `sum()`, which each tangent surface has a
+      # method for, so an equation that arrives as a scalar pair, as a tangent
+      # array, or as a plain numeric constant all sum across observations here.
+      # A scalar pair anywhere in the list is what says the list is per-equation:
+      # reading the first element alone decided that for the whole list, so a psi
+      # whose theta-free equation or whose `c()`-built equation came first was
+      # refused the reduction this branch carries out.
       return(lapply(ef, sum))
     }
     # Under the exact pass, any other list shape is one this step cannot sum.
     # `base::rbind()` on a single tangent-carrying value, which is what a psi
     # written in the global environment reaches, builds a 1-by-2 list matrix
-    # holding one slot per cell. Its first element is a numeric slot rather than
-    # a pair, which is why it misses the list-of-pairs branch above; its `dim` is
-    # why it would go on to reach `rowSums()` below, which fails with the opaque
-    # `'x' must be numeric or complex`. Route it to a diagnostic instead.
+    # holding one slot per cell. Neither cell holds a pair, which is why it misses
+    # the per-equation branch above; its `dim` is why it would go on to reach
+    # `rowSums()` below, which fails with the opaque `'x' must be numeric or
+    # complex`. Route it to a diagnostic instead.
     #
     # The two ways a list can arrive here are different failures. A list whose
     # elements still carry tangents, such as an `lapply()` returning one tangent
