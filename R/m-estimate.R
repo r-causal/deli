@@ -536,8 +536,9 @@ prepare_formula_psi <- function(
 #'
 #' Character responses become factors, and two-level factors become a 0/1
 #' indicator against the first level (the GLM contract). Responses with a
-#' different number of levels are rejected, since the formula interface has no
-#' way to encode them.
+#' different number of levels are rejected, since one column cannot encode them.
+#' A matrix response falls through untouched, so a multinomial model reaches
+#' either interface as indicator columns.
 #'
 #' @param y The response extracted with [stats::model.response()].
 #' @param error_call The frame to report the error against.
@@ -555,8 +556,9 @@ coerce_formula_response <- function(y, error_call = NULL) {
           "The formula interface requires a numeric, logical, or two-level
            factor response.",
           "i" = "The response has {nlevels(y)} level{?s}.",
-          "i" = "Multinomial models ({.fn ee_mlogit}) take an indicator-matrix
-                 response through the function interface."
+          "i" = "Expand it into one indicator column per level to fit a
+                 multinomial model ({.fn ee_mlogit}), which either interface
+                 takes: {.code cbind(y1, y2, y3) ~ x} drives it from a formula."
         ),
         call = error_call
       )
