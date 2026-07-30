@@ -62,7 +62,7 @@ estr <- m_estimate(
 )
 
 # Predicted values and confidence intervals
-pred_y <- regression_predictions(Xp, estr@theta, estr@variance)
+pred_y <- regression_predictions(Xp, coef(estr), vcov(estr))
 
 # Plot
 fit_curve <- data.frame(
@@ -122,7 +122,7 @@ estr <- m_estimate(
 Xpa <- additive_design_matrix(Xp, specifications = specs)
 
 # Generate predicted values
-pred_y <- regression_predictions(Xpa, estr@theta, estr@variance)
+pred_y <- regression_predictions(Xpa, coef(estr), vcov(estr))
 
 # Plot
 fit_curve <- data.frame(
@@ -170,7 +170,7 @@ estr <- m_estimate(
 
 # Build additive design matrix and predict
 Xpa <- additive_design_matrix(Xp, specifications = specs_strong)
-pred_y <- regression_predictions(Xpa, estr@theta, estr@variance)
+pred_y <- regression_predictions(Xpa, coef(estr), vcov(estr))
 
 # Plot
 fit_curve <- data.frame(
@@ -213,7 +213,7 @@ estr <- m_estimate(
 
 # Build additive design matrix and predict
 Xpa <- additive_design_matrix(Xp, specifications = specs_vstrong)
-pred_y <- regression_predictions(Xpa, estr@theta, estr@variance)
+pred_y <- regression_predictions(Xpa, coef(estr), vcov(estr))
 
 # Plot
 fit_curve <- data.frame(

@@ -239,7 +239,7 @@ m <- m_estimate(y ~ x, data = d, .ee = ee_regression, model = "linear")
 # Predict at new values
 x_new <- seq(-2, 2, by = 1)
 X_new <- cbind(1, x_new)
-preds <- regression_predictions(X_new, m@theta, m@variance)
+preds <- regression_predictions(X_new, coef(m), vcov(m))
 preds
 ```
 

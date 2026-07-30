@@ -101,11 +101,12 @@ while Cauchy, Ullah, and Welsch approach zero smoothly and never quite arrive.
 
 A redescending estimating equation is non-convex and can have several roots, so
 the starting values decide which root a solver reaches. Cauchy, Andrew's Sine,
-and Hampel do not solve from a zero start on this data, so those three fits
-begin at the least-squares estimates above instead. Andrew's Sine, Ullah, and
-Hampel use the Levenberg-Marquardt solver, matching the reference analysis, and
-take the bread derivative by exact automatic differentiation rather than by
-finite differencing.
+and Hampel do not solve from a zero start on this data, and Ullah solves from
+one to a root no other fit here is near, so those four fits begin at the
+least-squares estimates above instead. Andrew's Sine, Ullah, and Hampel use the
+Levenberg-Marquardt solver, matching the reference analysis, and take the bread
+derivative by exact automatic differentiation rather than by finite
+differencing.
 
 ### Huber
 
@@ -161,7 +162,9 @@ but does not shrink contributions fully to zero. We set $k = 1$.
 ```{r}
 #| label: cauchy
 # Use OLS estimates as starting values. Redescending loss functions have
-# multiple roots, so c(0,0,0) can converge to a spurious solution.
+# multiple roots, and from c(0,0,0) this one reaches none of them: the solver
+# runs the intercept out past five million and warns that the estimating
+# functions are not solved where it stopped.
 estr <- m_estimate(
   stacked_equations = function(theta) {
     ee_robust_regression(theta, X = X, y = y, model = "linear",
@@ -240,14 +243,16 @@ functions. We set $k = 1$.
 
 ```{r}
 #| label: ullah
-# Start from zero with the Levenberg-Marquardt solver, matching the reference
-# analysis, and take the derivative by exact automatic differentiation.
+# A zero start does solve this one, but to a root that sits well away from every
+# other fit here, so the fit begins at the OLS estimates for the same reason the
+# three above do. The Levenberg-Marquardt solver matches the reference analysis,
+# and the derivative is taken by exact automatic differentiation.
 estr <- m_estimate(
   stacked_equations = function(theta) {
     ee_robust_regression(theta, X = X, y = y, model = "linear",
                          loss = "ullah", k = 1)
   },
-  init = c(0, 0, 0),
+  init = ols_theta,
   solver = "lm",
   deriv_method = "exact"
 )

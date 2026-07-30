@@ -79,7 +79,7 @@ Xa_pred <- additive_design_matrix(
 )
 
 # Generate predicted values from model
-yhat <- regression_predictions(Xa_pred, theta = estr@theta, covariance = estr@variance)
+yhat <- regression_predictions(Xa_pred, theta = coef(estr), covariance = vcov(estr))
 ```
 
 ```{r}
@@ -104,7 +104,7 @@ A problem with the previous plot is that it doesn't communicate uncertainty in o
 y_vals <- yhat$predicted
 
 # Covariance matrix for predictions
-cov_p <- Xa_pred %*% estr@variance %*% t(Xa_pred)
+cov_p <- Xa_pred %*% vcov(estr) %*% t(Xa_pred)
 
 # Compute confidence bands
 cb <- compute_confidence_bands(y_vals, covariance = cov_p, method = "supt", seed = 10177)
@@ -168,11 +168,11 @@ Xa_pred <- additive_design_matrix(
   X = as.matrix(p[, c("intercept", "z")]),
   specifications = specs
 )
-yhat <- regression_predictions(Xa_pred, theta = estr@theta, covariance = estr@variance)
+yhat <- regression_predictions(Xa_pred, theta = coef(estr), covariance = vcov(estr))
 
 # Confidence bands
 y_vals <- yhat$predicted
-cov_p <- Xa_pred %*% estr@variance %*% t(Xa_pred)
+cov_p <- Xa_pred %*% vcov(estr) %*% t(Xa_pred)
 cb <- compute_confidence_bands(y_vals, covariance = cov_p, method = "supt", seed = 10177)
 
 # Plotting
@@ -231,11 +231,11 @@ Xa_pred <- additive_design_matrix(
   X = as.matrix(p[, c("intercept", "z")]),
   specifications = specs
 )
-yhat <- regression_predictions(Xa_pred, theta = estr@theta, covariance = estr@variance)
+yhat <- regression_predictions(Xa_pred, theta = coef(estr), covariance = vcov(estr))
 
 # Confidence bands
 y_vals <- yhat$predicted
-cov_p <- Xa_pred %*% estr@variance %*% t(Xa_pred)
+cov_p <- Xa_pred %*% vcov(estr) %*% t(Xa_pred)
 cb <- compute_confidence_bands(y_vals, covariance = cov_p, method = "supt", seed = 10177)
 
 # Plotting
