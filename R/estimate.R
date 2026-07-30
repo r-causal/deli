@@ -496,7 +496,6 @@ j_rejection_p_value <- 1e-8
 #'   whether its summed score is finite, in `finite`, which of the two readings
 #'   judged it, in `one_sided`, whether it has the same value at every
 #'   observation, in `constant`, and the summed score it leaves, in `score`.
-#' @keywords internal
 #' @noRd
 unsolved_equation <- function(ef, theta, init = theta) {
   score <- rowSums(ef)
@@ -582,7 +581,6 @@ unsolved_equation <- function(ef, theta, init = theta) {
 #' @returns The largest element of the Newton step, each measured against the
 #'   magnitude of its own estimate with a floor of one, or `NA_real_` when the
 #'   bread cannot be solved.
-#' @keywords internal
 #' @noRd
 relative_newton_step <- function(bread, moments, theta) {
   step <- tryCatch(solve(bread, moments), error = function(e) NULL)
@@ -713,7 +711,6 @@ flat_equation <- function(ef, bread, init_score) {
 #'   reading found anything and the Newton step did, a list whose `row` is `NA`
 #'   and whose `step` is that step. Every list carries `flat`, which is `TRUE`
 #'   only for the second of the three.
-#' @keywords internal
 #' @noRd
 unsolved_point <- function(ef, theta, bread, init_score = NULL, init = theta) {
   found <- unsolved_equation(ef, theta, init)
@@ -758,7 +755,6 @@ unsolved_point <- function(ef, theta, bread, init_score = NULL, init = theta) {
 #'   solver reported the failure itself and its own account of itself is what is
 #'   reported.
 #' @returns Invisible `NULL`, called for the warning.
-#' @keywords internal
 #' @noRd
 warn_unsolved <- function(solved, unsolved = NULL) {
   detail <- character(0)
@@ -854,7 +850,6 @@ warn_unsolved <- function(solved, unsolved = NULL) {
 #' @param unsolved What `unsolved_point()` made of the returned point, `NULL`
 #'   where it solves the equations.
 #' @returns Invisible `NULL`, called for the warning.
-#' @keywords internal
 #' @noRd
 warn_solver_failure <- function(solved, bread, unsolved) {
   if (!is.null(unsolved) || !rank_deficient(bread)) {
@@ -888,7 +883,6 @@ warn_solver_failure <- function(solved, bread, unsolved) {
 #'
 #' @param bread The bread matrix at the returned point.
 #' @returns `TRUE` where the matrix is square, finite, and rank deficient.
-#' @keywords internal
 #' @noRd
 rank_deficient <- function(bread) {
   square <- is.matrix(bread) && nrow(bread) == ncol(bread) && ncol(bread) > 0L
@@ -904,7 +898,6 @@ rank_deficient <- function(bread) {
 #' the captured output and so forces the value to be assigned from inside the
 #' call.
 #'
-#' @keywords internal
 #' @noRd
 without_output <- function(expr) {
   null_con <- file(nullfile(), open = "wt")
@@ -1136,7 +1129,6 @@ with_muffled_self_reports <- function(expr, self_report) {
 #'   `code` and `message`, or `precision`. A `rootSolve` solve also carries
 #'   `not_converged`, which is `TRUE` where the solver reported its own
 #'   convergence test failing after moving and the caller has still to report it.
-#' @keywords internal
 #' @noRd
 solve_equations <- function(
   func,
@@ -1767,7 +1759,6 @@ gmm_j_statistic <- function(evald, weight_matrix, n_obs) {
 #'   `converged`, whether the minimizer reported success. A minimizer that
 #'   reported a failure has already warned about it, so the caller leaves the
 #'   moments at the point it returned unjudged.
-#' @keywords internal
 #' @noRd
 minimize_gmm <- function(func, init, method, maxiter, tolerance, call) {
   if (is.character(method)) {
