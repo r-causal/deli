@@ -1443,11 +1443,11 @@ cbind <- function(..., deparse.level = 1) {
 # sit on in both slots.
 #
 # Nothing reaches the Jacobian by this route. A column of it is read off the
-# tangent slot through `as.vector()`, or off the row sums of that slot, and both
-# drop the labels, so a psi that names its rows reports the same unnamed bread
-# the numeric pass reports. `estimate()` reads parameter names off the plain
-# numeric evaluation it makes at the solved values, never off a differentiated
-# one.
+# tangent slot through `as.vector()`, whether the slot arrives whole or already
+# reduced to row sums, and that drops the labels, so a psi that names its rows
+# reports the same unnamed bread the numeric pass reports. `estimate()` reads
+# parameter names off the plain numeric evaluation it makes at the solved values,
+# never off a differentiated one.
 #
 # Recording the labels also restores base R's validation of them, which returning
 # the container unchanged suppressed: a label vector that does not match the axis
@@ -1799,8 +1799,13 @@ auto_differentiation <- function(theta, f) {
 #' @noRd
 extract_tangent_column <- function(result) {
   if (is_pt(result)) {
-    # Single output (scalar, or a vector primal with a broadcast tangent)
-    return(result$tangent)
+    # Single output (scalar, or a vector or matrix primal, whose tangent is either
+    # shaped to match or broadcast from a single derivative). Flattened
+    # column-major for the same two reasons as the tangent array below: a shaped
+    # tangent handed to `cbind()` unflattened is read as several columns rather
+    # than one, and any labels the function recorded on the slot would ride into
+    # the Jacobian's dimnames.
+    return(as.vector(result$tangent))
   }
   if (is_pt_array(result)) {
     # Matrix or vector output, flattened column-major to match c()/indexing

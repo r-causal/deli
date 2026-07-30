@@ -3329,3 +3329,88 @@ test_that("do.call(c, ...) over a list of groups differentiates exactly", {
     tolerance = 1e-6
   )
 })
+
+# ---- a shaped tangent contributes one Jacobian column ------------------------
+#
+# `auto_differentiation()` assembles the Jacobian with `do.call(cbind, ...)`, so
+# each column has to arrive as one entry per output. A scalar pair can carry a
+# shaped tangent, which `theta[k] * X` produces and which the `dimnames<-`
+# setter records labels on, and handing that back unflattened makes `cbind()`
+# read a matrix as several columns: the Jacobian comes back with the payload's
+# rows and one column per parameter for every payload column, and any labels the
+# function recorded ride into it. The tangent-array branch flattens with
+# `as.vector()` for exactly this reason, and the scalar-pair branch reads the
+# same way.
+
+test_that("extract_tangent_column flattens a shaped tangent on a scalar pair", {
+  pair <- primal_tangent(
+    base::matrix(c(1, 2, 3, 4), nrow = 2),
+    base::matrix(c(5, 6, 7, 8), nrow = 2)
+  )
+  column <- extract_tangent_column(pair)
+  expect_null(dim(column))
+  expect_equal(column, c(5, 6, 7, 8))
+})
+
+test_that("a shaped-tangent result gives one Jacobian row per output", {
+  X <- base::matrix(c(1, 2, 3, 4), nrow = 2)
+  scale_design <- function(theta) theta[1] * X
+  jacobian <- auto_differentiation(c(3, 5), scale_design)
+  # Flattening the same result with c() before returning it reaches the
+  # tangent-array branch, which already reports one column per parameter, so it
+  # is the reference for the shape as well as for the values. The two are
+  # compared axis by axis and then value by value, because comparing two numeric
+  # matrices of different shapes directly reports the shapes through an error
+  # from inside the comparison rather than as a difference.
+  flattened <- auto_differentiation(c(3, 5), function(theta) c(theta[1] * X))
+  expect_equal(dim(jacobian), c(4L, 2L))
+  expect_equal(dim(jacobian), dim(flattened))
+  expect_equal(as.vector(jacobian), as.vector(flattened))
+  expect_equal(as.vector(jacobian), c(1, 2, 3, 4, 0, 0, 0, 0))
+})
+
+test_that("labels on a shaped tangent stay out of the Jacobian", {
+  # A labeled psi return reports the unnamed bread the numeric pass reports,
+  # which holds because a Jacobian column is read off the tangent slot through
+  # as.vector() or off its row sums, and both drop the labels. The scalar-pair
+  # branch has to drop them too, or a function that labels its rows reports a
+  # labeled Jacobian while the same function labeling nothing does not.
+  label_rows <- function(theta) {
+    v <- theta[1] * base::matrix(c(1, 2), ncol = 1)
+    base::`rownames<-`(v, c("a", "b"))
+  }
+  jacobian <- auto_differentiation(c(2, 7), label_rows)
+  expect_equal(dim(jacobian), c(2L, 2L))
+  expect_null(dimnames(jacobian))
+  expect_equal(jacobian, base::cbind(c(1, 2), c(0, 0)))
+})
+
+test_that("names on a tangent stay out of the Jacobian", {
+  # Multiplying a scalar pair through a named vector carries the names onto both
+  # slots, which is the same leak without a matrix in sight.
+  named_outputs <- function(theta) theta[1] * c(a = 1, b = 2)
+  jacobian <- auto_differentiation(c(2.5, 3.75), named_outputs)
+  expect_null(dimnames(jacobian))
+  expect_equal(jacobian, base::cbind(c(1, 2), c(0, 0)))
+})
+
+test_that("the already flat tangent shapes report the same column", {
+  expect_equal(extract_tangent_column(primal_tangent(2, 3)), 3)
+  expect_equal(
+    extract_tangent_column(primal_tangent(c(1, 2, 3), c(4, 5, 6))),
+    c(4, 5, 6)
+  )
+  expect_equal(
+    extract_tangent_column(primal_tangent_array(
+      base::matrix(c(1, 2, 3, 4), nrow = 2),
+      base::matrix(c(9, 8, 7, 6), nrow = 2)
+    )),
+    c(9, 8, 7, 6)
+  )
+  expect_equal(
+    extract_tangent_column(
+      primal_tangent_vector(list(primal_tangent(1, 1), primal_tangent(2, 0)))
+    ),
+    c(1, 0)
+  )
+})
