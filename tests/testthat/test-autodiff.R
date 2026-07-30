@@ -2792,3 +2792,178 @@ test_that("a list-shaped return under capprox is left alone", {
     tolerance = 1e-6
   )
 })
+
+# ---- coercing a tangent-carrying container to a plain matrix -----------------
+
+test_that("as.matrix() aborts on every tangent-carrying container", {
+  # A matrix of doubles is a type the tangent flows through, so a coercion to one
+  # can only truncate a live derivative. That is the ground as.double() stands
+  # on, and the same abort covers this coercion.
+  #
+  # What base R does instead is decided by shapes that have nothing to do with
+  # the payload: as.matrix.default() reads length() and dim() through deli's
+  # methods, which answer for the payload, while is.matrix() reads the real
+  # attribute and sees a classed list of two slots. The two disagree, so the
+  # coercion raises `dims [product N] do not match the length of object [2]` from
+  # a base frame no deli guard runs in.
+  containers <- list(
+    primal_tangent(2.7, 1),
+    primal_tangent(c(2, 4, 6), 2),
+    primal_tangent(base::matrix(c(1, 2, 3, 4), nrow = 2), 1),
+    primal_tangent_array(
+      base::matrix(c(1, 2, 3, 4), nrow = 2),
+      base::matrix(0, 2, 2)
+    ),
+    primal_tangent_vector(list(primal_tangent(1, 1), primal_tangent(2, 0)))
+  )
+
+  for (x in containers) {
+    expect_error(as.matrix(x), class = "deli_exact_tangent_lost")
+  }
+})
+
+test_that("as.matrix() aborts on the payloads base R silently reshapes", {
+  # A two-element payload is the one shape as.matrix.default() accepts, because
+  # the container itself holds two slots: it sets `dim = c(2, 1)` on the pair and
+  # hands back an object that still claims the tangent class while its cells are
+  # the primal and tangent slots. A one-parameter PrimalTangentVector reshapes
+  # the same way, holding one slot. Neither result is a matrix of anything, and
+  # nothing downstream reports that.
+  expect_error(
+    as.matrix(primal_tangent_array(c(1, 2), c(1, 0))),
+    class = "deli_exact_tangent_lost"
+  )
+  expect_error(
+    as.matrix(primal_tangent(c(1, 2), c(1, 0))),
+    class = "deli_exact_tangent_lost"
+  )
+  expect_error(
+    as.matrix(primal_tangent_vector(list(primal_tangent(1, 1)))),
+    class = "deli_exact_tangent_lost"
+  )
+})
+
+test_that("the as.matrix() abort names what to do instead", {
+  # The abort follows the shape of the one as.double() raises: it says what was
+  # lost and what to reach for instead, so a reader who wrote the coercion has a
+  # route out of it rather than only a refusal.
+  msg <- tryCatch(as.matrix(primal_tangent(2.7, 1)), error = conditionMessage)
+  flat <- gsub("[[:space:]]+", " ", msg)
+  expect_match(flat, "tangent")
+  expect_match(flat, "needs no coercion")
+})
+
+test_that("as.matrix() in a psi aborts rather than zeroing the Jacobian", {
+  # The two-element payload is the dangerous one: base R reshapes it, the
+  # tangents are gone from what comes back, and the exact pass reports zero where
+  # finite differences report 3.
+  f <- function(theta) sum(as.matrix(c(1, 2) * theta[1]))
+  expect_error(auto_differentiation(2, f), class = "deli_exact_tangent_lost")
+  expect_equal(
+    approx_differentiation(f, 2),
+    base::matrix(3),
+    tolerance = 1e-5
+  )
+})
+
+test_that("as.matrix() in a psi reports the tangent loss, not the dims message", {
+  y <- c(1, 2, 3)
+  psi <- function(theta) t(as.matrix(y - theta[1]))
+  err <- expect_error(
+    compute_bread(psi, 1, deriv_method = "exact"),
+    class = "deli_exact_tangent_lost"
+  )
+  expect_false(grepl("do not match the length", conditionMessage(err)))
+})
+
+test_that("as.matrix() on ordinary values is untouched", {
+  expect_equal(as.matrix(c(1, 2, 3)), base::matrix(c(1, 2, 3), 3, 1))
+  m <- base::matrix(c(1, 2, 3, 4), nrow = 2)
+  expect_identical(as.matrix(m), m)
+  expect_equal(
+    as.matrix(data.frame(a = c(1, 2))),
+    base::matrix(c(1, 2), 2, 1, dimnames = list(NULL, "a"))
+  )
+})
+
+# ---- coercing a tangent-carrying container to an integer ---------------------
+
+test_that("as.integer() on a scalar pair aborts instead of returning both slots", {
+  # The corruption this closes: base R coerced the classed list itself, so
+  # as.integer(primal_tangent(2.7, 1)) returned c(2L, 1L), the truncated primal
+  # with the tangent appended to it as a second value. Nothing downstream can
+  # tell that from data.
+  expect_error(
+    as.integer(primal_tangent(2.7, 1)),
+    class = "deli_exact_tangent_lost"
+  )
+})
+
+test_that("as.integer() aborts on the shapes base R refused to coerce", {
+  # These already stopped, with `'list' object cannot be coerced to type
+  # 'integer'` from a base frame, which points at neither the cause nor the
+  # remedy. The abort replaces it so every shape reports the same rule.
+  containers <- list(
+    primal_tangent(c(2, 4, 6), 2),
+    primal_tangent(base::matrix(c(1, 2, 3, 4), nrow = 2), 1),
+    primal_tangent_array(c(1, 2), c(1, 0)),
+    primal_tangent_vector(list(primal_tangent(1, 1), primal_tangent(2, 0)))
+  )
+
+  for (x in containers) {
+    expect_error(as.integer(x), class = "deli_exact_tangent_lost")
+  }
+})
+
+test_that("the as.integer() abort names what to do instead", {
+  # Same guidance as the coercion to a double, for the same reason: an integer is
+  # a plain number, so the tangent has nowhere to go.
+  msg <- tryCatch(
+    as.integer(primal_tangent(2.7, 1)),
+    error = conditionMessage
+  )
+  flat <- gsub("[[:space:]]+", " ", msg)
+  expect_match(flat, "tangent")
+  expect_match(flat, "needs no coercion")
+})
+
+test_that("as.integer() in a psi aborts rather than zeroing the Jacobian", {
+  # The silent coercion took the derivative with it: the exact pass reported zero
+  # where finite differences report the truncation-free value.
+  f <- function(theta) sum(as.integer(theta[1]) * 2)
+  expect_error(auto_differentiation(2.7, f), class = "deli_exact_tangent_lost")
+})
+
+test_that("as.vector() with a numeric mode aborts on a tangent-carrying value", {
+  # as.vector() dispatches on the class of its first argument, so the rule
+  # reaches the mode spellings of the coercion too. Each of these was a way
+  # around a method that already aborts: as.vector(x, "integer") returned
+  # c(2L, 1L) exactly as as.integer() did, and as.vector(x, "double") returned
+  # c(2.7, 1) even though as.double() itself stops.
+  pair <- primal_tangent(2.7, 1)
+  for (target in c("integer", "double", "numeric")) {
+    expect_error(
+      as.vector(pair, target),
+      class = "deli_exact_tangent_lost"
+    )
+  }
+  arr <- primal_tangent_array(c(1, 2), c(1, 0))
+  expect_error(as.vector(arr, "integer"), class = "deli_exact_tangent_lost")
+  expect_error(as.vector(arr, "double"), class = "deli_exact_tangent_lost")
+})
+
+test_that("as.vector() with no mode hands the container back with its tangents", {
+  # The default mode is "any", which on a list returns the list, so
+  # `as.vector(X %*% theta)` keeps its derivatives and differentiates exactly.
+  # That has to survive: the abort is about the modes that force an atomic type.
+  arr <- primal_tangent_array(c(1, 2), c(1, 0))
+  expect_identical(as.vector(arr), arr)
+  f <- function(theta) sum(as.vector(c(1, 2, 3) * theta[1]))
+  expect_equal(auto_differentiation(2, f)[1, 1], 6)
+})
+
+test_that("integer coercion of ordinary values is untouched", {
+  expect_identical(as.integer(c(1.7, 2.2)), c(1L, 2L))
+  expect_identical(as.vector(c(1.7, 2.2), "integer"), c(1L, 2L))
+  expect_identical(as.vector(c(1.7, 2.2), "double"), c(1.7, 2.2))
+})

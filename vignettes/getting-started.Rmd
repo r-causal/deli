@@ -406,6 +406,9 @@ to return a plain double and so cannot carry a derivative. It aborts on any
 value that carries one rather than silently handing back a zero derivative,
 including a single parameter such as `as.numeric(theta[1])`, where the primal
 is already a plain double and returning it would have looked harmless.
+`as.double()`, `as.integer()`, `as.matrix()`, and `as.vector()` asked for a
+numeric mode abort for the same reason. `as.vector()` with its default
+`mode = "any"` hands its argument back unchanged, so it keeps the derivatives.
 
 `c()` has one wrinkle worth knowing. R dispatches it on its first argument
 alone, so a call that starts with a plain number never reaches deli's method:

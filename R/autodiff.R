@@ -954,7 +954,9 @@ as.logical.PrimalTangent <- function(x, ...) as.logical(x$primal)
 # already a plain double, and satisfying it dropped a live derivative with no
 # NA and no warning for any later rule to catch.
 #' @export
-as.double.PrimalTangent <- function(x, ...) pt_coercion_abort()
+as.double.PrimalTangent <- function(x, ...) {
+  pt_coercion_abort("numeric", c("as.numeric", "as.double"))
+}
 
 # R dispatches `as.numeric()` through the `as.double()` method table, so this
 # method is never reached and the rule above governs both spellings. Changing
@@ -962,20 +964,22 @@ as.double.PrimalTangent <- function(x, ...) pt_coercion_abort()
 #' @export
 as.numeric.PrimalTangent <- function(x, ...) as.numeric(x$primal)
 
-# No tangent-carrying value has a plain-double representation that keeps its
-# derivative, and `as.double()` must return a double, so coercing one aborts
-# rather than losing the tangents. Base R would otherwise report `'list' object
-# cannot be coerced to type 'double'` for an array and return `NA` with a
-# coercion warning for a parameter vector, neither of which points at the cause
-# or at the remedy. `as.numeric()` dispatches through `as.double()`, so one
-# method covers both spellings.
+# No tangent-carrying value has a representation in a plain numeric type that
+# keeps its derivative, so every coercion to one aborts rather than losing the
+# tangents. `target` names the type the coercion was asked for and `fns` the
+# spellings that ask for it, so each method reports the rule in the caller's own
+# terms while the guidance out of it is written once.
+#
+# Base R would otherwise report `'list' object cannot be coerced to type
+# 'double'` for an array and return `NA` with a coercion warning for a parameter
+# vector, neither of which points at the cause or at the remedy.
 #' @noRd
-pt_coercion_abort <- function() {
+pt_coercion_abort <- function(target, fns) {
   cli::cli_abort(
     c(
-      "A tangent-carrying value cannot be coerced to a plain {.cls numeric}.",
-      "i" = "{.fn as.numeric} and {.fn as.double} must return a double, so they
-             cannot preserve the derivative information.",
+      "A tangent-carrying value cannot be coerced to a plain {.cls {target}}.",
+      "i" = "A plain {.cls {target}} has nowhere to carry a derivative, so
+             {.fn {fns}} cannot preserve one.",
       "i" = "A tangent-carrying value needs no coercion: the arithmetic
              operators and the {.code Math} group functions take it directly.",
       "i" = "Use {.fn c} to flatten a tangent-carrying vector or matrix such as
@@ -988,10 +992,87 @@ pt_coercion_abort <- function() {
 }
 
 #' @export
-as.double.PrimalTangentArray <- function(x, ...) pt_coercion_abort()
+as.double.PrimalTangentArray <- function(x, ...) {
+  pt_coercion_abort("numeric", c("as.numeric", "as.double"))
+}
 
 #' @export
-as.double.PrimalTangentVector <- function(x, ...) pt_coercion_abort()
+as.double.PrimalTangentVector <- function(x, ...) {
+  pt_coercion_abort("numeric", c("as.numeric", "as.double"))
+}
+
+# ---- coercion to a matrix, an integer, or a vector of a numeric mode --------
+
+# A matrix of doubles is a type the tangent flows through, so the rule that
+# governs `as.double()` governs this coercion too. What base R does instead is
+# decided by shapes that have nothing to do with the payload:
+# `as.matrix.default()` reads `length()` and `dim()` through the methods above,
+# which answer for the payload, while `is.matrix()` reads the real attribute and
+# sees a classed list of two slots. The two disagree, so the coercion reports
+# `dims [product n] do not match the length of object [2]` from a base frame no
+# deli rule runs in. A two-element payload is worse: it is the one length the
+# default accepts, so it sets `dim = c(2, 1)` on the container itself and hands
+# back its two slots as the cells of a matrix, with the tangents gone and
+# nothing downstream to report it.
+#' @noRd
+pt_as_matrix <- function(x, ...) pt_coercion_abort("matrix", "as.matrix")
+
+#' @export
+as.matrix.PrimalTangent <- pt_as_matrix
+
+#' @export
+as.matrix.PrimalTangentArray <- pt_as_matrix
+
+#' @export
+as.matrix.PrimalTangentVector <- pt_as_matrix
+
+# An integer is a plain number, so a tangent has nowhere to go in one either.
+# Base R coerced the container itself for a scalar pair, so
+# `as.integer(primal_tangent(2.7, 1))` returned the truncated primal with the
+# tangent appended to it as a second value, which nothing downstream can tell
+# from data. The other payloads stopped already, with `'list' object cannot be
+# coerced to type 'integer'`, which points at neither the cause nor the remedy.
+#' @noRd
+pt_as_integer <- function(x, ...) pt_coercion_abort("integer", "as.integer")
+
+#' @export
+as.integer.PrimalTangent <- pt_as_integer
+
+#' @export
+as.integer.PrimalTangentArray <- pt_as_integer
+
+#' @export
+as.integer.PrimalTangentVector <- pt_as_integer
+
+# `as.vector()` dispatches on the class of its first argument, so its `mode`
+# argument is another spelling of the coercions above and carries the same rule:
+# the modes that force a numeric type abort, and `"double"` aborts here even
+# though it reached base R's coercion rather than the `as.double()` method.
+#
+# The default mode is `"any"`, which returns a list unchanged, so
+# `as.vector(X %*% theta)` keeps its tangents and differentiates exactly. That
+# is the one route a differentiated function reaches this method by on purpose,
+# and it is left alone. The remaining modes are left to base R as well, which
+# reads the two slots rather than the payload.
+#' @noRd
+pt_vector_coercion <- function(x, mode = "any") {
+  if (mode %in% c("integer", "double", "numeric")) {
+    pt_coercion_abort(mode, "as.vector")
+  }
+  if (identical(mode, "any")) {
+    return(x)
+  }
+  as.vector(unclass(x), mode)
+}
+
+#' @export
+as.vector.PrimalTangent <- pt_vector_coercion
+
+#' @export
+as.vector.PrimalTangentArray <- pt_vector_coercion
+
+#' @export
+as.vector.PrimalTangentVector <- pt_vector_coercion
 
 # ---- PrimalTangentArray: primal/tangent parallel numeric arrays -------------
 # A tangent-carrying vector or matrix within a single forward pass. Both slots
@@ -1554,10 +1635,12 @@ pt_where <- function(test, yes, no) {
 #'   scope there; a user-defined function that calls them from the global
 #'   environment reaches the base versions, and the differentiation aborts
 #'   rather than returning a silent approximation. Coercion cannot preserve a
-#'   derivative: `as.numeric()` and `as.double()` must return a plain double, so
-#'   they abort on any tangent-carrying value rather than dropping the tangents
-#'   silently. Use `c()` to flatten a matrix-shaped result such as
-#'   `X %*% theta` to a vector instead. `log(x, base)` differentiates
+#'   derivative: `as.numeric()`, `as.double()`, `as.integer()`, `as.matrix()`,
+#'   and `as.vector()` asked for a numeric `mode` must all return a plain
+#'   number, so each aborts on a tangent-carrying value rather than dropping the
+#'   tangents silently. `as.vector()` with its default `mode = "any"` returns its
+#'   argument unchanged and keeps the tangents. Use `c()` to flatten a
+#'   matrix-shaped result such as `X %*% theta` to a vector instead. `log(x, base)` differentiates
 #'   with respect to `x` only; the `base` argument is treated as a constant, and
 #'   a `base` that itself carries a tangent (a value derived from `theta`) is not
 #'   supported and aborts rather than dropping the base's contribution.
