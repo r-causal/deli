@@ -312,7 +312,16 @@ estimate_m_estimator <- function(
     length(full_theta),
     finite_correction
   )
-  asymp_var <- build_sandwich(bread, meat_mat, allow_pinv)
+  # A bread with no inverse under `allow_pinv = FALSE` is refused in there, and
+  # the refusal is about the setting the caller passed, so it names the frame of
+  # the method that was called rather than either of the internal functions in
+  # between.
+  asymp_var <- build_sandwich(
+    bread,
+    meat_mat,
+    allow_pinv,
+    call = rlang::caller_env()
+  )
 
   if (is.null(asymp_var)) {
     var_mat <- NULL
@@ -636,6 +645,15 @@ relative_newton_step <- function(bread, moments, theta) {
 #'   the magnitude of its own estimate with a floor of one, or `NA_real_` where
 #'   the bread carries values that are not finite, sees no direction at all, or
 #'   cannot be factored.
+#'
+#'   Two further returns of `NA_real_` are guarded for and unreachable from the
+#'   only caller. Moments that are not finite are screened by
+#'   `unsolved_equation()`, which reports such an equation and returns before
+#'   this reading is asked for. And a step that is not finite cannot arise once
+#'   the bread and the moments are: every singular value the step divides by
+#'   clears a positive tolerance, so the division is bounded. Both are kept
+#'   because this function is written to be safe on any matrix, not only on the
+#'   one its caller hands it.
 #' @noRd
 relative_singular_step <- function(bread, moments, theta) {
   if (!all(is.finite(bread)) || !all(is.finite(moments))) {
@@ -1863,8 +1881,14 @@ estimate_gmm_estimator <- function(
     finite_correction
   )
 
-  # Sandwich variance
-  asymp_var <- build_sandwich(bread, meat_mat, allow_pinv)
+  # Sandwich variance. A bread with no inverse under `allow_pinv = FALSE` names
+  # the frame of the method that was called, as the MEstimator path does.
+  asymp_var <- build_sandwich(
+    bread,
+    meat_mat,
+    allow_pinv,
+    call = rlang::caller_env()
+  )
 
   if (is.null(asymp_var)) {
     var_mat <- NULL

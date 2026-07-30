@@ -42,8 +42,10 @@ estimate, so a large parameter magnitude cannot silently reduce it to
 nothing; see \code{\link[=approx_differentiation]{approx_differentiation()}}.}
 
 \item{allow_pinv}{Logical. When \code{TRUE} (default), the Moore-Penrose
-pseudo-inverse is used if the bread matrix is singular; when \code{FALSE}, a
-singular bread matrix raises an error.}
+pseudo-inverse is used if the bread matrix has no inverse, which is the
+case for the rectangular bread of an over-identified system as well as for
+a singular square one; when \code{FALSE}, a bread with no inverse raises an
+error.}
 
 \item{finite_correction}{Character string or \code{NULL}. Finite-sample correction
 applied to the meat matrix. \code{NULL} (default) applies no correction; \code{"HC1"}
@@ -55,6 +57,15 @@ meat are each divided by n internally, so the returned matrix is the
 variance that corresponds to the standard deviation. Dividing it by the
 number of observations gives the standard-error-scale variance, whose
 square-rooted diagonal is the vector of standard errors.
+
+A covariance matrix is the only thing this function returns. Where the
+bread has no inverse, and so no sandwich can be assembled from it, the call
+raises an error carrying the class \code{deli_bread_not_invertible} rather than
+returning something that has to be tested for. That covers a bread holding
+\code{NA}, and, under \code{allow_pinv = FALSE}, a rectangular or a rank-deficient
+one. \code{\link[=estimate]{estimate()}} makes the other choice from the same matrices: a fit whose
+bread holds \code{NA} warns and comes back with no variance, since it still
+carries the estimates.
 }
 \description{
 Computes the empirical sandwich variance estimator directly from a set of

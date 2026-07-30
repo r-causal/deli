@@ -814,3 +814,149 @@ test_that("the non-finite abort names compute_sandwich()", {
   expect_match(reported_call(err), "compute_sandwich(", fixed = TRUE)
   expect_false(grepl("check_psi_at_theta", reported_call(err), fixed = TRUE))
 })
+
+# ---- the bread that cannot be inverted ---------------------------------------
+#
+# compute_sandwich() returns a covariance matrix or it fails. Three breads
+# cannot be turned into one, and each of them used to be reported as something
+# other than a failure of this call: an NA bread warned and returned `NULL`, so
+# the caller indexed into `NULL` and got `NULL` back one subscript at a time; a
+# rank-deficient bread under `allow_pinv = FALSE` cleared base R's inversion
+# tolerance and returned finite standard errors that mean nothing; and a
+# rectangular bread under the same setting died inside base::solve() against an
+# argument named `a`. All three now carry `deli_bread_not_invertible`.
+#
+# estimate() is the other caller of the same assembly and keeps its own
+# contract: a fit whose bread holds NA warns and comes back with no variance,
+# which is a state the accessors name. Only the entry point that has nothing but
+# the matrix to return fails.
+
+test_that("compute_sandwich() rejects an NA bread with one classed error", {
+  # Finite where the meat reads it and not finite where the difference quotient
+  # does, so the bread is the only part of the sandwich holding an NA.
+  psi <- function(theta) {
+    matrix(rep(if (theta[1] == 1) 1 else NA_real_, 3), nrow = 1)
+  }
+
+  err <- expect_error(
+    compute_sandwich(psi, theta = 1),
+    class = "deli_bread_not_invertible"
+  )
+
+  expect_match(conditionMessage(err), "bread")
+  expect_match(reported_call(err), "compute_sandwich(", fixed = TRUE)
+})
+
+test_that("the NA bread is reported once rather than warned about as well", {
+  psi <- function(theta) {
+    matrix(rep(if (theta[1] == 1) 1 else NA_real_, 3), nrow = 1)
+  }
+
+  caught <- collect_warnings(
+    expect_error(
+      compute_sandwich(psi, theta = 1),
+      class = "deli_bread_not_invertible"
+    )
+  )
+
+  expect_length(caught, 0)
+})
+
+test_that("estimate() still reports an NA bread as a fit with no variance", {
+  # Zero at the starting values, so the point is a root and the bread is the
+  # only thing the fit has to report on.
+  psi <- function(theta) {
+    matrix(rep(if (theta[1] == 0) 0 else NA_real_, 3), nrow = 1)
+  }
+
+  expect_warning(
+    fit <- estimate(
+      MEstimator(stacked_equations = psi, init = 0),
+      solver = function(stacked_equations, init) init
+    ),
+    "bread matrix contains NA"
+  )
+
+  expect_null(fit@variance)
+})
+
+# A design whose fourth column is the sum of two others is rank deficient
+# analytically, and the bread of a logistic fit on it is rank deficient too. The
+# finite differences do not reproduce that exactly, though: the round-off in the
+# difference quotient perturbs the dependent row enough to clear the tolerance
+# base R's solve() applies, so `allow_pinv = FALSE` inverted a matrix of
+# condition number 1e7 and returned standard errors that carry no information
+# about the parameters the design cannot tell apart.
+collinear_sandwich_case <- function() {
+  set.seed(1)
+  n <- 200
+  x1 <- stats::rnorm(n)
+  x2 <- stats::rnorm(n)
+  y <- stats::rbinom(n, 1, 1 / (1 + exp(-(0.5 + 0.8 * x1))))
+  X <- cbind(1, x1, x2, x1 + x2)
+  list(
+    psi = function(theta) {
+      ee_regression(theta, X = X, y = y, model = "logistic")
+    },
+    theta = c(0.5, 0.4, 0, 0)
+  )
+}
+
+test_that("a rank-deficient bread solve() accepts is refused without pinv", {
+  case <- collinear_sandwich_case()
+  bread <- compute_bread(case$psi, case$theta) / 200
+
+  # The premise: base R inverts this bread without complaint, so nothing but a
+  # rank reading stands between the caller and a finite answer.
+  expect_no_error(solve(bread))
+  expect_lt(qr(bread)$rank, ncol(bread))
+
+  err <- expect_error(
+    compute_sandwich(case$psi, theta = case$theta, allow_pinv = FALSE),
+    class = "deli_bread_not_invertible"
+  )
+
+  expect_match(conditionMessage(err), "singular")
+  expect_match(conditionMessage(err), "allow_pinv")
+})
+
+test_that("the same rank-deficient bread is pseudo-inverted when allowed", {
+  skip_if_not_installed("MASS")
+  case <- collinear_sandwich_case()
+
+  sandwich <- compute_sandwich(case$psi, theta = case$theta)
+
+  expect_equal(dim(sandwich), c(4L, 4L))
+})
+
+test_that("a rectangular bread is refused with the pseudo-inverse named", {
+  set.seed(42)
+  counts <- stats::rpois(200, 3)
+  psi <- function(theta) {
+    rbind(counts - theta[1], (counts - theta[1])^2 - theta[1])
+  }
+
+  err <- expect_error(
+    compute_sandwich(psi, theta = 3, allow_pinv = FALSE),
+    class = "deli_bread_not_invertible"
+  )
+
+  # base::solve() reported this as "'a' (2 x 1) must be square", naming an
+  # argument of its own and saying nothing about the system that produced it.
+  expect_match(conditionMessage(err), "over-identified")
+  expect_match(conditionMessage(err), "allow_pinv")
+  expect_false(grepl("must be square", conditionMessage(err), fixed = TRUE))
+})
+
+test_that("an over-identified fit still refuses the pseudo-inverse by class", {
+  set.seed(42)
+  counts <- stats::rpois(200, 3)
+  psi <- function(theta) {
+    rbind(counts - theta[1], (counts - theta[1])^2 - theta[1])
+  }
+
+  expect_error(
+    gmm_estimate(stacked_equations = psi, init = 1, allow_pinv = FALSE),
+    class = "deli_bread_not_invertible"
+  )
+})

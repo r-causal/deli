@@ -1,8 +1,9 @@
 #' Compute the bread matrix
 #'
 #' Computes the bread matrix for the empirical sandwich variance estimator.
-#' The bread is the negative Jacobian of the summed estimating equations,
-#' scaled by `1/n`.
+#' The bread is the negative Jacobian of the summed estimating equations. It is
+#' returned unscaled: the callers that assemble a sandwich divide it by the
+#' number of observations, and the meat with it.
 #'
 #' @param stacked_equations A function that takes a numeric vector `theta` and
 #'   returns a p-by-n matrix of estimating equation contributions.
@@ -17,7 +18,14 @@
 #'   row per estimating equation and one column per parameter. That is p-by-p
 #'   for an M-estimation system, which has one equation per parameter, and
 #'   n_eqs-by-p for an over-identified GMM system, whose rectangular bread
-#'   [build_sandwich()] pseudo-inverts.
+#'   [build_sandwich()] pseudo-inverts. No scaling is applied here; the division
+#'   by n that puts the bread on the mean scale belongs to the callers that
+#'   assemble a sandwich, [compute_sandwich()] and [estimate()].
+#'
+#'   A bread holding `NA` is returned as it stands, alongside a warning carrying
+#'   the class `deli_bread_na`. What to do about it is the caller's, and the two
+#'   callers differ: a fit records no variance and says so, while
+#'   [compute_sandwich()] has nothing but the matrix to return and fails.
 #'
 #' @keywords internal
 compute_bread <- function(
@@ -126,10 +134,13 @@ compute_bread <- function(
   }
 
   if (anyNA(bread_matrix)) {
-    cli::cli_warn(c(
-      "!" = "The bread matrix contains NA values, so it cannot be inverted.",
-      "i" = "The variance will not be calculated."
-    ))
+    cli::cli_warn(
+      c(
+        "!" = "The bread matrix contains NA values, so it cannot be inverted.",
+        "i" = "The variance will not be calculated."
+      ),
+      class = "deli_bread_na"
+    )
   }
 
   -1 * bread_matrix
@@ -190,18 +201,32 @@ compute_meat <- function(evaluations) {
 #' Combines bread and meat matrices into the sandwich:
 #' \eqn{B^{-1} M (B^{-1})^T}.
 #'
-#' @param bread A p-by-p bread matrix.
-#' @param meat A p-by-p meat matrix.
+#' @param bread A bread matrix with one row per estimating equation and one
+#'   column per parameter. It is p-by-p for an M-estimation system, which has
+#'   one equation per parameter, and n_eqs-by-p for an over-identified GMM
+#'   system, whose rectangular bread has no inverse and is pseudo-inverted
+#'   instead.
+#' @param meat An n_eqs-by-n_eqs meat matrix, square in the estimating equations
+#'   whether or not the bread is.
 #' @param allow_pinv Logical. If `TRUE` (default), uses the pseudo-inverse
-#'   when the bread matrix is singular.
+#'   when the bread matrix cannot be inverted. When `FALSE`, a bread that has no
+#'   inverse raises an error carrying the class `deli_bread_not_invertible`.
+#' @param call The frame to report that error against.
 #'
 #' @returns A p-by-p sandwich covariance matrix, or `NULL` if the bread
 #'   contains `NA` values.
 #'
 #' @keywords internal
-build_sandwich <- function(bread, meat, allow_pinv = TRUE) {
-  # If bread contains NA, return NULL
-
+build_sandwich <- function(
+  bread,
+  meat,
+  allow_pinv = TRUE,
+  call = rlang::caller_env()
+) {
+  # An NA bread is returned as a fit with no variance rather than as a failure,
+  # which is the state check_estimated() names and the accessors report. The
+  # entry point that has nothing but this matrix to hand back refuses the return
+  # before the assembly is reached; see compute_sandwich().
   if (anyNA(bread)) {
     return(NULL)
   }
@@ -220,11 +245,107 @@ build_sandwich <- function(bread, meat, allow_pinv = TRUE) {
       }
     )
   } else {
+    check_bread_invertible(bread, call = call)
     bread_inv <- solve(bread)
   }
 
   # Sandwich: B^{-1} M (B^{-1})^T
   bread_inv %*% meat %*% t(bread_inv)
+}
+
+# ---- the bread that cannot be inverted ---------------------------------------
+# Two conditions report a bread the sandwich cannot be assembled from, and both
+# carry a class so that a caller or a test can match on the class rather than on
+# the prose, as the solver warnings in `R/estimate.R` do.
+#
+#   deli_bread_na
+#     The bread holds `NA`, so no inverse of it exists. A warning, raised by
+#     compute_bread(), because what follows from it depends on the caller: a fit
+#     records no variance and carries on, and compute_sandwich() converts it into
+#     the error below. See compute_bread().
+#
+#   deli_bread_not_invertible
+#     The bread cannot be inverted and the caller refused the pseudo-inverse, or
+#     asked for a matrix and there is none to give. Raised by
+#     check_bread_invertible() for a rectangular or a rank-deficient bread under
+#     `allow_pinv = FALSE`, and by compute_sandwich() for a bread holding `NA`.
+
+#' Check that a bread matrix can be inverted without the pseudo-inverse
+#'
+#' `allow_pinv = FALSE` says a bread that has no inverse is to be refused rather
+#' than pseudo-inverted, and leaving that to [base::solve()] did not deliver it.
+#' Two breads got through.
+#'
+#' A rectangular bread is the over-identified GMM system, which has no inverse at
+#' any rank, and base R reported it as `'a' (2 x 1) must be square`, naming an
+#' argument of its own. It is refused here with the reason it has no inverse and
+#' the setting that would accept one.
+#'
+#' A square bread that is rank deficient has no inverse either, but a
+#' finite-difference Jacobian does not reproduce the dependence exactly: the
+#' round-off in the difference quotient perturbs the dependent row, and a bread
+#' whose rank is short by one can still clear the reciprocal-condition tolerance
+#' `solve()` applies and come back with finite standard errors that carry no
+#' information about the parameters the design cannot tell apart. The rank is
+#' therefore read directly, with `rank_deficient()`, which is the same reading
+#' `not_identified()` makes of the same matrix when a fit reports that its
+#' parameters are not identified. Its criterion is the rank `qr()` returns, whose
+#' tolerance is `1e-7` relative to the largest pivot, so a bread whose condition
+#' number runs past roughly `1e7` is counted as singular. That is strict for a
+#' matrix that is merely ill conditioned, and deliberately so: `allow_pinv =
+#' FALSE` is an explicit request to be told rather than to be given an answer,
+#' and the alternative reading, waiting for `solve()` to fail, is what let the
+#' rank-deficient case through.
+#'
+#' A bread holding values that are not finite is not read here. `qr()` cannot
+#' factor one, and `build_sandwich()` has already returned for a bread holding
+#' `NA`.
+#'
+#' @param bread The bread matrix, with one row per estimating equation and one
+#'   column per parameter.
+#' @param call The frame to report the error against.
+#'
+#' @returns Invisible `NULL`. Raises an error carrying the class
+#'   `deli_bread_not_invertible` where the bread has no inverse.
+#' @noRd
+check_bread_invertible <- function(bread, call = rlang::caller_env()) {
+  n_eqs <- nrow(bread)
+  n_params <- ncol(bread)
+  if (n_eqs != n_params) {
+    cli::cli_abort(
+      c(
+        "!" = "The bread matrix has {n_eqs} row{?s} and {n_params} column{?s},
+               so it has no inverse.",
+        "i" = "An over-identified system has more estimating equations than
+               parameters, and its rectangular bread is pseudo-inverted rather
+               than solved.",
+        "i" = "Set {.code allow_pinv = TRUE} to build the variance from the
+               Moore-Penrose pseudo-inverse, which is what an over-identified
+               fit reports."
+      ),
+      class = "deli_bread_not_invertible",
+      call = call
+    )
+  }
+  if (rank_deficient(bread)) {
+    rank <- qr(bread)$rank
+    cli::cli_abort(
+      c(
+        "!" = "The bread matrix is singular, and {.arg allow_pinv} is
+               {.code FALSE}.",
+        "i" = "Its rank is {rank} of {n_params}, so at least one direction in
+               the parameter space leaves the mean estimating equations
+               unchanged and the parameters along it cannot be told apart.",
+        "i" = "Set {.code allow_pinv = TRUE} to build the variance from the
+               Moore-Penrose pseudo-inverse, or check the estimating equations
+               for a redundant parameter and the design for linearly dependent
+               columns."
+      ),
+      class = "deli_bread_not_invertible",
+      call = call
+    )
+  }
+  invisible(NULL)
 }
 
 #' Apply finite-sample correction to the meat matrix
@@ -303,8 +424,10 @@ finite_sample_correction <- function(meat, n, p, adjustment = NULL) {
 #'   estimate, so a large parameter magnitude cannot silently reduce it to
 #'   nothing; see [approx_differentiation()].
 #' @param allow_pinv Logical. When `TRUE` (default), the Moore-Penrose
-#'   pseudo-inverse is used if the bread matrix is singular; when `FALSE`, a
-#'   singular bread matrix raises an error.
+#'   pseudo-inverse is used if the bread matrix has no inverse, which is the
+#'   case for the rectangular bread of an over-identified system as well as for
+#'   a singular square one; when `FALSE`, a bread with no inverse raises an
+#'   error.
 #' @param finite_correction Character string or `NULL`. Finite-sample correction
 #'   applied to the meat matrix. `NULL` (default) applies no correction; `"HC1"`
 #'   rescales the meat by \eqn{n / (n - p)}, where p is the number of parameters.
@@ -314,6 +437,15 @@ finite_sample_correction <- function(meat, n, p, adjustment = NULL) {
 #'   variance that corresponds to the standard deviation. Dividing it by the
 #'   number of observations gives the standard-error-scale variance, whose
 #'   square-rooted diagonal is the vector of standard errors.
+#'
+#'   A covariance matrix is the only thing this function returns. Where the
+#'   bread has no inverse, and so no sandwich can be assembled from it, the call
+#'   raises an error carrying the class `deli_bread_not_invertible` rather than
+#'   returning something that has to be tested for. That covers a bread holding
+#'   `NA`, and, under `allow_pinv = FALSE`, a rectangular or a rank-deficient
+#'   one. [estimate()] makes the other choice from the same matrices: a fit whose
+#'   bread holds `NA` warns and comes back with no variance, since it still
+#'   carries the estimates.
 #'
 #' @seealso [MEstimator()] and [GMMEstimator()], which solve for `theta` and
 #'   report this variance internally, and [delta_method()] for the variance of a
@@ -352,6 +484,11 @@ compute_sandwich <- function(
   finite_correction = NULL
 ) {
   check_dx(dx)
+  # Every failure below judges something the caller passed to this function, and
+  # some of them are raised from inside a handler or a helper, where one frame up
+  # is no longer this one. The frame is taken once, here, and passed to each of
+  # them.
+  call <- rlang::current_env()
   # This evaluates the estimating function once for itself and once or twice per
   # parameter for the bread, so an estimating function that warns raises the same
   # warning several times for one call. See R/conditions.R. The body is short
@@ -365,7 +502,7 @@ compute_sandwich <- function(
     # this function builds from a rectangular bread is the asymptotic variance a
     # GMM fit reports.
     evald <- stacked_equations(theta)
-    check_psi_at_theta(evald, theta)
+    check_psi_at_theta(evald, theta, call = call)
     if (is.null(dim(evald))) {
       n_obs <- length(evald)
       n_params <- 1
@@ -377,7 +514,31 @@ compute_sandwich <- function(
     }
 
     # Step 1: Bread matrix
-    bread <- compute_bread(stacked_equations, theta, deriv_method, dx)
+    #
+    # An NA bread is the one failure the assembly reports rather than raises,
+    # because a fit that has the estimates can carry on without a variance. This
+    # entry point has nothing else to hand back, so the warning compute_bread()
+    # raises is converted into the failure it is here rather than delivered
+    # alongside one. Fetching it by class rather than testing the returned matrix
+    # is what keeps the report to a single condition: the handler is an exiting
+    # one, so the warning never reaches the caller.
+    bread <- rlang::try_fetch(
+      compute_bread(stacked_equations, theta, deriv_method, dx),
+      deli_bread_na = function(cnd) {
+        cli::cli_abort(
+          c(
+            "!" = "The bread matrix contains NA values, so it has no inverse.",
+            "i" = "The sandwich is built from the bread, so there is no
+                   covariance matrix to return at {.arg theta}.",
+            "i" = "This usually means the estimating functions are not
+                   differentiable at {.arg theta}, or that they return a value
+                   that is not finite at a perturbed one."
+          ),
+          class = "deli_bread_not_invertible",
+          call = call
+        )
+      }
+    )
     bread <- bread / n_obs
 
     # Step 2: Meat matrix
@@ -386,7 +547,7 @@ compute_sandwich <- function(
     meat <- finite_sample_correction(meat, n_obs, n_params, finite_correction)
 
     # Step 3: Build sandwich
-    build_sandwich(bread, meat, allow_pinv)
+    build_sandwich(bread, meat, allow_pinv, call = call)
   })
 }
 

@@ -24,11 +24,19 @@ The negated Jacobian of the summed estimating equations, with one
 row per estimating equation and one column per parameter. That is p-by-p
 for an M-estimation system, which has one equation per parameter, and
 n_eqs-by-p for an over-identified GMM system, whose rectangular bread
-\code{\link[=build_sandwich]{build_sandwich()}} pseudo-inverts.
+\code{\link[=build_sandwich]{build_sandwich()}} pseudo-inverts. No scaling is applied here; the division
+by n that puts the bread on the mean scale belongs to the callers that
+assemble a sandwich, \code{\link[=compute_sandwich]{compute_sandwich()}} and \code{\link[=estimate]{estimate()}}.
+
+A bread holding \code{NA} is returned as it stands, alongside a warning carrying
+the class \code{deli_bread_na}. What to do about it is the caller's, and the two
+callers differ: a fit records no variance and says so, while
+\code{\link[=compute_sandwich]{compute_sandwich()}} has nothing but the matrix to return and fails.
 }
 \description{
 Computes the bread matrix for the empirical sandwich variance estimator.
-The bread is the negative Jacobian of the summed estimating equations,
-scaled by \code{1/n}.
+The bread is the negative Jacobian of the summed estimating equations. It is
+returned unscaled: the callers that assemble a sandwich divide it by the
+number of observations, and the meat with it.
 }
 \keyword{internal}

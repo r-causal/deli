@@ -4,15 +4,23 @@
 \alias{build_sandwich}
 \title{Build the sandwich variance estimator}
 \usage{
-build_sandwich(bread, meat, allow_pinv = TRUE)
+build_sandwich(bread, meat, allow_pinv = TRUE, call = rlang::caller_env())
 }
 \arguments{
-\item{bread}{A p-by-p bread matrix.}
+\item{bread}{A bread matrix with one row per estimating equation and one
+column per parameter. It is p-by-p for an M-estimation system, which has
+one equation per parameter, and n_eqs-by-p for an over-identified GMM
+system, whose rectangular bread has no inverse and is pseudo-inverted
+instead.}
 
-\item{meat}{A p-by-p meat matrix.}
+\item{meat}{An n_eqs-by-n_eqs meat matrix, square in the estimating equations
+whether or not the bread is.}
 
 \item{allow_pinv}{Logical. If \code{TRUE} (default), uses the pseudo-inverse
-when the bread matrix is singular.}
+when the bread matrix cannot be inverted. When \code{FALSE}, a bread that has no
+inverse raises an error carrying the class \code{deli_bread_not_invertible}.}
+
+\item{call}{The frame to report that error against.}
 }
 \value{
 A p-by-p sandwich covariance matrix, or \code{NULL} if the bread

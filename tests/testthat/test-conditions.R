@@ -318,6 +318,36 @@ test_that("a GMM fit delivers a repeated warning once", {
   expect_match(warning_messages(caught), "not differentiable")
 })
 
+# The bread's own warning travels through the scope like any other. One fit
+# builds one bread, so there is nothing here for the scope to collapse, and what
+# this pins is that the warning is neither repeated nor swallowed by the scope
+# that surrounds it.
+#
+# The fit is the entry point that still warns about an NA bread, because it
+# keeps the estimates and reports itself as a fit with no variance.
+# compute_sandwich() has nothing but the matrix to return, so it converts the
+# same warning into a classed abort and delivers no warning at all;
+# tests/testthat/test-sandwich.R pins that side.
+test_that("estimate() delivers the NA bread warning once", {
+  # Zero at the point it is evaluated at, so the point is a root and the bread
+  # is the only thing left to report on, and not finite where the difference
+  # quotient reads it. An estimating function that is already not finite at that
+  # point is a different failure, judged before any of this is built.
+  psi <- function(theta) {
+    matrix(rep(if (theta[1] == 0) 0 else NA_real_, 3), nrow = 1)
+  }
+
+  caught <- collect_warnings(
+    estimate(
+      MEstimator(stacked_equations = psi, init = 0),
+      solver = function(stacked_equations, init) init
+    )
+  )
+
+  expect_length(caught, 1)
+  expect_match(warning_messages(caught), "bread matrix contains NA")
+})
+
 # Calling handlers run before R converts a warning into an error, so the scope
 # sees the first warning and lets it through to be converted exactly as it would
 # be without the scope. The fit therefore stops at the first evaluation of the
@@ -349,25 +379,6 @@ test_that("compute_sandwich() delivers a repeated warning once", {
 
   expect_length(caught, 1)
   expect_match(warning_messages(caught), "not differentiable")
-})
-
-# The bread's own warning travels through the scope like any other. One call to
-# compute_sandwich() builds one bread, so there is nothing here for the scope to
-# collapse, and what this pins is that the warning is neither repeated nor
-# swallowed by the scope that surrounds it.
-test_that("compute_sandwich() delivers the NA bread warning once", {
-  # Finite where the meat reads it and not finite where the difference quotient
-  # does, so the bread is the only part of the sandwich holding an NA. An
-  # estimating function that is already not finite at the point it is evaluated
-  # at is a different failure, judged before any of this is built.
-  psi <- function(theta) {
-    matrix(rep(if (theta[1] == 1) 1 else NA_real_, 3), nrow = 1)
-  }
-
-  caught <- collect_warnings(compute_sandwich(psi, theta = 1))
-
-  expect_length(caught, 1)
-  expect_match(warning_messages(caught), "bread matrix contains NA")
 })
 
 test_that("compute_sandwich() starts a fresh seen-set on every call", {
