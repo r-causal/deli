@@ -273,44 +273,243 @@ test_that("ee_ipw_msm tweedie hyperparameter changes the MSM fit", {
   expect_python_match(m18, "ee_ipw_msm_tweedie_p18", tolerance = 1e-5)
 })
 
-test_that("ee_ipw_msm rejects nuisance-parameter outcome families", {
-  # Python's ee_ipw_msm cannot fit a gamma or negative binomial MSM: those GLM
-  # families read the last theta element as a log-nuisance parameter, but the
-  # theta partition reserves exactly ncol(V) slots for the MSM with no room for
-  # it, so ee_glm's design matrix multiplies a coefficient vector one element
-  # short and the multiplication is non-conformable (Python raises the same
-  # shape-alignment failure). The R implementation must mirror this non-support
-  # rather than silently invent a capability Python lacks.
+test_that("ee_ipw_msm counts the reserved slots off the design it was given", {
+  # Python's ee_ipw_msm cannot fit a gamma or negative binomial MSM either:
+  # those GLM families read the last theta element as a log-nuisance parameter,
+  # but the theta partition reserves exactly ncol(V) slots for the MSM with no
+  # room for it, and Python's attempt fails as a shape-alignment error inside its
+  # GLM. This implementation must mirror the non-support rather than invent a
+  # capability Python lacks, and the section below is where the refusal it raises
+  # instead is pinned. What this fixture adds is the width: it has three MSM
+  # columns where that section has two, so the count the refusal reports is read
+  # off V rather than fixed.
   ref <- load_fixture("ee_ipw_msm_tweedie_p15")
-  y <- ref$y
-  A <- ref$a
-  W <- ref$W
-  V <- ref$V
 
   # init has length ncol(V) + ncol(W), exactly as for a supported family.
-  expect_error(
+  cnd <- rlang::catch_cnd(
     ee_ipw_msm(
       ref$init,
-      y = y,
-      A = A,
-      W = W,
-      V = V,
+      y = ref$y,
+      A = ref$a,
+      W = ref$W,
+      V = ref$V,
       distribution = "negative_binomial",
       link = "log"
     ),
-    "conformable"
+    classes = "error"
   )
-  expect_error(
+
+  expect_identical(ncol(ref$V), 3L)
+  # Rewrapped, since where cli breaks the line depends on the width the report
+  # is formatted at.
+  report <- gsub("[[:space:]]+", " ", conditionMessage(cnd))
+  expect_match(report, "reserves exactly 3 slots", fixed = TRUE)
+})
+
+# ee_ipw_msm outcome distributions --------------------------------------------
+
+# The rejection above is correct and documented under `@param hyperparameter`,
+# but the report is not. A gamma or negative binomial marginal structural model
+# fails inside `ee_glm()`, which strips the last element of the coefficient
+# vector it was handed as a log-nuisance parameter and multiplies the design by
+# what is left, so the caller is told `non-conformable arguments` about a matrix
+# product they never wrote and no argument of theirs is named. The theta
+# partition is a property of `ee_ipw_msm()`, which reserves exactly `ncol(V)`
+# slots for the marginal structural model, so the refusal belongs there and has
+# to name the distribution that caused it and the distributions that would work.
+#
+# The supported set is every distribution `ee_glm()` documents except the three
+# that carry an estimated nuisance parameter: `"normal"` and its `"gaussian"`
+# alias, `"poisson"`, `"binomial"` and its `"bernoulli"` alias,
+# `"inverse_normal"` and its `"inverse_gaussian"` alias, and `"tweedie"`, whose
+# variance power is fixed by `hyperparameter` rather than estimated.
+
+# ---- Helpers ----
+
+# The condition an ee_ipw_msm() call raises, caught rather than matched so the
+# tests can ask about its class, its message, and the call it is reported
+# against. `theta` is the length a supported family takes, so nothing here is a
+# starting-value fault.
+msm_distribution_condition <- function(distribution, ...) {
+  d <- make_causal_data_advanced()
+  rlang::catch_cnd(
     ee_ipw_msm(
-      ref$init,
-      y = y,
-      A = A,
-      W = W,
-      V = V,
-      distribution = "gamma",
-      link = "log"
+      rep(0, ncol(d$Vmsm) + ncol(d$Wmat)),
+      y = d$Y,
+      A = d$A,
+      W = d$Wmat,
+      V = d$Vmsm,
+      distribution = distribution,
+      link = "log",
+      ...
     ),
-    "conformable"
+    classes = "error"
+  )
+}
+
+test_that("ee_ipw_msm names the outcome family it cannot fit", {
+  for (dist in c("gamma", "negative_binomial", "nb")) {
+    cnd <- msm_distribution_condition(dist)
+    report <- conditionMessage(cnd)
+
+    expect_s3_class(cnd, "rlang_error")
+    expect_match(report, dist, fixed = TRUE, label = dist)
+    expect_match(report, "distribution", fixed = TRUE, label = dist)
+    expect_no_match(report, "conformable", fixed = TRUE, label = dist)
+  }
+})
+
+test_that("ee_ipw_msm points at the outcome families it can fit", {
+  for (dist in c("gamma", "negative_binomial", "nb")) {
+    report <- conditionMessage(msm_distribution_condition(dist))
+
+    expect_match(report, "poisson", fixed = TRUE, label = dist)
+    expect_match(report, "tweedie", fixed = TRUE, label = dist)
+  }
+})
+
+test_that("ee_ipw_msm reports the refusal against its own call", {
+  # The partition the refusal is about belongs to `ee_ipw_msm()`, so the report
+  # has to come from there rather than from the `X %*% beta` inside `ee_glm()`
+  # that the coefficient vector one element short reaches today.
+  for (dist in c("gamma", "negative_binomial", "nb")) {
+    cnd <- msm_distribution_condition(dist)
+    expect_identical(
+      rlang::call_name(conditionCall(cnd)),
+      "ee_ipw_msm",
+      label = dist
+    )
+  }
+})
+
+test_that("ee_ipw_msm refuses the family whatever case it is written in", {
+  # `ee_glm()` lowercases the distribution before reading it, so the refusal has
+  # to as well or a capitalized name would reach the same bare failure.
+  for (dist in c("Gamma", "GAMMA", "Negative_Binomial", "NB")) {
+    report <- conditionMessage(msm_distribution_condition(dist))
+    expect_no_match(report, "conformable", fixed = TRUE, label = dist)
+  }
+})
+
+test_that("ee_ipw_msm refuses the family before it reads hyperparameter", {
+  # `hyperparameter` is ignored by every distribution but the tweedie, so a
+  # value supplied beside a refused family changes nothing about the refusal.
+  report <- conditionMessage(
+    msm_distribution_condition("gamma", hyperparameter = 1.5)
+  )
+  expect_no_match(report, "conformable", fixed = TRUE)
+  expect_match(report, "gamma", fixed = TRUE)
+})
+
+test_that("ee_ipw_msm still refuses a distribution no equation supports", {
+  # A misspelling is not one of the three families the partition excludes, and
+  # whichever check answers it, the answer is not a matrix-shape failure.
+  cnd <- msm_distribution_condition("bogus")
+
+  expect_s3_class(cnd, "rlang_error")
+  expect_no_match(conditionMessage(cnd), "conformable", fixed = TRUE)
+})
+
+test_that("ee_ipw_msm returns the (c+b)-by-n stack for every family it fits", {
+  d <- make_causal_data_advanced()
+  theta <- c(0.5, -0.25, 0.1, -0.1)
+  expected_dim <- c(ncol(d$Vmsm) + ncol(d$Wmat), length(d$Y))
+  expected_names <- c("MSM alpha_0", "MSM alpha_1", "W_1", "W_2")
+
+  continuous <- c(
+    "normal",
+    "gaussian",
+    "poisson",
+    "inverse_normal",
+    "inverse_gaussian"
+  )
+  for (dist in continuous) {
+    ee <- ee_ipw_msm(
+      theta,
+      y = d$Y,
+      A = d$A,
+      W = d$Wmat,
+      V = d$Vmsm,
+      distribution = dist,
+      link = "log"
+    )
+
+    expect_identical(dim(ee), expected_dim, label = dist)
+    expect_identical(rownames(ee), expected_names, label = dist)
+  }
+
+  # The tweedie takes its variance power from `hyperparameter` and estimates
+  # nothing extra, which is why it keeps its slot in the partition.
+  tweedie <- ee_ipw_msm(
+    theta,
+    y = d$Y,
+    A = d$A,
+    W = d$Wmat,
+    V = d$Vmsm,
+    distribution = "tweedie",
+    link = "log",
+    hyperparameter = 1.5
+  )
+  expect_identical(dim(tweedie), expected_dim)
+  expect_identical(rownames(tweedie), expected_names)
+
+  # The binomial families need an outcome in the unit interval and a link that
+  # keeps the mean there.
+  binary <- as.numeric(d$Y > stats::median(d$Y))
+  for (dist in c("binomial", "bernoulli")) {
+    ee <- ee_ipw_msm(
+      theta,
+      y = binary,
+      A = d$A,
+      W = d$Wmat,
+      V = d$Vmsm,
+      distribution = dist,
+      link = "logit"
+    )
+
+    expect_identical(dim(ee), expected_dim, label = dist)
+    expect_identical(rownames(ee), expected_names, label = dist)
+  }
+})
+
+test_that("ee_ipw_msm stacks the weighted MSM on the propensity score model", {
+  # The value spot-check behind the dimensions above. The stack is the weighted
+  # GLM over V on top of the logistic regression of A on W, with the weights the
+  # estimated propensity scores give, and it must stay exactly that.
+  d <- make_causal_data_advanced()
+  theta <- c(0.5, -0.25, 0.1, -0.1)
+  alpha <- theta[1:2]
+  beta <- theta[3:4]
+
+  pi_hat <- inverse_logit(as.vector(d$Wmat %*% beta))
+  ipw <- base::ifelse(d$A == 1, 1 / pi_hat, 1 / (1 - pi_hat))
+  expected <- base::rbind(
+    ee_glm(
+      alpha,
+      X = d$Vmsm,
+      y = d$Y,
+      distribution = "poisson",
+      link = "log",
+      weights = ipw
+    ),
+    ee_regression(beta, X = d$Wmat, y = d$A, model = "logistic")
+  )
+
+  ee <- ee_ipw_msm(
+    theta,
+    y = d$Y,
+    A = d$A,
+    W = d$Wmat,
+    V = d$Vmsm,
+    distribution = "poisson",
+    link = "log"
+  )
+
+  expect_equal(unname(ee), unname(expected))
+  expect_equal(
+    unname(rowSums(ee)),
+    c(1469.6659076, 716.4159170, 1.7768523144, 28.5),
+    tolerance = 1e-8
   )
 })
 

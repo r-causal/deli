@@ -43,8 +43,9 @@ tweedie outcome distribution, where it fixes the variance power
 partition reserves exactly \code{ncol(V)} slots for the MSM and no slot for
 an estimated nuisance parameter, so outcome families that carry one
 (\code{"gamma"}, \code{"negative_binomial"}, \code{"nb"}) cannot be used as the MSM
-outcome model. This mirrors Python Delicatessen, which raises a shape
-error for those families.}
+outcome model. Naming one is refused by name, before the outcome model is
+formed and whatever \code{hyperparameter} is set to. Python Delicatessen cannot
+fit those families either, where the attempt fails as a shape error.}
 
 \item{truncate}{Optional length-2 numeric vector \code{c(lower, upper)} to
 clip estimated propensity scores. Bounds must be in ascending order

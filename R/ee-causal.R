@@ -375,8 +375,9 @@ ee_aipw <- function(
 #'   partition reserves exactly `ncol(V)` slots for the MSM and no slot for
 #'   an estimated nuisance parameter, so outcome families that carry one
 #'   (`"gamma"`, `"negative_binomial"`, `"nb"`) cannot be used as the MSM
-#'   outcome model. This mirrors Python Delicatessen, which raises a shape
-#'   error for those families.
+#'   outcome model. Naming one is refused by name, before the outcome model is
+#'   formed and whatever `hyperparameter` is set to. Python Delicatessen cannot
+#'   fit those families either, where the attempt fails as a shape error.
 #' @param truncate Optional length-2 numeric vector `c(lower, upper)` to
 #'   clip estimated propensity scores. Bounds must be in ascending order
 #'   (`lower <= upper`). Default `NULL`.
@@ -435,6 +436,26 @@ ee_ipw_msm <- function(
   A <- as.numeric(A)
   y <- as.numeric(y)
   n <- length(y)
+
+  # An outcome family that estimates a nuisance parameter has nowhere to keep it
+  # here. ee_glm() reads the last element of the coefficient vector it is handed
+  # as that parameter, and the theta partition below reserves exactly ncol(V)
+  # slots for the MSM, so the design would be multiplied by a coefficient vector
+  # one element short. Refusing by name is the point: the partition is this
+  # function's, and the failure otherwise surfaces as a non-conformable matrix
+  # product the caller never wrote. Lowercased as ee_glm() lowercases it, so a
+  # capitalized name is refused here rather than reaching that product.
+  if (tolower(distribution) %in% c("gamma", "negative_binomial", "nb")) {
+    supported <- c("normal", "poisson", "binomial", "inverse_normal", "tweedie")
+    cli::cli_abort(c(
+      "The {.val {distribution}} distribution cannot be the outcome model of a
+       marginal structural model.",
+      "x" = "It estimates a nuisance parameter, and {.arg theta} reserves exactly
+             {ncol(V)} slot{?s} for the marginal structural model, one per column
+             of {.arg V}, with none for that parameter.",
+      "i" = "Supported {.arg distribution} values are {.or {.val {supported}}}."
+    ))
+  }
 
   # Extract parameters: first c for MSM, remaining b for PS model
   c_params <- ncol(V)
