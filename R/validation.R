@@ -393,6 +393,72 @@ check_psi_at_init <- function(vals, init, allow_over_identification = FALSE) {
   invisible(NULL)
 }
 
+#' Check the estimating-function return at a point supplied as the root
+#'
+#' The counterpart of [check_psi_at_init()] for [compute_sandwich()], which is
+#' handed a point the caller states is the root and so never runs the check
+#' [estimate()] runs before solving. The returns that check rejects reach the
+#' bread and the meat instead, where each either fails deep in base R against an
+#' argument the caller never named or returns a matrix of the documented shape
+#' built from a Jacobian that is not one.
+#'
+#' The checks, and the order they hold, are those of [check_psi_at_init()]; the
+#' comments there give the reason each one sits where it does. Two things
+#' differ. There is no `init` here and no initial values to name, so the point
+#' is named by the argument that carries it. And more estimating equations than
+#' parameters is the over-identified system whose sandwich this entry point is
+#' asked for and returns, so only a shortfall is rejected, as it is under
+#' `allow_over_identification`.
+#'
+#' @param vals The value of `stacked_equations(theta)`, evaluated once by the
+#'   caller.
+#' @param theta The parameter vector the estimating function was evaluated at.
+#'
+#' @returns Invisible `NULL`. Raises an error if the return is invalid. A
+#'   shortfall of estimating equations carries the class
+#'   `deli_psi_shape_error`, as the shape failures in [check_psi_at_init()] do.
+#' @noRd
+check_psi_at_theta <- function(vals, theta) {
+  if (is.null(vals)) {
+    cli::cli_abort(c(
+      "{.arg stacked_equations} returned {.val NULL} at {.arg theta}.",
+      "i" = "It must return a numeric vector or matrix of estimating-function
+             contributions."
+    ))
+  }
+  if (!is.numeric(vals)) {
+    cli::cli_abort(
+      "{.arg stacked_equations} must return a numeric vector or matrix at
+       {.arg theta}, not {.obj_type_friendly {vals}}."
+    )
+  }
+  n_eqs <- if (is.null(dim(vals))) 1L else nrow(vals)
+  n_params <- length(theta)
+  if (n_eqs < n_params) {
+    cli::cli_abort(
+      c(
+        "{.arg stacked_equations} returned {n_eqs} estimating equation{?s} at
+         {.arg theta}, which holds {n_params} parameter{?s}.",
+        "i" = "The sandwich needs at least one estimating equation per
+               parameter. With fewer, the bread has more columns than rows and
+               its pseudo-inverse carries the shape of a covariance matrix
+               without the meaning.",
+        "i" = "More estimating equations than parameters is the over-identified
+               system, which is accepted."
+      ),
+      class = "deli_psi_shape_error"
+    )
+  }
+  if (!all(is.finite(vals))) {
+    cli::cli_abort(c(
+      "{.arg stacked_equations} returned non-finite values at {.arg theta}.",
+      "i" = "Both the bread and the meat are built from this return, so a
+             non-finite value in it leaves the whole sandwich undefined."
+    ))
+  }
+  invisible(NULL)
+}
+
 #' Evaluate and validate the estimating function at the initial values
 #'
 #' Performs the single evaluation of the estimating function at `init` that

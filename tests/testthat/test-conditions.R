@@ -369,7 +369,13 @@ test_that("compute_sandwich() delivers a repeated warning once", {
 # collapse, and what this pins is that the warning is neither repeated nor
 # swallowed by the scope that surrounds it.
 test_that("compute_sandwich() delivers the NA bread warning once", {
-  psi <- function(theta) matrix(rep(NA_real_, 3) * theta[1], nrow = 1)
+  # Finite where the meat reads it and not finite where the difference quotient
+  # does, so the bread is the only part of the sandwich holding an NA. An
+  # estimating function that is already not finite at the point it is evaluated
+  # at is a different failure, judged before any of this is built.
+  psi <- function(theta) {
+    matrix(rep(if (theta[1] == 1) 1 else NA_real_, 3), nrow = 1)
+  }
 
   caught <- collect_warnings(compute_sandwich(psi, theta = 1))
 

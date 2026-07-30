@@ -495,3 +495,173 @@ test_that("compute_bread() keeps the guard for the lists it cannot reduce", {
     class = "deli_exact_tangent_lost"
   )
 })
+
+# ---- the dimensionless tangent array under the exact pass -------------------
+#
+# `c()` on tangent-carrying values returns a tangent array whose primal has no
+# `dim`, and summing that shape adds every element into one value rather than
+# within each row. Adding across the whole return is the correct reduction for
+# it: a dimensionless return is one estimating equation observed n times, which
+# is the only reading `estimate()` gives it. The shape needs assembling with
+# `c()` to arrive at all. A one-parameter estimating function that subtracts
+# theta from a data vector returns a scalar pair instead, whose primal carries
+# the vector and which is summed a step earlier.
+
+test_that("an exact fit whose psi is assembled with c() matches its capprox twin", {
+  y <- c(1, 2, 4, 1, 2, 3, 1, 5, 2)
+  psi <- function(theta) {
+    c(theta[1] - y[1], theta[1] - y[2], theta[1] - y[3])
+  }
+
+  exact <- m_estimate(stacked_equations = psi, init = 0, deriv_method = "exact")
+  capprox <- m_estimate(
+    stacked_equations = psi,
+    init = 0,
+    deriv_method = "capprox"
+  )
+
+  # Three contributions of one parameter, whose root is their mean.
+  expect_equal(unname(exact@theta), mean(y[1:3]), tolerance = 1e-8)
+  expect_equal(exact@theta, capprox@theta, tolerance = 1e-8)
+  expect_equal(exact@bread, capprox@bread, tolerance = 1e-6)
+  expect_equal(exact@variance, capprox@variance, tolerance = 1e-6)
+})
+
+test_that("compute_bread() sums a dimensionless tangent array across observations", {
+  y <- c(1, 2, 4)
+  psi <- function(theta) c(theta[1] - y[1], theta[1] - y[2], theta[1] - y[3])
+
+  # Each contribution has derivative 1 with respect to theta, so the summed
+  # Jacobian is 3 and the bread is its negation.
+  expect_equal(
+    compute_bread(psi, theta = mean(y), deriv_method = "exact"),
+    matrix(-3)
+  )
+  expect_equal(
+    compute_bread(psi, theta = mean(y), deriv_method = "exact"),
+    compute_bread(psi, theta = mean(y), deriv_method = "capprox"),
+    tolerance = 1e-6
+  )
+})
+
+test_that("compute_sandwich() differentiates a c()-assembled psi exactly", {
+  y <- c(1, 2, 4)
+  psi <- function(theta) c(theta[1] - y[1], theta[1] - y[2], theta[1] - y[3])
+
+  expect_equal(
+    compute_sandwich(psi, theta = mean(y), deriv_method = "exact"),
+    compute_sandwich(psi, theta = mean(y), deriv_method = "capprox"),
+    tolerance = 1e-6
+  )
+})
+
+# ---- compute_sandwich() judges the estimating-function return ----------------
+#
+# compute_sandwich() assembles the sandwich at a point the caller states is the
+# root, so it never runs the validation estimate() runs before solving. The
+# returns that validation rejects reach the bread and the meat here instead, and
+# each of them either fails deep in base R with a message about an argument the
+# caller never named or, worse, returns a matrix of the documented shape built
+# from a Jacobian that is not one. The same judgment belongs on this entry
+# point, with one allowance: more estimating equations than parameters is the
+# over-identified GMM system, whose variance a GMMEstimator reports by
+# assembling exactly this sandwich from exactly this rectangular bread.
+
+test_that("compute_sandwich() rejects fewer estimating equations than parameters", {
+  y <- c(1, 2, 4, 1, 2, 3, 1, 5, 2)
+  # One equation for two parameters. The bread is 1-by-2, and the pseudo-inverse
+  # in build_sandwich() turns that into a 2-by-2 matrix carrying the documented
+  # shape and none of the documented meaning.
+  psi <- function(theta) y - theta[1] - theta[2]
+
+  # The wording is left to the abort that judges it; what the count of equations
+  # and the name of the argument that returned them have to survive is the move
+  # from estimate() to this entry point.
+  expect_error(
+    compute_sandwich(psi, theta = c(0.5, 0.5)),
+    regexp = "estimating equation",
+    class = "deli_psi_shape_error"
+  )
+  expect_error(
+    compute_sandwich(psi, theta = c(0.5, 0.5)),
+    regexp = "stacked_equations"
+  )
+})
+
+test_that("compute_sandwich() rejects a NULL return", {
+  # Without the judgment this dies inside base::matrix(), reporting `data` as
+  # the offending argument. The caller passed no `data`.
+  psi <- function(theta) NULL
+
+  expect_error(compute_sandwich(psi, theta = 0), regexp = "stacked_equations")
+  expect_error(compute_sandwich(psi, theta = 0), regexp = "NULL")
+})
+
+test_that("compute_sandwich() rejects a non-numeric return", {
+  # Without the judgment this dies inside rowSums(), reporting `x`.
+  psi <- function(theta) matrix("a", nrow = 1, ncol = 3)
+
+  expect_error(compute_sandwich(psi, theta = 0), regexp = "stacked_equations")
+  expect_error(compute_sandwich(psi, theta = 0), regexp = "numeric")
+})
+
+test_that("compute_sandwich() rejects a non-finite return", {
+  # An estimating function that is not finite at the point it is evaluated at
+  # gives an all-NA bread and an all-NA meat, and the sandwich built from them
+  # is reported as a bread that cannot be inverted. The bread is a symptom; the
+  # return is the cause, and it is the one the caller can act on.
+  psi <- function(theta) matrix(rep(NA_real_, 3) * theta[1], nrow = 1)
+
+  expect_error(compute_sandwich(psi, theta = 1), regexp = "stacked_equations")
+  expect_error(compute_sandwich(psi, theta = 1), regexp = "non-finite")
+})
+
+test_that("compute_sandwich() accepts an over-identified system", {
+  skip_if_not_installed("MASS")
+  # Three moment conditions for two parameters. The bread is 3-by-2, which
+  # build_sandwich() pseudo-inverts into the identity-weighted GMM variance.
+  # That is the same variance a GMMEstimator reports, from the same two
+  # matrices, so rejecting the shape here would withdraw a result the package
+  # already returns elsewhere.
+  set.seed(20)
+  n <- 150
+  x <- stats::rnorm(n)
+  y <- 1 + 0.6 * x + stats::rnorm(n)
+  X <- cbind(1, x)
+
+  psi <- function(theta) {
+    r <- as.vector(y - X %*% theta)
+    rbind(r, r * x, r * x^2)
+  }
+
+  fit <- gmm_estimate(stacked_equations = psi, init = c(0, 0))
+  sandwich <- compute_sandwich(psi, theta = fit@theta)
+
+  expect_equal(dim(sandwich), c(2L, 2L))
+  expect_equal(
+    sandwich,
+    unname(fit@asymptotic_variance),
+    tolerance = 1e-8
+  )
+})
+
+test_that("compute_sandwich() accepts a one-parameter psi returning a bare vector", {
+  # A dimensionless return is one estimating equation observed n times, which is
+  # a legitimate shape for a one-parameter fit and must survive the judgment
+  # that rejects it for two parameters.
+  y <- c(1, 2, 4, 1, 2, 3, 1, 5, 2)
+
+  bare <- compute_sandwich(function(theta) y - theta[1], theta = mean(y))
+  shaped <- compute_sandwich(
+    function(theta) matrix(y - theta[1], nrow = 1),
+    theta = mean(y)
+  )
+
+  expect_equal(dim(bare), c(1L, 1L))
+  expect_equal(bare, shaped, tolerance = 1e-8)
+  expect_equal(
+    bare[1, 1],
+    sum((y - mean(y))^2) / length(y),
+    tolerance = 1e-6
+  )
+})

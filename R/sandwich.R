@@ -13,7 +13,11 @@
 #'   at the floating-point resolution of each estimate; see
 #'   [approx_differentiation()].
 #'
-#' @returns A p-by-p bread matrix.
+#' @returns The negated Jacobian of the summed estimating equations, with one
+#'   row per estimating equation and one column per parameter. That is p-by-p
+#'   for an M-estimation system, which has one equation per parameter, and
+#'   n_eqs-by-p for an over-identified GMM system, whose rectangular bread
+#'   [build_sandwich()] pseudo-inverts.
 #'
 #' @keywords internal
 compute_bread <- function(
@@ -296,8 +300,14 @@ compute_sandwich <- function(
   # enough to wrap in place, unlike the estimate() methods, which put theirs in a
   # worker.
   without_repeated_warnings({
-    # Evaluate estimating equations at theta-hat
+    # Evaluate estimating equations at theta-hat. The return is judged before
+    # anything is built from it, so a return the bread and the meat cannot be
+    # assembled from is reported as itself rather than as whatever the assembly
+    # goes on to fail at. Over-identification is allowed, because the sandwich
+    # this function builds from a rectangular bread is the asymptotic variance a
+    # GMM fit reports.
     evald <- stacked_equations(theta)
+    check_psi_at_theta(evald, theta)
     if (is.null(dim(evald))) {
       n_obs <- length(evald)
       n_params <- 1

@@ -20,7 +20,11 @@ at the floating-point resolution of each estimate; see
 \code{\link[=approx_differentiation]{approx_differentiation()}}.}
 }
 \value{
-A p-by-p bread matrix.
+The negated Jacobian of the summed estimating equations, with one
+row per estimating equation and one column per parameter. That is p-by-p
+for an M-estimation system, which has one equation per parameter, and
+n_eqs-by-p for an over-identified GMM system, whose rectangular bread
+\code{\link[=build_sandwich]{build_sandwich()}} pseudo-inverts.
 }
 \description{
 Computes the bread matrix for the empirical sandwich variance estimator.
