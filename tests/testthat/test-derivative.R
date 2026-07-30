@@ -430,3 +430,46 @@ test_that("a Jacobian with no columns keeps one row per value the function retur
     expect_equal(dim(jacobian), c(3L, 0L), label = method)
   }
 })
+
+# ---- what the reading of the differences leaves alone -------------------------
+#
+# The reading condemns a difference that carries none of the digits of the values
+# it was taken between, and on its own that would condemn every honest zero: a
+# function that does not change has a quotient of zero and a noise floor above it
+# whatever its values are. What separates the two is the size of that floor
+# against the scale of the Jacobian being built, floored at one. The fits of
+# test-estimate-solvers.R pin the quiet side at the scale a fit works at; these
+# two pin it at the criterion itself, one either side of each of the two terms.
+
+test_that("a flat function is quiet while its noise floor stays under one", {
+  # The values are constant, so every quotient is an honest zero and the only
+  # thing standing between them and a report is the floor of one on the scale.
+  # At 9e6 the neighboring doubles are 2.0e-09 apart, which the default central
+  # step of 1e-9 divides into a floor of 0.999.
+  expect_no_warning({
+    quiet <- approx_differentiation(func = function(theta) 9e6, theta = 0)
+  })
+  expect_equal(quiet[1, 1], 0)
+
+  # And 1.1e7 puts the same floor at 1.22, where the difference is worth more
+  # than the Jacobian it is being built into and the zero is no longer honest.
+  expect_warning(
+    approx_differentiation(func = function(theta) 1.1e7, theta = 0),
+    class = "deli_finite_difference_lost"
+  )
+})
+
+test_that("a flat row is quiet beside a derivative large enough to measure it", {
+  # The first entry is the same lost difference the test above reports, at the
+  # same values. Here it sits beside a derivative of 200, which is the scale the
+  # Jacobian is being built at, and a floor of 1.22 against that scale is
+  # negligible rather than a collapse.
+  expect_no_warning({
+    jacobian <- approx_differentiation(
+      func = function(theta) c(1.1e7, 200 * theta[2]),
+      theta = c(0, 0)
+    )
+  })
+  expect_equal(jacobian[1, ], c(0, 0))
+  expect_equal(jacobian[2, 2], 200)
+})

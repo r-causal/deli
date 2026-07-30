@@ -1658,6 +1658,35 @@ test_that("GMM names the moment condition its bread has gone flat under", {
   expect_no_match(reported, "do not cancel", fixed = TRUE)
 })
 
+# A flat equation is judged by the size of its summed score against the size of
+# the one it had at the starting values, and a size is all that comparison reads.
+# The known miss mode is a trade across the root: an equation the solver moved
+# from one side of its root to the other, ending as far from it as it began,
+# reads as unchanged and is not reported. The comparison is what keeps a median
+# equation quiet where the caller started it at the sample median and the fit
+# held it there, which is the documented way to use one, so this is the price of
+# that and is recorded here rather than fixed.
+
+test_that("a flat equation traded across its root is not judged", {
+  # Twelve observations of a two-equation stack, the second of them flat: its
+  # row of the bread is identically zero, so nothing about it moves when a
+  # parameter does. Nine contributions of 1 against three of -1 leave it summing
+  # to 6.
+  ef <- rbind(rep(0.5, 12), c(rep(1, 9), rep(-1, 3)))
+  bread <- rbind(c(1, 0.5), c(0, 0))
+
+  # Started at -6, which is the same distance from the root on the other side.
+  # The trade is invisible to the comparison and the point passes.
+  expect_null(flat_equation(ef, bread, init_score = c(0, -6)))
+
+  # A score that grew rather than changed sides is judged, whichever sign it
+  # carries at either end.
+  found <- flat_equation(ef, bread, init_score = c(0, -5))
+  expect_equal(found$row, 2L)
+  expect_equal(found$score, 6)
+  expect_true(found$flat)
+})
+
 # ---- a runaway estimate as the scale it is measured against -------------------
 #
 # The one-sided reading measures the mean contribution of an equation that
