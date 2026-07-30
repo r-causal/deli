@@ -211,13 +211,14 @@
 #'   model frame. `xlev` defaults to the factor levels the fit recorded. All
 #'   four describe how to build a frame from `data`, so supplying one without
 #'   `data` is an error rather than a silent no-op.
-#' @param ... Not used. `confint()`, `model.frame()`, and `model.matrix()`
-#'   require them to be empty, so that a name none of them recognizes is an
-#'   error rather than silently ignored: a misspelled `level` would report the
-#'   default limits, and a misspelled `data` would report on the fitted rows
-#'   while the caller believed they had asked for rows of their own. The rest
-#'   ignore them, which is the convention for a base generic with no optional
-#'   argument for a wrong name to displace.
+#' @param ... Not used. `confint()`, `residuals()`, `model.frame()`, and
+#'   `model.matrix()` require them to be empty, so that a name none of them
+#'   recognizes is an error rather than silently ignored: a misspelled `level`
+#'   would report the default limits, a misspelled `type` would report response
+#'   residuals as though they had been asked for, and a misspelled `data` would
+#'   report on the fitted rows while the caller believed they had asked for rows
+#'   of their own. The rest ignore them, which is the convention for a base
+#'   generic with no optional argument for a wrong name to displace.
 #'
 #' @returns
 #' - `coef()`: Named numeric vector of parameter estimates.
@@ -362,6 +363,15 @@ method(stats_residuals, deli_estimator) <- function(
   type = "response",
   ...
 ) {
+  # `type` precedes the dots, so R matches an abbreviation of it to it and the
+  # guard sees only a name that reaches no argument at all. Such a name left the
+  # default response residuals returned, which is the answer a caller who wrote
+  # `type = "pearson"` is told they cannot have.
+  #
+  # `sys.call(-1)` names the `residuals()` call the caller wrote; see the
+  # comment on the same call in `predict()` for why the default would name the
+  # wrong frame.
+  rlang::check_dots_empty(call = sys.call(-1))
   check_has_estimates(object)
   check_residual_type(type)
   resolve_predict_link(object, "residuals")

@@ -36,13 +36,14 @@ model frame. \code{xlev} defaults to the factor levels the fit recorded. All
 four describe how to build a frame from \code{data}, so supplying one without
 \code{data} is an error rather than a silent no-op.}
 
-\item{...}{Not used. \code{confint()}, \code{model.frame()}, and \code{model.matrix()}
-require them to be empty, so that a name none of them recognizes is an
-error rather than silently ignored: a misspelled \code{level} would report the
-default limits, and a misspelled \code{data} would report on the fitted rows
-while the caller believed they had asked for rows of their own. The rest
-ignore them, which is the convention for a base generic with no optional
-argument for a wrong name to displace.}
+\item{...}{Not used. \code{confint()}, \code{residuals()}, \code{model.frame()}, and
+\code{model.matrix()} require them to be empty, so that a name none of them
+recognizes is an error rather than silently ignored: a misspelled \code{level}
+would report the default limits, a misspelled \code{type} would report response
+residuals as though they had been asked for, and a misspelled \code{data} would
+report on the fitted rows while the caller believed they had asked for rows
+of their own. The rest ignore them, which is the convention for a base
+generic with no optional argument for a wrong name to displace.}
 }
 \value{
 \itemize{

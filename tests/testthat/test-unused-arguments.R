@@ -8,12 +8,12 @@
 #
 # The base-generic methods also carry a `...` they never forward, and they
 # divide on whether a wrong name in it could displace anything. `summary()`,
-# `confint()`, `generics::tidy()`, `print()`, and `model.matrix()` each carry a
-# setting a typo could quietly redirect, so each of them is guarded the same way
-# and the section after the inference generics covers them. `coef()`, `vcov()`,
-# `nobs()`, and `generics::glance()` have no optional argument at all, so a
-# stray name cannot change what they return and they stay tolerant, which is the
-# convention for those generics.
+# `confint()`, `generics::tidy()`, `print()`, `residuals()`, and
+# `model.matrix()` each carry a setting a typo could quietly redirect, so each
+# of them is guarded the same way and the section after the inference generics
+# covers them. `coef()`, `vcov()`, `nobs()`, and `generics::glance()` have no
+# optional argument at all, so a stray name cannot change what they return and
+# they stay tolerant, which is the convention for those generics.
 #
 # Each guarded entry point gets two tests. The first passes a name a user might
 # plausibly reach for by mistake, either a misspelling or a name borrowed from a
@@ -537,6 +537,36 @@ test_that("print() accepts its own subset", {
   expect_false(any(grepl("variance", shown, fixed = TRUE)))
 })
 
+test_that("residuals() rejects a misspelled type", {
+  # `type` is the setting a wrong name displaces here: the only value it takes
+  # is the default, so a misspelling left the response residuals returned as
+  # though the caller had asked for them, which is the outcome a caller writing
+  # `type = "pearson"` is told is unavailable.
+  fit <- dots_design_fit()
+  expect_error(
+    residuals(fit, typ3 = "pearson"),
+    "typ3",
+    class = "rlib_error_dots_nonempty"
+  )
+  expect_error(
+    residuals(fit, types = "pearson"),
+    "types",
+    class = "rlib_error_dots_nonempty"
+  )
+})
+
+test_that("residuals() accepts its own type", {
+  fit <- dots_design_fit()
+  plain <- residuals(fit)
+  expect_identical(residuals(fit, type = "response"), plain)
+  # `type` precedes the dots, so R matches a prefix of it to it and the guard
+  # never sees the abbreviation.
+  expect_identical(residuals(fit, typ = "response"), plain)
+  # A name it does take, carrying a value it has no answer for, is still
+  # answered by the value check rather than by the guard.
+  expect_error(residuals(fit, type = "pearson"), "must be")
+})
+
 test_that("model.matrix() rejects an argument it has no answer for", {
   fit <- dots_design_fit()
   # A design is coded with the contrasts the fit recorded rather than with a
@@ -575,6 +605,7 @@ test_that("the dots guard names the user's call at each guarded method", {
   expect_reported_call(quote(confint(fit, levl = 0.9)))
   expect_reported_call(quote(generics::tidy(fit, conf.intt = TRUE)))
   expect_reported_call(quote(print(fit, subst = 1)))
+  expect_reported_call(quote(residuals(design_fit, typ3 = "pearson")))
   expect_reported_call(quote(stats::model.matrix(
     design_fit,
     contrasts.arg = list(gear = "contr.sum")
