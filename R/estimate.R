@@ -1437,8 +1437,18 @@ estimate_gmm_estimator <- function(
   }
 
   # STEP 1.1: Initial minimization with identity weight matrix
+  # The refusal minimize_gmm() raises is about the solver the caller asked for,
+  # so it names the frame of the method that was called rather than either of
+  # the internal functions in between, as the MEstimator path does.
   gmm_obj <- build_gmm_objective(weight_matrix, current_theta)
-  solved <- minimize_gmm(gmm_obj, inits, solver, maxiter, tolerance)
+  solved <- minimize_gmm(
+    gmm_obj,
+    inits,
+    solver,
+    maxiter,
+    tolerance,
+    call = rlang::caller_env()
+  )
   theta_solved <- solved$par
   minimizer_converged <- solved$converged
 
@@ -1496,7 +1506,14 @@ estimate_gmm_estimator <- function(
         }
 
         gmm_obj <- build_gmm_objective(weight_matrix, current_theta)
-        solved <- minimize_gmm(gmm_obj, inits, solver, maxiter, tolerance)
+        solved <- minimize_gmm(
+          gmm_obj,
+          inits,
+          solver,
+          maxiter,
+          tolerance,
+          call = rlang::caller_env()
+        )
         theta_solved <- solved$par
         minimizer_converged <- solved$converged
 
@@ -1727,13 +1744,18 @@ gmm_j_statistic <- function(evald, weight_matrix, n_obs) {
 
 #' Internal minimization dispatcher for GMMEstimator
 #'
+#' @param call The frame to report the refusal of an unusable `solver` against.
+#'   That refusal is about what the caller asked for, and this dispatcher is two
+#'   frames below the method the caller reached, so the frame travels with the
+#'   arguments.
+#'
 #' @returns A list holding the minimizing parameter vector in `par` and, in
 #'   `converged`, whether the minimizer reported success. A minimizer that
 #'   reported a failure has already warned about it, so the caller leaves the
 #'   moments at the point it returned unjudged.
 #' @keywords internal
 #' @noRd
-minimize_gmm <- function(func, init, method, maxiter, tolerance) {
+minimize_gmm <- function(func, init, method, maxiter, tolerance, call) {
   if (is.character(method)) {
     # Use stats::optim for minimization
     result <- stats::optim(
@@ -1762,5 +1784,5 @@ minimize_gmm <- function(func, init, method, maxiter, tolerance) {
     return(list(par = result, converged = TRUE))
   }
 
-  cli::cli_abort("{.arg solver} must be a string or function.")
+  cli::cli_abort("{.arg solver} must be a string or function.", call = call)
 }

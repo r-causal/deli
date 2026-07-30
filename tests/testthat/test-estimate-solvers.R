@@ -114,6 +114,26 @@ test_that("invalid solver type reports a frame the user can name", {
   expect_false(grepl("estimate_m_estimator", reported, fixed = TRUE))
 })
 
+# The GMM path has the same shape and needs the same treatment: the refusal of a
+# solver that is neither a name nor a function is raised inside the minimization
+# dispatcher, two frames below the method the caller reached.
+test_that("an invalid GMM solver type reports a frame the user can name", {
+  ref <- load_fixture("ee_mean")
+  y <- ref$y
+
+  psi <- function(theta) {
+    matrix(y - theta[1], nrow = 1)
+  }
+
+  g <- GMMEstimator(stacked_equations = psi, init = c(0))
+  err <- tryCatch(estimate(g, solver = 42), error = function(e) e)
+  reported <- paste(deparse(conditionCall(err)), collapse = " ")
+
+  expect_match(conditionMessage(err), "must be a string or function")
+  expect_match(reported, "method(estimate, deli::GMMEstimator)", fixed = TRUE)
+  expect_false(grepl("minimize_gmm", reported, fixed = TRUE))
+})
+
 test_that("unknown solver string reports it is not supported", {
   ref <- load_fixture("ee_mean")
   y <- ref$y

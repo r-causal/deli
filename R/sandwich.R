@@ -669,15 +669,25 @@ delta_method_impl <- function(
   deriv_method = "capprox",
   dx = 1e-9
 ) {
+  # Every abort below judges an argument the caller passed to one of the two
+  # delta_method() methods, and this worker appears in no man page, so each
+  # names the frame of the method that was reached rather than a function no
+  # user can see. Both methods call this from their own body, so one frame up is
+  # the method whichever of them the caller went through.
+  call <- rlang::caller_env()
+
   # Validate covariance presence before any coercion. as.matrix(NULL) otherwise
   # fails with an opaque "'data' must be of a vector type" error before the
   # reachable shape checks below.
   if (is.null(covariance)) {
-    cli::cli_abort(c(
-      "{.arg covariance} is required but was not supplied.",
-      "i" = "Pass the covariance matrix of the parameter estimates when calling
-             {.fn delta_method} on a numeric vector."
-    ))
+    cli::cli_abort(
+      c(
+        "{.arg covariance} is required but was not supplied.",
+        "i" = "Pass the covariance matrix of the parameter estimates when
+               calling {.fn delta_method} on a numeric vector."
+      ),
+      call = call
+    )
   }
   deriv_method <- check_deriv_method(deriv_method)
   check_dx(dx)
@@ -694,7 +704,8 @@ delta_method_impl <- function(
   # genuine matrix (more than one column) or higher-dimensional array is not.
   if (!is.null(star_dim) && (length(star_dim) > 2 || star_dim[2] > 1)) {
     cli::cli_abort(
-      "Output from {.arg transform} must be a one-dimensional vector."
+      "Output from {.arg transform} must be a one-dimensional vector.",
+      call = call
     )
   }
   n_rows <- nrow(covariance)
@@ -702,7 +713,8 @@ delta_method_impl <- function(
   if (n_rows != n_cols) {
     cli::cli_abort(
       "{.arg covariance} must be a square matrix, but it has {n_rows} row{?s}
-       and {n_cols} column{?s}."
+       and {n_cols} column{?s}.",
+      call = call
     )
   }
   v <- length(theta)
@@ -710,7 +722,8 @@ delta_method_impl <- function(
     cli::cli_abort(
       "{.arg covariance} and the parameter vector must share a dimension, but
        the parameter vector has length {v} and {.arg covariance} has dimension
-       {n_rows}."
+       {n_rows}.",
+      call = call
     )
   }
 

@@ -217,6 +217,83 @@ test_that("numeric delta_method() aborts with a clear message when covariance is
   )
 })
 
+# The frame the aborts report --------------------------------------------------
+#
+# Both delta_method() methods hand their arguments to a shared worker, so every
+# abort raised while judging those arguments reported the worker's own call.
+# That call names the worker's parameters rather than the user's arguments, and
+# the worker appears in no man page, so nothing in the report is a call the
+# caller can act on. Each abort names the method the caller reached instead,
+# following the same threading the estimate() methods use.
+
+reported_call <- function(err) {
+  paste(deparse(conditionCall(err)), collapse = " ")
+}
+
+test_that("the missing-covariance abort names the method the caller reached", {
+  theta <- c(0.5, -1.2)
+  err <- expect_error(delta_method(theta, transform = function(th) th))
+
+  expect_match(reported_call(err), "method(delta_method,", fixed = TRUE)
+  expect_false(grepl("delta_method_impl", reported_call(err), fixed = TRUE))
+})
+
+test_that("the non-square covariance abort names the method the caller reached", {
+  theta <- c(0.5, -1.2)
+  err <- expect_error(delta_method(
+    theta,
+    transform = function(th) th,
+    covariance = matrix(seq_len(6), nrow = 2, ncol = 3)
+  ))
+
+  expect_match(reported_call(err), "method(delta_method,", fixed = TRUE)
+  expect_false(grepl("delta_method_impl", reported_call(err), fixed = TRUE))
+})
+
+test_that("the covariance dimension abort names the method the caller reached", {
+  theta <- c(0.5, -1.2)
+  err <- expect_error(delta_method(
+    theta,
+    transform = function(th) th,
+    covariance = diag(3)
+  ))
+
+  expect_match(reported_call(err), "method(delta_method,", fixed = TRUE)
+  expect_false(grepl("delta_method_impl", reported_call(err), fixed = TRUE))
+})
+
+test_that("the transform-output abort names the method the caller reached", {
+  theta <- c(0.5, -1.2)
+  transform <- function(th) {
+    matrix(c(th[1], th[2], th[1], th[2]), nrow = 2, ncol = 2)
+  }
+  err <- expect_error(delta_method(
+    theta,
+    transform = transform,
+    covariance = diag(2)
+  ))
+
+  expect_match(reported_call(err), "method(delta_method,", fixed = TRUE)
+  expect_false(grepl("delta_method_impl", reported_call(err), fixed = TRUE))
+})
+
+test_that("the estimator method reports its own frame as well", {
+  # The estimator method calls the same worker with its own arguments, so it
+  # needs the frame threaded through separately from the numeric method.
+  m <- make_fitted_mean_variance()
+  transform <- function(th) {
+    matrix(c(th[1], th[2], th[1], th[2]), nrow = 2, ncol = 2)
+  }
+  err <- expect_error(delta_method(m, transform = transform))
+
+  expect_match(
+    reported_call(err),
+    "method(delta_method, deli::deli_estimator)",
+    fixed = TRUE
+  )
+  expect_false(grepl("delta_method_impl", reported_call(err), fixed = TRUE))
+})
+
 # deriv_method is case-insensitive --------------------------------------------
 #
 # Python lowercases every deriv_method comparison. delta_method compared
