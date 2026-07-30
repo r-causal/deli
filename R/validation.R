@@ -284,12 +284,19 @@ check_estimator_subset <- function(subset, n_params) {
 #' at the starting values, under GMM as much as under M-estimation. See the
 #' comments in the body for why each check sits where it does.
 #'
+#' Every abort here judges the estimating function the caller supplied, from
+#' several frames below the method the caller reached. This frame names the
+#' parameters of an internal helper rather than anything in the call the user
+#' made, so each abort reports the frame its caller passes instead.
+#'
 #' @param vals The value of `stacked_equations(init)`, evaluated once by the
 #'   caller.
 #' @param init The initial parameter vector.
 #' @param allow_over_identification Logical. When `TRUE`, the number of
 #'   estimating equations may exceed the number of parameters (the GMM case) and
 #'   only a shortfall is rejected. Default `FALSE`.
+#' @param error_call The frame to report the error against. `NULL` reports no
+#'   call, which is what a caller with no frame worth naming leaves.
 #'
 #' @returns Invisible `NULL`. Raises an error if the return is invalid. A
 #'   mismatch between the number of estimating equations and the number of
@@ -298,7 +305,12 @@ check_estimator_subset <- function(subset, n_params) {
 #'   shortfall carries the number of moment conditions as the `n_moments` field
 #'   of that condition as well.
 #' @keywords internal
-check_psi_at_init <- function(vals, init, allow_over_identification = FALSE) {
+check_psi_at_init <- function(
+  vals,
+  init,
+  allow_over_identification = FALSE,
+  error_call = NULL
+) {
   # `NULL` first. What it has to clear is the numeric check immediately below,
   # which is what would otherwise catch it, because `is.numeric(NULL)` is
   # `FALSE`. That check diagnoses by naming the type of the offending return,
@@ -312,11 +324,14 @@ check_psi_at_init <- function(vals, init, allow_over_identification = FALSE) {
   # problem. The finite check is the only one it is unordered against, since
   # `all(is.finite(NULL))` is `TRUE`.
   if (is.null(vals)) {
-    cli::cli_abort(c(
-      "{.arg stacked_equations} returned {.val NULL} at the initial values.",
-      "i" = "It must return a numeric vector or matrix of estimating-function
-             contributions."
-    ))
+    cli::cli_abort(
+      c(
+        "{.arg stacked_equations} returned {.val NULL} at the initial values.",
+        "i" = "It must return a numeric vector or matrix of estimating-function
+               contributions."
+      ),
+      call = error_call
+    )
   }
   # The type next, ahead of both shape branches. No length of `init`, short or
   # long, turns a numeric return into a character one, so a non-numeric return
@@ -326,7 +341,8 @@ check_psi_at_init <- function(vals, init, allow_over_identification = FALSE) {
   if (!is.numeric(vals)) {
     cli::cli_abort(
       "{.arg stacked_equations} must return a numeric vector or matrix at the
-       initial values, not {.obj_type_friendly {vals}}."
+       initial values, not {.obj_type_friendly {vals}}.",
+      call = error_call
     )
   }
   # The shape ahead of the values. This is two branches under different guards,
@@ -351,7 +367,8 @@ check_psi_at_init <- function(vals, init, allow_over_identification = FALSE) {
         "i" = "M-estimation requires one estimating equation per parameter (a
                {n_params}-by-n matrix)."
       ),
-      class = "deli_psi_shape_error"
+      class = "deli_psi_shape_error",
+      call = error_call
     )
   }
   # Under GMM, a shortfall of equations is a property of the system rather than
@@ -371,6 +388,7 @@ check_psi_at_init <- function(vals, init, allow_over_identification = FALSE) {
                estimate fewer parameters."
       ),
       class = "deli_psi_shape_error",
+      call = error_call,
       # The count travels with the condition so that the formula path can name it
       # while reframing the failure against its automatic `init`, without
       # counting the rows a second time. Only this branch carries it, so its
@@ -382,13 +400,16 @@ check_psi_at_init <- function(vals, init, allow_over_identification = FALSE) {
   # Last, so it reports a non-finite value only once the return is the right
   # shape and the value is the remaining explanation.
   if (!all(is.finite(vals))) {
-    cli::cli_abort(c(
-      "{.arg stacked_equations} returned non-finite values at the initial
-       values.",
-      "i" = "This often means {.arg init} produces a divide-by-zero, a
-             logarithm or square root of a non-positive number, or another
-             undefined value in the estimating equations."
-    ))
+    cli::cli_abort(
+      c(
+        "{.arg stacked_equations} returned non-finite values at the initial
+         values.",
+        "i" = "This often means {.arg init} produces a divide-by-zero, a
+               logarithm or square root of a non-positive number, or another
+               undefined value in the estimating equations."
+      ),
+      call = error_call
+    )
   }
   invisible(NULL)
 }
@@ -410,26 +431,36 @@ check_psi_at_init <- function(vals, init, allow_over_identification = FALSE) {
 #' asked for and returns, so only a shortfall is rejected, as it is under
 #' `allow_over_identification`.
 #'
+#' Each abort judges an argument the caller passed to [compute_sandwich()], and
+#' this function appears in no man page, so the default frame is the one frame up
+#' rather than this one. `compute_sandwich()` calls this from its own body, so
+#' that frame is the entry point the caller typed.
+#'
 #' @param vals The value of `stacked_equations(theta)`, evaluated once by the
 #'   caller.
 #' @param theta The parameter vector the estimating function was evaluated at.
+#' @param call The frame to report the error against.
 #'
 #' @returns Invisible `NULL`. Raises an error if the return is invalid. A
 #'   shortfall of estimating equations carries the class
 #'   `deli_psi_shape_error`, as the shape failures in [check_psi_at_init()] do.
 #' @noRd
-check_psi_at_theta <- function(vals, theta) {
+check_psi_at_theta <- function(vals, theta, call = rlang::caller_env()) {
   if (is.null(vals)) {
-    cli::cli_abort(c(
-      "{.arg stacked_equations} returned {.val NULL} at {.arg theta}.",
-      "i" = "It must return a numeric vector or matrix of estimating-function
-             contributions."
-    ))
+    cli::cli_abort(
+      c(
+        "{.arg stacked_equations} returned {.val NULL} at {.arg theta}.",
+        "i" = "It must return a numeric vector or matrix of estimating-function
+               contributions."
+      ),
+      call = call
+    )
   }
   if (!is.numeric(vals)) {
     cli::cli_abort(
       "{.arg stacked_equations} must return a numeric vector or matrix at
-       {.arg theta}, not {.obj_type_friendly {vals}}."
+       {.arg theta}, not {.obj_type_friendly {vals}}.",
+      call = call
     )
   }
   n_eqs <- if (is.null(dim(vals))) 1L else nrow(vals)
@@ -446,15 +477,19 @@ check_psi_at_theta <- function(vals, theta) {
         "i" = "More estimating equations than parameters is the over-identified
                system, which is accepted."
       ),
-      class = "deli_psi_shape_error"
+      class = "deli_psi_shape_error",
+      call = call
     )
   }
   if (!all(is.finite(vals))) {
-    cli::cli_abort(c(
-      "{.arg stacked_equations} returned non-finite values at {.arg theta}.",
-      "i" = "Both the bread and the meat are built from this return, so a
-             non-finite value in it leaves the whole sandwich undefined."
-    ))
+    cli::cli_abort(
+      c(
+        "{.arg stacked_equations} returned non-finite values at {.arg theta}.",
+        "i" = "Both the bread and the meat are built from this return, so a
+               non-finite value in it leaves the whole sandwich undefined."
+      ),
+      call = call
+    )
   }
   invisible(NULL)
 }
@@ -491,16 +526,30 @@ check_psi_at_theta <- function(vals, theta) {
 #' @param allow_over_identification Logical. When `TRUE` (the GMM case), the
 #'   estimating function may return more equations than parameters, so only a
 #'   shortfall is rejected. Default `FALSE`.
+#' @param error_call The frame to report a failure at the caller's own `init`
+#'   against, which is the [estimate()] method the caller reached. At an `init`
+#'   the formula interface generated, the entry point recorded on the closure is
+#'   preferred to it.
 #'
 #' @returns The value of `psi(init)`. Raises an error if it is not a valid
 #'   estimating-function return. A failure reframed as a problem with the
 #'   automatic length carries the class `deli_formula_auto_init_error`, so a
 #'   caller can recognize it without matching the message.
 #' @keywords internal
-eval_psi_at_init <- function(psi, init, allow_over_identification = FALSE) {
+eval_psi_at_init <- function(
+  psi,
+  init,
+  allow_over_identification = FALSE,
+  error_call = NULL
+) {
   if (!identical(attr(psi, "deli_auto_init", exact = TRUE), init)) {
     vals <- psi(init)
-    check_psi_at_init(vals, init, allow_over_identification)
+    check_psi_at_init(
+      vals,
+      init,
+      allow_over_identification,
+      error_call = error_call
+    )
     return(vals)
   }
 
@@ -509,8 +558,13 @@ eval_psi_at_init <- function(psi, init, allow_over_identification = FALSE) {
   # starting values.
   appended <- attr(psi, "deli_auto_init_appended", exact = TRUE)
   # This is several frames below the method the caller reached, so the frame to
-  # report the failure against travels with the starting values too.
-  entry_point <- attr(psi, "deli_auto_init_call", exact = TRUE)
+  # report the failure against travels with the starting values too. It is
+  # preferred to the method for every failure at these starting values, not only
+  # the ones reframed below: an `init` the caller never supplied is the formula
+  # wrapper's doing, so the wrapper is the call to act on, and the whole set
+  # then reports one entry point rather than dividing by which check caught the
+  # failure. A closure carrying no such record falls back to the method.
+  entry_point <- attr(psi, "deli_auto_init_call", exact = TRUE) %||% error_call
 
   # The handler covers a single call, the estimating function itself, so
   # nothing raised later can reach it.
@@ -532,7 +586,12 @@ eval_psi_at_init <- function(psi, init, allow_over_identification = FALSE) {
   # along is what tells the diagnostic to describe an under-identified system
   # rather than an `init` that needs lengthening.
   rlang::try_fetch(
-    check_psi_at_init(vals, init, allow_over_identification),
+    check_psi_at_init(
+      vals,
+      init,
+      allow_over_identification,
+      error_call = entry_point
+    ),
     deli_psi_shape_error = function(cnd) {
       abort_formula_auto_init(
         init,

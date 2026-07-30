@@ -4,7 +4,12 @@
 \alias{check_psi_at_init}
 \title{Check the estimating-function return at the initial values}
 \usage{
-check_psi_at_init(vals, init, allow_over_identification = FALSE)
+check_psi_at_init(
+  vals,
+  init,
+  allow_over_identification = FALSE,
+  error_call = NULL
+)
 }
 \arguments{
 \item{vals}{The value of \code{stacked_equations(init)}, evaluated once by the
@@ -15,6 +20,9 @@ caller.}
 \item{allow_over_identification}{Logical. When \code{TRUE}, the number of
 estimating equations may exceed the number of parameters (the GMM case) and
 only a shortfall is rejected. Default \code{FALSE}.}
+
+\item{error_call}{The frame to report the error against. \code{NULL} reports no
+call, which is what a caller with no frame worth naming leaves.}
 }
 \value{
 Invisible \code{NULL}. Raises an error if the return is invalid. A
@@ -41,5 +49,10 @@ behind the \code{NULL} and numeric checks and ahead of the finite one, so a retu
 whose shape cannot be solved is reported in preference to a non-finite value
 at the starting values, under GMM as much as under M-estimation. See the
 comments in the body for why each check sits where it does.
+
+Every abort here judges the estimating function the caller supplied, from
+several frames below the method the caller reached. This frame names the
+parameters of an internal helper rather than anything in the call the user
+made, so each abort reports the frame its caller passes instead.
 }
 \keyword{internal}

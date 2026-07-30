@@ -179,8 +179,15 @@ estimate_m_estimator <- function(
   # error instead of an opaque failure inside the solver. The summed equations
   # there are kept for judging the returned point, which needs to know which
   # equations the solver moved; nothing else evaluates the estimating function
-  # at the starting values, so keeping them costs no evaluation.
-  init_score <- equation_scores(eval_psi_at_init(stacked_equations, init))
+  # at the starting values, so keeping them costs no evaluation. What the
+  # validation judges is the estimating function the caller supplied, so it
+  # names the frame of the method that was called, as the solver errors below
+  # do.
+  init_score <- equation_scores(eval_psi_at_init(
+    stacked_equations,
+    init,
+    error_call = rlang::caller_env()
+  ))
 
   # Build the summed EE function for root-finding
   summed_ee <- function(theta) {
@@ -1378,11 +1385,13 @@ estimate_gmm_estimator <- function(
 
   # Evaluate stacked equations at init to determine dimensions, validating the
   # return before it reaches the objective and the sandwich components. The
-  # validation also rejects an under-identified system.
+  # validation also rejects an under-identified system. Its aborts name the
+  # frame of the method that was called, as the MEstimator path does.
   vals_at_init <- eval_psi_at_init(
     stacked_equations,
     init,
-    allow_over_identification = TRUE
+    allow_over_identification = TRUE,
+    error_call = rlang::caller_env()
   )
   if (is.null(dim(vals_at_init))) {
     # 1D case: single estimating equation

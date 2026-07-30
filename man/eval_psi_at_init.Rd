@@ -4,7 +4,12 @@
 \alias{eval_psi_at_init}
 \title{Evaluate and validate the estimating function at the initial values}
 \usage{
-eval_psi_at_init(psi, init, allow_over_identification = FALSE)
+eval_psi_at_init(
+  psi,
+  init,
+  allow_over_identification = FALSE,
+  error_call = NULL
+)
 }
 \arguments{
 \item{psi}{The estimating-function closure.}
@@ -14,6 +19,11 @@ eval_psi_at_init(psi, init, allow_over_identification = FALSE)
 \item{allow_over_identification}{Logical. When \code{TRUE} (the GMM case), the
 estimating function may return more equations than parameters, so only a
 shortfall is rejected. Default \code{FALSE}.}
+
+\item{error_call}{The frame to report a failure at the caller's own \code{init}
+against, which is the \code{\link[=estimate]{estimate()}} method the caller reached. At an \code{init}
+the formula interface generated, the entry point recorded on the closure is
+preferred to it.}
 }
 \value{
 The value of \code{psi(init)}. Raises an error if it is not a valid

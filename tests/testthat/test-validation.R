@@ -365,6 +365,75 @@ test_that("eval_psi_at_init reframes only at the recorded automatic init", {
   expect_false(grepl("automatic zero", conditionMessage(err), fixed = TRUE))
 })
 
+# The frame the psi-at-init aborts report ---------------------------------
+#
+# check_psi_at_init() judges a return the caller's own estimating function
+# produced, from several frames below the method the caller reached, and every
+# one of its aborts reported its own frame. That frame names the helper's
+# parameters rather than anything in the call, and the helper appears in no man
+# page, so nothing in the report is a call the caller can act on. Each abort
+# names the frame that was reached instead, the way the delta method worker and
+# the solver dispatcher already do.
+
+reported_call <- function(err) {
+  paste(deparse(conditionCall(err)), collapse = " ")
+}
+
+test_that("a NULL return reports the MEstimator method the caller reached", {
+  m <- MEstimator(stacked_equations = function(theta) NULL, init = c(0))
+  err <- expect_error(estimate(m))
+
+  expect_match(conditionMessage(err), "NULL")
+  expect_match(
+    reported_call(err),
+    "method(estimate, deli::MEstimator)",
+    fixed = TRUE
+  )
+  expect_false(grepl("check_psi_at_init", reported_call(err), fixed = TRUE))
+  expect_false(grepl("eval_psi_at_init", reported_call(err), fixed = TRUE))
+})
+
+test_that("a GMM shortfall reports the GMMEstimator method the caller reached", {
+  y <- c(1, 2, 4, 1, 2, 3, 1, 5, 2)
+  g <- GMMEstimator(
+    stacked_equations = function(theta) matrix(y - theta[1], nrow = 1),
+    init = c(0, 0)
+  )
+  err <- expect_error(estimate(g), class = "deli_psi_shape_error")
+
+  expect_match(
+    reported_call(err),
+    "method(estimate, deli::GMMEstimator)",
+    fixed = TRUE
+  )
+  expect_false(grepl("check_psi_at_init", reported_call(err), fixed = TRUE))
+})
+
+test_that("a formula fit reports the method its wrapper delegated to", {
+  # `m_estimate()` builds the estimator and calls `estimate()` on it, so the
+  # nearest frame a report raised below can name is the method the wrapper
+  # reached rather than the wrapper itself. The failures a formula fit reframes
+  # against an `init` it generated are different: those carry the entry point
+  # the caller typed, and test-formula-interface.R pins them. This one is
+  # raised at an `init` the caller supplied, so nothing reframes it.
+  d <- data.frame(
+    x = c(-1.1, 0.3, 1.7, -0.4, 0.9),
+    y = c(0.2, 0.5, 0.8, 0.3, 0.7)
+  )
+  ee_null <- function(theta, X, y, ...) NULL
+  err <- expect_error(
+    m_estimate(y ~ x, data = d, .ee = ee_null, init = c(0, 0))
+  )
+
+  expect_match(conditionMessage(err), "NULL")
+  expect_match(
+    reported_call(err),
+    "method(estimate, deli::MEstimator)",
+    fixed = TRUE
+  )
+  expect_false(grepl("check_psi_at_init", reported_call(err), fixed = TRUE))
+})
+
 # error_looks_length_related ----------------------------------------------
 
 # Most of what the predicate judges is the message, so the condition each

@@ -665,3 +665,42 @@ test_that("compute_sandwich() accepts a one-parameter psi returning a bare vecto
     tolerance = 1e-6
   )
 })
+
+# ---- the frame those aborts report -------------------------------------------
+#
+# The judgment above is made in a helper, so each of its aborts reported a frame
+# naming that helper's own parameters rather than the call the caller made. The
+# entry point the caller can act on is compute_sandwich(), and it is the one the
+# report names.
+
+reported_call <- function(err) {
+  paste(deparse(conditionCall(err)), collapse = " ")
+}
+
+test_that("the NULL-return abort names compute_sandwich()", {
+  psi <- function(theta) NULL
+  err <- expect_error(compute_sandwich(psi, theta = 0))
+
+  expect_match(reported_call(err), "compute_sandwich(", fixed = TRUE)
+  expect_false(grepl("check_psi_at_theta", reported_call(err), fixed = TRUE))
+})
+
+test_that("the shortfall abort names compute_sandwich()", {
+  y <- c(1, 2, 4, 1, 2, 3, 1, 5, 2)
+  psi <- function(theta) y - theta[1] - theta[2]
+  err <- expect_error(
+    compute_sandwich(psi, theta = c(0.5, 0.5)),
+    class = "deli_psi_shape_error"
+  )
+
+  expect_match(reported_call(err), "compute_sandwich(", fixed = TRUE)
+  expect_false(grepl("check_psi_at_theta", reported_call(err), fixed = TRUE))
+})
+
+test_that("the non-finite abort names compute_sandwich()", {
+  psi <- function(theta) matrix(rep(NA_real_, 3) * theta[1], nrow = 1)
+  err <- expect_error(compute_sandwich(psi, theta = 1))
+
+  expect_match(reported_call(err), "compute_sandwich(", fixed = TRUE)
+  expect_false(grepl("check_psi_at_theta", reported_call(err), fixed = TRUE))
+})
