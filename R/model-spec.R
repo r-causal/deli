@@ -50,12 +50,27 @@
 #' number of observations, so one model specification would classify two ways at
 #' two sample sizes.
 #'
-#' An argument not on the list is treated as model specification. That direction
-#' is deliberate. A specification argument wrongly dropped would leave a later
-#' caller silently applying a default link or distribution to new data, while a
-#' per-observation argument wrongly kept is passed on at the fitted length and
-#' the estimating equation rejects it. The second failure is the one a user can
-#' see.
+#' An argument not on the list is treated as model specification, so this list is
+#' the whole of the classification and neither direction of a mistake in it
+#' announces itself at runtime. `predict()` never calls the estimating equation
+#' again, and it reads either half by explicit name, so an argument wrongly kept
+#' here is simply never asked for, and one wrongly dropped reads back as `NULL`,
+#' which every reader takes for an argument the fit did not forward: a default
+#' link, no appended parameter, or a report about a design that does not account
+#' for the fit's parameters. Nothing says the specification was misfiled.
+#'
+#' That is why the list is pinned from both ends rather than only documented.
+#' tests/testthat/test-model-spec-registry.R holds a second table classifying
+#' every argument of every exported `ee_*()` function, derived from their
+#' signatures, and checks it against this list and against the two functions that
+#' read it. A new argument fails that file until it is classified, and a
+#' classification this list disagrees with fails it too.
+#'
+#' `X` is the one observation-indexed design argument left off, where `W`, `V`,
+#' `X1`, and `X0` are all on. The formula interface fills `X` by name, so an `X`
+#' forwarded through `...` makes the call match that argument twice and the fit
+#' fails before anything is classified. Nothing this list could say about it is
+#' reachable, which the same test file pins.
 #'
 #' @returns A character vector of argument names.
 #' @noRd
