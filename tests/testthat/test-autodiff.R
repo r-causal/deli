@@ -1590,6 +1590,44 @@ test_that("masked matrix() reshapes a scalar pair with a vector primal", {
   expect_equal(m$tangent, matrix(rep(0.5, 5), nrow = 1))
 })
 
+test_that("pt_flatten refuses a list whose elements each hold several values", {
+  # A list of vector-payload pairs holds every derivative it was given, so its
+  # container shape is the problem and it is reported as such. Before the guard
+  # it reached the vapply() below and raised an unclassed length error, which
+  # named neither the cause nor the route out.
+  pair <- primal_tangent(5, 1)
+  wide <- list(primal_tangent(c(1, 2), 1), primal_tangent(c(3, 4), 0))
+  expect_error(
+    c(pair, wide),
+    class = "deli_exact_unsupported_shape"
+  )
+  expect_error(pt_flatten(wide), class = "deli_exact_unsupported_shape")
+})
+
+test_that("do.call(c, ...) is the route a list of vector-payload pairs takes", {
+  # The remedy the abort names. Passing the elements as separate arguments
+  # reaches c()'s own concatenation rather than the flattener's list branch, so
+  # each payload contributes all of its values and keeps its tangents.
+  joined <- do.call(
+    c,
+    list(primal_tangent(c(1, 2), 1), primal_tangent(c(3, 4), 0))
+  )
+  expect_s3_class(joined, "PrimalTangentArray")
+  expect_equal(joined$primal, c(1, 2, 3, 4))
+  expect_equal(joined$tangent, c(1, 1, 0, 0))
+
+  # And it differentiates exactly through the lapply() idiom that produces the
+  # refused shape in the first place.
+  f <- function(theta) {
+    parts <- lapply(1:2, function(k) theta[k] * c(1, 2))
+    sum(do.call(c, parts))
+  }
+  expect_equal(
+    auto_differentiation(c(1, 2), f),
+    base::matrix(c(3, 3), nrow = 1)
+  )
+})
+
 test_that("masked rbind() binds scalar pairs with vector primals and scalar tangents", {
   # each row is a bare PrimalTangent with a length-n vector primal; a scalar
   # broadcast tangent on either row must recycle so the tangent slots bind to

@@ -50,7 +50,16 @@ compute_bread <- function(
       if (is.null(dim(ef$primal))) {
         return(primal_tangent(sum(ef$primal), sum(ef$tangent)))
       }
-      return(primal_tangent_array(rowSums(ef$primal), rowSums(ef$tangent)))
+      # `rowSums()` keeps the row labels a psi assigned to name its parameters,
+      # and the bread reports none: `estimate()` reads parameter names off the
+      # plain numeric evaluation it makes at the solved values, never off a
+      # differentiated one. Stripping them here rather than leaving it to the
+      # single `as.vector()` that reads the Jacobian column keeps the invariant
+      # off any one chokepoint.
+      return(primal_tangent_array(
+        unname(rowSums(ef$primal)),
+        unname(rowSums(ef$tangent))
+      ))
     }
     if (is.list(ef) && any(vapply(ef, is_pt, logical(1)))) {
       # A plain list holding one value per equation, from an `lapply()` or
@@ -64,7 +73,12 @@ compute_bread <- function(
       # reading the first element alone decided that for the whole list, so a psi
       # whose theta-free equation or whose `c()`-built equation came first was
       # refused the reduction this branch carries out.
-      return(lapply(ef, sum))
+      #
+      # The names an `lapply()` over named equations records ride the reduction
+      # into the Jacobian column and out into the bread's dimnames, so they are
+      # dropped for the same reason the row sums above are.
+      check_equation_list(ef, length(theta))
+      return(unname(lapply(ef, sum)))
     }
     # Under the exact pass, any other list shape is one this step cannot sum.
     # `base::rbind()` on a single tangent-carrying value, which is what a psi
@@ -86,9 +100,18 @@ compute_bread <- function(
       pt_tangent_lost_abort()
     }
     if (is.null(dim(ef))) {
+      # A plain list under a finite-difference method is the per-equation return
+      # the exact pass reduces above, evaluated at plain numbers, so it takes the
+      # same reduction. Nothing succeeds under the exact pass that would fail
+      # without it, and handing this shape to `sum()` reported base R's
+      # `invalid 'type' (list) of argument` from a frame no deli rule runs in.
+      if (is.list(ef)) {
+        check_equation_list(ef, length(theta))
+        return(unname(vapply(ef, sum, numeric(1))))
+      }
       return(sum(ef))
     }
-    rowSums(ef)
+    unname(rowSums(ef))
   }
 
   if (deriv_method == "exact") {
@@ -110,6 +133,41 @@ compute_bread <- function(
   }
 
   -1 * bread_matrix
+}
+
+# Judge a per-equation list before it is reduced. Each element is reduced with a
+# single `sum()`, so each contributes exactly one row to the bread, and an
+# element holding a block of several equations still reduces to one value. Such
+# an element silently stands in for every equation it holds, and the bread comes
+# back with fewer rows than the system has, which is a shape nothing downstream
+# can tell from a correct one. Counting the elements against the parameters
+# catches it: a list return holds one element per equation, and an M-estimation
+# system has one equation per parameter.
+#
+# The count is the whole test because a correctly shaped element cannot be
+# distinguished from a block by its own payload: an equation evaluated over n
+# observations and a one-row block over the same n look alike, and both are
+# right.
+#' @noRd
+check_equation_list <- function(ef, n_params) {
+  if (length(ef) == n_params) {
+    return(invisible(ef))
+  }
+  cli::cli_abort(
+    c(
+      "Summing the estimating equations received a list of {length(ef)}
+       element{?s} for {n_params} parameter{?s}.",
+      "i" = "Each element of a list return is one estimating equation, summed
+             across observations on its own, so the list holds one element per
+             parameter.",
+      "i" = "An element holding a block of several equations, such as a matrix
+             of rows, sums to a single value and yields a bread with too few
+             rows. Return the whole system as one p-by-n value instead, built
+             with {.fn rbind} or {.code t()} and arithmetic."
+    ),
+    class = "deli_exact_unsupported_shape",
+    call = NULL
+  )
 }
 
 #' Compute the meat matrix

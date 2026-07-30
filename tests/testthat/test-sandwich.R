@@ -496,6 +496,114 @@ test_that("compute_bread() keeps the guard for the lists it cannot reduce", {
   )
 })
 
+# ---- one element, one equation ----------------------------------------------
+#
+# Each element of a per-equation list reduces with a single `sum()`, so each
+# contributes exactly one row to the bread. An element holding a block of
+# several equations still reduces to one value, which means it silently stands
+# in for all of the equations it holds and the bread comes back with fewer rows
+# than the system has. Counting the elements against the parameters is what
+# separates that from a list a reduction is correct for.
+
+test_that("a list element holding a block of equations is refused", {
+  # The mixed shape: a 2-by-n matrix block for the first two parameters beside a
+  # scalar-pair equation for the third. Reducing it produced a 2-by-3 bread for
+  # a 3-parameter system, which nothing downstream can tell from a correct one.
+  y <- c(1, 2, 3)
+  mixed <- function(theta) {
+    list(rbind(theta[1] - y, theta[2] - y), theta[3] - y)
+  }
+  expect_error(
+    compute_bread(mixed, c(1, 2, 3), deriv_method = "exact"),
+    class = "deli_exact_unsupported_shape"
+  )
+  expect_error(
+    compute_bread(mixed, c(1, 2, 3), deriv_method = "capprox"),
+    class = "deli_exact_unsupported_shape"
+  )
+})
+
+test_that("the element-count abort says what a list element stands for", {
+  y <- c(1, 2, 3)
+  mixed <- function(theta) {
+    list(rbind(theta[1] - y, theta[2] - y), theta[3] - y)
+  }
+  err <- expect_error(
+    compute_bread(mixed, c(1, 2, 3), deriv_method = "exact"),
+    class = "deli_exact_unsupported_shape"
+  )
+  flat <- gsub("[[:space:]]+", " ", conditionMessage(err))
+  expect_match(flat, "one estimating equation", fixed = TRUE)
+  expect_match(flat, "2 elements", fixed = TRUE)
+})
+
+# ---- the per-equation list under the finite-difference methods ---------------
+#
+# The package's rule is that nothing succeeds under the exact pass that would
+# fail without it. A per-equation list evaluated at plain numbers is the same
+# return the exact pass reduces, so the finite-difference methods reduce it the
+# same way rather than handing `sum()` a list and reporting base R's
+# `invalid 'type' (list) of argument`.
+
+test_that("a per-equation list reduces under every finite-difference method", {
+  y1 <- c(1, 2, 3, 4)
+  y2 <- c(2, 3, 4, 6)
+  per_equation <- function(theta) list(theta[1] - y1, theta[2] - y2)
+  stacked <- function(theta) rbind(theta[1] - y1, theta[2] - y2)
+
+  exact <- compute_bread(per_equation, c(2.5, 3.75), deriv_method = "exact")
+  for (method in c("capprox", "fapprox", "bapprox")) {
+    expect_equal(
+      compute_bread(per_equation, c(2.5, 3.75), deriv_method = method),
+      exact,
+      tolerance = 1e-6
+    )
+    expect_equal(
+      compute_bread(per_equation, c(2.5, 3.75), deriv_method = method),
+      compute_bread(stacked, c(2.5, 3.75), deriv_method = method),
+      tolerance = 1e-6
+    )
+  }
+})
+
+# ---- the bread carries no names, whichever seam it came through --------------
+#
+# `estimate()` reads parameter names off the plain numeric evaluation it makes
+# at the solved values, never off a differentiated one, so every intermediate
+# the bread is assembled from is stripped rather than relying on the single
+# `as.vector()` that reads the Jacobian column.
+
+test_that("a psi that names its rows still produces an unnamed bread", {
+  y1 <- c(1, 2, 3, 4)
+  y2 <- c(2, 3, 4, 6)
+  named_rows <- function(theta) {
+    out <- rbind(theta[1] - y1, theta[2] - y2)
+    rownames(out) <- c("first", "second")
+    out
+  }
+
+  for (method in c("exact", "capprox")) {
+    bread <- compute_bread(named_rows, c(2.5, 3.75), deriv_method = method)
+    expect_null(dimnames(bread))
+  }
+})
+
+test_that("a psi returning a named per-equation list produces an unnamed bread", {
+  # The list branch carried the element names into the reduction, and the
+  # Jacobian column read off it kept them, so the bread came back with row
+  # labels the numeric pass never reports.
+  y1 <- c(1, 2, 3, 4)
+  y2 <- c(2, 3, 4, 6)
+  named_list <- function(theta) {
+    list(first = theta[1] - y1, second = theta[2] - y2)
+  }
+
+  for (method in c("exact", "capprox")) {
+    bread <- compute_bread(named_list, c(2.5, 3.75), deriv_method = method)
+    expect_null(dimnames(bread))
+  }
+})
+
 # ---- the dimensionless tangent array under the exact pass -------------------
 #
 # `c()` on tangent-carrying values returns a tangent array whose primal has no
