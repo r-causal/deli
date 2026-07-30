@@ -107,3 +107,24 @@ test_that("no topic is listed twice in the pkgdown reference index", {
 
   expect_equal(unique(topics[duplicated(topics)]), character())
 })
+
+test_that("no vignette is listed twice in the pkgdown article index", {
+  skip_on_cran()
+  skip_if_not_installed("yaml")
+  config <- deli_pkgdown_config()
+  skip_if(is.null(config), "_pkgdown.yml is not in the built package")
+
+  # The article index groups vignettes the way the reference index groups
+  # topics, and a vignette listed under two of those groups is the same claim
+  # about two families that the reference check above refuses.
+  articles <- yaml::read_yaml(config)$articles
+  vignettes <- unlist(
+    lapply(articles, function(group) group$contents),
+    use.names = FALSE
+  )
+  # Fails if the groups stop yielding vignettes at all, which would leave the
+  # assertion below trivially true.
+  expect_gt(length(vignettes), 0)
+
+  expect_equal(unique(vignettes[duplicated(vignettes)]), character())
+})
