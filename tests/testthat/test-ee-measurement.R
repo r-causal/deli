@@ -283,6 +283,8 @@ test_that("ee_rogan_gladen_extended fits and matches Python with NA main-study y
 
   expect_true(all(is.finite(m@theta)))
   expect_true(all(is.finite(m@variance)))
+  # The variance is the binding quantity here, disagreeing with Python by
+  # 6.14e-6 against this 1e-5 tolerance, which leaves 63% headroom.
   expect_python_match(m, "ee_rogan_gladen_extended_na", tolerance = 1e-5)
 })
 
@@ -372,7 +374,13 @@ test_that("ee_regression_calibration fits and matches Python with NA main-study 
 
   expect_true(all(is.finite(m@theta)))
   expect_true(all(is.finite(m@variance)))
-  expect_python_match(m, "ee_regression_calibration_na", tolerance = 1e-5)
+  # The variance disagrees with Python by 9.99e-6 on waldo's reading, which sat
+  # at 99.9% of a 1e-5 tolerance: a change of BLAS or of platform that moved the
+  # fit in its seventh significant figure would have turned this red. The
+  # unmasked fixture below carries 5e-5 for the same measured disagreement, so
+  # the two calibration comparisons are held to one tolerance rather than to two
+  # that differ by accident.
+  expect_python_match(m, "ee_regression_calibration_na", tolerance = 5e-5)
 })
 
 test_that("ee_regression_calibration propagates NA outside the masked positions", {

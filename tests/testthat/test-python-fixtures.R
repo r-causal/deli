@@ -30,6 +30,8 @@ test_that("ee_mean_variance matches Python Delicatessen", {
   m <- MEstimator(stacked_equations = psi, init = ref$init)
   m <- estimate(m)
 
+  # The asymptotic variance disagrees with Python by 6.30e-7 against this 1e-6
+  # tolerance.
   expect_python_match(m, "ee_mean_variance", tolerance = 1e-6)
 })
 
@@ -59,6 +61,7 @@ test_that("ee_mean_geometric matches Python Delicatessen", {
   m <- MEstimator(stacked_equations = psi, init = ref$init)
   m <- estimate(m)
 
+  # The variance disagrees with Python by 7.70e-7 against this 1e-6 tolerance.
   expect_python_match(m, "ee_mean_geometric", tolerance = 1e-6)
 })
 
@@ -524,6 +527,7 @@ test_that("ee_beta_regression matches Python Delicatessen", {
   m <- MEstimator(stacked_equations = psi, init = ref$init)
   m <- estimate(m)
 
+  # The variance disagrees with Python by 5.58e-6 against this 1e-5 tolerance.
   expect_python_match(m, "ee_beta_regression", tolerance = 1e-5)
 })
 
@@ -670,6 +674,8 @@ test_that("ee_rogan_gladen_extended matches Python Delicatessen", {
   m <- MEstimator(stacked_equations = psi, init = ref$init)
   m <- estimate(m)
 
+  # The variance disagrees with Python by 6.14e-6 against this 1e-5 tolerance,
+  # as its masked twin in test-ee-measurement.R does.
   expect_python_match(m, "ee_rogan_gladen_extended", tolerance = 1e-5)
 })
 

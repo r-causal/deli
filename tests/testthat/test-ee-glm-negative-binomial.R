@@ -115,6 +115,8 @@ test_that("ee_glm negative_binomial leaves the nuisance row unweighted", {
   # estimate away from Python. See the note above on the 1e-5 tolerance for the
   # numerically differentiated nuisance equation.
   expect_length(m@theta, ncol(X) + 1L)
+  # The asymptotic variance disagrees with Python by 5.13e-6 against this 1e-5
+  # tolerance, the narrowest margin of the negative binomial fixtures.
   expect_python_match(
     m,
     "ee_glm_negative_binomial_weighted_log",

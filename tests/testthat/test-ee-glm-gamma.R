@@ -65,6 +65,10 @@ test_that("ee_glm gamma/inverse (non-canonical link) matches Python", {
   m <- estimate(m)
 
   expect_length(m@theta, ncol(X) + 1L)
+  # The asymptotic variance disagrees with Python by 8.64e-7 against this 1e-6
+  # tolerance, the narrowest margin of the gamma fixtures. The shape nuisance
+  # row is differentiated numerically, which is where the disagreement comes
+  # from.
   expect_python_match(m, "ee_glm_gamma_inverse", tolerance = 1e-6)
 })
 
@@ -94,6 +98,8 @@ test_that("ee_glm gamma weights the shape nuisance row like Python", {
   # Dropping the weights from the nuisance row would shift the shape estimate
   # away from this reference.
   expect_length(m@theta, ncol(X) + 1L)
+  # 7.78e-7 against this 1e-6 tolerance, on the asymptotic variance, for the
+  # reason the inverse-link fixture above records.
   expect_python_match(m, "ee_glm_gamma_weighted_log", tolerance = 1e-6)
 
   # Independent cross-check: because the weights are integers, the weighted fit
