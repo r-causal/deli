@@ -280,3 +280,160 @@ test_that("aggregate_efuncs() row names leave a fit undisturbed", {
   expect_equal(dimnames(m@meat), list("mu", "mu"))
   expect_true(m@variance[1, 1] > 0)
 })
+
+# Exact differentiation ---------------------------------------------------------
+#
+# Summing within groups is linear, so a derivative aggregates the way the values
+# do: the derivative of a group's summed contribution is the sum of the
+# derivatives of the contributions in it. A tangent-carrying return therefore
+# aggregates slot for slot, and the exact bread of a clustered fit is the
+# aggregation of the exact bread of the unclustered one. What stood in the way
+# was the coercion, which asks a plain matrix to hold a derivative it has
+# nowhere to put.
+
+test_that("a clustered mean fit differentiates exactly", {
+  set.seed(11)
+  n <- 40
+  group <- rep(1:10, each = 4)
+  y <- rnorm(n, mean = 3)
+
+  psi <- function(theta) {
+    aggregate_efuncs(ee_mean(theta, y = y), group = group)
+  }
+
+  exact <- m_estimate(stacked_equations = psi, init = 0, deriv_method = "exact")
+  capprox <- m_estimate(
+    stacked_equations = psi,
+    init = 0,
+    deriv_method = "capprox"
+  )
+
+  # Ten groups of four, so each aggregated contribution moves four times as fast
+  # as an unclustered one and the bread scaled by the ten groups is 40/10.
+  expect_equal(unname(exact@bread[1, 1]), 4)
+  expect_equal(exact@theta, capprox@theta, tolerance = 1e-8)
+  expect_equal(exact@bread, capprox@bread, tolerance = 1e-6)
+  expect_equal(exact@variance, capprox@variance, tolerance = 1e-6)
+})
+
+test_that("a clustered regression fit differentiates exactly", {
+  set.seed(5)
+  n <- 120
+  group <- rep(1:30, each = 4)
+  x1 <- rnorm(n)
+  x2 <- rbinom(n, 1, 0.4)
+  cluster_effect <- rnorm(30, sd = 1.5)
+  y <- 1 + 0.5 * x1 - 0.8 * x2 + cluster_effect[group] + rnorm(n)
+  X <- cbind(1, x1, x2)
+
+  psi <- function(theta) {
+    aggregate_efuncs(
+      ee_regression(theta, X = X, y = y, model = "linear"),
+      group = group
+    )
+  }
+
+  exact <- m_estimate(
+    stacked_equations = psi,
+    init = c(0, 0, 0),
+    deriv_method = "exact"
+  )
+  capprox <- m_estimate(
+    stacked_equations = psi,
+    init = c(0, 0, 0),
+    deriv_method = "capprox"
+  )
+
+  expect_equal(exact@theta, capprox@theta, tolerance = 1e-8)
+  expect_equal(exact@bread, capprox@bread, tolerance = 1e-6)
+  expect_equal(exact@variance, capprox@variance, tolerance = 1e-6)
+})
+
+test_that("a clustered logistic fit differentiates exactly", {
+  # A non-linear link, so the exact and the finite-difference breads agree only
+  # if the tangents really did travel through the aggregation rather than being
+  # rebuilt from the primal values.
+  set.seed(9)
+  n <- 200
+  group <- rep(1:50, each = 4)
+  x <- rnorm(n)
+  y <- rbinom(n, 1, 1 / (1 + exp(-(0.3 + 0.7 * x))))
+  X <- cbind(1, x)
+
+  psi <- function(theta) {
+    aggregate_efuncs(
+      ee_regression(theta, X = X, y = y, model = "logistic"),
+      group = group
+    )
+  }
+
+  exact <- m_estimate(
+    stacked_equations = psi,
+    init = c(0, 0),
+    deriv_method = "exact"
+  )
+  capprox <- m_estimate(
+    stacked_equations = psi,
+    init = c(0, 0),
+    deriv_method = "capprox"
+  )
+
+  expect_equal(exact@theta, capprox@theta, tolerance = 1e-8)
+  expect_equal(exact@bread, capprox@bread, tolerance = 1e-6)
+  expect_equal(exact@variance, capprox@variance, tolerance = 1e-6)
+})
+
+test_that("a clustered 1-D return differentiates exactly", {
+  # The vector return takes the other branch of the aggregation, the one that
+  # reshapes to a single row, so it needs the tangents kept just as the matrix
+  # branch does.
+  set.seed(11)
+  n <- 40
+  group <- rep(1:10, each = 4)
+  y <- rnorm(n, mean = 3)
+
+  psi <- function(theta) aggregate_efuncs(y - theta[1], group = group)
+
+  exact <- m_estimate(stacked_equations = psi, init = 0, deriv_method = "exact")
+  capprox <- m_estimate(
+    stacked_equations = psi,
+    init = 0,
+    deriv_method = "capprox"
+  )
+
+  expect_equal(unname(exact@bread[1, 1]), 4)
+  expect_equal(exact@theta, capprox@theta, tolerance = 1e-8)
+  expect_equal(exact@variance, capprox@variance, tolerance = 1e-6)
+})
+
+test_that("the finite-difference clustered fits are undisturbed", {
+  set.seed(11)
+  n <- 40
+  group <- rep(1:10, each = 4)
+  y <- rnorm(n, mean = 3)
+
+  psi <- function(theta) {
+    aggregate_efuncs(ee_mean(theta, y = y), group = group)
+  }
+
+  capprox <- m_estimate(
+    stacked_equations = psi,
+    init = 0,
+    deriv_method = "capprox"
+  )
+  fapprox <- m_estimate(
+    stacked_equations = psi,
+    init = 0,
+    deriv_method = "fapprox"
+  )
+  bapprox <- m_estimate(
+    stacked_equations = psi,
+    init = 0,
+    deriv_method = "bapprox"
+  )
+
+  expect_equal(unname(capprox@bread[1, 1]), 4, tolerance = 1e-6)
+  expect_equal(fapprox@theta, capprox@theta, tolerance = 1e-8)
+  expect_equal(fapprox@variance, capprox@variance, tolerance = 1e-6)
+  expect_equal(bapprox@variance, capprox@variance, tolerance = 1e-6)
+})

@@ -47,6 +47,23 @@
 #'
 #' @export
 aggregate_efuncs <- function(est_funcs, group) {
+  # Summing within a group is a linear operation, so a derivative aggregates the
+  # way the values do: the derivative of a group's summed contribution is the
+  # sum of the derivatives of the contributions in it. Aggregating each slot of
+  # a tangent-carrying return is therefore exact rather than an approximation of
+  # it. The recursion has to intercept ahead of everything below, which asks a
+  # plain matrix to hold a derivative it has nowhere to put.
+  if (is_tangent_container(est_funcs)) {
+    parts <- pt_arrays(est_funcs)
+    # The two slots are aggregated separately, so a tangent that broadcasts over
+    # the primal has to reach the primal's length and shape first.
+    tangent <- pt_recycle_tangent(parts$primal, parts$tangent)
+    return(primal_tangent_array(
+      aggregate_efuncs(parts$primal, group),
+      aggregate_efuncs(tangent, group)
+    ))
+  }
+
   # A 1-D input is a single parameter observed across n units, matching the
   # Python reference, so it becomes a 1-by-n row rather than the n-by-1 column
   # that `as.matrix` would otherwise produce from a vector.
