@@ -2967,3 +2967,77 @@ test_that("integer coercion of ordinary values is untouched", {
   expect_identical(as.vector(c(1.7, 2.2), "integer"), c(1L, 2L))
   expect_identical(as.vector(c(1.7, 2.2), "double"), c(1.7, 2.2))
 })
+
+# ---- two-index selection when the tangent carries no dimensions --------------
+
+test_that("the two-index form selects from a length-1 matrix payload", {
+  # pt_recycle_tangent() reshaped only a tangent shorter than its primal, so a
+  # 1-by-1 payload against a scalar tangent left the tangent dimensionless and
+  # `tangent[i, j, drop = FALSE]` raised `incorrect number of dimensions`. The
+  # primal's dim is what decides the shape of both slots, whatever their lengths.
+  pair <- primal_tangent(base::matrix(5, 1, 1), 1)
+  selected <- pair[1, 1]
+  expect_s3_class(selected, "PrimalTangent")
+  expect_null(dim(selected$primal))
+  expect_equal(selected$primal, 5)
+  expect_equal(selected$tangent, 1)
+})
+
+test_that("the two-index form selects from an equal-length flat tangent", {
+  # The same clause covers every equal-length case and not only the length-1 one:
+  # a 2-by-2 payload against a length-4 dimensionless tangent raised the same
+  # error for `[i, j]`, for `[i, ]`, and for `[, j]`. Both slots are pinned, so a
+  # tangent that is reshaped to the wrong layout is caught rather than passing
+  # for a fix.
+  pair <- primal_tangent(
+    base::matrix(c(1, 2, 3, 4), nrow = 2),
+    c(10, 20, 30, 40)
+  )
+
+  cell <- pair[1, 2]
+  expect_s3_class(cell, "PrimalTangent")
+  expect_equal(cell$primal, 3)
+  expect_equal(cell$tangent, 30)
+
+  row <- pair[2, ]
+  expect_equal(row$primal, base::matrix(c(2, 4), 1, 2))
+  expect_equal(row$tangent, base::matrix(c(20, 40), 1, 2))
+
+  column <- pair[, 2]
+  expect_equal(column$primal, base::matrix(c(3, 4), 2, 1))
+  expect_equal(column$tangent, base::matrix(c(30, 40), 2, 1))
+})
+
+test_that("single-index selection and a broadcast tangent are unchanged", {
+  broadcast <- primal_tangent(base::matrix(c(1, 2, 3, 4), nrow = 2), 1)
+  cell <- broadcast[1, 2]
+  expect_equal(cell$primal, 3)
+  expect_equal(cell$tangent, 1)
+
+  flat <- primal_tangent(
+    base::matrix(c(1, 2, 3, 4), nrow = 2),
+    c(10, 20, 30, 40)
+  )
+  first <- flat[1]
+  expect_equal(first$primal, 1)
+  expect_equal(first$tangent, 10)
+})
+
+test_that("a vector payload still rejects a second subscript", {
+  # A payload with no dimensions keeps base R's answer to a two-index selection,
+  # so the exact pass stops where a plain numeric vector stops.
+  pair <- primal_tangent(c(2, 4, 6), 2)
+  expect_equal(pair[2]$primal, 4)
+  expect_equal(pair[2]$tangent, 2)
+  expect_error(pair[2, 1], "incorrect number of dimensions")
+})
+
+test_that("two-index selection of a 1-by-1 payload keeps working in a psi", {
+  # `X * theta[k]` on a 1-by-1 design is the route a psi reaches this shape by,
+  # and the arithmetic gives both slots the design's dim, so this selection
+  # already worked. It pins the natural path against a fix that reshapes the
+  # wrong slot.
+  design <- base::matrix(2, 1, 1)
+  f <- function(theta) sum((design * theta[1])[1, 1])
+  expect_equal(auto_differentiation(3, f)[1, 1], 2)
+})

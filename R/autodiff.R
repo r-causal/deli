@@ -1126,16 +1126,32 @@ pt_arrays <- function(x) {
   list(primal = x, tangent = zero)
 }
 
-# Recycle a scalar-broadcast tangent up to the primal's length. A scalar pair
-# built from a vector primal and a constant carries a length-1 tangent that
-# broadcasts under elementwise arithmetic (R recycles it), but flattening and
-# binding reshape the primal and tangent slots independently, so the tangent
-# must first be expanded to match the primal element for element.
+# Recycle a scalar-broadcast tangent up to the primal's length and give it the
+# primal's shape. A scalar pair built from a vector primal and a constant carries
+# a length-1 tangent that broadcasts under elementwise arithmetic (R recycles
+# it), but flattening, binding, and subsetting reshape the primal and tangent
+# slots independently, so the tangent must first be expanded to match the primal
+# element for element.
+#
+# The primal's `dim` decides the shape of both slots whatever their lengths, not
+# only when the tangent was just recycled. A 1-by-1 primal against a length-1
+# tangent, and any equal-length pairing of a shaped primal with a flat tangent,
+# both leave the tangent dimensionless otherwise, and `tangent[i, j]` then
+# reports `incorrect number of dimensions` where the primal selects. Assigning a
+# `dim` drops the dimnames with it, so a tangent that already carries the
+# primal's shape is left as it is, which is what keeps the labels a container
+# records on both slots available to a selection by name.
 #' @noRd
 pt_recycle_tangent <- function(primal, tangent) {
   if (length(tangent) < length(primal)) {
     tangent <- rep_len(tangent, length(primal))
-    dim(tangent) <- dim(primal)
+  }
+  dims <- dim(primal)
+  reshape <- !is.null(dims) &&
+    !identical(dim(tangent), dims) &&
+    length(tangent) == length(primal)
+  if (reshape) {
+    dim(tangent) <- dims
   }
   tangent
 }
