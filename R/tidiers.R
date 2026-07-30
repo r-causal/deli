@@ -18,7 +18,13 @@
 #'   `statistic`, `p.value`, `s.value`. If `conf.int = TRUE`, also includes
 #'   `conf.low` and `conf.high`. A `p.value` that underflows to exactly zero is
 #'   reported as `0` alongside an infinite `s.value`; see [s_values()].
-#' - `glance()`: A single-row data.frame with model-level summaries.
+#' - `glance()`: A single-row data.frame with model-level summaries: `nobs`,
+#'   `npar`, `estimator`, `finite_correction`, and the Hansen J-statistic of an
+#'   over-identified GMM fit in `j_statistic`, `j_df` and `j_p_value`. The three
+#'   J columns are present on every fit and hold the typed missing value of
+#'   their own type where there is no such statistic, which is every
+#'   M-estimation fit and every just-identified or `subset` GMM fit; see
+#'   [GMMEstimator()] for what the statistic reads and where it is left unset.
 #'
 #' @seealso [deli-augment], the third broom generic, which returns the
 #'   observation-level fitted values, intervals, and residuals.
@@ -92,11 +98,54 @@ method(generics_glance, deli_estimator) <- function(x, ...) {
   # not be built has all of them. `tidy()` above reports standard errors and
   # asks for the variance.
   check_has_estimates(x)
+  j <- glance_j_statistic(x)
   data.frame(
     nobs = x@n_obs,
     npar = x@n_params,
     estimator = S7::S7_class(x)@name,
     finite_correction = x@finite_correction %||% NA_character_,
+    j_statistic = j$statistic,
+    j_df = j$df,
+    j_p_value = j$p_value,
     stringsAsFactors = FALSE
+  )
+}
+
+#' The over-identification reading of a fit, for one row of `glance()`
+#'
+#' The J-statistic exists for an over-identified GMM fit and for nothing else:
+#' an M-estimation fit has no such reading at all, and a just-identified or a
+#' `subset` GMM fit leaves the property empty for the reasons [GMMEstimator()]
+#' gives. Those fits still get the three columns, holding the typed missing
+#' value of the column's own type, so a set of fits bound together keeps one
+#' column per quantity rather than gaining and losing columns by estimator.
+#'
+#' The degrees of freedom and the P-value are computed here rather than stored,
+#' as [`summary()`][deli-display] computes them, so the two reports cannot
+#' disagree about a statistic recorded once.
+#'
+#' @param x A fitted estimator.
+#'
+#' @returns A list holding `statistic`, `df` and `p_value`, each a length-one
+#'   vector of the type its column carries.
+#' @noRd
+glance_j_statistic <- function(x) {
+  empty <- list(
+    statistic = NA_real_,
+    df = NA_integer_,
+    p_value = NA_real_
+  )
+  if (!S7::S7_inherits(x, GMMEstimator) || is.null(x@j_statistic)) {
+    return(empty)
+  }
+  # The weight matrix is indexed by the moment conditions on every path, so its
+  # dimension is the count the degrees of freedom are measured from. A `subset`
+  # fit never reaches here with a statistic, so the parameters below are all of
+  # them.
+  df <- nrow(x@weight_matrix) - length(x@theta)
+  list(
+    statistic = as.numeric(x@j_statistic),
+    df = as.integer(df),
+    p_value = stats::pchisq(x@j_statistic, df, lower.tail = FALSE)
   )
 }

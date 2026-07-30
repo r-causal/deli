@@ -990,3 +990,67 @@ test_that("tidy() works for GMMEstimator", {
   gl <- generics::glance(g)
   expect_equal(gl$estimator, "GMMEstimator")
 })
+
+# ---- glance() carries the over-identification reading ------------------------
+#
+# summary() reports Hansen's J-statistic for an over-identified GMM fit, and
+# glance() is the one-row form of the same model-level summary. Without the
+# statistic there, code that reads a table of fits has to reach into the
+# `j_statistic` property of each one and recompute the degrees of freedom and
+# the P-value from the weight matrix.
+#
+# The columns are present on every fit, typed and missing where the statistic
+# does not exist, so a set of fits bound together keeps one column per quantity
+# rather than gaining and losing columns by estimator.
+
+over_identified_gmm_fit <- function() {
+  set.seed(42)
+  counts <- stats::rpois(200, 3)
+  psi <- function(theta) {
+    rbind(counts - theta[1], (counts - theta[1])^2 - theta[1])
+  }
+  gmm_estimate(stacked_equations = psi, init = 1)
+}
+
+test_that("glance() reports the J-statistic of an over-identified fit", {
+  g <- over_identified_gmm_fit()
+  gl <- generics::glance(g)
+
+  expect_equal(nrow(gl), 1L)
+  expect_true(all(c("j_statistic", "j_df", "j_p_value") %in% names(gl)))
+  expect_equal(gl$j_statistic, g@j_statistic)
+  expect_equal(gl$j_df, 1L)
+  expect_equal(
+    gl$j_p_value,
+    stats::pchisq(g@j_statistic, 1L, lower.tail = FALSE)
+  )
+})
+
+test_that("glance() reports typed missing values where there is no statistic", {
+  m <- make_fitted_regression()
+  y <- c(1, 2, 3, 4, 5)
+  just_identified <- gmm_estimate(
+    stacked_equations = function(theta) matrix(y - theta[1], nrow = 1),
+    init = 0
+  )
+
+  for (fit in list(m, just_identified)) {
+    gl <- generics::glance(fit)
+    expect_identical(gl$j_statistic, NA_real_)
+    expect_identical(gl$j_df, NA_integer_)
+    expect_identical(gl$j_p_value, NA_real_)
+  }
+})
+
+test_that("the J columns bind across estimators without changing type", {
+  bound <- rbind(
+    generics::glance(make_fitted_regression()),
+    generics::glance(over_identified_gmm_fit())
+  )
+
+  expect_equal(nrow(bound), 2L)
+  expect_type(bound$j_statistic, "double")
+  expect_type(bound$j_df, "integer")
+  expect_true(is.na(bound$j_statistic[[1L]]))
+  expect_false(is.na(bound$j_statistic[[2L]]))
+})

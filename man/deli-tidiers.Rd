@@ -21,7 +21,13 @@ optional argument for a wrong name to displace and ignores them.}
 \code{statistic}, \code{p.value}, \code{s.value}. If \code{conf.int = TRUE}, also includes
 \code{conf.low} and \code{conf.high}. A \code{p.value} that underflows to exactly zero is
 reported as \code{0} alongside an infinite \code{s.value}; see \code{\link[=s_values]{s_values()}}.
-\item \code{glance()}: A single-row data.frame with model-level summaries.
+\item \code{glance()}: A single-row data.frame with model-level summaries: \code{nobs},
+\code{npar}, \code{estimator}, \code{finite_correction}, and the Hansen J-statistic of an
+over-identified GMM fit in \code{j_statistic}, \code{j_df} and \code{j_p_value}. The three
+J columns are present on every fit and hold the typed missing value of
+their own type where there is no such statistic, which is every
+M-estimation fit and every just-identified or \code{subset} GMM fit; see
+\code{\link[=GMMEstimator]{GMMEstimator()}} for what the statistic reads and where it is left unset.
 }
 }
 \description{
