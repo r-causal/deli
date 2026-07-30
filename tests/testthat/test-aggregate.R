@@ -17,8 +17,10 @@ test_that("aggregate_efuncs sums within groups correctly", {
   group <- c("a", "a", "b", "b")
 
   result <- aggregate_efuncs(ef, group)
-  expect_equal(result[1, 1], 3) # 1 + 2
-  expect_equal(result[1, 2], 7) # 3 + 4
+  # The group labels the columns carry are the subject of their own tests below,
+  # so they are dropped here rather than repeated in every arithmetic pin.
+  expect_equal(unname(result[1, 1]), 3) # 1 + 2
+  expect_equal(unname(result[1, 2]), 7) # 3 + 4
 })
 
 test_that("aggregate_efuncs with singletons returns same values", {
@@ -55,12 +57,12 @@ test_that("aggregate_efuncs works with multiple parameters", {
   result <- aggregate_efuncs(ef, group)
   expect_equal(nrow(result), 3)
   expect_equal(ncol(result), 2)
-  expect_equal(result[1, 1], 3) # 1+2
-  expect_equal(result[1, 2], 7) # 3+4
-  expect_equal(result[2, 1], 11) # 5+6
-  expect_equal(result[2, 2], 15) # 7+8
-  expect_equal(result[3, 1], 19) # 9+10
-  expect_equal(result[3, 2], 23) # 11+12
+  expect_equal(unname(result[1, 1]), 3) # 1+2
+  expect_equal(unname(result[1, 2]), 7) # 3+4
+  expect_equal(unname(result[2, 1]), 11) # 5+6
+  expect_equal(unname(result[2, 2]), 15) # 7+8
+  expect_equal(unname(result[3, 1]), 19) # 9+10
+  expect_equal(unname(result[3, 2]), 23) # 11+12
 })
 
 test_that("aggregate_efuncs treats a 1-D vector as one parameter across observations", {
@@ -76,8 +78,8 @@ test_that("aggregate_efuncs treats a 1-D vector as one parameter across observat
   # Shape: one parameter, two groups (matches Python r.shape == (1, 2))
   expect_equal(dim(result), c(1L, 2L))
   # Values: 1 + 2 = 3 for group "a", 3 + 4 = 7 for group "b"
-  expect_equal(result[1, 1], 3)
-  expect_equal(result[1, 2], 7)
+  expect_equal(unname(result[1, 1]), 3)
+  expect_equal(unname(result[1, 2]), 7)
 })
 
 test_that("aggregate_efuncs 1-D input matches its explicit 1-row matrix form", {
@@ -135,13 +137,13 @@ test_that("aggregate_efuncs sorts groups with multiple parameters", {
 
   result <- aggregate_efuncs(ef, group)
 
-  # Sorted groups 1, 2, 3.
+  # Sorted groups 1, 2, 3, each column labeled with the group it holds.
   # Group 1: cols 3,4 -> param1 3+4=7, param2 30+40=70
   # Group 2: cols 5,6 -> param1 5+6=11, param2 50+60=110
   # Group 3: cols 1,2 -> param1 1+2=3, param2 10+20=30
   expect_equal(dim(result), c(2L, 3L))
-  expect_equal(result[1, ], c(7, 11, 3))
-  expect_equal(result[2, ], c(70, 110, 30))
+  expect_equal(result[1, ], c("1" = 7, "2" = 11, "3" = 3))
+  expect_equal(result[2, ], c("1" = 70, "2" = 110, "3" = 30))
 })
 
 test_that("aggregate_efuncs errors on dimension mismatch", {
@@ -224,14 +226,15 @@ test_that("aggregate_efuncs works with regression EEs", {
   expect_true(all(diag(m@variance) > 0))
 })
 
-# Parameter names --------------------------------------------------------------
+# Row and column names ---------------------------------------------------------
 #
 # The rows of the aggregated matrix are the same parameters as the rows of the
 # input, so labels on the input rows survive aggregation and reach the fitted
-# estimator through the estimating function. The columns are a different matter:
-# rowsum() labels its rows with the compact group indices rather than the
-# original group values, so those labels are dropped instead of being passed off
-# as group names.
+# estimator through the estimating function. The columns are the groups, in the
+# sorted unique order the aggregation puts them in, and they carry the group
+# values themselves. The compact integer indices rowsum() labels its own rows
+# with are an internal detail of the aggregation and are never what a column
+# stands for, so they are replaced rather than passed on or dropped.
 
 test_that("aggregate_efuncs() keeps the row names of its input", {
   ef <- matrix(1:12, nrow = 2, dimnames = list(c("mu", "sigma2"), NULL))
@@ -242,22 +245,75 @@ test_that("aggregate_efuncs() keeps the row names of its input", {
   expect_equal(rownames(result), c("mu", "sigma2"))
 })
 
-test_that("aggregate_efuncs() leaves the aggregated columns unlabeled", {
-  # The group values are 10, 20 and 30, so an integer index passed off as a
-  # group label would be visibly wrong.
+test_that("aggregate_efuncs() labels the aggregated columns with numeric groups", {
+  # The group values are 10, 20 and 30. The compact indices are 1, 2 and 3, so a
+  # column carrying an index instead of a group would be visibly wrong.
   ef <- matrix(1:12, nrow = 2, dimnames = list(c("mu", "sigma2"), NULL))
   group <- c(10, 10, 20, 20, 30, 30)
 
   result <- aggregate_efuncs(ef, group)
 
-  expect_null(colnames(result))
+  expect_equal(colnames(result), c("10", "20", "30"))
+  expect_equal(rownames(result), c("mu", "sigma2"))
 })
 
-test_that("aggregate_efuncs() returns an unnamed matrix for an unnamed input", {
+test_that("aggregate_efuncs() labels the aggregated columns with character groups", {
+  ef <- matrix(1:12, nrow = 2)
+  group <- c(
+    "cheshire",
+    "cheshire",
+    "aberdeen",
+    "aberdeen",
+    "bristol",
+    "bristol"
+  )
+
+  result <- aggregate_efuncs(ef, group)
+
+  # Sorted unique groups, which is the order the columns already came back in.
+  expect_equal(colnames(result), c("aberdeen", "bristol", "cheshire"))
+  # The first column is "aberdeen", which holds columns 3 and 4 of the input.
+  expect_equal(unname(result[, 1]), c(5 + 7, 6 + 8))
+})
+
+test_that("aggregate_efuncs() labels the aggregated columns with factor levels", {
+  # A factor group is coerced to its character labels before sorting, so its
+  # columns come back in lexical order rather than level order, and each column
+  # is labeled with the level it holds. A level with no observations contributes
+  # no column and so no label.
+  ef <- matrix(1:12, nrow = 2)
+  group <- factor(
+    c("mid", "mid", "low", "low", "high", "high"),
+    levels = c("low", "mid", "high", "absent")
+  )
+
+  result <- aggregate_efuncs(ef, group)
+
+  expect_equal(colnames(result), c("high", "low", "mid"))
+  # The first column is "high", which holds columns 5 and 6 of the input.
+  expect_equal(unname(result[, 1]), c(9 + 11, 10 + 12))
+})
+
+test_that("aggregate_efuncs() labels the columns of an unnamed input", {
+  # Row names are the input's to give and the group labels are not, so an input
+  # with no row names still comes back with labeled columns.
   ef <- matrix(1:12, nrow = 2)
   group <- c(1, 1, 2, 2, 3, 3)
 
-  expect_null(dimnames(aggregate_efuncs(ef, group)))
+  result <- aggregate_efuncs(ef, group)
+
+  expect_null(rownames(result))
+  expect_equal(colnames(result), c("1", "2", "3"))
+})
+
+test_that("aggregate_efuncs() labels the columns of a 1-D input", {
+  values <- c(10, -1, 4, 5, -2, 3)
+  group <- c(1, 1, 2, 3, 3, 3)
+
+  result <- aggregate_efuncs(values, group)
+
+  expect_equal(colnames(result), c("1", "2", "3"))
+  expect_equal(result[1, ], c("1" = 9, "2" = 4, "3" = 6))
 })
 
 test_that("aggregate_efuncs() row names leave a fit undisturbed", {

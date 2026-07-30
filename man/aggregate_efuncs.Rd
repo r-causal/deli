@@ -18,10 +18,11 @@ each observation.}
 \value{
 A p-by-m matrix, where m is the number of unique groups. Row names
 are those of \code{est_funcs}, since the rows are the same parameters. Columns
-are ordered by the sorted unique values of \code{group} and are unlabeled. A
-factor \code{group} is coerced with \code{as.vector()} to its character labels before
-sorting, so its columns sort lexically by label rather than by factor-level
-order.
+are ordered by the sorted unique values of \code{group} and are labeled with
+those values, as character. A factor \code{group} is coerced with \code{as.vector()}
+to its character labels before sorting, so its columns sort lexically by
+label rather than by factor-level order and carry those labels; a level
+with no observations contributes no column and so no label.
 }
 \description{
 Collapses unit-level estimating function contributions into group-level
