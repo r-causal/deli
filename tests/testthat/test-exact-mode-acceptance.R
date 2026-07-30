@@ -206,12 +206,16 @@ test_that("ee_positive_mean_deviation is a non-differentiable exception with a s
   )
 
   psi <- function(t) suppressWarnings(ee_positive_mean_deviation(t, y = y))
+  # The median equation cannot be searched, so the fit holds at its starting
+  # values and both parameters are started at the values the data give them.
+  # What is under test is the shape of the bread there, not the solve.
+  init <- c(2 * mean(pmax(y - median(y), 0)), median(y))
   m_exact <- estimate(
-    MEstimator(stacked_equations = psi, init = c(1, median(y))),
+    MEstimator(stacked_equations = psi, init = init),
     deriv_method = "exact"
   )
   m_cap <- estimate(
-    MEstimator(stacked_equations = psi, init = c(1, median(y))),
+    MEstimator(stacked_equations = psi, init = init),
     deriv_method = "capprox"
   )
   # The median score contributes a row of zeros to the bread (the indicator has

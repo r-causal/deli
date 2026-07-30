@@ -280,10 +280,12 @@ estimate_m_estimator <- function(
   # the problem is what failed. A subset fit solves only the subset equations for
   # the subset parameters, so only that block is read.
   #
-  # The point is read once and reported through exactly one of two branches, so
+  # The point is read once and reported through exactly one of three branches, so
   # the solve raises at most one warning. Where the solver reported a failure the
   # reading decides the wording rather than whether to speak, since a point that
-  # solves the equations says the search is not what went wrong.
+  # solves the equations says the search is not what went wrong. A point every
+  # reading accepts is still not evidence that the parameters it names can be
+  # told apart, and no solver reports on that, so the bread is asked last.
   if (!solved$warned) {
     judged <- subset %||% seq_len(nrow(evald))
     judged_bread <- bread[judged, judged, drop = FALSE]
@@ -298,6 +300,8 @@ estimate_m_estimator <- function(
       warn_solver_failure(solved, judged_bread, unsolved)
     } else if (!is.null(unsolved)) {
       warn_unsolved(solved, unsolved)
+    } else if (not_identified(judged_bread)) {
+      warn_not_identified()
     }
   }
 
@@ -418,6 +422,15 @@ one_sided_ceiling <- 1e-4
 # the ceiling and its step bears no relation to it: the tobit fit of
 # test-estimate-solvers.R is reported by its contributions at a step of 0.7. See
 # relative_newton_step().
+#
+# The step a singular bread can still measure is read against the same ceiling,
+# and its own gap is wider. Across the suite the fits whose equations are solved
+# where their bread went singular read from 2.6e-13 to 5.0e-07, the largest of
+# them the rank-deficient design, whose step is round-off along the directions
+# its bread does see. The fits that stopped short read 0.10 and 0.57, the first
+# a positive mean deviation left at a starting value nobody solved for and the
+# second a beta regression whose location parameters ran away. See
+# relative_singular_step().
 newton_step_ceiling <- 1e-3
 
 # P-value below which the J-statistic of an over-identified GMM fit is reported as
@@ -590,6 +603,60 @@ relative_newton_step <- function(bread, moments, theta) {
   max(abs(step) / pmax(abs(theta), 1))
 }
 
+#' Size of the step towards a root that a singular bread can still measure
+#'
+#' A bread that cannot be solved is not a bread that says nothing. What costs it
+#' its rank is one direction in the parameter space, or a row belonging to an
+#' equation whose derivative does not exist; either way the directions it does
+#' see carry the equations exactly as they did, and the distance those equations
+#' still have to travel is as measurable as it ever was. What measures it is the
+#' smallest step that solves them as well as they can be solved, the
+#' least-squares step taken through the pseudo-inverse rather than by solving,
+#' read against the magnitude of the estimates the way `relative_newton_step()`
+#' reads its own.
+#'
+#' A direction is counted as one the bread sees where its singular value clears
+#' the tolerance `MASS::ginv()` applies to the same matrix when the variance is
+#' built from its pseudo-inverse, so this reading works from the directions the
+#' variance itself is built from and cannot call a direction visible that
+#' `rank_deficient()` counts as lost.
+#'
+#' The reading is one-sided like the others. A step that is large says an
+#' equation the bread can see is not at its root. A step that is small says only
+#' that no visible direction has any distance left to travel: an equation whose
+#' own row is zero contributes nothing to the step whatever value it sits at, so
+#' the excuse a non-differentiable equation is owed is left intact and
+#' `flat_equation()` goes on being what judges it.
+#'
+#' @param bread The bread matrix at the returned point, already divided by the
+#'   number of observations.
+#' @param moments The mean of each estimating equation at the returned point.
+#' @param theta The returned parameter vector.
+#' @returns The largest element of the least-squares step, each measured against
+#'   the magnitude of its own estimate with a floor of one, or `NA_real_` where
+#'   the bread carries values that are not finite, sees no direction at all, or
+#'   cannot be factored.
+#' @noRd
+relative_singular_step <- function(bread, moments, theta) {
+  if (!all(is.finite(bread)) || !all(is.finite(moments))) {
+    return(NA_real_)
+  }
+  factored <- tryCatch(svd(bread), error = function(e) NULL)
+  if (is.null(factored)) {
+    return(NA_real_)
+  }
+  visible <- factored$d > sqrt(.Machine$double.eps) * max(factored$d)
+  if (!any(visible)) {
+    return(NA_real_)
+  }
+  step <- factored$v[, visible, drop = FALSE] %*%
+    ((t(factored$u[, visible, drop = FALSE]) %*% moments) / factored$d[visible])
+  if (!all(is.finite(step))) {
+    return(NA_real_)
+  }
+  max(abs(step) / pmax(abs(theta), 1))
+}
+
 #' The summed value of each estimating equation
 #'
 #' The estimating function returns a p-by-n matrix, or a dimensionless vector
@@ -600,6 +667,26 @@ relative_newton_step <- function(bread, moments, theta) {
 #' @noRd
 equation_scores <- function(vals) {
   if (is.null(dim(vals))) sum(vals) else rowSums(vals)
+}
+
+#' Which equations the bread has gone flat under
+#'
+#' A row of the bread that is identically zero says that the equation owning it
+#' does not move when any parameter does. Two readings ask the question,
+#' `flat_equation()` to judge such an equation and `not_identified()` to leave
+#' the bread it costs its rank to a reading that can judge it, so it is asked in
+#' one place.
+#'
+#' @param bread The bread matrix at the point under test, with one row per
+#'   equation.
+#' @returns A logical vector with one entry per row of `bread`.
+#' @noRd
+flat_rows <- function(bread) {
+  vapply(
+    seq_len(nrow(bread)),
+    function(i) isTRUE(all(bread[i, ] == 0)),
+    logical(1)
+  )
 }
 
 #' Find an equation the bread has gone flat under and which is not solved
@@ -653,11 +740,7 @@ flat_equation <- function(ef, bread, init_score) {
   if (is.null(init_score)) {
     return(NULL)
   }
-  zero_row <- vapply(
-    seq_len(nrow(bread)),
-    function(i) isTRUE(all(bread[i, ] == 0)),
-    logical(1)
-  )
+  zero_row <- flat_rows(bread)
   score <- equation_scores(ef)
   found <- which(
     zero_row &
@@ -696,6 +779,13 @@ flat_equation <- function(ef, bread, init_score) {
 #' step can be taken, and asking it after would mean asking it only where the
 #' step came back `NA` for that very reason.
 #'
+#' Where the step cannot be taken at all, `relative_singular_step()` takes the
+#' one the bread can still measure. A bread loses its rank to one equation, and
+#' the excuse that costs the Newton step is owed to that equation alone: every
+#' other equation in the stack is still carried by directions the bread sees,
+#' and leaving them unmeasured is how a fit returns a parameter nobody solved
+#' for beside an equation that legitimately cannot be searched.
+#'
 #' @param ef A p-by-n matrix of per-observation contributions to the equations
 #'   being solved, evaluated at the point under test.
 #' @param theta The point under test.
@@ -723,7 +813,11 @@ unsolved_point <- function(ef, theta, bread, init_score = NULL, init = theta) {
   if (!is.null(flat)) {
     return(flat)
   }
-  step <- relative_newton_step(bread, rowSums(ef) / ncol(ef), theta)
+  moments <- rowSums(ef) / ncol(ef)
+  step <- relative_newton_step(bread, moments, theta)
+  if (is.na(step)) {
+    step <- relative_singular_step(bread, moments, theta)
+  }
   if (!isTRUE(step > newton_step_ceiling)) {
     return(NULL)
   }
@@ -825,13 +919,13 @@ warn_unsolved <- function(solved, unsolved = NULL) {
 #' its convergence test failing after it moved, but that report describes the
 #' search rather than the problem, and one thing that produces it is a problem
 #' with no unique root to find. That diagnosis needs both halves of the evidence.
-#' A rank-deficient bread says the mean estimating equations do not change along
-#' at least one direction in the parameter space, so every point along it solves
-#' them exactly as well as the returned one. A returned point that the readings
-#' of `unsolved_point()` accept says the search is not what failed, since the
-#' equations are satisfied where it stopped. Together they say the parameters are
-#' not identified, and reporting a search that stopped short would then be true
-#' of the search and beside the point about the problem.
+#' A bread `not_identified()` reads that way says the mean estimating equations
+#' do not change along at least one direction in the parameter space, so every
+#' point along it solves them exactly as well as the returned one. A returned
+#' point that the readings of `unsolved_point()` accept says the search is not
+#' what failed, since the equations are satisfied where it stopped. Together they
+#' say the parameters are not identified, and reporting a search that stopped
+#' short would then be true of the search and beside the point about the problem.
 #'
 #' Both halves are needed because a bread can lose rank without the design being
 #' the reason. Parameters that have run away leave a saturated estimating
@@ -842,7 +936,9 @@ warn_unsolved <- function(solved, unsolved = NULL) {
 #'
 #' Neither wording can double up with the readings of the returned point.
 #' `estimate_m_estimator()` reads the point once and reports it through exactly
-#' one of the two branches, so one solve reports itself once.
+#' one of its three branches, so one solve reports itself once. The two branches
+#' below report a solve whose solver stated a failure; the third of them is where
+#' a solver that stated nothing has its point reported instead.
 #'
 #' @param solved The list `solve_equations()` returned.
 #' @param bread The bread matrix at the returned point, for the block of
@@ -852,9 +948,17 @@ warn_unsolved <- function(solved, unsolved = NULL) {
 #' @returns Invisible `NULL`, called for the warning.
 #' @noRd
 warn_solver_failure <- function(solved, bread, unsolved) {
-  if (!is.null(unsolved) || !rank_deficient(bread)) {
-    return(warn_unsolved(solved))
+  if (!is.null(unsolved) || !not_identified(bread)) {
+    return(warn_unsolved(solved, unsolved))
   }
+  warn_not_identified()
+}
+
+#' Report that the parameters are not identified at the returned values
+#'
+#' @returns Invisible `NULL`, called for the warning.
+#' @noRd
+warn_not_identified <- function() {
   cli::cli_warn(
     c(
       "!" = "The estimating equations are rank deficient at the returned values,
@@ -869,6 +973,27 @@ warn_solver_failure <- function(solved, bread, unsolved) {
     class = "deli_solver_not_converged"
   )
   invisible(NULL)
+}
+
+#' Whether a bread says the parameters are not identified
+#'
+#' A rank-deficient bread leaves a direction in the parameter space the mean
+#' estimating equations do not change along, so they have no unique root. That is
+#' what a design with linearly dependent columns produces, and it is not the only
+#' thing that produces it. An equation whose derivative does not exist costs the
+#' bread its rank through its own row, and what the caller has there is one
+#' equation that cannot be differentiated rather than a parameter the data cannot
+#' tell apart: the remedy this reading names would send them looking for a
+#' redundant parameter that is not there. `flat_equation()` and
+#' `relative_singular_step()` are what judge the point such a fit returns, so the
+#' bread it leaves is not read this way.
+#'
+#' @param bread The bread matrix at the returned point.
+#' @returns `TRUE` where the matrix is rank deficient and no row of it is
+#'   identically zero.
+#' @noRd
+not_identified <- function(bread) {
+  rank_deficient(bread) && !any(flat_rows(bread))
 }
 
 #' Whether a bread matrix leaves a direction the equations cannot see

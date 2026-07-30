@@ -497,8 +497,16 @@ test_that("ee_positive_mean_deviation at n = 200 does not warn", {
   psi <- function(theta) {
     suppressWarnings(ee_positive_mean_deviation(theta, y = y))
   }
+  # The median equation cannot be searched, so the fit holds wherever it is
+  # started and both parameters have to be started at the values the data give
+  # them. The deviation equation is solved at twice the mean deviation above the
+  # median, and its residual there is round-off while the median equation's is
+  # not, which is the pair this block exists to keep quiet. Starting the
+  # deviation anywhere else returns a value nobody solved for; see "a singular
+  # bread does not excuse the equation whose own row is not flat" below.
+  init <- c(2 * mean(pmax(y - stats::median(y), 0)), stats::median(y))
   expect_no_warning(
-    estimate(MEstimator(stacked_equations = psi, init = c(1, stats::median(y))))
+    estimate(MEstimator(stacked_equations = psi, init = init))
   )
 })
 
@@ -1385,10 +1393,13 @@ test_that("a fit whose Jacobian does not exist is left unjudged", {
   psi <- function(theta) {
     suppressWarnings(ee_positive_mean_deviation(theta, y = y))
   }
-  init <- c(1, stats::median(y))
+  init <- c(2 * mean(pmax(y - stats::median(y), 0)), stats::median(y))
   # multiroot reports its convergence test failing here and returns the starting
-  # values, which is the right answer for a median. The bread is singular, so the
-  # distance to a root cannot be measured with it and the point stays unjudged.
+  # values, which is the right answer for a median. The bread is singular, so no
+  # Newton step can be solved for and that reading says nothing, which is what is
+  # pinned below. The reading that does judge the point is the step
+  # relative_singular_step() takes along the directions the bread still sees, and
+  # it accepts it: both equations are solved where the fit stopped.
   expect_no_warning({
     m <- estimate(MEstimator(stacked_equations = psi, init = init))
   })
@@ -1398,6 +1409,40 @@ test_that("a fit whose Jacobian does not exist is left unjudged", {
     rowSums(psi(unname(m@theta))) / 200,
     unname(m@theta)
   )))
+})
+
+test_that("a singular bread does not excuse the equation whose own row is not flat", {
+  set.seed(2024)
+  y <- 0.6 + stats::rnorm(200)
+  psi <- function(theta) {
+    suppressWarnings(ee_positive_mean_deviation(theta, y = y))
+  }
+  # The median equation cannot be searched, so multiroot returns the starting
+  # values with its convergence test failing. That leaves the first parameter
+  # where the caller put it, and the caller put it a long way from the value the
+  # data give it: the deviation equation reads 2 * mean((y - median)+), which is
+  # 0.79 against the 1 it was started at.
+  init <- c(1, stats::median(y))
+  seen <- collect_warnings({
+    m <- estimate(MEstimator(stacked_equations = psi, init = init))
+  })
+  theta <- unname(coef(m))
+  expect_equal(theta, unname(init))
+  expect_equal(2 * mean(pmax(y - theta[[2]], 0)), 0.790488, tolerance = 1e-5)
+  # No other reading sees it. The contributions cancel well enough to say
+  # nothing, the flat row belongs to the median equation, which is solved where
+  # the fit stopped, and the whole bread cannot be solved for a Newton step.
+  ef <- psi(theta)
+  expect_true(is_root(ef, theta))
+  expect_equal(rowSums(ef)[[2]], 0)
+  expect_true(all(m@bread[2, ] == 0))
+  expect_true(is.na(relative_newton_step(
+    unname(m@bread),
+    rowSums(ef) / 200,
+    theta
+  )))
+  expect_length(seen, 1L)
+  expect_s3_class(seen[[1]], "deli_solver_not_converged")
 })
 
 test_that("a moment condition that does not sum to a finite value is named as such", {
@@ -1480,13 +1525,14 @@ test_that("a well-scaled fit reports no lost bread", {
 # relative_newton_step() is the only reading that sees a stack whose mixed-sign
 # contributions cancel well at points that are not roots, and it needs a bread
 # that can be solved. A bread carrying an identically zero row cannot be, so the
-# step is `NA` and the point is judged on the contribution readings alone. Where
-# the equation that owns the zero row is the one left unsolved, nothing is left
-# to catch it and a wrong root is returned in silence.
+# exact step is `NA` and what is left is the contribution readings and the step
+# relative_singular_step() takes along the directions the bread does see. Where
+# the equation that owns the zero row is the one left unsolved, neither of those
+# reaches it, and a wrong root would be returned in silence.
 #
 # The excuse a singular bread earns is owed to the equation that is solved at the
 # point, not to the one that is not: the fit in "a fit whose Jacobian does not
-# exist is left unjudged" above returns the median equation's own root and stays
+# exist is left unjudged" above returns both equations' own roots and stays
 # quiet, and must go on doing so.
 
 test_that("a zero bread row does not excuse an equation that is not solved", {
@@ -1855,6 +1901,41 @@ test_that("the rank-deficient report does not read as a search that stopped shor
     "did not converge to a root of the estimating equations",
     fixed = TRUE
   )
+})
+
+test_that("a rank-deficient design is reported from starting values that solve it", {
+  psi <- duplicated_column_psi()
+  # The values the fit above returns, handed back to it as starting values. The
+  # solver accepts them where it finds them and reports nothing at all, so
+  # nothing about the search is left to word: the report has to come from the
+  # reading of the returned point.
+  init <- c(1.044995, 0, 1.935798)
+  seen <- collect_warnings({
+    m <- estimate(MEstimator(stacked_equations = psi, init = init))
+  })
+  expect_length(seen, 1L)
+  reported <- conditionMessage(seen[[1]])
+  expect_match(reported, "rank deficient", fixed = TRUE)
+  expect_match(reported, "not identified", fixed = TRUE)
+  expect_true(is_root(psi(unname(coef(m))), unname(coef(m))))
+})
+
+test_that("a rank-deficient design is reported whichever solver returned the point", {
+  skip_if_not_installed("minpack.lm")
+  psi <- duplicated_column_psi()
+  # minpack.lm reports a convergence test that was met and says nothing more,
+  # which is the same silence a custom solver returns. The design is no less
+  # rank deficient for it.
+  seen <- collect_warnings({
+    m <- estimate(
+      MEstimator(stacked_equations = psi, init = c(0, 0, 0)),
+      solver = "lm"
+    )
+  })
+  expect_length(seen, 1L)
+  expect_match(conditionMessage(seen[[1]]), "not identified", fixed = TRUE)
+  theta <- unname(coef(m))
+  expect_equal(theta[[2]] + theta[[3]], 1.9358, tolerance = 1e-4)
 })
 
 test_that("a full-rank design of the same shape stays quiet", {
