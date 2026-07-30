@@ -2713,6 +2713,58 @@ test_that("as.logical() on a scalar pair still returns the primal logical", {
   expect_false(as.logical(primal_tangent(0, 1)))
 })
 
+test_that("as.logical() reads the payload of every tangent-carrying container", {
+  # Only the scalar pair had a method, so the two container surfaces fell
+  # through to base R, which reads the classed list rather than the payload:
+  # as.logical(primal_tangent_array(1, 1)) returned c(TRUE, TRUE), one value per
+  # slot, and any longer payload raised `'list' object cannot be coerced to type
+  # 'logical'`. The rule the scalar pair stands on covers all three, because a
+  # logical coercion is a step function whose derivative is zero almost
+  # everywhere.
+  expect_identical(as.logical(primal_tangent_array(1, 1)), TRUE)
+  expect_identical(
+    as.logical(primal_tangent_array(c(1, 0, 2), c(1, 0, 1))),
+    c(TRUE, FALSE, TRUE)
+  )
+  expect_identical(
+    as.logical(primal_tangent_array(
+      base::matrix(c(1, 0, 2, 0), nrow = 2),
+      base::matrix(0, 2, 2)
+    )),
+    c(TRUE, FALSE, TRUE, FALSE)
+  )
+  expect_identical(
+    as.logical(primal_tangent_vector(list(
+      primal_tangent(1, 1),
+      primal_tangent(0, 0),
+      primal_tangent(2, 0)
+    ))),
+    c(TRUE, FALSE, TRUE)
+  )
+})
+
+test_that("the indicator idiom differentiates with a container-valued condition", {
+  # `ind * yes + (1 - ind) * no` is the conditional deli names in place of
+  # ifelse(), and the condition an estimating function builds is a tangent
+  # container whenever it came from theta, so the coercion has to answer for the
+  # payload. Reading the slots instead returned a length-2 mask for a length-3
+  # gate, which recycles rather than errors.
+  f <- function(theta) {
+    gate <- c(c(1, 0, 1) * theta[1])
+    ind <- as.logical(gate)
+    sum(ind * (theta[1] * c(1, 2, 3)) + (1 - ind) * (theta[2] * c(1, 2, 3)))
+  }
+  expect_equal(
+    auto_differentiation(c(2, 3), f),
+    base::matrix(c(4, 2), nrow = 1)
+  )
+  expect_equal(
+    approx_differentiation(f, c(2, 3)),
+    base::matrix(c(4, 2), nrow = 1),
+    tolerance = 1e-5
+  )
+})
+
 # ---- NA-scoped tangent-loss abort in extract_tangent_column ------------------
 
 test_that("a plain numeric result containing NA aborts", {
@@ -3078,6 +3130,121 @@ test_that("integer coercion of ordinary values is untouched", {
   expect_identical(as.integer(c(1.7, 2.2)), c(1L, 2L))
   expect_identical(as.vector(c(1.7, 2.2), "integer"), c(1L, 2L))
   expect_identical(as.vector(c(1.7, 2.2), "double"), c(1.7, 2.2))
+})
+
+# ---- coercing a tangent-carrying container to a character or a complex -------
+
+test_that("as.character() aborts instead of rendering the two slots", {
+  # The same defect family as the integer coercion, in the type whose corruption
+  # is hardest to notice: as.character(primal_tangent(2.7, 1)) returned
+  # c("2.7", "1"), the primal with the tangent appended to it as a second value,
+  # and on a container it deparsed each slot into a string of its own, so
+  # "c(1, 2)" stood where a value was expected.
+  containers <- list(
+    primal_tangent(2.7, 1),
+    primal_tangent(c(2, 4, 6), 2),
+    primal_tangent_array(c(1, 2), c(1, 0)),
+    primal_tangent_vector(list(primal_tangent(1, 1), primal_tangent(2, 0)))
+  )
+
+  for (x in containers) {
+    expect_error(as.character(x), class = "deli_exact_tangent_lost")
+  }
+})
+
+test_that("as.complex() aborts on a tangent-carrying container", {
+  # A complex has a real and an imaginary part, neither of which is a place to
+  # keep a derivative, so it is a plain number for this purpose. The scalar pair
+  # returned c(2.7+0i, 1+0i); the wider payloads already stopped inside base R.
+  containers <- list(
+    primal_tangent(2.7, 1),
+    primal_tangent_array(c(1, 2), c(1, 0)),
+    primal_tangent_vector(list(primal_tangent(1, 1), primal_tangent(2, 0)))
+  )
+
+  for (x in containers) {
+    expect_error(as.complex(x), class = "deli_exact_tangent_lost")
+  }
+})
+
+test_that("as.vector() aborts for the character and complex modes too", {
+  # Each mode spelling is another way of asking for the coercion the method
+  # above refuses, and each was a way around it: as.vector(x, "character")
+  # returned c("2.7", "1") exactly as as.character() did.
+  pair <- primal_tangent(2.7, 1)
+  for (target in c("character", "complex")) {
+    expect_error(as.vector(pair, target), class = "deli_exact_tangent_lost")
+  }
+  arr <- primal_tangent_array(c(1, 2), c(1, 0))
+  expect_error(as.vector(arr, "character"), class = "deli_exact_tangent_lost")
+  expect_error(as.vector(arr, "complex"), class = "deli_exact_tangent_lost")
+})
+
+test_that("as.vector() with mode 'list' still hands the slots back", {
+  # A list is the one non-numeric mode a container has a faithful representation
+  # in, since it is what the container already is, so this mode keeps
+  # delegating to base R and returns both slots with no coercion at all.
+  arr <- primal_tangent_array(c(1, 2), c(1, 0))
+  expect_identical(
+    as.vector(arr, "list"),
+    list(primal = c(1, 2), tangent = c(1, 0))
+  )
+})
+
+test_that("character and complex coercion of ordinary values is untouched", {
+  expect_identical(as.character(c(1.5, 2)), c("1.5", "2"))
+  expect_identical(as.complex(c(1.5, 2)), c(1.5 + 0i, 2 + 0i))
+  expect_identical(as.vector(c(1.5, 2), "character"), c("1.5", "2"))
+  expect_identical(as.vector(c(1.5, 2), "complex"), c(1.5 + 0i, 2 + 0i))
+})
+
+test_that("a character coercion inside a psi aborts rather than zeroing the bread", {
+  # The silent version reported a zero derivative for a parameter the function
+  # genuinely depends on, because the string it built carried no tangent for
+  # anything downstream to read.
+  f <- function(theta) sum(as.numeric(as.character(theta[1])) * 2)
+  expect_error(auto_differentiation(2.7, f), class = "deli_exact_tangent_lost")
+})
+
+# ---- the replacement functions that reach the coercion methods ---------------
+
+test_that("mode<- reaches the coercion abort", {
+  # `mode<-` is an ordinary closure that looks up `as.<value>` and calls it, so
+  # every method above governs the assignment spelling of the same coercion
+  # without a setter of its own.
+  numeric_pair <- primal_tangent(2.7, 1)
+  expect_error(
+    mode(numeric_pair) <- "numeric",
+    class = "deli_exact_tangent_lost"
+  )
+  integer_pair <- primal_tangent(2.7, 1)
+  expect_error(
+    mode(integer_pair) <- "integer",
+    class = "deli_exact_tangent_lost"
+  )
+  character_pair <- primal_tangent(2.7, 1)
+  expect_error(
+    mode(character_pair) <- "character",
+    class = "deli_exact_tangent_lost"
+  )
+})
+
+test_that("storage.mode<- corrupts a scalar pair, which is the one hole no method closes", {
+  # `storage.mode<-` is a primitive that coerces the object it is handed without
+  # consulting the S3 method table: registering a method for it changes nothing,
+  # and it does not route through `mode<-`, which is what does reach the abort.
+  # So the corruption is pinned rather than fixed. The result is a classed
+  # integer vector holding the truncated primal beside the tangent, which is the
+  # same two-slots-as-data shape `as.integer()` used to return.
+  x <- primal_tangent(2.7, 1)
+  storage.mode(x) <- "integer"
+  expect_s3_class(x, "PrimalTangent")
+  expect_identical(unclass(x), c(primal = 2L, tangent = 1L))
+
+  # The wider payloads are refused by base R itself, for want of a coercion from
+  # a list rather than by any rule of deli's.
+  arr <- primal_tangent_array(c(1, 2), c(1, 0))
+  expect_error(storage.mode(arr) <- "integer")
 })
 
 # ---- two-index selection when the tangent carries no dimensions --------------

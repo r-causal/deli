@@ -966,6 +966,20 @@ quantile.PrimalTangentVector <- pt_quantile
 #' @export
 as.logical.PrimalTangent <- function(x, ...) as.logical(x$primal)
 
+#' @export
+as.logical.PrimalTangentArray <- function(x, ...) as.logical(x$primal)
+
+# Each surface has to state the rule for itself, because base R reads the
+# classed list rather than the payload: an array answered with one value per
+# slot for a length-1 payload and refused every longer one, and a parameter
+# vector refused them all. A parameter vector keeps its primals one per element
+# rather than in a slot of its own, so the flattener assembles them before the
+# same coercion runs.
+#' @export
+as.logical.PrimalTangentVector <- function(x, ...) {
+  as.logical(pt_flatten(x)$primal)
+}
+
 # Every tangent-carrying value aborts, a genuinely scalar pair included. The
 # scalar payload was the one shape a coercion could satisfy, since its primal is
 # already a plain double, and satisfying it dropped a live derivative with no
@@ -990,6 +1004,13 @@ as.numeric.PrimalTangent <- function(x, ...) as.numeric(x$primal)
 # Base R would otherwise report `'list' object cannot be coerced to type
 # 'double'` for an array and return `NA` with a coercion warning for a parameter
 # vector, neither of which points at the cause or at the remedy.
+#
+# `storage.mode<-` is the one spelling of a coercion no method here reaches, and
+# it is a known hole rather than an accepted behavior. It is a primitive that
+# coerces the object it is handed without consulting the method table, and it
+# does not delegate to `mode<-`, which is an ordinary closure that looks up
+# `as.<value>` and so does reach these methods. A scalar pair assigned an
+# integer storage mode therefore still comes back holding its two slots as data.
 #' @noRd
 pt_coercion_abort <- function(target, fns) {
   cli::cli_abort(
@@ -1061,19 +1082,53 @@ as.integer.PrimalTangentArray <- pt_as_integer
 #' @export
 as.integer.PrimalTangentVector <- pt_as_integer
 
+# A character and a complex are plain values in the same sense: neither has a
+# place to keep a derivative, so a tangent that reaches one is gone. Base R read
+# the container rather than the payload here too, and did so without stopping.
+# `as.character(primal_tangent(2.7, 1))` returned the primal with the tangent
+# appended to it as a second string, and on a wider payload it deparsed each
+# slot into a string of its own, so `"c(1, 2)"` stood where a value belonged.
+# `as.complex()` returned the two slots as two complex numbers.
+#' @noRd
+pt_as_character <- function(x, ...) {
+  pt_coercion_abort("character", "as.character")
+}
+
+#' @export
+as.character.PrimalTangent <- pt_as_character
+
+#' @export
+as.character.PrimalTangentArray <- pt_as_character
+
+#' @export
+as.character.PrimalTangentVector <- pt_as_character
+
+#' @noRd
+pt_as_complex <- function(x, ...) pt_coercion_abort("complex", "as.complex")
+
+#' @export
+as.complex.PrimalTangent <- pt_as_complex
+
+#' @export
+as.complex.PrimalTangentArray <- pt_as_complex
+
+#' @export
+as.complex.PrimalTangentVector <- pt_as_complex
+
 # `as.vector()` dispatches on the class of its first argument, so its `mode`
 # argument is another spelling of the coercions above and carries the same rule:
-# the modes that force a numeric type abort, and `"double"` aborts here even
+# every mode that forces an atomic type aborts, and `"double"` aborts here even
 # though it reached base R's coercion rather than the `as.double()` method.
 #
 # The default mode is `"any"`, which returns a list unchanged, so
 # `as.vector(X %*% theta)` keeps its tangents and differentiates exactly. That
 # is the one route a differentiated function reaches this method by on purpose,
-# and it is left alone. The remaining modes are left to base R as well, which
-# reads the two slots rather than the payload.
+# and it is left alone. `"list"` is left to base R, which coerces nothing: a
+# container already is a list of two slots, so that mode is the one faithful
+# representation of it outside its own class.
 #' @noRd
 pt_vector_coercion <- function(x, mode = "any") {
-  if (mode %in% c("integer", "double", "numeric")) {
+  if (mode %in% c("integer", "double", "numeric", "character", "complex")) {
     pt_coercion_abort(mode, "as.vector")
   }
   if (identical(mode, "any")) {
@@ -1737,12 +1792,16 @@ pt_where <- function(test, yes, no) {
 #'   scope there; a user-defined function that calls them from the global
 #'   environment reaches the base versions, and the differentiation aborts
 #'   rather than returning a silent approximation. Coercion cannot preserve a
-#'   derivative: `as.numeric()`, `as.double()`, `as.integer()`, `as.matrix()`,
-#'   and `as.vector()` asked for a numeric `mode` each return plain numbers,
+#'   derivative: `as.numeric()`, `as.double()`, `as.integer()`, `as.character()`,
+#'   `as.complex()`, `as.matrix()`,
+#'   and `as.vector()` asked for any atomic `mode` each return plain values,
 #'   which have nowhere to carry one, so each aborts on a tangent-carrying value
 #'   rather than dropping the tangents silently. `as.vector()` with its default `mode = "any"` returns its
 #'   argument unchanged and keeps the tangents. Use `c()` to flatten a
-#'   matrix-shaped result such as `X %*% theta` to a vector instead. `log(x, base)` differentiates
+#'   matrix-shaped result such as `X %*% theta` to a vector instead.
+#'   `as.logical()` is the exception, because a logical coercion is a step
+#'   function whose derivative is zero almost everywhere, so it returns the
+#'   logical its payload coerces to. `log(x, base)` differentiates
 #'   with respect to `x` only; the `base` argument is treated as a constant, and
 #'   a `base` that itself carries a tangent (a value derived from `theta`) is not
 #'   supported and aborts rather than dropping the base's contribution.
