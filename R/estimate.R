@@ -1094,6 +1094,9 @@ multiroot_not_converged <- function(messages) {
 #' @noRd
 multiroot_self_report <- function(messages) {
   multiroot_not_converged(messages) |
+    # "factorisation" quotes rootSolve's own text and is not the package's
+    # spelling to choose, so an en-US sweep that respelled it would stop the
+    # match.
     grepl(
       "error during factorisation of matrix[[:space:]]*\\((dgefa|dgbfa)\\)",
       messages

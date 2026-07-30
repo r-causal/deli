@@ -365,21 +365,6 @@ beta_runaway_psi <- function() {
   function(theta) ee_beta_regression(theta, X = x, y = y)
 }
 
-# Every warning raised while evaluating `expr`, with each one muffled so it
-# cannot escape into the test summary. Used where a single call raises more than
-# one warning, or where the count itself is the assertion.
-collect_warnings <- function(expr) {
-  seen <- list()
-  withCallingHandlers(
-    expr,
-    warning = function(w) {
-      seen[[length(seen) + 1L]] <<- w
-      invokeRestart("muffleWarning")
-    }
-  )
-  seen
-}
-
 test_that("rootSolve warns when it walks away from the starting values without converging", {
   psi <- beta_runaway_psi()
   expect_warning(
@@ -2097,7 +2082,9 @@ test_that("the lm solver delivers every warning its psi raises", {
 # "steady-state not reached", and reports a Jacobian it cannot factor as one
 # reading "error during factorisation of matrix (dgefa)". Both are the solver
 # talking about itself, both are read by `solve_equations()` and reworded, and
-# neither may reach the user twice.
+# neither may reach the user twice. Both are quoted from rootSolve, spelling
+# included, so an en-US sweep that respelled "factorisation" here would be
+# rewriting another package's message.
 test_that("multiroot's own account of a diverging solve stays inside the solver", {
   psi <- beta_runaway_psi()
 

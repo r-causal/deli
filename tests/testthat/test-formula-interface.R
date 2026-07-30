@@ -175,18 +175,6 @@ flatten_message <- function(cnd) {
   gsub("\\s+", " ", conditionMessage(cnd))
 }
 
-collect_warnings <- function(expr) {
-  seen <- list()
-  withCallingHandlers(
-    expr,
-    warning = function(w) {
-      seen[[length(seen) + 1L]] <<- w
-      invokeRestart("muffleWarning")
-    }
-  )
-  seen
-}
-
 # The entry point an abort reports. `conditionCall()` is `NULL` for an error
 # raised with `call = NULL`, and rlang maps a method dispatched through
 # `UseMethod()` back to its generic, so the head of the reported call is the

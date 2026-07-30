@@ -2,22 +2,9 @@
 # operations that install it: both estimate() methods and compute_sandwich().
 
 # ---- Helpers ----
-
-# Collects every warning signaled while `expr` runs and muffles each one, so
-# the count is of what the scope delivered rather than of what reached the
-# console. Muffling short-circuits R's default warning handling, so the count is
-# the same under `options(warn = 2)`, which the whole suite runs under.
-collect_warnings <- function(expr) {
-  caught <- list()
-  withCallingHandlers(
-    expr,
-    warning = function(w) {
-      caught[[length(caught) + 1L]] <<- w
-      invokeRestart("muffleWarning")
-    }
-  )
-  caught
-}
+#
+# The collector these two read is in helper-conditions.R, since three test files
+# want it.
 
 warning_messages <- function(caught) {
   vapply(caught, conditionMessage, character(1))
