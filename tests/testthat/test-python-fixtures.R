@@ -673,17 +673,15 @@ test_that("ee_rogan_gladen_extended matches Python Delicatessen", {
   expect_python_match(m, "ee_rogan_gladen_extended", tolerance = 1e-5)
 })
 
-test_that("ee_regression_calibration matches Python Delicatessen", {
-  ref <- load_fixture("ee_regression_calibration")
+# Stacked: calibration (3 params) + naive logistic (2 params).
+regression_calibration_psi <- function(ref) {
   a <- ref$a
   a_star <- ref$a_star
   y <- ref$y
   r <- ref$r
-
-  # Stacked: calibration (3 params) + naive logistic (2 params)
   X_main <- cbind(1, a_star)
 
-  psi <- function(theta) {
+  function(theta) {
     theta_calib <- theta[1:3]
     theta_main <- theta[4:5]
 
@@ -708,11 +706,43 @@ test_that("ee_regression_calibration matches Python Delicatessen", {
 
     rbind(ee_calib, ee_logit)
   }
+}
+
+test_that("ee_regression_calibration matches Python Delicatessen", {
+  ref <- load_fixture("ee_regression_calibration")
+  psi <- regression_calibration_psi(ref)
 
   m <- MEstimator(stacked_equations = psi, init = ref$init)
   m <- estimate(m, solver = "nleqslv")
 
-  expect_python_match(m, "ee_regression_calibration", tolerance = 1e-5)
+  # The fixture's bread was differentiated numerically upstream, so it is the
+  # less accurate of the two sides here: it sits 3.68e-7 from a Richardson
+  # extrapolation of the same derivative, while deli's exact bread agrees with
+  # that extrapolation to about 1e-8. The variance carries the difference. The
+  # aggregate relative difference against the fixture, by derivative method, is
+  # 9.99e-6 for capprox, 1.11e-5 for exact, and 2.00e-5 for fapprox, so a
+  # tolerance that admits only the default would be pinning which numerical
+  # derivative deli happens to use rather than its agreement with Python. This
+  # tolerance covers all three with room; the guarantee about the variance
+  # itself is the Richardson comparison below.
+  expect_python_match(m, "ee_regression_calibration", tolerance = 5e-5)
+})
+
+test_that("ee_regression_calibration variance matches a Richardson truth", {
+  ref <- load_fixture("ee_regression_calibration")
+  psi <- regression_calibration_psi(ref)
+
+  m <- MEstimator(stacked_equations = psi, init = ref$init)
+  m <- estimate(m, solver = "nleqslv", deriv_method = "exact")
+
+  # Richardson extrapolation of the bread of this stack, computed independently
+  # of both deli and the fixture. The measured relative error here is about
+  # 6e-9.
+  expect_equal(
+    unname(m@variance[1, 1]),
+    0.0591745066073,
+    tolerance = 1e-7
+  )
 })
 
 # ---- pharmacokinetics ----

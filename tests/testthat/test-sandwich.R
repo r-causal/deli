@@ -679,7 +679,9 @@ reported_call <- function(err) {
 
 test_that("the NULL-return abort names compute_sandwich()", {
   psi <- function(theta) NULL
-  err <- expect_error(compute_sandwich(psi, theta = 0))
+  # These aborts share a call and a class, so the wording is what tells them
+  # apart and the frame assertion needs it to know which one it caught.
+  err <- expect_error(compute_sandwich(psi, theta = 0), regexp = "NULL")
 
   expect_match(reported_call(err), "compute_sandwich(", fixed = TRUE)
   expect_false(grepl("check_psi_at_theta", reported_call(err), fixed = TRUE))
@@ -699,7 +701,7 @@ test_that("the shortfall abort names compute_sandwich()", {
 
 test_that("the non-finite abort names compute_sandwich()", {
   psi <- function(theta) matrix(rep(NA_real_, 3) * theta[1], nrow = 1)
-  err <- expect_error(compute_sandwich(psi, theta = 1))
+  err <- expect_error(compute_sandwich(psi, theta = 1), regexp = "non-finite")
 
   expect_match(reported_call(err), "compute_sandwich(", fixed = TRUE)
   expect_false(grepl("check_psi_at_theta", reported_call(err), fixed = TRUE))

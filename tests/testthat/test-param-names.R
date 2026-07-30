@@ -208,6 +208,20 @@ test_that("the collision report names the label, the position, and the remedy", 
   expect_match(flat, "every parameter")
 })
 
+test_that("the collision report counts the positions rather than the number", {
+  # The positions reach cli as strings so that it pluralizes on how many there
+  # are. Two collisions read in the plural throughout, where one reads in the
+  # singular above.
+  err <- expect_error(
+    default_param_names(c("theta_3", "theta_4", "", ""), 4),
+    class = "deli_param_name_collision"
+  )
+  flat <- gsub("\\s+", " ", conditionMessage(err))
+
+  expect_match(flat, "positions 3 and 4")
+  expect_match(flat, "those names are")
+})
+
 test_that("default_param_names() keeps a repetition the caller typed out", {
   # The refusal above is about what the fill would add. A caller who wrote the
   # repetition out has said what they meant, and nothing is filled here, so
