@@ -641,7 +641,7 @@ equation_scores <- function(vals) {
 #'   being solved, evaluated at the point under test.
 #' @param bread The bread matrix at that point, with one row per equation.
 #' @param init_score The summed value of each of those equations at the starting
-#'   values, or `NULL` where the starting values are not known. Every judgement
+#'   values, or `NULL` where the starting values are not known. Every judgment
 #'   this reading makes rests on the comparison, so it reports nothing without
 #'   them.
 #' @returns `NULL` when no equation is flat, unsolved, and worse than it was at
@@ -1074,7 +1074,7 @@ with_muffled_self_reports <- function(expr, self_report) {
       reports <<- c(reports, message)
       # cnd_muffle() rather than invokeRestart("muffleWarning"), for the reason
       # given in R/conditions.R: a condition inheriting from "warning" that was
-      # signalled without that restart would turn the restart call into an
+      # signaled without that restart would turn the restart call into an
       # error, while cnd_muffle() returns FALSE and leaves it to propagate.
       rlang::cnd_muffle(w)
     }
@@ -1205,7 +1205,7 @@ solve_equations <- function(
     rlang::check_installed("minpack.lm", reason = "for the lm solver.")
     # Python delicatessen solves with scipy.optimize.root(method = "lm"),
     # which drives MINPACK's lmdif. minpack.lm::nls.lm wraps the same MINPACK
-    # code, minimising the sum of squares of the residual vector returned by
+    # code, minimizing the sum of squares of the residual vector returned by
     # fn; at a root of the estimating equations that sum is zero. scipy passes
     # tol as xtol and maxiter as the function-evaluation budget (maxfev), so
     # ptol receives tolerance and maxfev receives maxiter. nls.lm caps its own

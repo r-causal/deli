@@ -215,7 +215,7 @@ test_that("ee_elasticnet_regression errors for invalid ratio", {
   )
 })
 
-# Behaviour-preservation pins for the performance refactors -------------------
+# Behavior-preservation pins for the performance refactors -------------------
 #
 # The penalized estimating functions weight the whole equation, penalty
 # included, and recycle a length-p penalty down the rows of a p-by-n matrix.

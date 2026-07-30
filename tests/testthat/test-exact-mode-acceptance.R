@@ -7,7 +7,7 @@
 # central-difference reference. The point estimate is identical between the two
 # fits (the derivative method enters only the bread), so each comparison
 # isolates the derivative computation. A regression in any family, or a new
-# ee_* added without exact-mode support, fails a labelled assertion here.
+# ee_* added without exact-mode support, fails a labeled assertion here.
 #
 # This file complements rather than replaces the per-family exact tests in
 # test-ee-regression-exact.R, test-ee-causal-measurement-exact.R, and

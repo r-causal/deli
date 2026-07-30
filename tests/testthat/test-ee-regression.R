@@ -107,7 +107,7 @@ test_that("ee_ridge_regression matches Python Delicatessen", {
   expect_equal(unname(diag(m@variance)), diag(ref_var), tolerance = 1e-3)
 })
 
-# Behaviour-preservation pins for the performance refactors -------------------
+# Behavior-preservation pins for the performance refactors -------------------
 #
 # These reconstruct the estimating-function matrix element by element from the
 # mathematical definition, independent of the internal transpose and coercion

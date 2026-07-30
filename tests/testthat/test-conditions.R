@@ -3,7 +3,7 @@
 
 # ---- Helpers ----
 
-# Collects every warning signalled while `expr` runs and muffles each one, so
+# Collects every warning signaled while `expr` runs and muffles each one, so
 # the count is of what the scope delivered rather than of what reached the
 # console. Muffling short-circuits R's default warning handling, so the count is
 # the same under `options(warn = 2)`, which the whole suite runs under.
@@ -138,13 +138,13 @@ test_that("without_repeated_warnings lets the outermost scope govern", {
   expect_length(caught, 1)
 })
 
-# A condition can inherit from "warning" and still be signalled without the
+# A condition can inherit from "warning" and still be signaled without the
 # muffleWarning restart, so the handler muffles with rlang::cnd_muffle(), which
 # returns `FALSE` when there is no restart and leaves the condition to
 # propagate. invokeRestart("muffleWarning") would turn the second signal into an
 # error instead. The absorbing handler below is established outside the scope so
 # that it runs after it, calling handlers running most recently established
-# first, and it keeps the signalled condition from reaching testthat's own
+# first, and it keeps the signaled condition from reaching testthat's own
 # warning handler.
 test_that("without_repeated_warnings muffles a warning that has no restart", {
   cnd <- structure(

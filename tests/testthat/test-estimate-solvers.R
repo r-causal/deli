@@ -151,7 +151,7 @@ test_that("unknown solver string reports it is not supported", {
 
 # ---- Levenberg-Marquardt solver (solver = "lm") ------------------------------
 #
-# These tests pin the API surface and numerical behaviour of the
+# These tests pin the API surface and numerical behavior of the
 # Levenberg-Marquardt solver. In Python delicatessen it is the default,
 # reached through scipy.optimize.root(method = "lm"); the deli surface
 # exposes it as solver = "lm".
@@ -160,7 +160,7 @@ test_that("unknown solver string reports it is not supported", {
 # solver = "lm" (fixtures/generate_solver_lm_fixtures.py). The linear
 # problem is well-conditioned so every root-finder agrees to tight
 # tolerance; the logistic problem is a nonlinear system that exercises the
-# least-squares behaviour of Levenberg-Marquardt.
+# least-squares behavior of Levenberg-Marquardt.
 
 # Build the linear regression estimating equation from a fixture.
 fit_linear <- function(fixture, solver) {
@@ -1103,7 +1103,7 @@ test_that("GMM still warns on a tobit fit that stops far from the solution", {
 # the point is to a root. An equation with no variation is only one way to reach
 # that state. The relation rows of the ratio stack and of the causal estimators
 # multiplied by an observation weight are another: they are not n copies of one
-# value, so an exact-equality test does not recognise them, yet they cannot
+# value, so an exact-equality test does not recognize them, yet they cannot
 # cancel and their share is one at a point that solves them to the last
 # representable digit.
 
@@ -1227,7 +1227,7 @@ test_that("a weighted ratio stack is judged when its relation does not vanish", 
 # the residuals it started from, the step it last took, or an absolute bound on
 # the function values. None of them is a statement that the estimating equations
 # are solved, so a report of success is judged against the returned point rather
-# than accepted. The judgement is made after the bread, because the Jacobian is
+# than accepted. The judgment is made after the bread, because the Jacobian is
 # what measures the distance still to travel and it is computed for the sandwich
 # regardless.
 
@@ -1352,7 +1352,7 @@ test_that("rootSolve warns when it never leaves starting values that do not solv
   set.seed(42)
   n <- 200
   w <- stats::rnorm(n)
-  # A response large enough to defeat multiroot's own Jacobian, centred so that
+  # A response large enough to defeat multiroot's own Jacobian, centered so that
   # every row's contributions are mixed-sign and the non-cancellation share
   # cannot see the failure. multiroot returns the starting values, which is the
   # one case its own report of a failed convergence test cannot be taken at face
@@ -1715,7 +1715,7 @@ test_that("a solved relation is still measured against the scale of the estimate
 # parameters run away rather than settle, so every reading written in terms of
 # the size of the residual is met at a point nobody would accept. Catching it
 # needs a reading of the estimates themselves, and the guards below are what
-# keeps such a reading from reporting a fit that legitimately travelled a long
+# keeps such a reading from reporting a fit that legitimately traveled a long
 # way to a root.
 
 test_that("a separated logistic that runs away is not reported as solved", {

@@ -326,7 +326,7 @@ test_that("aggregate_efuncs() row names leave a fit undisturbed", {
 
   psi <- function(theta) {
     ef <- ee_mean(theta, y = y)
-    rownames(ef) <- "labelled"
+    rownames(ef) <- "labeled"
     aggregate_efuncs(ef, group = group)
   }
 

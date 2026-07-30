@@ -604,7 +604,7 @@ test_that("gmm_estimate()'s formula interface evaluates the estimating function 
   expect_equal(coef(g_formula), coef(g_direct))
 })
 
-test_that("a warning signalled at the automatic init is emitted once", {
+test_that("a warning signaled at the automatic init is emitted once", {
   d <- make_line_data()
   ee_warns <- function(theta, X, y, ...) {
     if (all(theta == 0)) {

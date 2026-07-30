@@ -20,7 +20,7 @@ mean_variance_y <- function() {
 # The same two equations with the parameters labeled on the rows of the return.
 # Row names are the naming channel a `stacked_equations` function has, since it
 # is an opaque closure to the estimator and nothing else it returns is per-row.
-labelled_mean_variance_psi <- function(y, labels = c("mu", "sigma2")) {
+labeled_mean_variance_psi <- function(y, labels = c("mu", "sigma2")) {
   function(theta) {
     out <- rbind(
       y - theta[1],
@@ -43,7 +43,7 @@ regression_fixture <- function() {
   )
 }
 
-labelled_regression_psi <- function(d, labels = c("intercept", "slope")) {
+labeled_regression_psi <- function(d, labels = c("intercept", "slope")) {
   function(theta) {
     resid <- d$y - c(d$X %*% theta)
     out <- t(d$X * resid)
@@ -317,7 +317,7 @@ test_that("printing a summary fills the unnamed rows of a partial name vector", 
 test_that("estimate() reads parameter names from the row names of psi", {
   y <- mean_variance_y()
   m <- m_estimate(
-    stacked_equations = labelled_mean_variance_psi(y),
+    stacked_equations = labeled_mean_variance_psi(y),
     init = c(0, 1)
   )
 
@@ -333,7 +333,7 @@ test_that("estimate() reads parameter names from the row names of psi", {
 test_that("gmm_estimate() reads parameter names from the row names of psi", {
   y <- mean_variance_y()
   g <- gmm_estimate(
-    stacked_equations = labelled_mean_variance_psi(y),
+    stacked_equations = labeled_mean_variance_psi(y),
     init = c(0, 1)
   )
 
@@ -347,7 +347,7 @@ test_that("gmm_estimate() reads parameter names from the row names of psi", {
 test_that("names on init override the row names of psi", {
   y <- mean_variance_y()
   m <- m_estimate(
-    stacked_equations = labelled_mean_variance_psi(y),
+    stacked_equations = labeled_mean_variance_psi(y),
     init = c(a = 0, b = 1)
   )
 
@@ -360,23 +360,23 @@ test_that("a partially named init closes the row-name channel", {
   # a reader can tell which channel produced a label from `init` alone.
   y <- mean_variance_y()
   m <- m_estimate(
-    stacked_equations = labelled_mean_variance_psi(y),
+    stacked_equations = labeled_mean_variance_psi(y),
     init = c(a = 0, 1)
   )
 
   expect_equal(names(coef(m)), c("a", "theta_2"))
 })
 
-test_that("a partially labelled psi stack is discarded rather than filled", {
+test_that("a partially labeled psi stack is discarded rather than filled", {
   # `rbind()` pads the rows of an unlabeled block with empty strings, so a
   # stack that labels only some of its blocks returns an incomplete vector.
   # Unlike a partially named `init`, that is rarely deliberate, so the whole
   # vector is dropped and every parameter is numbered.
   y <- mean_variance_y()
   psi <- function(theta) {
-    labelled <- matrix(y - theta[1], nrow = 1, dimnames = list("mu", NULL))
-    unlabelled <- matrix((y - theta[1])^2 - theta[2], nrow = 1)
-    rbind(labelled, unlabelled)
+    labeled <- matrix(y - theta[1], nrow = 1, dimnames = list("mu", NULL))
+    unlabeled <- matrix((y - theta[1])^2 - theta[2], nrow = 1)
+    rbind(labeled, unlabeled)
   }
 
   expect_equal(rownames(psi(c(0, 1))), c("mu", ""))
@@ -453,7 +453,7 @@ test_that("an over-identified GMM fit numbers its parameters", {
   expect_null(dimnames(g@bread))
 })
 
-test_that("a row-labelled psi gives the same fit under exact differentiation", {
+test_that("a row-labeled psi gives the same fit under exact differentiation", {
   # `rownames<-` is an ordinary closure in base R and cannot take a method, so
   # deli registers its no-op on `dimnames<-`, which `rownames<-` delegates to
   # and which is a generic. That dispatch is what lets an estimating function
@@ -465,7 +465,7 @@ test_that("a row-labelled psi gives the same fit under exact differentiation", {
   expect_identical(`rownames<-`, base::`rownames<-`)
 
   d <- regression_fixture()
-  psi <- labelled_regression_psi(d)
+  psi <- labeled_regression_psi(d)
 
   expect_equal(rownames(psi(c(0, 0))), c("intercept", "slope"))
 
@@ -488,7 +488,7 @@ test_that("a psi that repeats a row name numbers the parameters", {
   # the variable that supplied it, so it is discarded whole as an incomplete
   # set is.
   y <- mean_variance_y()
-  psi <- labelled_mean_variance_psi(y, labels = c("mu", "mu"))
+  psi <- labeled_mean_variance_psi(y, labels = c("mu", "mu"))
 
   expect_equal(rownames(psi(c(0, 1))), c("mu", "mu"))
 
@@ -567,7 +567,7 @@ test_that("an incomplete psi row-name vector cannot reach the fill", {
   # that looks like a positional default reaches the fill through it, and a
   # stack that labels only its first row is numbered rather than refused.
   y <- mean_variance_y()
-  psi <- labelled_mean_variance_psi(y, labels = c("theta_2", ""))
+  psi <- labeled_mean_variance_psi(y, labels = c("theta_2", ""))
 
   expect_null(psi_param_names(psi(c(0, 1)), 2))
 
@@ -996,7 +996,7 @@ test_that("a brace in a parameter name is escaped rather than interpolated", {
   # themselves are kept exactly as the estimating function wrote them.
   y <- mean_variance_y()
   m <- m_estimate(
-    stacked_equations = labelled_mean_variance_psi(
+    stacked_equations = labeled_mean_variance_psi(
       y,
       labels = c("theta{1}", "E[Y^{a=1}]")
     ),
@@ -1015,7 +1015,7 @@ test_that("a parameter name cli would reject prints literally", {
   # so escaping has to reach them as well as the ones that corrupt quietly.
   y <- mean_variance_y()
   m <- m_estimate(
-    stacked_equations = labelled_mean_variance_psi(
+    stacked_equations = labeled_mean_variance_psi(
       y,
       labels = c("{foo}", "beta{")
     ),
@@ -1051,7 +1051,7 @@ test_that("a summary prints a brace-bearing parameter name unaltered", {
   # to an interpolating cli function has to account for the names.
   y <- mean_variance_y()
   m <- m_estimate(
-    stacked_equations = labelled_mean_variance_psi(
+    stacked_equations = labeled_mean_variance_psi(
       y,
       labels = c("theta{1}", "E[Y^{a=1}]")
     ),

@@ -228,7 +228,7 @@ test_that("predict() reports NA for the newdata rows that carry one", {
   expect_false(anyNA(p$se.fit[!missing_rows]))
 
   # The complete rows are the predictions they would have got on their own, so
-  # the missing row costs its neighbours nothing.
+  # the missing row costs its neighbors nothing.
   complete <- predict(
     m,
     newdata = at[c(1, 3), ],

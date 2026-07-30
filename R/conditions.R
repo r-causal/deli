@@ -38,7 +38,7 @@
 #' A calling handler, rather than a collect-and-replay pass, is what keeps the
 #' rest of R's warning machinery working unchanged. Calling handlers run before
 #' the default handling of a warning, so under `options(warn = 2)` the first
-#' warning is converted into an error where it was signalled exactly as it would
+#' warning is converted into an error where it was signaled exactly as it would
 #' be without this scope, and an enclosing [base::withCallingHandlers()] or
 #' [base::tryCatch()] established by the caller still sees it with its own class
 #' and call intact.
@@ -63,7 +63,7 @@ without_repeated_warnings <- function(expr) {
         return()
       }
       # cnd_muffle() rather than invokeRestart("muffleWarning"), because a
-      # condition that inherits from "warning" but was signalled without that
+      # condition that inherits from "warning" but was signaled without that
       # restart would turn the restart call into an error. cnd_muffle() returns
       # `FALSE` instead, leaving the warning to propagate, which is the harmless
       # outcome.
