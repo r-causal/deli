@@ -159,7 +159,13 @@ deli_spline <- function(
 #'
 #' @export
 additive_design_matrix <- function(X, specifications, return_penalty = FALSE) {
-  X <- as.matrix(X)
+  # Every design argument of every built-in estimating equation is coerced the
+  # same way, and this design is one of them: `ee_additive_regression()` hands
+  # it whatever the caller passed before expanding it into spline columns. The
+  # helper reduces to `as.matrix()` for a plain input, and it lets a
+  # theta-derived design through with its tangents rather than aborting on the
+  # coercion, which is the route a stacked second-stage design arrives by.
+  X <- coerce_design(X)
   n_obs <- nrow(X)
   n_cols <- ncol(X)
 

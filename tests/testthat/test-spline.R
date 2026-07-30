@@ -177,6 +177,57 @@ test_that("additive_design_matrix with all NULL specs returns X unchanged", {
   expect_equal(result, X)
 })
 
+test_that("additive_design_matrix coerces its design the way every ee_* does", {
+  # The design argument of every built-in estimating equation runs through
+  # coerce_design(), which drops dimnames and reduces to as.matrix() for a plain
+  # input. This design is one of them, and what it returns for a labeled matrix,
+  # a data frame, and a bare vector is unchanged by routing it there.
+  labeled <- matrix(
+    c(1, 2, 3, 4, 5, 6),
+    ncol = 2,
+    dimnames = list(c("r1", "r2", "r3"), c("a", "b"))
+  )
+  expected <- matrix(c(1, 2, 3, 4, 5, 6), ncol = 2)
+  expect_equal(additive_design_matrix(labeled, list(NULL, NULL)), expected)
+  expect_equal(
+    additive_design_matrix(as.data.frame(labeled), list(NULL, NULL)),
+    expected
+  )
+  expect_equal(
+    additive_design_matrix(c(1, 2, 3), list(NULL)),
+    matrix(c(1, 2, 3), ncol = 1)
+  )
+})
+
+test_that("additive_design_matrix passes a theta-derived design through", {
+  # A design stacked from a first-stage fit reaches an estimating equation
+  # carrying tangents, which is how ee_2sls hands its second stage a predicted
+  # treatment column. as.matrix() refused every such design at the door, even
+  # the linear-only expansion that needs no more than the columns it was given.
+  X <- primal_tangent_array(
+    matrix(c(1, 2, 3, 4, 5, 6), ncol = 2),
+    matrix(c(1, 0, 0, 0, 0, 0), ncol = 2)
+  )
+  expanded <- additive_design_matrix(X, list(NULL, NULL))
+  expect_s3_class(expanded, "PrimalTangentArray")
+  expect_equal(expanded$primal, matrix(c(1, 2, 3, 4, 5, 6), ncol = 2))
+  expect_equal(expanded$tangent, matrix(c(1, 0, 0, 0, 0, 0), ncol = 2))
+})
+
+test_that("a spline expansion of a theta-derived design still reports its limit", {
+  # The spline basis itself is where the tangent stops: deli_spline() coerces
+  # its input to a plain numeric, so the abort names the coercion rather than
+  # leaving the caller with a silently zero derivative.
+  X <- primal_tangent_array(
+    matrix(c(1, 2, 3, 4, 5, 6), ncol = 2),
+    matrix(c(1, 0, 0, 0, 0, 0), ncol = 2)
+  )
+  expect_error(
+    additive_design_matrix(X, list(NULL, list(knots = c(4.5, 5)))),
+    class = "deli_exact_tangent_lost"
+  )
+})
+
 test_that("additive_design_matrix adds spline columns", {
   n <- 20
   X <- cbind(rep(1, n), seq(-2, 2, length.out = n))
