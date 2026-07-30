@@ -291,9 +291,10 @@ test_that("rootSolve warns when the Jacobian is singular at the start", {
 # A capped iteration budget is a distinct non-convergence mode: rootSolve stops
 # at a partially-solved point where the per-equation contributions still cancel
 # well, so the singular-Jacobian cancellation heuristic stays quiet. rootSolve
-# itself emits a "steady-state not reached" warning that the suppression around
-# the call discards, so the maxiter exhaustion must be surfaced separately. The
-# lm and nleqslv branches already warn on their own non-convergence codes.
+# itself emits a "steady-state not reached" warning, which is muffled where it is
+# raised and reworded in deli's own terms, and an exhausted budget is not what
+# that report says, so it has to be surfaced from the iteration count separately.
+# The lm and nleqslv branches already warn on their own non-convergence codes.
 test_that("rootSolve warns when the iteration budget is exhausted", {
   ref <- load_fixture("ee_solver_lm_logistic")
   X <- ref$X
@@ -342,8 +343,9 @@ test_that("rootSolve stays quiet on the non-smooth positive mean deviation", {
 #
 # multiroot's own convergence test can fail while the returned list still looks
 # like a success: it carries no status flag, and the "steady-state not reached"
-# warning rootSolve raises alongside it was discarded by the suppression around
-# the call. A beta regression started from a scale parameter that is far too
+# warning rootSolve raises alongside it is muffled where it is raised, so what
+# the solve reports rests on that warning being read rather than only
+# suppressed. A beta regression started from a scale parameter that is far too
 # small is the reference reproducer. multiroot walks the location parameters out
 # to 1e7 and stops with a largest score of 36 against a tolerance of 1e-9.
 # Neither existing check can see it: the iteration budget is nowhere near
@@ -1898,6 +1900,38 @@ full_rank_psi <- function() {
   design <- cbind(1, x1, x2)
   function(theta) ee_regression(theta, X = design, y = y, model = "linear")
 }
+
+# The reading itself, at the shapes a bread can arrive in. Each guard is there
+# for a bread some fit in this suite produces, and a guard that stopped holding
+# would turn one of those into a false alarm rather than into an error, so each
+# is pinned on its own.
+
+test_that("rank_deficient() reads only a square, finite bread", {
+  expect_false(rank_deficient(rbind(c(1, 0), c(0, 1))))
+  expect_true(rank_deficient(rbind(c(1, 2), c(2, 4))))
+  # A subset fit hands over the block of the bread its solver worked on, and a
+  # caller that passed the whole of it would be asking about a shape this
+  # reading has no answer for.
+  expect_false(rank_deficient(rbind(c(1, 2, 3), c(2, 4, 6))))
+  expect_false(rank_deficient(matrix(numeric(0), nrow = 0, ncol = 0)))
+  # qr() cannot factor a matrix carrying values that are not finite, and a
+  # derivative that is not finite is a different failure with a different
+  # remedy.
+  expect_false(rank_deficient(rbind(c(NA_real_, 1), c(1, 1))))
+  expect_false(rank_deficient(rbind(c(Inf, 1), c(1, 1))))
+  # A bread of zeros is rank deficient in every direction there is.
+  expect_true(rank_deficient(matrix(0, nrow = 2, ncol = 2)))
+})
+
+test_that("not_identified() leaves a bread that lost its rank to a flat row", {
+  # The duplicated-column shape: dependent rows, none of them zero.
+  expect_true(not_identified(rbind(c(1, 2), c(2, 4))))
+  # The non-differentiable shape: one equation that does not move at all. The
+  # remedy this reading names is not the remedy for that, so it says nothing.
+  expect_false(not_identified(rbind(c(1, 1), c(0, 0))))
+  expect_false(not_identified(matrix(0, nrow = 2, ncol = 2)))
+  expect_false(not_identified(rbind(c(1, 0), c(0, 1))))
+})
 
 test_that("a rank-deficient design is reported as such", {
   psi <- duplicated_column_psi()

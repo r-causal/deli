@@ -334,9 +334,11 @@ test_that("an under-identified direct GMM fit is explained, not just counted", {
   expect_match(flat, "under-identified", ignore.case = TRUE)
   expect_match(flat, "moment condition", ignore.case = TRUE)
   # The counts stay, because they are what the reader checks the diagnosis
-  # against.
-  expect_match(flat, "1", fixed = TRUE)
-  expect_match(flat, "2", fixed = TRUE)
+  # against. Each is pinned where it is reported, in parentheses after the
+  # quantity it counts, so that a digit anywhere else in the message cannot
+  # stand in for it.
+  expect_match(flat, "initial values (2)", fixed = TRUE)
+  expect_match(flat, "estimating equations (1)", fixed = TRUE)
 })
 
 test_that("gmm_estimate()'s function interface explains an under-identified system", {

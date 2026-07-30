@@ -46,8 +46,12 @@ automatic \code{init} is one short and the estimating function either fails
 outright or returns the wrong number of rows. Where the equation is one the
 formula interface recognizes, the reframed message names the parameter the
 automatic length leaves out; otherwise how much the message can claim about
-the length depends on the failure, which \code{abort_formula_auto_init()}
-documents.
+the length depends on the failure. A wrong-shaped return is a length mismatch
+by definition and is described as one, an error the estimating function raised
+is described as one where the error itself reads as a length problem, and an
+error that reads as anything else is left described as itself, so that a user
+whose equation failed for a reason of its own is not sent looking for a length
+that was never wrong.
 
 Only those two failures are reframed. A \code{NULL} or non-numeric return keeps
 its own message, because an \code{init} one element short cannot cause either. A

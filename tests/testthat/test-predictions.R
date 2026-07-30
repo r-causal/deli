@@ -1398,7 +1398,21 @@ test_that("plogit_predict density equals hazard * survival", {
 # Eight unit-time intervals, an intercept-and-linear-time `S`, and one binary
 # covariate. The first two people share a covariate value, so any disagreement
 # between their predicted curves comes from the time grid and nothing else.
+#
+# Every test below wants the same fit, and building it costs a solve, so it is
+# built at the first call and kept. The seed is set inside the builder and no
+# test writes to what it returns, so the fixture is the same object whichever
+# test asked for it first and whichever of them run.
+plogit_s_cache <- new.env(parent = emptyenv())
+
 plogit_s_fixture <- function() {
+  if (is.null(plogit_s_cache$fixture)) {
+    plogit_s_cache$fixture <- build_plogit_s_fixture()
+  }
+  plogit_s_cache$fixture
+}
+
+build_plogit_s_fixture <- function() {
   set.seed(606)
   n <- 60
   x <- rbinom(n, 1, 0.5)
@@ -1485,6 +1499,25 @@ test_that("plogit_predict() aborts on an S whose rows divide the grid", {
       S = S_half
     ),
     "Dimension mismatch"
+  )
+})
+
+test_that("the grid mismatch abort names both counts it compared", {
+  f <- plogit_s_fixture()
+
+  # The two tests above pin which shapes are refused. This one pins what the
+  # refusal says, once, for the wording both of them reach: a reader has to be
+  # told which two numbers failed to match, since the remedy is to change one of
+  # them.
+  expect_snapshot(
+    plogit_predict(
+      f$theta,
+      time = f$time,
+      event = f$event,
+      X = f$X,
+      S = cbind(1, c(1, 2, 3))
+    ),
+    error = TRUE
   )
 })
 

@@ -1310,9 +1310,15 @@ with_muffled_self_reports <- function(expr, self_report) {
 #' @returns A list holding the returned parameter vector in `par`, the name of
 #'   the solver in `solver`, whether a warning has already been raised about the
 #'   solve in `warned`, and whatever the solver reports that the warning needs:
-#'   `code` and `message`, or `precision`. A `rootSolve` solve also carries
-#'   `not_converged`, which is `TRUE` where the solver reported its own
-#'   convergence test failing after moving and the caller has still to report it.
+#'   `code` and `message`, or `precision`. A `rootSolve` solve whose iteration
+#'   budget held also carries `not_converged`: `TRUE` where the solver reported
+#'   its own convergence test failing after moving away from the starting values,
+#'   which is the one report taken at face value and the one the caller has still
+#'   to word, and `FALSE` where it reported nothing or reported it without
+#'   moving. A solve whose budget was exhausted has been warned about here
+#'   instead and carries no such reading, so the element is absent and a caller
+#'   reading it has to treat that as no report; every other solver carries it in
+#'   no case.
 #' @noRd
 solve_equations <- function(
   func,

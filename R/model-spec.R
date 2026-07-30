@@ -120,13 +120,19 @@ per_observation_ee_args <- function() {
 #' reader could ask for and keeping one would record a specification nothing can
 #' reach.
 #'
-#' A name goes missing in two shapes, and this is where both are answered the
-#' same way. `rlang::enquos()` gives a dot passed by position an empty name
-#' rather than leaving it out, and an argument list that named nothing has no
-#' names vector at all. `formula_ee_dots_names()` reads both as no name supplied
-#' and so does this. Leaving either to the subscript would be an accident rather
-#' than a rule: `!NULL %in% x` is `logical(0)`, and a list subscripted by
-#' `logical(0)` is empty whatever it held.
+#' A name goes missing in three shapes, and this is where all of them are
+#' answered the same way. `rlang::enquos()` gives a dot passed by position an
+#' empty name rather than leaving it out, an argument list that named nothing has
+#' no names vector at all, and a names vector assembled by hand can carry `NA`
+#' where a name should be. `formula_ee_dots_names()` reads the first two as no
+#' name supplied and so does this; the third is read the same way because a name
+#' that is not there and a name that is missing are equally unusable as a key.
+#' `nzchar()` alone would keep it, since `nzchar(NA)` is `TRUE`, and the halves
+#' below split on `%in%`, which is `FALSE` for `NA` on both sides, so such an
+#' entry would land in the model-specification half by falling through rather
+#' than by belonging there. Leaving any of the three to the subscript would be an
+#' accident rather than a rule: `!NULL %in% x` is `logical(0)`, and a list
+#' subscripted by `logical(0)` is empty whatever it held.
 #'
 #' @param ee_args The evaluated `...` arguments forwarded to the estimating
 #'   equation.
@@ -137,7 +143,7 @@ named_ee_args <- function(ee_args) {
   if (is.null(arg_names)) {
     return(ee_args[0])
   }
-  ee_args[nzchar(arg_names)]
+  ee_args[!is.na(arg_names) & nzchar(arg_names)]
 }
 
 #' The model-specification subset of the arguments forwarded to an equation

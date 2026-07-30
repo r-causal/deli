@@ -363,6 +363,22 @@ test_that("both halves read an empty name as no name at all", {
   expect_length(spec_obs_args(positional), 0L)
 })
 
+test_that("both halves read a missing name as no name at all", {
+  # The third shape a name goes missing in. `nzchar(NA)` is `TRUE`, so the name
+  # would be kept, and `%in%` is `FALSE` for `NA` against every name there is, so
+  # what kept it would land it in the specification half by falling through
+  # rather than by belonging there. It is as unusable as a key as an empty name
+  # is, and is read the same way.
+  missing_name <- stats::setNames(list("weibull", c(1, 0, 1)), c(NA, "event"))
+
+  expect_length(named_ee_args(missing_name), 1L)
+  expect_identical(
+    spec_ee_args(missing_name),
+    stats::setNames(list(), character(0))
+  )
+  expect_identical(spec_obs_args(missing_name), list(event = c(1, 0, 1)))
+})
+
 test_that("both halves split the named arguments beside an unnamed one", {
   mixed <- stats::setNames(
     list("weibull", "positional", c(1, 0, 1)),

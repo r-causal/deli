@@ -52,8 +52,9 @@ other output carries the line.
 
 The \code{S} column reads \code{Inf} when a P-value underflows to exactly zero, for the
 reason \code{\link[=s_values]{s_values()}} gives. The \code{P} column reports that same underflow as
-\verb{<2e-16}, the threshold below which \code{\link[base:format.pval]{base::format.pval()}} stops printing
-digits, while \code{\link[generics:tidy]{generics::tidy()}} returns the literal \code{0}.
+\verb{<2e-16}: \code{\link[base:format.pval]{base::format.pval()}} stops printing digits below the \code{eps} it is
+given, and the table gives it \code{2.2e-16}. \code{\link[generics:tidy]{generics::tidy()}} returns the
+literal \code{0} instead.
 
 \code{subset} restricts which parameters are displayed and nothing else. The
 reported parameter count and every reported value are computed from the whole
