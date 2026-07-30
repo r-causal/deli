@@ -18,7 +18,11 @@ documented arguments is an error rather than silently ignored.}
 \value{
 An n-by-p matrix of influence function values, where n is the
 number of observations and p is the number of parameters. Columns are named
-for the parameters, as in \code{\link[=deli-generics]{coef()}}.
+for the parameters, as in \code{\link[=deli-generics]{coef()}}. The rows take whatever
+labels the estimating function put on the columns of its own return, so a
+fit whose estimating function collapses its contributions with
+\code{\link[=aggregate_efuncs]{aggregate_efuncs()}} has one row per group, labeled with the group value,
+and every row is that group's influence rather than an observation's.
 }
 \description{
 Computes the influence function values for individual observations:

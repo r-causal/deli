@@ -17,7 +17,11 @@
 #'
 #' @returns An n-by-p matrix of influence function values, where n is the
 #'   number of observations and p is the number of parameters. Columns are named
-#'   for the parameters, as in [`coef()`][deli-generics].
+#'   for the parameters, as in [`coef()`][deli-generics]. The rows take whatever
+#'   labels the estimating function put on the columns of its own return, so a
+#'   fit whose estimating function collapses its contributions with
+#'   [aggregate_efuncs()] has one row per group, labeled with the group value,
+#'   and every row is that group's influence rather than an observation's.
 #'
 #' @examples
 #' fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,

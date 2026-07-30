@@ -93,3 +93,45 @@ test_that("influence_functions() names its columns when the bread is singular", 
     c("(Intercept)", "wt", "wt_copy")
   )
 })
+
+# ---- a clustered fit reports one row per group -------------------------------
+#
+# aggregate_efuncs() collapses the per-observation contributions within a group
+# and labels the resulting columns with the group values. Those labels ride
+# through the bread inverse and out of the transpose, so the rows of a clustered
+# fit's influence functions are the groups rather than the observations, and they
+# say which group each one is. Nothing else in the returned matrix says so: the
+# row count is the number of groups and reads as a number of observations.
+
+clustered_mean_fit <- function() {
+  set.seed(42)
+  n <- 40
+  group <- rep(c("a", "b", "c", "d", "e"), each = 8)
+  y <- stats::rnorm(5, sd = 2)[match(group, sort(unique(group)))] +
+    stats::rnorm(n)
+  psi <- function(theta) {
+    aggregate_efuncs(ee_mean(theta, y = y), group = group)
+  }
+  list(fit = m_estimate(stacked_equations = psi, init = mean(y)), n = n)
+}
+
+test_that("influence_functions() labels the rows of a clustered fit by group", {
+  case <- clustered_mean_fit()
+  inf <- influence_functions(case$fit)
+
+  expect_equal(nrow(inf), 5L)
+  expect_lt(nrow(inf), case$n)
+  expect_equal(rownames(inf), c("a", "b", "c", "d", "e"))
+})
+
+test_that("an unaggregated fit leaves the influence-function rows unlabeled", {
+  set.seed(42)
+  y <- stats::rnorm(20)
+  fit <- m_estimate(
+    stacked_equations = function(theta) ee_mean(theta, y = y),
+    init = mean(y)
+  )
+
+  expect_equal(nrow(influence_functions(fit)), 20L)
+  expect_null(rownames(influence_functions(fit)))
+})
