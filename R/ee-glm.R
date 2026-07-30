@@ -8,9 +8,10 @@
 #' @param X Numeric n-by-p design matrix.
 #' @param y Numeric vector of n observed outcome values.
 #' @param distribution Character string: `"normal"` (or `"gaussian"`),
-#'   `"binomial"` (or `"bernoulli"`), `"poisson"`, `"gamma"`,
+#'   `"binomial"` (or `"bernoulli"`, or `"bin"`), `"poisson"`, `"gamma"`,
 #'   `"negative_binomial"` (or `"nb"`), `"inverse_normal"` (or
-#'   `"inverse_gaussian"`), `"tweedie"`.
+#'   `"inverse_gaussian"`), `"tweedie"`. The aliases are Python
+#'   Delicatessen's, which this equation accepts the same set of.
 #' @param link Character string: `"identity"`, `"log"`, `"logit"` (or
 #'   `"logistic"`), `"probit"`, `"cauchit"`, `"loglog"`, `"cloglog"`,
 #'   `"inverse"`, `"sqrt"` (or `"square_root"`).

@@ -85,6 +85,33 @@ test_that("ee_glm binomial/logistic link alias matches ee_regression logistic", 
   expect_equal(unname(diag(m@variance)), diag(ref$variance), tolerance = 1e-3)
 })
 
+test_that("ee_glm accepts every binomial distribution alias", {
+  ref <- load_fixture("ee_regression_logistic")
+
+  X <- ref$X
+  y <- ref$y
+  init <- ref$init
+
+  # "bernoulli" and "bin" are aliases for "binomial" in the Python
+  # implementation, which documents all three, and the R equation accepts the
+  # same set. `bin` is the one with no other test reaching it, so the three are
+  # pinned together rather than separately.
+  fit_with <- function(distribution) {
+    psi <- function(theta) {
+      ee_glm(theta, X = X, y = y, distribution = distribution, link = "logit")
+    }
+    estimate(MEstimator(stacked_equations = psi, init = init))
+  }
+
+  canonical <- fit_with("binomial")
+  for (alias in c("bernoulli", "bin")) {
+    aliased <- fit_with(alias)
+    expect_equal(coef(aliased), coef(canonical), info = alias)
+    expect_equal(vcov(aliased), vcov(canonical), info = alias)
+  }
+  expect_equal(unname(coef(canonical)), ref$theta, tolerance = 1e-3)
+})
+
 test_that("ee_glm poisson/log matches ee_regression poisson", {
   ref <- load_fixture("ee_regression_poisson")
 

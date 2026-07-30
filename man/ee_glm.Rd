@@ -23,9 +23,10 @@ ee_glm(
 \item{y}{Numeric vector of n observed outcome values.}
 
 \item{distribution}{Character string: \code{"normal"} (or \code{"gaussian"}),
-\code{"binomial"} (or \code{"bernoulli"}), \code{"poisson"}, \code{"gamma"},
+\code{"binomial"} (or \code{"bernoulli"}, or \code{"bin"}), \code{"poisson"}, \code{"gamma"},
 \code{"negative_binomial"} (or \code{"nb"}), \code{"inverse_normal"} (or
-\code{"inverse_gaussian"}), \code{"tweedie"}.}
+\code{"inverse_gaussian"}), \code{"tweedie"}. The aliases are Python
+Delicatessen's, which this equation accepts the same set of.}
 
 \item{link}{Character string: \code{"identity"}, \code{"log"}, \code{"logit"} (or
 \code{"logistic"}), \code{"probit"}, \code{"cauchit"}, \code{"loglog"}, \code{"cloglog"},
