@@ -780,8 +780,26 @@ error_looks_length_related <- function(cnd) {
 #     Raised by check_formula_ee_signature().
 #
 #   deli_formula_ee_argument_error
-#     A name the caller supplied in `...` matches no argument of `.ee` exactly.
-#     Raised by check_formula_ee_dots().
+#     Something in the `...` the caller wrote cannot be forwarded to `.ee`.
+#     Raised by check_formula_ee_dots(), which refuses three faults and carries
+#     this class on all of them, so a caller who wants to recognize a refused
+#     `...` matches one class rather than three. The two narrower classes below
+#     lead the vector where there is one; the plain class is the remaining
+#     fault, a name that matches no argument of `.ee` exactly.
+#
+#   deli_formula_ee_unnamed_argument
+#     An argument was forwarded with no name, and so by position, into whatever
+#     argument the response did not take.
+#
+#   deli_formula_ee_reserved_argument
+#     A name the caller supplied is an argument the interface fills itself:
+#     `theta`, `X`, or the one the response is passed to.
+#
+#   deli_formula_ee_lookup_error
+#     `.ee` arrived as a character vector that names no one function, either
+#     because no function of that name exists or because the vector is not of
+#     length one. Raised at the point the name is resolved, in
+#     prepare_formula_psi().
 #
 #   deli_formula_auto_init_error
 #     The automatic `init` does not fit the estimating equation. Raised by
@@ -832,8 +850,6 @@ check_formula_ee_signature <- function(
     return(invisible(NULL))
   }
 
-  supplied <- formula_ee_dots_names(ee_args)
-
   faults <- character()
   if (!"theta" %in% formal_names) {
     faults <- c(
@@ -847,7 +863,7 @@ check_formula_ee_signature <- function(
       "x" = "It has no {.arg X} argument for the model matrix."
     )
   }
-  if (is.null(formula_ee_response_slot(formal_names, supplied))) {
+  if (is.null(formula_ee_response_slot(formal_names))) {
     faults <- c(
       faults,
       "x" = "It has no argument left for the response, which is passed
@@ -895,16 +911,39 @@ check_formula_ee_signature <- function(
   invisible(NULL)
 }
 
-#' Match the names supplied in `...` against the arguments of `.ee` exactly
+#' Check what the caller wrote in `...` against the arguments of `.ee`
 #'
-#' R matches a supplied name that is a prefix of exactly one formal to that
-#' formal, and no built-in estimating equation takes a `...` of its own for
-#' another name to fall into, so forwarding `...` with [do.call()] resolved an
-#' abbreviation or a prefix typo against the equation's arguments: `weight = w`
-#' reached `ee_regression()`'s `weights` and returned the weighted estimates.
-#' Such a fit succeeded silently while reporting different numbers, so the names
-#' are matched exactly here and anything else is refused before the equation is
-#' evaluated.
+#' Three faults, all of which reached the estimating equation and were answered
+#' there, badly or not at all. They share a cause: the interface passes `theta`
+#' and the design by name and the response by position, so every argument of the
+#' equation up to and including the response is already spoken for, and the
+#' caller's `...` is matched against what remains.
+#'
+#' An unnamed argument is matched by position, into whichever argument the
+#' response did not take. `.ee = ee_regression` with a bare `"linear"` fitted the
+#' linear model because the string landed in `model`; a vector meant for
+#' `weights` would have landed there too and fitted something else, and neither
+#' outcome said anything.
+#'
+#' A name the interface fills itself is supplied twice. `theta` and `X` are
+#' passed by name, so the equation received R's "matched by multiple actual
+#' arguments" and the automatic-`init` diagnostic reframed it as a length
+#' problem. The response is passed by position rather than by name, so naming
+#' its argument displaced the response into the argument after it: `y =` against
+#' `ee_regression()` sent the response into `weights` and returned a weighted
+#' fit, every coefficient of it different and nothing said.
+#'
+#' A name that matches no argument is the third, and the reason the match is
+#' exact. R matches a supplied name that is a prefix of exactly one formal to
+#' that formal, so `weight = w` reached `ee_regression()`'s `weights` and
+#' returned the weighted estimates, silently again.
+#'
+#' A `...` of the equation's own gives an unmatched name somewhere to go, so the
+#' exact match does not apply to such an equation. It gives the interface's own
+#' arguments nowhere else to go, so the reserved names are refused whatever the
+#' equation's arguments are, and an unnamed argument is refused for the same
+#' reason: what it fills is decided by where the response landed rather than by
+#' anything the caller wrote.
 #'
 #' @param .ee The estimating-equation function passed to the formula interface.
 #' @param ee_args The evaluated `...` arguments forwarded to it.
@@ -913,7 +952,10 @@ check_formula_ee_signature <- function(
 #' @param error_call The frame to report the error against.
 #'
 #' @returns Invisible `NULL`. Raises an error carrying the class
-#'   `deli_formula_ee_argument_error` if a supplied name matches no argument.
+#'   `deli_formula_ee_argument_error`, led by
+#'   `deli_formula_ee_unnamed_argument` or
+#'   `deli_formula_ee_reserved_argument` where one of those applies, if `...`
+#'   holds something that cannot be forwarded.
 #' @noRd
 check_formula_ee_dots <- function(
   .ee,
@@ -925,31 +967,62 @@ check_formula_ee_dots <- function(
   if (is.null(formal_names)) {
     return(invisible(NULL))
   }
+
+  supplied <- formula_ee_dots_names(ee_args)
+  candidates <- formula_ee_candidates(formal_names)
+  equation <- formula_ee_label(ee_name)
+
+  unnamed <- length(ee_args) - length(supplied)
+  if (unnamed > 0L) {
+    cli::cli_abort(
+      c(
+        "Every argument forwarded to {equation} must be named.",
+        "x" = "{unnamed} argument{?s} in {.arg ...} {?was/were} passed without
+               a name.",
+        "i" = "The response is passed by position, so an unnamed argument fills
+               whichever argument comes after it rather than the one it was
+               meant for.",
+        formula_ee_candidate_bullet(candidates)
+      ),
+      call = error_call,
+      class = c(
+        "deli_formula_ee_unnamed_argument",
+        "deli_formula_ee_argument_error"
+      )
+    )
+  }
+
+  claimed <- intersect(supplied, formula_ee_reserved_args(formal_names))
+  if (length(claimed) > 0L) {
+    cli::cli_abort(
+      c(
+        "{equation} is given {.arg {claimed}} by the formula interface itself.",
+        formula_ee_reserved_faults(claimed, formal_names),
+        formula_ee_candidate_bullet(candidates)
+      ),
+      call = error_call,
+      class = c(
+        "deli_formula_ee_reserved_argument",
+        "deli_formula_ee_argument_error"
+      )
+    )
+  }
+
   # A `...` of the equation's own absorbs any name, so the caller may write one
   # that no argument of it accounts for.
   if ("..." %in% formal_names) {
     return(invisible(NULL))
   }
 
-  supplied <- formula_ee_dots_names(ee_args)
   refused <- setdiff(supplied, formal_names)
   if (length(refused) == 0L) {
     return(invisible(NULL))
   }
 
-  equation <- formula_ee_label(ee_name)
-
-  # The arguments a caller may write are the ones left once the interface has
-  # filled its own, so neither the list nor the suggestion sends them after an
-  # argument they are not allowed to pass.
-  reserved <- c(
-    "theta",
-    "X",
-    formula_ee_response_slot(formal_names, supplied)
-  )
-  candidates <- setdiff(formal_names, reserved)
   # One refused name can be answered with the argument it was meant for. Several
-  # cannot: a suggestion for one of them reads as a suggestion for all.
+  # cannot: a suggestion for one of them reads as a suggestion for all. The
+  # candidates are the arguments a caller may write, so neither the list nor the
+  # suggestion sends them after an argument they are not allowed to pass.
   meant <- if (length(refused) == 1L) {
     formula_ee_suggestion(refused, candidates)
   } else {
@@ -961,20 +1034,50 @@ check_formula_ee_dots <- function(
       "{equation} has no {.arg {refused}} argument{?s}.",
       if (length(meant) > 0L) {
         c("i" = "Did you mean {.or {.arg {meant}}}?")
-      } else if (length(candidates) > 0L) {
-        c(
-          "i" = "Besides the arguments the formula interface fills itself, it
-                 takes {.arg {candidates}}."
-        )
       } else {
-        c(
-          "i" = "It takes no argument the formula interface does not fill itself."
-        )
+        formula_ee_candidate_bullet(candidates)
       }
     ),
     call = error_call,
     class = "deli_formula_ee_argument_error"
   )
+}
+
+#' Why each reserved name the caller wrote is one the interface fills
+#'
+#' A bullet per name, saying what the interface puts there and where it comes
+#' from, because the three differ in that and the remedy follows from it: the
+#' parameter vector is the estimator's, the design is built from the formula and
+#' `data`, and the response is the left-hand side of the formula.
+#'
+#' @param claimed The reserved names the caller supplied, in the order supplied.
+#' @param formal_names The argument names of the estimating equation.
+#'
+#' @returns A named character vector of cli bullets.
+#' @noRd
+formula_ee_reserved_faults <- function(claimed, formal_names) {
+  faults <- vapply(
+    claimed,
+    function(nm) {
+      if (identical(nm, "theta")) {
+        cli::format_inline(
+          "{.arg theta} is the parameter vector the estimator solves for."
+        )
+      } else if (identical(nm, "X")) {
+        cli::format_inline(
+          "{.arg X} is the model matrix built from the formula and {.arg data}."
+        )
+      } else {
+        cli::format_inline(
+          "{.arg {nm}} takes the response, which the formula interface passes
+           by position from the left-hand side of the formula."
+        )
+      }
+    },
+    character(1),
+    USE.NAMES = FALSE
+  )
+  stats::setNames(faults, rep("x", length(faults)))
 }
 
 #' The argument names of an estimating equation, where they can be read
@@ -1002,19 +1105,73 @@ formula_ee_formals <- function(.ee) {
 
 #' The argument the formula response is passed to
 #'
-#' The response is passed positionally, so it fills the first argument that is
-#' neither `theta` nor `X` nor matched by a name the caller supplied. `NULL` when
+#' The response is passed positionally after `theta` and `X`, which are passed
+#' by name, so it fills the first argument that is neither of those. `NULL` when
 #' the equation has no such argument, which is what leaves the response nowhere
-#' to go.
+#' to go, and equally when its only remaining argument is a `...` of its own,
+#' which no name of the caller's can collide with.
+#'
+#' The answer does not depend on what the caller wrote in `...`, because a name
+#' that would take this argument is refused by `check_formula_ee_dots()`. Before
+#' that refusal existed the slot had to be computed against the supplied names,
+#' since one of them could displace the response into the argument after it;
+#' that displacement is now an error rather than a case to account for.
 #'
 #' @param formal_names The argument names of the estimating equation.
-#' @param supplied The names the caller supplied in `...`.
 #'
 #' @returns A string, or `NULL`.
 #' @noRd
-formula_ee_response_slot <- function(formal_names, supplied) {
-  free <- setdiff(formal_names, c("theta", "X", supplied))
+formula_ee_response_slot <- function(formal_names) {
+  free <- setdiff(formal_names, c("theta", "X", "..."))
   if (length(free) == 0L) NULL else free[[1]]
+}
+
+#' The arguments of `.ee` that the formula interface fills itself
+#'
+#' `theta` and `X` are passed by name and the response positionally, so a caller
+#' who names any of the three supplies it twice. Reported and excluded from the
+#' arguments a caller may write, wherever those are listed.
+#'
+#' @param formal_names The argument names of the estimating equation.
+#'
+#' @returns A character vector of one to three names.
+#' @noRd
+formula_ee_reserved_args <- function(formal_names) {
+  c("theta", "X", formula_ee_response_slot(formal_names))
+}
+
+#' The arguments a caller may forward through `...`
+#'
+#' Everything the estimating equation takes except what the interface fills and
+#' except a `...` of its own, which is not a name anything can be passed under.
+#'
+#' @param formal_names The argument names of the estimating equation.
+#'
+#' @returns A character vector, empty when the interface fills every argument.
+#' @noRd
+formula_ee_candidates <- function(formal_names) {
+  setdiff(formal_names, c(formula_ee_reserved_args(formal_names), "..."))
+}
+
+#' How to describe the arguments a caller may forward
+#'
+#' The tail bullet shared by every refusal that has no single argument to name
+#' instead. An equation the interface fills entirely has nothing to list, and
+#' says so rather than listing nothing.
+#'
+#' @param candidates The arguments the caller may pass.
+#'
+#' @returns A named character vector holding one cli bullet.
+#' @noRd
+formula_ee_candidate_bullet <- function(candidates) {
+  if (length(candidates) > 0L) {
+    c(
+      "i" = "Besides the arguments the formula interface fills itself, it takes
+             {.arg {candidates}}."
+    )
+  } else {
+    c("i" = "It takes no argument the formula interface does not fill itself.")
+  }
 }
 
 #' The names a caller supplied in `...`

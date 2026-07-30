@@ -28,10 +28,13 @@
 # omits, where `W`, `V`, `X1`, and `X0` are all on it; the last test in this file
 # is why that omission cannot be reached.
 #
-# `y` is on the registry although the interface fills it too, and it has to be:
-# the response is passed positionally into the first argument that is neither
-# `theta` nor `X` nor named in `...`, so a caller who does name `y` displaces the
-# response to the next free argument and their `y` is forwarded like any other.
+# `y` is on the registry although the interface fills it on every built-in
+# equation, and it has to be. The registry is keyed by name across every
+# equation, and `y` is the argument the response is passed to only where it is
+# the first argument that is neither `theta` nor `X`. A caller's own equation
+# that takes its response under another name leaves `y` free to be an ordinary
+# observation-indexed argument, forwarded like any other and reaching the split
+# under that name.
 #
 # Everything else is either one value per row of the sample the fit was made on,
 # which is what the registry names, or a description of the model, which is what
@@ -176,9 +179,9 @@ test_that("the registry names exactly the observation-indexed arguments", {
 })
 
 test_that("the registry names neither the parameters nor the design", {
-  # The two arguments a forwarded one can never displace. `y`, which the
-  # interface also fills, is on the registry for the reason the header gives and
-  # the test at the end of this file demonstrates.
+  # The two arguments no equation can leave free for a caller to forward. `y`,
+  # which the interface fills on every built-in equation, is on the registry for
+  # the reason the header gives and the test below demonstrates.
   expect_false("theta" %in% per_observation_ee_args())
   expect_false("X" %in% per_observation_ee_args())
 })
@@ -205,34 +208,36 @@ test_that("the split routes every argument of every equation the table's way", {
 
 # Why the classification is reachable at all ---------------------------------
 
-test_that("a forwarded response is recorded as per-observation data", {
-  # The interface passes the response positionally into the first argument that
-  # is neither `theta` nor `X` nor named in `...`, so naming `y` moves the
-  # response along to `weights` and the caller's `y` is forwarded like any
-  # other argument. That is the one way an argument the interface also fills
-  # reaches the split, and it is why `y` is on the registry.
+test_that("a forwarded y is recorded as per-observation data", {
+  # `y` reaches the split through an equation that takes its response under
+  # another name, which leaves `y` an ordinary argument the caller may forward.
+  # That is the one way the name reaches the split, and it is why `y` is on the
+  # registry.
   data <- registry_data()
+  ee_offset_by_y <- function(theta, X, count, y) {
+    t(X * as.vector(count - y - X %*% theta))
+  }
   m <- m_estimate(
     count ~ x,
     data = data,
-    .ee = ee_regression,
-    model = "linear",
-    y = data$exposure
+    .ee = ee_offset_by_y,
+    y = data$exposure,
+    init = c(0, 0)
   )
   spec <- m@model_spec
 
   expect_identical(spec$ee_obs_args, list(y = data$exposure))
-  expect_identical(spec$ee_spec_args, list(model = "linear"))
+  expect_length(spec$ee_spec_args, 0L)
   # The response the formula named is recorded on its own, where it always is.
   expect_identical(unname(spec$y), data$count)
 })
 
-test_that("the design and the parameters cannot reach the split at all", {
-  # `theta` and `X` are passed by name, so a dot of either name makes the call
-  # match one formal twice and the fit fails before anything is recorded. That
-  # is what makes the registry's silence about them safe, and in particular
-  # what makes it safe that `X` is the one observation-indexed design argument
-  # it does not name.
+test_that("the arguments the interface fills cannot reach the split at all", {
+  # `theta` and `X` are passed by name and the response by position, so a dot of
+  # any of those three names supplies an argument the interface fills and is
+  # refused before anything is recorded. That is what makes the registry's
+  # silence about `theta` and `X` safe, and in particular what makes it safe
+  # that `X` is the one observation-indexed design argument it does not name.
   data <- registry_data()
   fit <- function(...) {
     m_estimate(
@@ -245,8 +250,20 @@ test_that("the design and the parameters cannot reach the split at all", {
     )
   }
 
-  expect_error(fit(X = base::cbind(1, data$x)), "multiple actual arguments")
-  expect_error(fit(theta = c(0, 0)), "multiple actual arguments")
+  expect_error(
+    fit(X = base::cbind(1, data$x)),
+    class = "deli_formula_ee_reserved_argument"
+  )
+  expect_error(
+    fit(theta = c(0, 0)),
+    class = "deli_formula_ee_reserved_argument"
+  )
+  # `y` is `ee_regression()`'s response argument, so it is refused there even
+  # though the registry names it for the equations where it is not.
+  expect_error(
+    fit(y = data$exposure),
+    class = "deli_formula_ee_reserved_argument"
+  )
 })
 
 test_that("the one argument two equations disagree about cannot collide", {

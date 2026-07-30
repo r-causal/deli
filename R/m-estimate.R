@@ -448,7 +448,25 @@ prepare_formula_psi <- function(
   # function's arguments rather than declining to read a string's, and the rest of
   # the interface recognizes the equation as well. A string is the name to report
   # the equation by.
-  if (is.character(.ee) && length(.ee) == 1L) {
+  if (is.character(.ee)) {
+    # `match.fun()` resolves one name, so a character vector of any other length
+    # was left as it arrived and reached `do.call()`, which refused it from
+    # inside the estimating function as `'what' must be a function or character
+    # string`. The automatic-`init` diagnostic wraps whatever fails there, so
+    # the report named the starting values and buried the cause. The length is
+    # judged here, where the resolution it defeats happens.
+    if (length(.ee) != 1L) {
+      cli::cli_abort(
+        c(
+          "{.arg .ee} must be a function or the name of one.",
+          "x" = "It is a character vector of length {length(.ee)}.",
+          "i" = "Name one estimating equation, as in
+                 {.code .ee = \"ee_regression\"}."
+        ),
+        call = error_call,
+        class = "deli_formula_ee_lookup_error"
+      )
+    }
     ee_name <- .ee
     .ee <- rlang::try_fetch(
       match.fun(.ee),
@@ -460,7 +478,8 @@ prepare_formula_psi <- function(
             "{.arg .ee} must be a function or the name of one.",
             "x" = "No function named {.val {ee_name}} was found."
           ),
-          call = error_call
+          call = error_call,
+          class = "deli_formula_ee_lookup_error"
         )
       }
     )

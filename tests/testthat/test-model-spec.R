@@ -396,23 +396,23 @@ test_that("both halves split the named arguments beside an unnamed one", {
   )
 })
 
-test_that("a fit that forwards an argument by position records no spec", {
-  # The reachable end of the same rule. `ee_regression()`'s `model` is filled
-  # positionally here, since a dot with no name is matched by position after
-  # the response, so the fit is the one a named `model = "linear"` would give
-  # and nothing about the model is recorded under a name.
+test_that("no fit can forward an argument by position", {
+  # Why the rule above has no reachable end through the interface. A dot with no
+  # name was matched by position after the response, so `ee_regression()`'s
+  # `model` was filled by a bare `"linear"` and the fit recorded nothing about
+  # the model under any name. The interface refuses the nameless dot instead, so
+  # everything that reaches the split carries a name and the halves partition it.
   data <- model_spec_data()
-  m <- m_estimate(count ~ x, data = data, .ee = ee_regression, "linear")
+  expect_error(
+    m_estimate(count ~ x, data = data, .ee = ee_regression, "linear"),
+    class = "deli_formula_ee_unnamed_argument"
+  )
   named <- m_estimate(
     count ~ x,
     data = data,
     .ee = ee_regression,
     model = "linear"
   )
-
-  expect_identical(coef(m), coef(named))
-  expect_length(m@model_spec$ee_spec_args, 0L)
-  expect_length(m@model_spec$ee_obs_args, 0L)
   expect_identical(named@model_spec$ee_spec_args, list(model = "linear"))
 })
 
