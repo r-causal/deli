@@ -707,6 +707,45 @@ test_that("weights() returns the weights a formula fit was solved with", {
   expect_length(stats::weights(m), nobs(m))
 })
 
+test_that("weights() reports time-varying weights as the matrix they were", {
+  # `ee_plogit()` takes an n-by-K matrix of weights, one column per time
+  # interval, and an observation weighted differently in each interval has no
+  # one weight a vector could hold. The matrix is reported as it was supplied,
+  # which the documented return says and this pins: a reshape into a vector
+  # would lose which interval each weight belonged to.
+  #
+  # Four unit-time intervals with events in three of them, and censoring in the
+  # last, so the time parameters are all finite and the fit solves from the
+  # start below without a solver warning.
+  data <- data.frame(
+    x = rep(c(0, 1), length.out = 120),
+    time = rep(c(1, 2, 3, 4, 2, 4), length.out = 120),
+    event = rep(c(1, 1, 0, 1, 1, 0), length.out = 120)
+  )
+  k <- length(unique(data$time[data$event == 1]))
+  w <- matrix(
+    seq_len(nrow(data) * k) / (nrow(data) * k),
+    nrow = nrow(data),
+    ncol = k
+  )
+
+  # No intercept: the time parameters carry one per interval, so an intercept
+  # column beside them has nothing left to identify it.
+  m <- m_estimate(
+    time ~ x - 1,
+    data = data,
+    .ee = ee_plogit,
+    event = data$event,
+    weights = w,
+    init = c(0, rep(-1, k))
+  )
+
+  reported <- stats::weights(m)
+  expect_true(is.matrix(reported))
+  expect_identical(dim(reported), c(nobs(m), k))
+  expect_equal(unname(reported), unname(w))
+})
+
 test_that("weights() returns NULL for an unweighted formula fit", {
   m <- accessor_fit()
 

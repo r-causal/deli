@@ -24,8 +24,11 @@ equations outside the subset are set aside along with the parameters they
 estimate, so the subset parameters are the root of the subset equations
 alone and the rest of the stack has no say in where they land: give a
 three-equation linear regression stack \code{subset = 1L} and the intercept comes
-back as the mean of the response, because the first equation on its own is
-the estimating equation for a mean. \code{\link[=GMMEstimator]{GMMEstimator()}} and \code{\link[=gmm_estimate]{gmm_estimate()}}
+back as the mean of the response less what the slopes held at their \code{init}
+values account for, because the first equation on its own is the estimating
+equation for a mean. Held at zero, which is what an unset \code{init} usually
+means, they account for nothing and the intercept is the mean of the
+response itself. \code{\link[=GMMEstimator]{GMMEstimator()}} and \code{\link[=gmm_estimate]{gmm_estimate()}}
 read the argument differently, since the GMM objective sums every equation
 whether the subset lists it or not, so the same stack and the same \code{subset}
 give the two different values. The variance estimator ignores \code{subset}.}

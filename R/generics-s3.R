@@ -231,7 +231,11 @@
 #'   one per observation the fit was solved on.
 #' - `residuals()`: Named numeric vector of response residuals.
 #' - `weights()`: The observation weights the fit was solved with, as they were
-#'   recorded, or `NULL` for a formula fit specified without any.
+#'   recorded, or `NULL` for a formula fit specified without any. Weights that
+#'   vary over time are reported as the matrix they were supplied as rather than
+#'   as a vector: [ee_plogit()] takes an n-by-K matrix carrying one column per
+#'   time interval, and an observation weighted differently in each interval has
+#'   no one weight for a vector to hold.
 #' - `model.frame()`: The model frame the fit was built from, with the rows
 #'   dropped for missing data already removed, or the model frame of `data`
 #'   when one is supplied.

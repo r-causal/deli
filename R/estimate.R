@@ -62,9 +62,10 @@
 #'   point is judged exactly as a built-in solver's is. Two `GMMEstimator`
 #'   fits are exceptions. An over-identified one cannot drive every moment to
 #'   zero, so its moments are read against the J-statistic instead, which
-#'   [GMMEstimator()] describes. A `subset` one holds some parameters fixed while
-#'   still summing every equation into the objective, so it is judged neither way
-#'   and does not warn; inspect `rowSums()` of the estimating functions at the
+#'   [GMMEstimator()] describes. A `subset` one is judged neither way and does
+#'   not warn, because what it minimizes is neither driven to zero nor read
+#'   against that statistic; see `subset` in [gmm_estimate()] for what such a fit
+#'   estimates, and inspect `rowSums()` of the estimating functions at the
 #'   returned values. [rootSolve::multiroot()] cannot run inside itself,
 #'   so a fit whose estimating function fits a second M-estimator cannot leave
 #'   both on the default solver; that is refused rather than attempted, and
@@ -1982,7 +1983,7 @@ estimate_gmm_estimator <- function(
 #' conditions, with the dependent ones contributing nothing, and nothing about it
 #' says so. The J-statistic does not, either: a condition that repeats another
 #' agrees with it at every value of the parameters, so it adds no disagreement
-#' for J to measure and drives J towards zero, which is the direction that reads
+#' for J to measure and drives J toward zero, which is the direction that reads
 #' as a well-specified system.
 #'
 #' The conditions are named by the pivoting `qr()` does on the covariance, which

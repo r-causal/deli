@@ -763,7 +763,8 @@ test_that("every wrapper interface forwards allow_pinv to the bread", {
       wrapper$two_step(list(allow_pinv = TRUE)),
       label
     )
-    # FALSE leaves solve() to fail, in both forms alike.
+    # FALSE reaches check_bread_invertible(), which refuses the singular bread
+    # rather than leaving solve() to fail on it, in both forms alike.
     expect_error(
       wrapper$one_step(list(allow_pinv = FALSE)),
       "singular",

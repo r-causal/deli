@@ -97,7 +97,7 @@ the covariance the weight matrix inverts singular, and the update falls
 through to the pseudo-inverse; the fit that comes back is the fit of the
 independent conditions alone. J is silent about it, because a condition the
 others account for agrees with them wherever the parameters sit and so adds
-nothing for J to measure, which drives J towards zero rather than away from
+nothing for J to measure, which drives J toward zero rather than away from
 it. That case warns with the class \code{deli_gmm_moments_dependent} instead,
 naming the conditions the factorization found redundant.
 }

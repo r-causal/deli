@@ -1,3 +1,98 @@
+#' The condition classes deli raises
+#'
+#' Where a caller might reasonably want to answer an error or a warning rather
+#' than let it stop the work, deli attaches a condition class to it, so that
+#' [base::tryCatch()], [base::withCallingHandlers()], or [rlang::try_fetch()]
+#' can match on the class rather than on the wording of a message. This page
+#' lists those classes and says what each of them reports on.
+#'
+#' Every class below belongs to an error unless the entry says otherwise. A
+#' condition carrying two of them leads with the narrower one, so a handler for
+#' either the family or the particular fault catches it.
+#'
+#' A condition a user's own estimating function raises reaches the caller with
+#' whatever class that function gave it. Nothing here renames one.
+#'
+#' @section What an estimating function returned:
+#' - `deli_psi_return_error`: the estimating function returned something no
+#'   sandwich can be built from, either at the starting values or at the point
+#'   handed to [compute_sandwich()]. Every refusal of a return carries it, so
+#'   recognizing one is a match on this rather than on four messages.
+#' - `deli_psi_shape_error`: the number of estimating equations returned cannot
+#'   be solved against the number of parameters. Leads `deli_psi_return_error`.
+#'
+#' @section The formula interface:
+#' - `deli_formula_ee_lookup_error`: `.ee` arrived as a character vector naming
+#'   no one function, either because no function of that name was found or
+#'   because the vector is not of length one.
+#' - `deli_formula_ee_signature_error`: the arguments of `.ee` leave something
+#'   the interface fills nowhere to go: `theta`, the model matrix it passes as
+#'   `X`, the response it passes by position, or the offset an `offset()` term
+#'   in the formula supplies.
+#' - `deli_formula_ee_argument_error`: something in the `...` the caller wrote
+#'   cannot be forwarded to `.ee`. On its own it is a name matching no argument
+#'   of `.ee` exactly, which is what keeps an abbreviation from reaching an
+#'   argument the caller did not mean.
+#' - `deli_formula_ee_unnamed_argument`: an argument was forwarded with no name,
+#'   and so by position, into whichever argument the response did not take.
+#'   Leads `deli_formula_ee_argument_error`.
+#' - `deli_formula_ee_reserved_argument`: a name the caller supplied is one the
+#'   interface fills itself, either `theta`, `X`, or the argument the response
+#'   is passed to. Leads `deli_formula_ee_argument_error`.
+#' - `deli_formula_auto_init_error`: the `init` the formula interface generated
+#'   itself, one zero per model-matrix column, does not fit the estimating
+#'   equation.
+#'
+#' @section Solving:
+#' - `deli_solver_not_converged`, a warning: the solver stopped without solving
+#'   the estimating equations, either because it reported a failure of its own
+#'   or because the point it returned does not solve them.
+#' - `deli_nested_solver_error`: a [rootSolve::multiroot()] solve was asked for
+#'   while another one was running, which it cannot be. An error rather than a
+#'   warning, because the solve cannot be attempted at all.
+#' - `deli_gmm_moments_rejected`, a warning: the Hansen J-statistic of an
+#'   over-identified GMM fit stands so far out against its reference
+#'   distribution as to all but rule the fit out, which usually means the moment
+#'   conditions cannot all hold at one value of the parameters.
+#' - `deli_gmm_moments_dependent`, a warning: the moment conditions are linearly
+#'   dependent at the estimated values, so the two-step weight matrix is a
+#'   pseudo-inverse and what comes back is the fit of the independent conditions
+#'   alone.
+#'
+#' @section The sandwich variance:
+#' - `deli_bread_na`, a warning: the bread matrix holds `NA`, so no inverse of
+#'   it exists. A fit records no variance and carries on; [compute_sandwich()]
+#'   has nothing but a matrix to return and converts it into the error below.
+#' - `deli_bread_not_invertible`: the bread cannot be inverted and
+#'   `allow_pinv = FALSE` refused the pseudo-inverse, or it is rectangular and
+#'   has no inverse at any rank, or it holds `NA`.
+#'
+#' @section Differentiation:
+#' - `deli_exact_unsupported_function`: under `deriv_method = "exact"`, a
+#'   function reached with a tangent-carrying argument has no rule, either
+#'   because it hands its argument to compiled code without dispatching or
+#'   because deli declines to differentiate it. [auto_differentiation()] names
+#'   the replacements to use instead.
+#' - `deli_exact_unsupported_shape`: the tangents survived but arrived in a
+#'   container the summing step has no rule for. Nothing was lost; the shape is
+#'   the problem.
+#' - `deli_exact_tangent_lost`: derivative information is gone or would be,
+#'   either because a tangent-carrying value was asked to become a plain double
+#'   or because a result arrived with no tangent and evidence that one had been
+#'   dropped on the way.
+#' - `deli_finite_difference_lost`, a warning: a finite-difference step changed
+#'   the function by less than the floating-point spacing of its values, so an
+#'   entry of the Jacobian carries none of the digits of the values it came
+#'   from.
+#'
+#' @section Parameter names:
+#' - `deli_param_name_collision`: filling the unnamed entries of a partly named
+#'   parameter vector with positional `theta_1`, `theta_2`, ... labels would
+#'   repeat a label another parameter in the same vector already carries.
+#'
+#' @name deli-conditions
+NULL
+
 # ---- repeated warnings -------------------------------------------------------
 # One fit evaluates its estimating function many times: once at the initial
 # values, once at the values the solver returned, and once or twice per parameter

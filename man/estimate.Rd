@@ -45,9 +45,10 @@ not solved there. A custom function reports no status of its own, so its
 point is judged exactly as a built-in solver's is. Two \code{GMMEstimator}
 fits are exceptions. An over-identified one cannot drive every moment to
 zero, so its moments are read against the J-statistic instead, which
-\code{\link[=GMMEstimator]{GMMEstimator()}} describes. A \code{subset} one holds some parameters fixed while
-still summing every equation into the objective, so it is judged neither way
-and does not warn; inspect \code{rowSums()} of the estimating functions at the
+\code{\link[=GMMEstimator]{GMMEstimator()}} describes. A \code{subset} one is judged neither way and does
+not warn, because what it minimizes is neither driven to zero nor read
+against that statistic; see \code{subset} in \code{\link[=gmm_estimate]{gmm_estimate()}} for what such a fit
+estimates, and inspect \code{rowSums()} of the estimating functions at the
 returned values. \code{\link[rootSolve:multiroot]{rootSolve::multiroot()}} cannot run inside itself,
 so a fit whose estimating function fits a second M-estimator cannot leave
 both on the default solver; that is refused rather than attempted, and
