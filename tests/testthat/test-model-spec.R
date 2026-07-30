@@ -277,8 +277,10 @@ test_that("spec_obs_args() keeps exactly what spec_ee_args() drops", {
     spec_obs_args(mixed),
     list(event = c(1, 0, 1), weights = c(1, 2, 1), offset = c(0, 0, 0))
   )
-  # The two halves partition the list, so nothing forwarded is lost and nothing
-  # is recorded twice.
+  # The two halves partition the arguments that carry a name, which here is
+  # every one of them, so nothing forwarded is lost and nothing is recorded
+  # twice. The section on unnamed arguments below is where that qualification
+  # matters.
   expect_identical(
     sort(c(names(spec_ee_args(mixed)), names(spec_obs_args(mixed)))),
     sort(names(mixed))
@@ -312,6 +314,90 @@ test_that("spec_ee_args() splits a mixed argument list by name", {
     )),
     list(distribution = "weibull", link = "log")
   )
+})
+
+# Arguments forwarded without a name -----------------------------------------
+
+# Both halves are keyed by name, and an argument forwarded without one has no
+# key: every read of either half is written `args[["name"]]`, so a nameless
+# entry cannot be found again by the name a later reader would look it up
+# under. Recording one in the specification half would claim a specification
+# nothing can reach, and the halves say the same thing about it as
+# `formula_ee_dots_names()` already does about the names a caller supplied,
+# where an empty name and no names at all are both read as no name supplied.
+#
+# The two ways a name goes missing reach the split from different places.
+# `rlang::enquos()` gives an empty name to a dot the caller passed by position,
+# which `do.call()` then matches to the estimating equation's arguments
+# positionally, so that is the form the formula interface produces. A `NULL`
+# names vector reaches the split only from a fit that forwarded nothing, and
+# only because `enquos()` names an unnamed element rather than leaving the
+# vector out; a non-empty argument list with no names at all is tested here
+# because nothing else pins that dependency.
+#
+# Neither form may be answered by the subscript falling through. `!NULL %in% x`
+# is `logical(0)`, and a list subscripted by `logical(0)` is empty whatever it
+# held, so an unnamed list once emptied the specification half by arithmetic
+# rather than by the rule above.
+
+test_that("spec_ee_args() records nothing from an unnamed argument list", {
+  for (args in list(list("linear"), list("linear", c(1, 0, 1)), list())) {
+    kept <- spec_ee_args(args)
+    expect_type(kept, "list")
+    expect_length(kept, 0L)
+  }
+})
+
+test_that("spec_obs_args() records nothing from an unnamed argument list", {
+  for (args in list(list("linear"), list("linear", c(1, 0, 1)), list())) {
+    kept <- spec_obs_args(args)
+    expect_type(kept, "list")
+    expect_length(kept, 0L)
+  }
+})
+
+test_that("both halves read an empty name as no name at all", {
+  positional <- stats::setNames(list("linear", c(1, 0, 1)), c("", ""))
+
+  expect_length(spec_ee_args(positional), 0L)
+  expect_length(spec_obs_args(positional), 0L)
+})
+
+test_that("both halves split the named arguments beside an unnamed one", {
+  mixed <- stats::setNames(
+    list("weibull", "positional", c(1, 0, 1)),
+    c("distribution", "", "event")
+  )
+
+  expect_identical(spec_ee_args(mixed), list(distribution = "weibull"))
+  expect_identical(spec_obs_args(mixed), list(event = c(1, 0, 1)))
+  # The two halves partition the arguments that carry a name, which is every
+  # argument a later reader can ask for. One passed by position belongs to
+  # neither, and is recorded in neither.
+  expect_identical(
+    sort(c(names(spec_ee_args(mixed)), names(spec_obs_args(mixed)))),
+    c("distribution", "event")
+  )
+})
+
+test_that("a fit that forwards an argument by position records no spec", {
+  # The reachable end of the same rule. `ee_regression()`'s `model` is filled
+  # positionally here, since a dot with no name is matched by position after
+  # the response, so the fit is the one a named `model = "linear"` would give
+  # and nothing about the model is recorded under a name.
+  data <- model_spec_data()
+  m <- m_estimate(count ~ x, data = data, .ee = ee_regression, "linear")
+  named <- m_estimate(
+    count ~ x,
+    data = data,
+    .ee = ee_regression,
+    model = "linear"
+  )
+
+  expect_identical(coef(m), coef(named))
+  expect_length(m@model_spec$ee_spec_args, 0L)
+  expect_length(m@model_spec$ee_obs_args, 0L)
+  expect_identical(named@model_spec$ee_spec_args, list(model = "linear"))
 })
 
 # Round trip -----------------------------------------------------------------

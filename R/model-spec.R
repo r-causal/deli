@@ -33,6 +33,11 @@
 # written `args[["name"]]`, which is `NULL` for a name the fit did not forward,
 # rather than `args$name`, which would partially match one recorded argument to
 # another's name.
+#
+# Reading by name is also what bounds the record: the two halves partition the
+# arguments that carry a name, and an argument forwarded without one is recorded
+# in neither. `named_ee_args()` drops it before the split, for the reason given
+# there.
 
 #' The arguments of the built-in estimating equations that vary by observation
 #'
@@ -104,23 +109,55 @@ per_observation_ee_args <- function() {
   )
 }
 
+#' The forwarded arguments that carry a name
+#'
+#' What both halves of the split are taken from, so that between them they
+#' partition the named arguments and record nothing else.
+#'
+#' An argument forwarded without a name still reaches the estimating equation,
+#' where `do.call()` matches it by position, but it cannot be recorded: both
+#' halves are read by explicit name, so a nameless entry has no key any later
+#' reader could ask for and keeping one would record a specification nothing can
+#' reach.
+#'
+#' A name goes missing in two shapes, and this is where both are answered the
+#' same way. `rlang::enquos()` gives a dot passed by position an empty name
+#' rather than leaving it out, and an argument list that named nothing has no
+#' names vector at all. `formula_ee_dots_names()` reads both as no name supplied
+#' and so does this. Leaving either to the subscript would be an accident rather
+#' than a rule: `!NULL %in% x` is `logical(0)`, and a list subscripted by
+#' `logical(0)` is empty whatever it held.
+#'
+#' @param ee_args The evaluated `...` arguments forwarded to the estimating
+#'   equation.
+#' @returns The elements of `ee_args` that carry a name, in order.
+#' @noRd
+named_ee_args <- function(ee_args) {
+  arg_names <- names(ee_args)
+  if (is.null(arg_names)) {
+    return(ee_args[0])
+  }
+  ee_args[nzchar(arg_names)]
+}
+
 #' The model-specification subset of the arguments forwarded to an equation
 #'
 #' Drops the per-observation arguments named by `per_observation_ee_args()` and
-#' keeps the rest, which describe the model rather than the sample it was fitted
-#' to.
+#' keeps the rest of the named ones, which describe the model rather than the
+#' sample it was fitted to.
 #'
 #' @param ee_args The evaluated `...` arguments forwarded to the estimating
 #'   equation.
 #' @returns A named list, empty when nothing forwarded describes the model.
 #' @noRd
 spec_ee_args <- function(ee_args) {
-  ee_args[!names(ee_args) %in% per_observation_ee_args()]
+  named <- named_ee_args(ee_args)
+  named[!names(named) %in% per_observation_ee_args()]
 }
 
 #' The per-observation subset of the arguments forwarded to an equation
 #'
-#' The complement of `spec_ee_args()`: the arguments named by
+#' The complement of `spec_ee_args()` within the named arguments: those named by
 #' `per_observation_ee_args()`, which carry one value per row of the data the
 #' fit was made on.
 #'
@@ -129,7 +166,8 @@ spec_ee_args <- function(ee_args) {
 #' @returns A named list, empty when nothing forwarded varies by observation.
 #' @noRd
 spec_obs_args <- function(ee_args) {
-  ee_args[names(ee_args) %in% per_observation_ee_args()]
+  named <- named_ee_args(ee_args)
+  named[names(named) %in% per_observation_ee_args()]
 }
 
 #' Record what a formula fit was specified as
