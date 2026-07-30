@@ -1993,14 +1993,18 @@ test_that("a base ifelse in a transform aborts with the indicator-arithmetic adv
 
 # ---- tangent-aware row-name assignment --------------------------------------
 
-test_that("row-name assignment leaves a shaped tangent container untouched", {
-  # Labels are read off the plain numeric evaluation estimate() makes at the
-  # solved values, never off a differentiated one, so the setter has nothing to
-  # record and hands the container back. base::`rownames<-` is named explicitly
-  # to pin the route a user's estimating function takes: it is base R's closure
-  # that reaches deli's `dimnames<-` methods, and the test environment is a
-  # clone of the package namespace, so a mask on the setter would otherwise
-  # stand in for the dispatch under test.
+test_that("row-name assignment records the labels on a shaped tangent container", {
+  # base::`rownames<-` is named explicitly to pin the route a user's estimating
+  # function takes: it is base R's closure that reaches deli's `dimnames<-`
+  # methods, and the test environment is a clone of the package namespace, so a
+  # mask on the setter would otherwise stand in for the dispatch under test.
+  #
+  # Both slots carry the labels, not the primal alone. The subset methods index
+  # the two slots with the same subscript, so a character subscript the primal
+  # resolves and the tangent does not raises `no 'dimnames' attribute for array`
+  # from the tangent. Labeling both slots is also what lets `dimnames()` read
+  # the labels back, which is how a second assignment on the other axis keeps
+  # the first.
   containers <- list(
     primal_tangent(
       base::matrix(c(1, 2, 3, 4), nrow = 2),
@@ -2013,9 +2017,117 @@ test_that("row-name assignment leaves a shaped tangent container untouched", {
   )
 
   for (x in containers) {
-    expect_identical(base::`rownames<-`(x, c("a", "b")), x)
+    named <- base::`rownames<-`(x, c("a", "b"))
+    expect_s3_class(named, class(x))
+    expect_equal(dimnames(named), list(c("a", "b"), NULL))
+    expect_equal(dimnames(named$primal), list(c("a", "b"), NULL))
+    expect_equal(dimnames(named$tangent), list(c("a", "b"), NULL))
+    # Labeling changes no value in either slot.
+    expect_equal(as.vector(named$primal), as.vector(x$primal))
+    expect_equal(as.vector(named$tangent), as.vector(x$tangent))
+    # Assigning NULL to an unlabeled container returns within base R's own
+    # frame, before either setter is reached, which is why the
+    # `rownames(out) <- NULL` lines in R/ee-glm.R survive the exact pass.
     expect_identical(base::`rownames<-`(x, NULL), x)
+    # Clearing labels that were recorded drops them from both slots. base R
+    # leaves the all-NULL list its own setter builds rather than removing the
+    # attribute, which is what a plain matrix reports too, so the container
+    # answers no row labels exactly as the numeric pass does.
+    cleared <- base::`rownames<-`(named, NULL)
+    expect_equal(dimnames(cleared$primal), list(NULL, NULL))
+    expect_equal(dimnames(cleared$tangent), list(NULL, NULL))
+    expect_null(rownames(cleared))
   }
+})
+
+test_that("row-name assignment reshapes a broadcast tangent before labeling it", {
+  # `theta[k] * X` carries a matrix primal against a scalar tangent, which has
+  # no dimensions to label. That tangent broadcasts elementwise, so expanding it
+  # to the primal's shape preserves every derivative it stands for and is what
+  # lets the labels sit on both slots.
+  x <- primal_tangent(base::matrix(c(1, 2, 3, 4), nrow = 2), 1)
+  named <- base::`rownames<-`(x, c("a", "b"))
+  expect_equal(
+    named$tangent,
+    base::matrix(1, 2, 2, dimnames = list(c("a", "b"), NULL))
+  )
+})
+
+test_that("row-name assignment of the wrong length errors as base R does", {
+  # Silencing the assignment silenced its validation with it: a label vector
+  # longer than the axis is an error on the numeric pass, and the exact pass has
+  # to stop in the same place rather than be the more permissive one.
+  x <- primal_tangent_array(
+    base::matrix(c(1, 2, 3, 4), nrow = 2),
+    base::matrix(0, 2, 2)
+  )
+  expect_error(
+    base::`rownames<-`(x, c("a", "b", "c")),
+    "not equal to array extent"
+  )
+})
+
+test_that("column names assigned after row names keep both axes", {
+  # base R's `colnames<-` builds its replacement list from `dimnames(x)`, so the
+  # labels already recorded have to read back or the second assignment erases
+  # the first.
+  x <- primal_tangent_array(
+    base::matrix(c(1, 2, 3, 4), nrow = 2),
+    base::matrix(0, 2, 2)
+  )
+  named <- base::`colnames<-`(
+    base::`rownames<-`(x, c("a", "b")),
+    c("u", "v")
+  )
+  expect_equal(dimnames(named), list(c("a", "b"), c("u", "v")))
+  expect_equal(dimnames(named$primal), list(c("a", "b"), c("u", "v")))
+  expect_equal(dimnames(named$tangent), list(c("a", "b"), c("u", "v")))
+})
+
+test_that("a labeled tangent container selects by name on both slots", {
+  # The subset methods need no character-subscript rule of their own: base R
+  # resolves the name against each slot's own dimnames, so recording the labels
+  # on both slots is the whole of what name selection needs.
+  x <- primal_tangent_array(
+    base::matrix(c(1, 2, 3, 4), nrow = 2),
+    base::matrix(c(10, 20, 30, 40), nrow = 2)
+  )
+  named <- base::`rownames<-`(x, c("a", "b"))
+  row <- named["b", ]
+  expect_equal(as.vector(row$primal), c(2, 4))
+  expect_equal(as.vector(row$tangent), c(20, 40))
+
+  pair <- base::`rownames<-`(
+    primal_tangent(base::matrix(c(1, 2, 3, 4), nrow = 2), 1),
+    c("a", "b")
+  )
+  expect_equal(as.vector(pair["a", ]$primal), c(1, 3))
+  expect_equal(as.vector(pair["a", ]$tangent), c(1, 1))
+})
+
+test_that("a psi that labels its rows and selects by name agrees with the numeric pass", {
+  # The two passes have to agree on this psi, and until the labels were recorded
+  # they did not: the numeric pass resolved the names and the exact pass raised
+  # `no 'dimnames' attribute for array` at the selection rather than at the
+  # assignment. rbind() is the masked binder here, which is what an estimating
+  # equation evaluated inside the package reaches, and it is the only route by
+  # which a labeled container survives to be selected from at all.
+  y <- c(1, 2, 3)
+  psi <- function(theta) {
+    out <- rbind(y - theta[1], (y - theta[1])^2 - theta[2])
+    rownames(out) <- c("mean", "var")
+    out[c("mean", "var"), ]
+  }
+  exact <- compute_bread(psi, c(2, 1), deriv_method = "exact")
+  expect_equal(
+    exact,
+    compute_bread(psi, c(2, 1), deriv_method = "capprox"),
+    tolerance = 1e-6
+  )
+  # The labels stay out of the Jacobian. The bread is read off the tangent
+  # slots, flattened, so a labeled psi return reports the unnamed bread the
+  # numeric pass reports.
+  expect_null(dimnames(exact))
 })
 
 test_that("row-name assignment on a shapeless tangent container errors as base R does", {

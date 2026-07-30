@@ -24,9 +24,9 @@ scope there; a user-defined function that calls them from the global
 environment reaches the base versions, and the differentiation aborts
 rather than returning a silent approximation. Coercion cannot preserve a
 derivative: \code{as.numeric()}, \code{as.double()}, \code{as.integer()}, \code{as.matrix()},
-and \code{as.vector()} asked for a numeric \code{mode} must all return a plain
-number, so each aborts on a tangent-carrying value rather than dropping the
-tangents silently. \code{as.vector()} with its default \code{mode = "any"} returns its
+and \code{as.vector()} asked for a numeric \code{mode} each return plain numbers,
+which have nowhere to carry one, so each aborts on a tangent-carrying value
+rather than dropping the tangents silently. \code{as.vector()} with its default \code{mode = "any"} returns its
 argument unchanged and keeps the tangents. Use \code{c()} to flatten a
 matrix-shaped result such as \code{X \%*\% theta} to a vector instead. \code{log(x, base)} differentiates
 with respect to \code{x} only; the \code{base} argument is treated as a constant, and

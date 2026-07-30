@@ -390,11 +390,14 @@ default otherwise. Where you would reach for `ifelse()`, write
 exactly.
 
 Assigning row names does not run into that boundary. deli labels the parameters
-from the row names of an estimating function that returns them, and the
-assignment is ignored while a value carries derivatives, because the labels are
-read from the plain evaluation at the solved values instead. `rownames<-` hands
-its work to `dimnames<-`, which is a generic, so deli registers the setter there
-and an estimating function can label its rows from anywhere.
+from the row names of an estimating function that returns them, and a value that
+carries derivatives records the labels as a plain matrix does, so an estimating
+function can name its rows and then select from them by name under either
+derivative method. The labels take no part in the variance computation, which
+reads the derivative components of the labeled value and not its labels.
+`rownames<-` hands its work to `dimnames<-`, which is a generic, so deli
+registers the setter there and an estimating function can label its rows from
+anywhere.
 
 Arithmetic, `%*%`, `t()`, `[`, `c()`, and `mean()` are the operations that
 always carry derivatives, because deli registers each as an S3 method and S3

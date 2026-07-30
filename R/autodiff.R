@@ -1381,27 +1381,60 @@ cbind <- function(..., deparse.level = 1) {
 # point: users write estimating functions in the global environment, and a mask
 # inside the package namespace would serve only the package's own code.
 #
-# A tangent container is returned unchanged rather than made to carry labels.
-# `estimate()` reads the labels off the plain numeric evaluation it makes at the
-# solved values, never off a differentiated one, so there is nothing for a
-# tangent container to record, and dimnames stored on the primal slot would leak
-# into the Jacobian.
+# The labels are recorded on both slots. The primal alone would not do: the
+# subset methods index the two slots with the same subscript, so a character
+# subscript the primal resolves and the tangent does not raises `no 'dimnames'
+# attribute for array` from the tangent, at the selection rather than at the
+# assignment. A container whose primal carries a shape its tangent broadcasts
+# against is expanded to that shape first, so the labels have the same axes to
+# sit on in both slots.
 #
-# Only the two containers that answer `dim()` get a setter, and that is what
-# keeps the exact pass matching the numeric one rather than being more
-# permissive than it. Base R's `rownames<-` consults `dim()` before it reaches
-# `dimnames<-` and stops on anything with fewer than one dimension, so a
-# PrimalTangentVector, and a PrimalTangent whose primal is a plain vector, both
-# raise the error that a plain numeric vector raises on the numeric pass.
-# Assigning `NULL` returns earlier still and reaches neither setter, which is
-# why the `rownames(out) <- NULL` lines in `R/ee-glm.R` have always survived the
-# exact pass.
+# Nothing reaches the Jacobian by this route. A column of it is read off the
+# tangent slot through `as.vector()`, or off the row sums of that slot, and both
+# drop the labels, so a psi that names its rows reports the same unnamed bread
+# the numeric pass reports. `estimate()` reads parameter names off the plain
+# numeric evaluation it makes at the solved values, never off a differentiated
+# one.
+#
+# Recording the labels also restores base R's validation of them, which returning
+# the container unchanged suppressed: a label vector that does not match the axis
+# is an error on the numeric pass, and the exact pass stops in the same place
+# rather than being the more permissive one.
+#
+# Only the two containers that answer `dim()` get a setter, for the same reason.
+# Base R's `rownames<-` consults `dim()` before it reaches `dimnames<-` and stops
+# on anything with fewer than one dimension, so a PrimalTangentVector, and a
+# PrimalTangent whose primal is a plain vector, both raise the error that a plain
+# numeric vector raises on the numeric pass. Assigning `NULL` to an unlabeled
+# container returns earlier still and reaches neither setter, which is why the
+# `rownames(out) <- NULL` lines in `R/ee-glm.R` survive the exact pass.
+#
+# The reader is what lets a second assignment keep the first: base R's
+# `colnames<-` builds its replacement list from `dimnames(x)`, so labels that do
+# not read back are erased by the next axis to be named.
+
+#' @noRd
+pt_dimnames <- function(x) dimnames(x$primal)
 
 #' @export
-`dimnames<-.PrimalTangent` <- function(x, value) x
+dimnames.PrimalTangent <- pt_dimnames
 
 #' @export
-`dimnames<-.PrimalTangentArray` <- function(x, value) x
+dimnames.PrimalTangentArray <- pt_dimnames
+
+#' @noRd
+pt_set_dimnames <- function(x, value) {
+  x$tangent <- pt_recycle_tangent(x$primal, x$tangent)
+  dimnames(x$primal) <- value
+  dimnames(x$tangent) <- value
+  x
+}
+
+#' @export
+`dimnames<-.PrimalTangent` <- pt_set_dimnames
+
+#' @export
+`dimnames<-.PrimalTangentArray` <- pt_set_dimnames
 
 # ---- indexing ---------------------------------------------------------------
 
@@ -1652,9 +1685,9 @@ pt_where <- function(test, yes, no) {
 #'   environment reaches the base versions, and the differentiation aborts
 #'   rather than returning a silent approximation. Coercion cannot preserve a
 #'   derivative: `as.numeric()`, `as.double()`, `as.integer()`, `as.matrix()`,
-#'   and `as.vector()` asked for a numeric `mode` must all return a plain
-#'   number, so each aborts on a tangent-carrying value rather than dropping the
-#'   tangents silently. `as.vector()` with its default `mode = "any"` returns its
+#'   and `as.vector()` asked for a numeric `mode` each return plain numbers,
+#'   which have nowhere to carry one, so each aborts on a tangent-carrying value
+#'   rather than dropping the tangents silently. `as.vector()` with its default `mode = "any"` returns its
 #'   argument unchanged and keeps the tangents. Use `c()` to flatten a
 #'   matrix-shaped result such as `X %*% theta` to a vector instead. `log(x, base)` differentiates
 #'   with respect to `x` only; the `base` argument is treated as a constant, and
