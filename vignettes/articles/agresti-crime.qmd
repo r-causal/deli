@@ -93,21 +93,19 @@ where $f_k$ is the chosen robust loss function with tuning parameter $k$.
 Different choices of $f_k$ impose different constraints on how much any single
 observation can shift the solution.
 
-The redescending losses (Andrew's Sine, Ullah, and Hampel) drive the
-contribution of large residuals to zero. These estimating equations are
-non-convex and can have several roots, so we start each of these fits from
-zero and use the Levenberg-Marquardt solver, matching the reference analysis.
-For this data the point estimates are stable, but the interval estimates for
-Andrew's Sine and Hampel are numerically delicate. Both losses set the score
-to exactly zero beyond a hard cut-off, so the derivative that forms the bread
-matrix is discontinuous at that cut-off. One observation (Washington DC) is a
-pronounced outlier whose Andrew residual lands exactly on the cut-off, where
-that derivative is undefined. Exact automatic differentiation and finite
-differencing resolve the kink on opposite sides, so they return different but
-individually defensible variances. The Andrew and Hampel confidence limits
-should therefore be read as approximate and can shift with the derivative
-method. Ullah is redescending but smooth, with no hard cut-off, so its bread
-derivative is well defined and its interval is stable.
+Huber and Fair are monotone: a large residual contributes at most a fixed
+amount, but it never stops contributing. The other six losses are redescending,
+driving the contribution of a large residual back toward zero. Andrew's Sine,
+Tukey's biweight, and Hampel reach zero at a hard cut-off and hold it there,
+while Cauchy, Ullah, and Welsch approach zero smoothly and never quite arrive.
+
+A redescending estimating equation is non-convex and can have several roots, so
+the starting values decide which root a solver reaches. Cauchy, Andrew's Sine,
+and Hampel do not solve from a zero start on this data, so those three fits
+begin at the least-squares estimates above instead. Andrew's Sine, Ullah, and
+Hampel use the Levenberg-Marquardt solver, matching the reference analysis, and
+take the bread derivative by exact automatic differentiation rather than by
+finite differencing.
 
 ### Huber
 
@@ -188,17 +186,18 @@ $k = 1$.
 
 ```{r}
 #| label: andrew
-# The redescending losses are non-convex. Following the reference analysis,
-# we start from zero and use the Levenberg-Marquardt solver ("lm"). Andrew's
-# score is zero beyond a hard cut-off, so its bread derivative is discontinuous
-# there; we take the derivative by exact automatic differentiation to get a
-# deterministic variance at that discontinuity.
+# The redescending losses are non-convex, and a zero start does not solve this
+# one, so the fit begins at the OLS estimates. The Levenberg-Marquardt solver
+# ("lm") follows the reference analysis. Andrew's score is zero beyond a hard
+# cut-off, so its bread derivative is discontinuous there; we take the
+# derivative by exact automatic differentiation to get a deterministic variance
+# at that discontinuity.
 estr <- m_estimate(
   stacked_equations = function(theta) {
     ee_robust_regression(theta, X = X, y = y, model = "linear",
                          loss = "andrew", k = 1)
   },
-  init = c(0, 0, 0),
+  init = ols_theta,
   solver = "lm",
   deriv_method = "exact"
 )
@@ -293,9 +292,10 @@ hinge, `b` the plateau upper limit, and `c` the zero point.
 
 ```{r}
 #| label: hampel
-# Start from zero with the Levenberg-Marquardt solver, matching the reference
-# analysis, and take the derivative by exact automatic differentiation. The
-# tuning constants k = c(1/3, 4/3, 2) correspond to the reference parameters
+# A zero start does not solve this one either, so the fit begins at the OLS
+# estimates, with the Levenberg-Marquardt solver matching the reference analysis
+# and the derivative taken by exact automatic differentiation. The tuning
+# constants k = c(1/3, 4/3, 2) correspond to the reference parameters
 # k = 2, lower = 1/3, upper = 4/3.
 estr <- m_estimate(
   stacked_equations = function(theta) {
@@ -303,7 +303,7 @@ estr <- m_estimate(
     ee_robust_regression(theta, X = X, y = y, model = "linear",
                          loss = "hampel", k = c(1/3, 4/3, 2))
   },
-  init = c(0, 0, 0),
+  init = ols_theta,
   solver = "lm",
   deriv_method = "exact"
 )
