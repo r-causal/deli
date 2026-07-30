@@ -59,6 +59,117 @@ test_that("ee_mlogit errors on parameter count mismatch", {
   expect_error(ee_mlogit(rep(0, 3), X = X, y = y), "mismatch")
 })
 
+# The outcome of a multinomial fit is a matrix rather than a vector, so its
+# coercion at the head of ee_mlogit() is its own case. These pin what every
+# accepted form of that matrix produces.
+
+mlogit_indicator_data <- function() {
+  set.seed(4321)
+  n <- 60
+  w <- rbinom(n, 1, 0.5)
+  probs <- cbind(0.5 - 0.2 * w, 0.3 + 0.1 * w, 0.2 + 0.1 * w)
+  category <- vapply(
+    seq_len(n),
+    function(i) sample(1:3, 1, prob = probs[i, ]),
+    integer(1)
+  )
+  list(
+    X = cbind(1, w),
+    y = cbind(
+      as.integer(category == 1),
+      as.integer(category == 2),
+      as.integer(category == 3)
+    ),
+    category = category
+  )
+}
+
+fit_mlogit <- function(X, y, ...) {
+  m_estimate(
+    stacked_equations = function(theta) ee_mlogit(theta, X = X, y = y),
+    init = rep(0, 4),
+    ...
+  )
+}
+
+test_that("ee_mlogit fits an indicator matrix of counted outcomes", {
+  d <- mlogit_indicator_data()
+  m <- fit_mlogit(d$X, d$y)
+
+  expect_equal(
+    unname(coef(m)),
+    c(0.944461608841, -0.839101093183, 0.251314428281, -0.502628856562),
+    tolerance = 1e-8
+  )
+  expect_equal(unname(vcov(m)[1, 1]), 0.198412487438, tolerance = 1e-8)
+  expect_equal(names(coef(m)), c("theta_1", "theta_2", "theta_3", "theta_4"))
+})
+
+test_that("ee_mlogit reads a data frame of indicators as the same matrix", {
+  d <- mlogit_indicator_data()
+  y_df <- as.data.frame(d$y)
+  names(y_df) <- c("reference", "second", "third")
+
+  expect_identical(
+    ee_mlogit(rep(0, 4), X = d$X, y = y_df),
+    ee_mlogit(rep(0, 4), X = d$X, y = d$y)
+  )
+  expect_equal(coef(fit_mlogit(d$X, y_df)), coef(fit_mlogit(d$X, d$y)))
+})
+
+test_that("ee_mlogit reads a logical indicator matrix as the same matrix", {
+  d <- mlogit_indicator_data()
+  y_logical <- cbind(d$category == 1, d$category == 2, d$category == 3)
+
+  expect_identical(
+    ee_mlogit(rep(0, 4), X = d$X, y = y_logical),
+    ee_mlogit(rep(0, 4), X = d$X, y = d$y)
+  )
+  expect_equal(coef(fit_mlogit(d$X, y_logical)), coef(fit_mlogit(d$X, d$y)))
+})
+
+test_that("ee_mlogit does not read parameter names off the outcome labels", {
+  d <- mlogit_indicator_data()
+  y_labeled <- d$y
+  dimnames(y_labeled) <- list(
+    paste0("obs", seq_len(nrow(d$y))),
+    c("reference", "second", "third")
+  )
+
+  score <- ee_mlogit(rep(0, 4), X = d$X, y = y_labeled)
+  expect_null(dimnames(score))
+  expect_identical(score, ee_mlogit(rep(0, 4), X = d$X, y = d$y))
+  expect_equal(
+    names(coef(fit_mlogit(d$X, y_labeled))),
+    c("theta_1", "theta_2", "theta_3", "theta_4")
+  )
+})
+
+test_that("ee_mlogit counts a vector outcome as a single category", {
+  d <- mlogit_indicator_data()
+
+  # A vector becomes a one-column matrix, which leaves no non-reference
+  # category to estimate.
+  expect_error(
+    ee_mlogit(rep(0, 4), X = d$X, y = as.numeric(d$category)),
+    "For 1 categories"
+  )
+})
+
+test_that("ee_mlogit reaches the same fit under exact differentiation", {
+  d <- mlogit_indicator_data()
+  y_df <- as.data.frame(d$y)
+
+  expect_equal(
+    coef(fit_mlogit(d$X, d$y, deriv_method = "exact")),
+    coef(fit_mlogit(d$X, d$y))
+  )
+  expect_equal(
+    coef(fit_mlogit(d$X, y_df, deriv_method = "exact")),
+    coef(fit_mlogit(d$X, d$y, deriv_method = "exact"))
+  )
+})
+
 # ee_beta_regression tests ----------------------------------------------------
 
 test_that("ee_beta_regression returns correct shape", {

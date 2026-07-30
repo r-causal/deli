@@ -504,6 +504,8 @@ dlasso_penalty <- function(theta, n, penalty, s, center) {
 #' @export
 ee_mlogit <- function(theta, X, y, weights = NULL, offset = NULL) {
   X <- coerce_design(X)
+  # Not coerce_outcome(): that flattens a response to a numeric vector, and this
+  # response is an n-by-k matrix of category indicators whose columns are read.
   y <- as.matrix(y)
   n <- nrow(X)
   b <- ncol(X)
