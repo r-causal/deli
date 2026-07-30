@@ -190,6 +190,105 @@ test_that("check_psi_at_init rejects fewer equations than parameters when over-i
   )
 })
 
+# The counts on their own say what the shape is and not what is wrong with it. A
+# GMM system with fewer moment conditions than parameters is under-identified,
+# which is a property of the system rather than of the starting values, so the
+# fix is more moment conditions or fewer parameters and never a different `init`
+# of the same length. The formula path reframes this failure against its
+# automatic `init` and explains it there; the function path reports it as it
+# stands and had nothing to say beyond the two counts.
+
+test_that("the GMM shortfall explains that the system is under-identified", {
+  err <- expect_error(
+    check_psi_at_init(
+      matrix(1:5, nrow = 1),
+      init = c(0, 0),
+      allow_over_identification = TRUE
+    ),
+    class = "deli_psi_shape_error"
+  )
+  flat <- gsub("\\s+", " ", conditionMessage(err))
+  expect_match(flat, "under-identified", ignore.case = TRUE)
+  expect_match(flat, "moment condition", ignore.case = TRUE)
+})
+
+test_that("the GMM shortfall does not advise a longer init", {
+  # A longer `init` widens the shortfall, so it is the one direction the hint
+  # must not point.
+  err <- expect_error(
+    check_psi_at_init(
+      matrix(1:5, nrow = 1),
+      init = c(0, 0, 0),
+      allow_over_identification = TRUE
+    ),
+    class = "deli_psi_shape_error"
+  )
+  flat <- gsub("\\s+", " ", conditionMessage(err))
+  expect_false(grepl("one longer", flat, fixed = TRUE))
+  expect_false(grepl("longer", flat, fixed = TRUE))
+})
+
+test_that("an under-identified direct GMM fit is explained, not just counted", {
+  # The path a user reaches through the constructor and estimate(), which
+  # reported the two counts and stopped.
+  y <- c(1, 2, 4, 1, 2, 3, 1, 5, 2)
+  psi <- function(theta) matrix(y - theta[1] - theta[2], nrow = 1)
+  err <- expect_error(
+    estimate(GMMEstimator(stacked_equations = psi, init = c(0, 0))),
+    class = "deli_psi_shape_error"
+  )
+  flat <- gsub("\\s+", " ", conditionMessage(err))
+  expect_match(flat, "under-identified", ignore.case = TRUE)
+  expect_match(flat, "moment condition", ignore.case = TRUE)
+  # The counts stay, because they are what the reader checks the diagnosis
+  # against.
+  expect_match(flat, "1", fixed = TRUE)
+  expect_match(flat, "2", fixed = TRUE)
+})
+
+test_that("gmm_estimate()'s function interface explains an under-identified system", {
+  y <- c(1, 2, 4, 1, 2, 3, 1, 5, 2)
+  psi <- function(theta) matrix(y - theta[1] - theta[2], nrow = 1)
+  err <- expect_error(
+    gmm_estimate(stacked_equations = psi, init = c(0, 0)),
+    class = "deli_psi_shape_error"
+  )
+  expect_match(
+    gsub("\\s+", " ", conditionMessage(err)),
+    "under-identified",
+    ignore.case = TRUE
+  )
+})
+
+test_that("an M-estimation shape mismatch is not called under-identified", {
+  # One equation per parameter is a requirement of M-estimation rather than an
+  # identification condition, so this branch keeps its own wording.
+  err <- expect_error(
+    check_psi_at_init(matrix(1:5, nrow = 1), init = c(0, 0)),
+    class = "deli_psi_shape_error"
+  )
+  flat <- gsub("\\s+", " ", conditionMessage(err))
+  expect_false(grepl("under-identified", flat, fixed = TRUE))
+  expect_match(flat, "one estimating equation per parameter", fixed = TRUE)
+})
+
+test_that("a GMM system with more equations than parameters is still accepted", {
+  expect_no_error(
+    check_psi_at_init(
+      rbind(1:5, 6:10, 11:15),
+      init = c(0, 0),
+      allow_over_identification = TRUE
+    )
+  )
+  expect_no_error(
+    check_psi_at_init(
+      rbind(1:5, 6:10),
+      init = c(0, 0),
+      allow_over_identification = TRUE
+    )
+  )
+})
+
 # The two shape branches are guarded separately and are separately movable, so
 # each is pinned against the neighbors it sits above. The M-estimation one is
 # pinned below the `NULL` check by a test further up; the finite check is what

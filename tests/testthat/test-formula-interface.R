@@ -455,6 +455,109 @@ test_that("gmm_estimate() rejects fewer equations than the automatic init", {
   )
 })
 
+# ---- an under-identified GMM system --------------------------------------
+#
+# The shortfall branch and the append-a-parameter branch are opposite failures
+# that arrive at the same reframing. An estimating equation that estimates a
+# parameter beyond the design coefficients returns too few rows because `init`
+# is too short, and the fix is a longer `init`. A GMM system with fewer moment
+# conditions than parameters returns too few rows because the system is
+# under-identified, and a longer `init` makes it worse: GMM needs at least as
+# many moment conditions as parameters, so the fix is more conditions or fewer
+# parameters. Sending a user with the second failure after the first fix is the
+# one direction the hint must not point.
+
+test_that("an under-identified formula GMM fit is not told to lengthen init", {
+  d <- make_line_data()
+  # One moment condition against the two columns of the model matrix.
+  ee_short <- function(theta, X, y, ...) {
+    matrix(as.vector(y - X %*% theta), nrow = 1)
+  }
+  err <- expect_error(
+    gmm_estimate(y ~ x, data = d, .ee = ee_short),
+    class = "deli_formula_auto_init_error"
+  )
+  flat <- flatten_message(err)
+  expect_false(grepl("one longer", flat, fixed = TRUE))
+  expect_false(grepl("append an extra parameter", flat, fixed = TRUE))
+  expect_false(grepl("ee_glm", flat, fixed = TRUE))
+})
+
+test_that("an under-identified formula GMM fit is told what it is short of", {
+  d <- make_line_data()
+  ee_short <- function(theta, X, y, ...) {
+    matrix(as.vector(y - X %*% theta), nrow = 1)
+  }
+  err <- expect_error(
+    gmm_estimate(y ~ x, data = d, .ee = ee_short),
+    class = "deli_formula_auto_init_error"
+  )
+  flat <- flatten_message(err)
+  # Both counts, so the reader can see which side is short.
+  expect_match(flat, "1", fixed = TRUE)
+  expect_match(flat, "2", fixed = TRUE)
+  expect_match(flat, "moment condition", ignore.case = TRUE)
+  expect_match(flat, "under-identified", ignore.case = TRUE)
+  expect_identical(reported_entry_point(err), quote(gmm_estimate))
+})
+
+test_that("the append-a-parameter branch keeps its own hint", {
+  # The opposite failure, unchanged: a short `init` really is the cause here and
+  # a longer one really is the fix.
+  d <- make_gamma_data()
+  err <- expect_error(
+    m_estimate(
+      y ~ x,
+      data = d,
+      .ee = ee_glm,
+      distribution = "gamma",
+      link = "log"
+    ),
+    class = "deli_formula_auto_init_error"
+  )
+  flat <- flatten_message(err)
+  expect_match(
+    flat,
+    "one parameter beyond the design coefficients",
+    fixed = TRUE
+  )
+  expect_match(flat, "Supply an explicit `init` of length 3", fixed = TRUE)
+  expect_false(grepl("under-identified", flat, fixed = TRUE))
+  expect_false(grepl("moment condition", flat, fixed = TRUE))
+})
+
+test_that("an M-estimation row shortfall is not called under-identified", {
+  # M-estimation needs one equation per parameter exactly, so a shortfall there
+  # is a length mismatch rather than an identification failure, and it keeps the
+  # length hint.
+  d <- make_line_data()
+  ee_short <- function(theta, X, y, ...) {
+    matrix(as.vector(y - X %*% theta), nrow = 1)
+  }
+  err <- expect_error(
+    m_estimate(y ~ x, data = d, .ee = ee_short),
+    class = "deli_formula_auto_init_error"
+  )
+  expect_false(grepl("under-identified", flatten_message(err), fixed = TRUE))
+})
+
+test_that("the over-identified formula GMM path is unaffected", {
+  d <- make_line_data()
+  g <- gmm_estimate(y ~ x, data = d, .ee = ee_line_over)
+  expect_s3_class(g, "deli::GMMEstimator")
+  expect_equal(length(coef(g)), 2L)
+})
+
+test_that("the just-identified formula GMM path is unaffected", {
+  d <- make_line_data()
+  g <- gmm_estimate(y ~ x, data = d, .ee = ee_line)
+  expect_equal(
+    unname(coef(g)),
+    unname(stats::coef(stats::lm(y ~ x, data = d))),
+    tolerance = 1e-6
+  )
+})
+
 test_that("m_estimate()'s formula interface evaluates the estimating function as often as the function interface", {
   d <- make_line_data()
   evaluations <- 0L

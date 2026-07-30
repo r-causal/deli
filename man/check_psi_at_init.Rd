@@ -20,7 +20,9 @@ only a shortfall is rejected. Default \code{FALSE}.}
 Invisible \code{NULL}. Raises an error if the return is invalid. A
 mismatch between the number of estimating equations and the number of
 parameters carries the class \code{deli_psi_shape_error}, which is the one
-failure here that an automatically generated \code{init} can explain.
+failure here that an automatically generated \code{init} can explain. The GMM
+shortfall carries the number of moment conditions as the \code{n_moments} field
+of that condition as well.
 }
 \description{
 Evaluates the value of \code{stacked_equations(init)} and rejects returns that

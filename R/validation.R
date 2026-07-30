@@ -294,7 +294,9 @@ check_estimator_subset <- function(subset, n_params) {
 #' @returns Invisible `NULL`. Raises an error if the return is invalid. A
 #'   mismatch between the number of estimating equations and the number of
 #'   parameters carries the class `deli_psi_shape_error`, which is the one
-#'   failure here that an automatically generated `init` can explain.
+#'   failure here that an automatically generated `init` can explain. The GMM
+#'   shortfall carries the number of moment conditions as the `n_moments` field
+#'   of that condition as well.
 #' @keywords internal
 check_psi_at_init <- function(vals, init, allow_over_identification = FALSE) {
   # `NULL` first. What it has to clear is the numeric check immediately below,
@@ -359,9 +361,22 @@ check_psi_at_init <- function(vals, init, allow_over_identification = FALSE) {
   # `init` against a system that has no solution to find.
   if (allow_over_identification && n_eqs < n_params) {
     cli::cli_abort(
-      "The number of initial values ({n_params}) must be less than or equal to
-       the number of estimating equations ({n_eqs}).",
-      class = "deli_psi_shape_error"
+      c(
+        "The number of initial values ({n_params}) must be less than or equal to
+         the number of estimating equations ({n_eqs}).",
+        "i" = "GMM needs at least one moment condition per parameter, so this
+               system is under-identified and has no solution at any starting
+               values.",
+        "i" = "Return more moment conditions from {.arg stacked_equations}, or
+               estimate fewer parameters."
+      ),
+      class = "deli_psi_shape_error",
+      # The count travels with the condition so that the formula path can name it
+      # while reframing the failure against its automatic `init`, without
+      # counting the rows a second time. Only this branch carries it, so its
+      # presence is also what tells that path a shortfall of moment conditions is
+      # what failed rather than the M-estimation mismatch above.
+      n_moments = n_eqs
     )
   }
   # Last, so it reports a non-finite value only once the return is the right
@@ -445,11 +460,20 @@ eval_psi_at_init <- function(psi, init, allow_over_identification = FALSE) {
     }
   )
   # Of the four returns check_psi_at_init() rejects, only a shape mismatch is a
-  # length problem, so catch that class alone rather than every error.
+  # length problem, so catch that class alone rather than every error. Under GMM
+  # the mismatch is a shortfall of moment conditions, which is not a length
+  # problem at all; the count it reports travels on the condition, so passing it
+  # along is what tells the diagnostic to describe an under-identified system
+  # rather than an `init` that needs lengthening.
   rlang::try_fetch(
     check_psi_at_init(vals, init, allow_over_identification),
     deli_psi_shape_error = function(cnd) {
-      abort_formula_auto_init(init, appended, error_call = entry_point)
+      abort_formula_auto_init(
+        init,
+        appended,
+        n_moments = cnd$n_moments,
+        error_call = entry_point
+      )
     }
   )
   vals
@@ -457,19 +481,24 @@ eval_psi_at_init <- function(psi, init, allow_over_identification = FALSE) {
 
 #' Abort with the automatic-`init` diagnostic
 #'
-#' The hint the diagnostic carries depends on what is known about the failure.
-#' A recognized equation has the parameter the automatic length leaves out named
-#' outright. Otherwise the length is offered as the likely cause only where the
-#' failure supports it: a wrong-shaped return is a length mismatch by
-#' definition, and an error the estimating function raised is one when the error
-#' itself reads as a length problem. An error that reads as anything else gets a
-#' hint that describes only what is known, because a user whose equation failed
-#' for a reason of its own was sent looking for a length that was never wrong.
+#' The hint the diagnostic carries depends on what is known about the failure. A
+#' GMM system that returned fewer moment conditions than there are parameters is
+#' under-identified, which no `init` of any length can fix, so that failure is
+#' described as itself. A recognized equation has the parameter the automatic
+#' length leaves out named outright. Otherwise the length is offered as the
+#' likely cause only where the failure supports it: a wrong-shaped return is a
+#' length mismatch by definition, and an error the estimating function raised is
+#' one when the error itself reads as a length problem. An error that reads as
+#' anything else gets a hint that describes only what is known, because a user
+#' whose equation failed for a reason of its own was sent looking for a length
+#' that was never wrong.
 #'
 #' @param init The automatically generated initial parameter vector.
 #' @param appended The parameter the estimating equation estimates beyond the
 #'   design coefficients, or `NULL` when the equation is not one this package
 #'   recognizes.
+#' @param n_moments The number of moment conditions a GMM system returned, when
+#'   that count fell short of the number of parameters, and `NULL` otherwise.
 #' @param parent The error raised while evaluating the estimating function, or
 #'   `NULL` when the estimating function returned a wrong-shaped value instead
 #'   of failing.
@@ -483,6 +512,7 @@ eval_psi_at_init <- function(psi, init, allow_over_identification = FALSE) {
 abort_formula_auto_init <- function(
   init,
   appended = NULL,
+  n_moments = NULL,
   parent = NULL,
   error_call = NULL
 ) {
@@ -502,7 +532,21 @@ abort_formula_auto_init <- function(
   length_hint <- "Estimating equations such as {.fn ee_glm} with {.val gamma} or
      {.val negative_binomial} append an extra parameter and need an
      {.arg init} one longer than the coefficients."
-  bullets <- if (!is.null(appended)) {
+  bullets <- if (!is.null(n_moments)) {
+    # An under-identified GMM system is judged first, ahead of everything the
+    # automatic length could explain, because it is a property of the system: no
+    # `init` of any length has a solution to find, and a longer one only widens
+    # the shortfall. The two counts stay, since they are what the reader checks
+    # the diagnosis against.
+    c(
+      "i" = "The estimating function returned {n_moments} moment
+             condition{?s} for {n_params} parameter{?s}, so the system is
+             under-identified. GMM needs at least one moment condition per
+             parameter.",
+      "i" = "Return more moment conditions from {.arg .ee}, or fit a formula
+             with fewer terms."
+    )
+  } else if (!is.null(appended)) {
     # A recognized equation can have the missing parameter named and counted
     # rather than described, on both paths, and whatever the failure was. It is
     # the equation's own layout that is known here, not anything read off the
