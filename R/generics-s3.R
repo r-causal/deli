@@ -25,16 +25,28 @@
 # observations without standardizing it.
 #
 # `model.frame()`, `formula()`, and `terms()` are the specification rather than
-# the solve, and do not call `check_estimated()`. Nothing they return depends on
-# the estimates, and reporting "cannot compute inference before calling
-# estimate()" from `formula()` would name a step the caller did not ask for. A
-# fit that carries a specification but no estimates cannot arise through the
-# formula interface anyway, which estimates in the same call that records it.
+# the solve, and ask for neither the estimates nor the variance. Nothing they
+# return depends on either, and reporting "cannot compute inference before
+# calling estimate()" from `formula()` would name a step the caller did not ask
+# for. A fit that carries a specification but no estimates cannot arise through
+# the formula interface anyway, which estimates in the same call that records it.
 #
 # The three of them take their first argument under the name the base generic
 # dispatches on: `x` for `formula()` and `terms()`, and `formula` for
 # `model.frame()`. That last one reads as though it takes a formula and does
 # not; the name is the generic's and dispatch follows it.
+#
+# ---- Which of the two requirements each accessor carries ---------------------
+# `coef()`, `nobs()`, `df.residual()`, `fitted()`, and `residuals()` report on
+# the solve, so each calls `check_has_estimates()` and answers on a fit whose
+# variance could not be built. That is the state `check_estimated()` describes
+# when it sends the reader to `coef()`, and the promise has to hold when they
+# arrive. `vcov()` and `confint()` read the variance itself and keep
+# `check_estimated()`.
+#
+# `fitted()` and `residuals()` reach their values through `predict()`, which
+# carries the split internally: a point prediction is formed from the estimates
+# and the standard error beside it is what needs the variance.
 #
 # ---- Why model.matrix() has a method of its own ------------------------------
 # `model.matrix.default()` would answer for a fit with no method written at all:
@@ -91,10 +103,10 @@
 # `df.residual()` is not one of the accessors above. Both counts it subtracts are
 # properties of every fit however it was built, so it answers for a
 # `stacked_equations` closure as readily as for a formula. It calls
-# `check_estimated()` first because `n_obs` is `NULL` until the solve records it,
-# and `NULL - n_params` is `integer(0)` rather than an error, so an unestimated
-# object would otherwise report a zero-length degrees of freedom instead of
-# saying that nothing has been estimated yet.
+# `check_has_estimates()` first because `n_obs` is `NULL` until the solve records
+# it, and `NULL - n_params` is `integer(0)` rather than an error, so an
+# unestimated object would otherwise report a zero-length degrees of freedom
+# instead of saying that nothing has been estimated yet.
 #
 # `sigma()`, `logLik()`, and `deviance()` have no answer at all and say so. An
 # M-estimator is defined by its estimating equations, which need come from no
@@ -288,7 +300,7 @@ stats_deviance <- new_external_generic("stats", "deviance", "object")
 # ---- coef --------------------------------------------------------------------
 
 method(stats_coef, deli_estimator) <- function(object, ...) {
-  check_estimated(object)
+  check_has_estimates(object)
   object@theta
 }
 
@@ -322,21 +334,21 @@ method(stats_confint, deli_estimator) <- function(
 # ---- nobs --------------------------------------------------------------------
 
 method(stats_nobs, deli_estimator) <- function(object, ...) {
-  check_estimated(object)
+  check_has_estimates(object)
   object@n_obs
 }
 
 # ---- df.residual -------------------------------------------------------------
 
 method(stats_df_residual, deli_estimator) <- function(object, ...) {
-  check_estimated(object)
+  check_has_estimates(object)
   object@n_obs - object@n_params
 }
 
 # ---- fitted ------------------------------------------------------------------
 
 method(stats_fitted, deli_estimator) <- function(object, ...) {
-  check_estimated(object)
+  check_has_estimates(object)
   # Resolved before predicting so that a fit no prediction can be made from is
   # reported against the function the user called.
   resolve_predict_link(object, "fitted")
@@ -350,7 +362,7 @@ method(stats_residuals, deli_estimator) <- function(
   type = "response",
   ...
 ) {
-  check_estimated(object)
+  check_has_estimates(object)
   check_residual_type(type)
   resolve_predict_link(object, "residuals")
   mu <- predict(object, type = "response")

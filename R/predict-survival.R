@@ -197,6 +197,10 @@ predict_survival <- function(
   if (!se.fit && interval == "none") {
     return(frame)
   }
+  # Everything below reads the variance and nothing above it does, so the
+  # requirement sits here rather than at the entry point. See `predict()`, whose
+  # regression surface is split the same way.
+  check_estimated(object)
 
   # One call differentiates the transform and so evaluates it once or twice per
   # parameter; the scope collapses the repeats of any warning it raises, as

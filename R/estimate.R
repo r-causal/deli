@@ -1051,9 +1051,19 @@ without_output <- function(expr) {
 # exception, so the muffling recognizes the solver's own reports by what they
 # say and leaves everything else to propagate.
 #
-# The predicates below are what "recognizably the solver's own" means, one per
-# solver that reports this way. They are vectorized over messages so that a
-# recorded batch can be read in one call.
+# The predicates below are half of what "recognizably the solver's own" means,
+# one per solver that reports this way. They are vectorized over messages so that
+# a recorded batch can be read in one call.
+#
+# The other half is whose code was running. What a report says is the only thing
+# multiroot offers to recognize it by, since its returned list carries no status
+# flag, but the caller's own code can say the same words: an estimating function
+# that reports a steady state of its own, or a custom solver of theirs reaching
+# for rootSolve from inside one of those evaluations. Reading those as this
+# solve's account of itself would cost the caller a report that is theirs and
+# credit this solve with a failure it did not have, so the estimating function is
+# passed to the solver wrapped in `solver_callback()` and nothing raised inside
+# it is read as the solver talking.
 
 #' Whether `rootSolve::multiroot()` reported its convergence test failing
 #'
@@ -1126,6 +1136,36 @@ nls_lm_self_report <- function(messages) {
 
 solver_state <- new.env(parent = emptyenv())
 solver_state$in_multiroot <- FALSE
+solver_state$in_callback <- FALSE
+
+#' Wrap the estimating function a solver is given so its evaluations are known
+#'
+#' A solver reports on itself while its own code is running, never from inside
+#' the function it was handed. Marking that function is therefore what separates
+#' the solver's account of itself from anything the caller's code says while the
+#' solver has it, however alike the two read. See the section above and
+#' `with_muffled_self_reports()`.
+#'
+#' The marker is restored rather than cleared, for the reason `run_multiroot()`
+#' restores its own, and the restore is registered before the marker is set so
+#' that an interrupt between the two cannot leave it standing.
+#'
+#' @param func The summed estimating equations as a function of the parameters.
+#' @returns A function of the same arguments.
+#' @noRd
+solver_callback <- function(func) {
+  function(...) {
+    previous <- solver_state$in_callback
+    on.exit(
+      {
+        solver_state$in_callback <- previous
+      },
+      add = TRUE
+    )
+    solver_state$in_callback <- TRUE
+    func(...)
+  }
+}
 
 #' Run `rootSolve::multiroot()` with the nested-solve marker set
 #'
@@ -1176,7 +1216,8 @@ check_not_nested_multiroot <- function(call) {
 
 #' Evaluate a solver call with the solver's own warnings muffled and recorded
 #'
-#' @param expr The call to the solver.
+#' @param expr The call to the solver, which must have been given its estimating
+#'   function through `solver_callback()`.
 #' @param self_report A predicate taking a character vector of warning messages
 #'   and returning `TRUE` for each one that is the solver's own account of
 #'   itself.
@@ -1186,14 +1227,32 @@ check_not_nested_multiroot <- function(call) {
 #' @noRd
 with_muffled_self_reports <- function(expr, self_report) {
   reports <- character()
+  # The marker belongs to one solve, so this one starts from its own state
+  # rather than from whatever solve is above it. Without that, an inner fit
+  # started from an outer solver's estimating function would run its whole solve
+  # inside the outer marker and read none of its own reports: it would leak the
+  # raw ones to the caller and lose its own reading of them. Restoring on exit is
+  # what hands the outer solve its marker back, and the restore is registered
+  # before the marker is set so that an interrupt between the two cannot leave it
+  # cleared.
+  previous <- solver_state$in_callback
+  on.exit(
+    {
+      solver_state$in_callback <- previous
+    },
+    add = TRUE
+  )
+  solver_state$in_callback <- FALSE
   value <- withCallingHandlers(
     expr,
     warning = function(w) {
       message <- conditionMessage(w)
-      if (!self_report(message)) {
-        # Not the solver's own, so it belongs to whoever wrote the estimating
-        # function. Returning without muffling leaves it to the handlers
-        # outside, which is how it reaches the caller.
+      if (isTRUE(solver_state$in_callback) || !self_report(message)) {
+        # Not the solver's own: either the estimating function is what is
+        # running, whatever the warning says, or the wording is not one this
+        # solver uses about itself. Either way it belongs to whoever wrote the
+        # estimating function. Returning without muffling leaves it to the
+        # handlers outside, which is how it reaches the caller.
         return()
       }
       reports <<- c(reports, message)
@@ -1275,7 +1334,7 @@ solve_equations <- function(
     run <- with_muffled_self_reports(
       without_output(
         run_multiroot(
-          f = func,
+          f = solver_callback(func),
           start = init,
           maxiter = maxiter,
           atol = tolerance
@@ -1345,7 +1404,11 @@ solve_equations <- function(
     # return value read below, so the bare one is muffled where it is raised.
     # Warnings from `func` itself pass through untouched.
     result <- with_muffled_self_reports(
-      minpack.lm::nls.lm(par = init, fn = func, control = control),
+      minpack.lm::nls.lm(
+        par = init,
+        fn = solver_callback(func),
+        control = control
+      ),
       nls_lm_self_report
     )$value
     solved <- list(

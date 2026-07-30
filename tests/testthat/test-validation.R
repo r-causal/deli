@@ -45,6 +45,99 @@ test_that("check_estimated rejects an estimator that has not been fitted", {
   expect_error(check_estimated(m), "before calling")
 })
 
+# A fit that ran and came back without a variance is a different state from one
+# that was never fitted, and the two are told apart by the estimates: a solve
+# records them whatever became of the sandwich. Sending a caller who fitted the
+# model to fit it again names the wrong problem and the remedy it implies does
+# not exist.
+na_bread_fit <- function() {
+  y <- c(-1, 0, 1)
+  # Finite at the root and not finite anywhere else, so the meat is built and
+  # the finite differences behind the bread are not.
+  psi <- function(theta) {
+    if (theta[[1]] == 0) {
+      matrix(y - theta[[1]], nrow = 1)
+    } else {
+      matrix(NA_real_, nrow = 1, ncol = length(y))
+    }
+  }
+  at_the_root <- function(stacked_equations, init) 0
+  suppressWarnings(estimate(
+    MEstimator(stacked_equations = psi, init = 0),
+    solver = at_the_root
+  ))
+}
+
+test_that("check_estimated rejects a fit whose variance could not be built", {
+  m <- na_bread_fit()
+  expect_null(m@variance)
+  expect_equal(unname(m@theta), 0)
+
+  err <- expect_error(check_estimated(m))
+
+  reported <- flatten_message(err)
+  expect_no_match(reported, "before calling", fixed = TRUE)
+  expect_match(reported, "variance", fixed = TRUE)
+  expect_match(reported, "bread", fixed = TRUE)
+})
+
+test_that("the accessors report the missing variance rather than a missing fit", {
+  m <- na_bread_fit()
+  for (accessor in list(vcov, confint, summary)) {
+    err <- expect_error(accessor(m))
+    expect_no_match(flatten_message(err), "before calling", fixed = TRUE)
+  }
+})
+
+# What the message above sends the reader to has to be there when they arrive.
+# The estimates and the counts a solve records are properties of the solve
+# rather than of the sandwich, so every accessor that reads nothing else answers
+# on a fit whose variance could not be built, and only the ones that read the
+# variance refuse.
+
+test_that("the estimates and the counts survive a variance that could not be built", {
+  m <- na_bread_fit()
+  expect_equal(unname(coef(m)), 0)
+  expect_identical(nobs(m), 3L)
+  expect_identical(df.residual(m), 2L)
+  expect_identical(generics::glance(m)$nobs, 3L)
+})
+
+# The same state on a fit made through the formula interface, which is what the
+# accessors that route through `predict()` need. `na_bread_fit()` is what shows
+# the state is reachable; an estimating equation the formula interface builds is
+# finite wherever its data are, so the state is reached here by dropping the
+# variance the solve did build.
+no_variance_formula_fit <- function() {
+  d <- data.frame(y = c(1, 3, 2, 5, 4), x = c(1, 2, 3, 4, 5))
+  m <- m_estimate(y ~ x, data = d, .ee = ee_regression, model = "linear")
+  m@variance <- NULL
+  m@asymptotic_variance <- NULL
+  m
+}
+
+test_that("a point prediction is made from a fit whose variance could not be built", {
+  m <- no_variance_formula_fit()
+  fitted_values <- unname(predict(m, type = "response"))
+
+  expect_length(fitted_values, 5L)
+  expect_equal(unname(fitted(m)), fitted_values)
+  expect_equal(unname(residuals(m)), c(1, 3, 2, 5, 4) - fitted_values)
+})
+
+test_that("a standard error asked of the same fit names the variance", {
+  m <- no_variance_formula_fit()
+  for (asked in list(
+    function(x) predict(x, se.fit = TRUE),
+    function(x) predict(x, interval = "confidence")
+  )) {
+    err <- expect_error(asked(m))
+    reported <- flatten_message(err)
+    expect_no_match(reported, "before calling", fixed = TRUE)
+    expect_match(reported, "variance", fixed = TRUE)
+  }
+})
+
 # check_estimator_init ----------------------------------------------------
 
 # Each of the four type-naming tests in this file asserts that the type

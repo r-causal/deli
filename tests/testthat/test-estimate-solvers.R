@@ -2095,6 +2095,96 @@ test_that("one wording raised at every evaluation still reports once", {
   }
 })
 
+# A solver's own report is recognized by what it says, because multiroot gives
+# nothing else to recognize it by: its returned list carries no status flag. What
+# says those words is not always the solver, though. An estimating function of
+# the caller's own, or a solver of theirs reaching for rootSolve from inside one
+# of its evaluations, reports in the same words from code the package's solve
+# did not run. Muffling those costs the caller a report that is theirs and
+# credits the solve with a failure it did not have, so what is muffled is decided
+# by whose code was running as well as by what it said.
+
+# The wording is numbered for the reason counting_warn_psi() numbers its own: no
+# two of these warnings share a message, so the de-duplication scope collapses
+# none of them and the count delivered is the count raised. Every one of them
+# reads as the solver's own report, and every one of them is the caller's.
+reporting_psi <- function(y, counter, report) {
+  function(theta) {
+    counter$n <- counter$n + 1L
+    cli::cli_warn(paste(report, counter$n))
+    matrix(y - theta[1], nrow = 1)
+  }
+}
+
+test_that("a multiroot report the estimating function raised reaches the caller", {
+  counter <- new_evaluation_counter()
+  y <- warning_psi_data()
+  psi <- reporting_psi(y, counter, "steady-state not reached")
+
+  seen <- collect_warnings({
+    m <- m_estimate(psi, init = 0)
+  })
+
+  expect_gt(counter$n, 4L)
+  expect_equal(
+    vapply(seen, conditionMessage, character(1)),
+    paste("steady-state not reached", seq_len(counter$n))
+  )
+  # And the solve itself is not reported as a failure on the strength of them.
+  # It reached the mean, which is the whole of what it had to do.
+  expect_equal(unname(coef(m)), mean(y), tolerance = 1e-8)
+})
+
+test_that("an inner solve inside an outer one still reads its own reports", {
+  skip_if_not_installed("minpack.lm")
+  set.seed(7)
+  outer_y <- stats::rnorm(40, mean = 1)
+  inner <- beta_runaway_psi()
+  # The two-stage estimator the nested-solve section below describes: an inner
+  # fit on the default solver, started from an estimating function an outer
+  # solver that is not rootSolve is evaluating. The inner fit diverges, so it has
+  # a report of its own to make, and it is the inner solve's own machinery that
+  # has to make it.
+  psi <- function(theta) {
+    estimate(MEstimator(stacked_equations = inner, init = c(0, 0, log(10))))
+    matrix(outer_y - theta[1], nrow = 1)
+  }
+
+  seen <- collect_warnings({
+    m <- estimate(
+      MEstimator(stacked_equations = psi, init = 0),
+      solver = "lm"
+    )
+  })
+
+  # One warning, in deli's words, with multiroot's own account of itself left
+  # inside the solve that produced it.
+  expect_length(seen, 1L)
+  expect_s3_class(seen[[1]], "deli_solver_not_converged")
+  reported <- conditionMessage(seen[[1]])
+  expect_no_match(reported, "steady-state not reached", fixed = TRUE)
+  expect_no_match(reported, "dgefa", fixed = TRUE)
+  expect_equal(unname(coef(m)), mean(outer_y), tolerance = 1e-8)
+})
+
+test_that("an nls.lm report the estimating function raised reaches the caller", {
+  skip_if_not_installed("minpack.lm")
+  counter <- new_evaluation_counter()
+  y <- warning_psi_data()
+  psi <- reporting_psi(y, counter, "lmdif: info =")
+
+  seen <- collect_warnings({
+    m <- m_estimate(psi, init = 0, solver = "lm")
+  })
+
+  expect_gt(counter$n, 4L)
+  expect_equal(
+    vapply(seen, conditionMessage, character(1)),
+    paste("lmdif: info =", seq_len(counter$n))
+  )
+  expect_equal(unname(coef(m)), mean(y), tolerance = 1e-8)
+})
+
 # ---- nested solves -----------------------------------------------------------
 #
 # rootSolve::multiroot() cannot be called from inside itself. Its C code keeps

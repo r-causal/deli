@@ -294,6 +294,26 @@ test_that("the estimator method reports its own frame as well", {
   expect_false(grepl("delta_method_impl", reported_call(err), fixed = TRUE))
 })
 
+# a transform of no parameters ------------------------------------------------
+#
+# The numeric method takes whatever estimates and covariance the caller has, and
+# an empty pair of them is a shape the delta method has an answer for: a quantity
+# that no estimate enters carries none of their uncertainty. The Jacobian there
+# has no columns, and the reading of the finite differences behind it used to
+# fail on the empty difference rather than pass over it.
+
+test_that("delta_method() reports no variance for a transform of no parameters", {
+  for (method in c("capprox", "fapprox", "bapprox")) {
+    variance <- delta_method(
+      numeric(0),
+      transform = function(theta) 1,
+      covariance = matrix(numeric(0), nrow = 0, ncol = 0),
+      deriv_method = method
+    )
+    expect_equal(variance, matrix(0, nrow = 1, ncol = 1), label = method)
+  }
+})
+
 # deriv_method is case-insensitive --------------------------------------------
 #
 # Python lowercases every deriv_method comparison. delta_method compared

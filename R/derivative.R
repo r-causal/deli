@@ -67,6 +67,15 @@
 approx_differentiation <- function(func, theta, method = "capprox", dx = 1e-9) {
   theta <- as.numeric(theta)
   p <- length(theta)
+  # A derivative with respect to no parameters is a Jacobian with no columns,
+  # which is the answer rather than a degenerate case: a quantity that no
+  # estimate enters carries none of their uncertainty, and the product that
+  # follows it needs the column count to be zero and the row count to be the
+  # transform's. Each branch below would otherwise stack an empty list of
+  # evaluations into its own shape and lose one or both counts.
+  if (p == 0L) {
+    return(matrix(numeric(0), nrow = length(as.vector(func(theta))), ncol = 0L))
+  }
   # A step of fewer than this many units in the last place of a parameter no
   # longer reproduces the perturbation asked for: rounding `theta + dx` back to
   # a representable double costs at most half an interval, so spanning n of them
@@ -154,6 +163,12 @@ approx_differentiation <- function(func, theta, method = "capprox", dx = 1e-9) {
 #' infinite has a different problem, reported elsewhere, and the value of a
 #' difference that was never taken says nothing about the scale of the rest.
 #'
+#' A quotient with no entries in it holds no differences to read, which is what
+#' a `func` returning nothing leaves. Nothing was differenced, so nothing can
+#' have been lost, and the reading is not taken. (A Jacobian of no parameters is
+#' the other empty shape, and `approx_differentiation()` returns it before any
+#' difference is taken.)
+#'
 #' @param quotient The finite-difference quotients, one row per parameter.
 #' @param f0,f1 The two evaluations each quotient was taken between, in the same
 #'   shape.
@@ -162,6 +177,9 @@ approx_differentiation <- function(func, theta, method = "capprox", dx = 1e-9) {
 #' @returns Invisible `NULL`, called for the warning.
 #' @noRd
 warn_lost_difference <- function(quotient, f0, f1, divisor) {
+  if (length(quotient) == 0L) {
+    return(invisible(NULL))
+  }
   noise <- .Machine$double.eps * pmax(abs(f0), abs(f1)) / divisor
   size <- abs(quotient)
   resolved <- is.finite(size)

@@ -397,3 +397,36 @@ test_that("the same values differentiate quietly at a step that resolves them", 
     expect_equal(result[1, 1], 200, tolerance = 1e-4, label = method)
   }
 })
+
+# ---- a derivative with no parameters to take ---------------------------------
+#
+# A transform of no parameters has a Jacobian with no columns, which is the right
+# answer rather than a degenerate one: a quantity that does not depend on any
+# estimate has no variance to propagate. Nothing was differenced to get there, so
+# the reading of the differences has nothing to report.
+
+test_that("a Jacobian with no columns is returned rather than failing", {
+  for (method in c("capprox", "fapprox", "bapprox")) {
+    expect_no_warning({
+      jacobian <- approx_differentiation(
+        func = function(theta) 1,
+        theta = numeric(0),
+        method = method
+      )
+    })
+    expect_equal(dim(jacobian), c(1L, 0L), label = method)
+  }
+})
+
+test_that("a Jacobian with no columns keeps one row per value the function returns", {
+  # The shape is the transform's, not the parameters': three quantities that no
+  # estimate enters still leave three rows for the product that follows.
+  for (method in c("capprox", "fapprox", "bapprox")) {
+    jacobian <- approx_differentiation(
+      func = function(theta) c(1, 2, 3),
+      theta = numeric(0),
+      method = method
+    )
+    expect_equal(dim(jacobian), c(3L, 0L), label = method)
+  }
+})

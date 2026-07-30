@@ -221,14 +221,68 @@ tail_probability <- function(object, z) {
   2 * pt(-abs(z), df = df)
 }
 
+#' Refuse an estimator that was never solved
+#'
+#' The requirement of everything that reports on the solve rather than on the
+#' sandwich: the estimates, the counts taken with them, and the point
+#' predictions formed from them. Each is recorded by the solve whatever became
+#' of the variance, so each answers wherever there are estimates at all.
+#'
+#' @param object The estimator the caller asked something of.
+#' @returns Invisible `NULL` where the fit carries estimates; otherwise it
+#'   throws.
 #' @noRd
-check_estimated <- function(object) {
-  if (is.null(object@variance)) {
+check_has_estimates <- function(object) {
+  if (is.null(object@theta)) {
     cli::cli_abort(
       "Cannot compute inference before calling {.fn estimate}.",
       call = NULL
     )
   }
+  invisible(NULL)
+}
+
+#' Refuse an estimator that has no variance to compute inference from
+#'
+#' The requirement of everything that reads the variance: the standard errors
+#' and everything built on them, and the influence functions, which need a bread
+#' that can be inverted for the same reason the variance does.
+#'
+#' Two states are refused here, and the remedy for one of them does not exist
+#' for the other. An estimator that was never solved has no estimates either, so
+#' the caller is told to solve it, which is what `check_has_estimates()` says. A
+#' fit that ran and came back without a variance has its estimates, and telling
+#' that caller to fit the model names a step they already took: what happened is
+#' that the bread could not be inverted, which `estimate()` warned about at the
+#' time. The estimates are the property that tells the two apart, since a solve
+#' records them whatever became of the sandwich, and they are what the second
+#' message sends the reader to.
+#'
+#' @param object The estimator inference was asked for.
+#' @returns Invisible `NULL` where the fit carries a variance; otherwise it
+#'   throws.
+#' @noRd
+check_estimated <- function(object) {
+  check_has_estimates(object)
+  if (!is.null(object@variance)) {
+    return(invisible(NULL))
+  }
+  cli::cli_abort(
+    c(
+      "!" = "This fit has no variance, so there is nothing to compute
+             inference from.",
+      "i" = "{.fn estimate} solved the estimating equations and recorded the
+             estimates, but the bread matrix came back holding values that are
+             not finite, so it could not be inverted and no sandwich variance
+             was built. The fit warned about that at the time.",
+      "i" = "{.fn coef} still reports the estimates. A bread that cannot be
+             inverted usually means the estimating functions are not
+             differentiable at the estimates, or that the finite differences
+             behind it are not finite there; {.code deriv_method = \"exact\"}
+             takes no difference at all."
+    ),
+    call = NULL
+  )
 }
 
 #' @noRd

@@ -260,7 +260,11 @@ method(stats_predict, deli_estimator) <- function(
   # offending argument was written. Nothing beneath this frame gives `NULL`,
   # which reports the message with no call at all.
   rlang::check_dots_empty(call = sys.call(-1))
-  check_estimated(object)
+  # A prediction is formed from the estimates, so that is what is required here.
+  # The variance is required where a standard error is actually asked for, below
+  # and in `predict_survival()`, so a fit whose variance could not be built still
+  # predicts and still says why it cannot put an interval around it.
+  check_has_estimates(object)
   # Asked before `match.arg()`, which fills `type` in and so erases the
   # difference between a caller who wrote it and one who did not.
   check_predict_surface(
@@ -302,7 +306,6 @@ method(stats_predict, deli_estimator) <- function(
 
   index <- predict_coef_index(spec, object@n_params)
   beta <- object@theta[index]
-  covariance <- object@variance[index, index, drop = FALSE]
 
   design <- predict_design(spec, newdata)
   X <- design$X
@@ -311,25 +314,38 @@ method(stats_predict, deli_estimator) <- function(
   if (!is.null(design$offset)) {
     eta <- eta + as.numeric(design$offset)
   }
-  # The variance of the linear predictor is the diagonal of X V X'. It is
-  # written the way regression_predictions() writes it, rather than in any other
-  # algebraically equal form, so that the two agree to the last bit.
-  eta_variance <- as.numeric(rowSums((X %*% covariance) * X))
 
   if (type == "response") {
     inverse <- inverse_link(eta, link)
     fit <- inverse$mu
+  } else {
+    inverse <- NULL
+    fit <- eta
+  }
+  names(fit) <- rownames(X)
+
+  # Everything below reads the variance, and nothing above it does, so a fit
+  # that has none answers this far and no further.
+  if (!se.fit && interval == "none") {
+    return(fit)
+  }
+  check_estimated(object)
+
+  covariance <- object@variance[index, index, drop = FALSE]
+  # The variance of the linear predictor is the diagonal of X V X'. It is
+  # written the way regression_predictions() writes it, rather than in any other
+  # algebraically equal form, so that the two agree to the last bit.
+  eta_variance <- as.numeric(rowSums((X %*% covariance) * X))
+  fit_variance <- if (is.null(inverse)) {
+    eta_variance
+  } else {
     # The inverse link is applied one observation at a time, so its Jacobian is
     # diagonal and the delta-method variance of the mean is the squared
     # derivative times the variance of the linear predictor, with no
     # approximation beyond the delta method itself.
-    fit_variance <- inverse$dmu^2 * eta_variance
-  } else {
-    fit <- eta
-    fit_variance <- eta_variance
+    inverse$dmu^2 * eta_variance
   }
 
-  names(fit) <- rownames(X)
   se <- sqrt(fit_variance)
   names(se) <- rownames(X)
 

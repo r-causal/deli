@@ -88,7 +88,10 @@ tidy_estimator <- function(x, conf.int = FALSE, conf.level = 0.95) {
 # ---- glance ------------------------------------------------------------------
 
 method(generics_glance, deli_estimator) <- function(x, ...) {
-  check_estimated(x)
+  # Every column here is recorded by the solve, so a fit whose variance could
+  # not be built has all of them. `tidy()` above reports standard errors and
+  # asks for the variance.
+  check_has_estimates(x)
   data.frame(
     nobs = x@n_obs,
     npar = x@n_params,
