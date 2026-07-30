@@ -145,31 +145,14 @@ test_that("predict() scales the response variance by the link derivative", {
 test_that("inverse_link() returns the derivative of its own inverse link", {
   # predict() forms the response-scale variance as dmu^2 times the variance of
   # the linear predictor, which is only correct if dmu is d(mu)/d(eta). The
-  # comparison is on magnitudes because the "loglog" branch returns the negative
-  # of the derivative, matching the Python source this package was ported from.
-  # Squaring makes predict() insensitive to that, and nothing here relies on the
-  # sign. Zero is left out of the grid because the "inverse" link is undefined
-  # there.
+  # comparison keeps the sign, which predict() itself cannot see because it
+  # squares the derivative. Zero is left out of the grid because the "inverse"
+  # link is undefined there.
   eta <- c(-1.7, -0.4, 0.6, 1.3)
-  step <- 1e-6
-  links <- c(
-    "identity",
-    "log",
-    "logit",
-    "probit",
-    "cauchit",
-    "loglog",
-    "cloglog",
-    "inverse",
-    "sqrt"
-  )
-  for (link in links) {
-    numeric_deriv <- (inverse_link(eta + step, link)$mu -
-      inverse_link(eta - step, link)$mu) /
-      (2 * step)
+  for (link in inverse_link_names()) {
     expect_equal(
-      abs(inverse_link(eta, link)$dmu),
-      abs(numeric_deriv),
+      inverse_link(eta, link)$dmu,
+      numeric_inverse_link_deriv(eta, link),
       tolerance = 1e-6,
       info = link
     )

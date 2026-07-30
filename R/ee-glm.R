@@ -303,7 +303,9 @@ inverse_link <- function(eta, link) {
     list(mu = mu, dmu = dmu)
   } else if (link == "loglog") {
     mu <- exp(-exp(-eta))
-    dmu <- -exp(-eta - exp(-eta))
+    # The inverse loglog link is increasing, so its derivative is positive:
+    # d/deta exp(-exp(-eta)) = exp(-eta - exp(-eta)).
+    dmu <- exp(-eta - exp(-eta))
     list(mu = mu, dmu = dmu)
   } else if (link == "cloglog") {
     mu <- 1 - exp(-exp(eta))
