@@ -50,6 +50,40 @@ S7 class for Generalized Method of Moments (GMM) estimation via
 minimization of estimating equations with empirical sandwich variance
 estimation.
 }
+\section{Moment quality of an over-identified fit}{
+
+A just-identified system has as many moment conditions as parameters, so the
+moments vanish at a solution and the size of what is left over says whether the
+fit succeeded. An over-identified system has no such reading: no value of the
+parameters drives every condition to zero, and a residual moment is expected
+rather than diagnostic. Hansen's J-statistic is the reading that is available
+there. It is n times the GMM objective at the minimum,
+\eqn{J = n \bar{g}(\hat{\theta})' W \bar{g}(\hat{\theta})}, where
+\eqn{\bar{g}} averages the moment conditions over the observations and
+\eqn{W} is the weight matrix the fit finished with. Under correct
+specification it is asymptotically chi-squared on as many degrees of freedom as
+the system has moment conditions beyond parameters, so its size can be judged
+against a reference distribution rather than against the scale of the data.
+
+\code{\link[=estimate]{estimate()}} records it in the \code{j_statistic} property of an over-identified
+fit, and \code{\link[=deli-display]{summary()}} reports it with its degrees of freedom and
+its P-value. A just-identified fit has no degrees of freedom left over and
+leaves the property \code{NULL}; its moments are judged directly instead, as
+\code{\link[=estimate]{estimate()}} describes. A \code{subset} fit holds the parameters outside the subset
+at their initial values rather than estimating them, which the reference
+distribution does not allow for, so it is left \code{NULL} too.
+
+A P-value the reference distribution all but rules out warns with the class
+\code{deli_gmm_moments_rejected}, which usually means the moment conditions cannot
+all hold at one value of the parameters. The weight matrix is what makes J
+comparable across problems, so the warning is raised only where the two-step
+update settled: a fit that exhausted \code{overid_maxiter} has already warned about
+that, and its J has no reference distribution to be judged against. The
+property still records the statistic in that case, as it does for
+\code{overid_maxiter = 0}, which leaves the identity weight matrix in place and so
+leaves J an unstandardized sum of squared moments.
+}
+
 \examples{
 # The constructor builds the estimator and `estimate()` solves it, so an
 # object that has not been through `estimate()` reports only what it was

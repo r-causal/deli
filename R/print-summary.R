@@ -80,6 +80,12 @@ print_estimator <- function(x, label, subset = NULL) {
 #' return individually, so `alpha` here means what it means there: `0.05` gives
 #' 95% limits.
 #'
+#' An over-identified `GMMEstimator` fit reports Hansen's J-statistic above the
+#' table, with its degrees of freedom and its P-value, because it judges the fit
+#' as a whole rather than any one parameter. See [GMMEstimator()] for what it
+#' means and where its reference distribution holds. No other fit has one, so no
+#' other output carries the line.
+#'
 #' The `S` column reads `Inf` when a P-value underflows to exactly zero, for the
 #' reason [s_values()] gives. The `P` column reports that same underflow as
 #' `<2e-16`, the threshold below which [base::format.pval()] stops printing
@@ -159,7 +165,15 @@ EstimatorSummary <- new_class(
     n_obs = class_integer,
     n_params = class_integer,
     alpha = class_numeric,
-    estimator = class_character
+    estimator = class_character,
+    j_statistic = new_property(
+      class = NULL | class_double,
+      default = NULL
+    ),
+    j_df = new_property(
+      class = NULL | class_integer,
+      default = NULL
+    )
   )
 )
 
@@ -180,6 +194,18 @@ summarize_estimator <- function(
   z <- z_scores(object)
   p <- p_values(object)
   s <- s_values(object)
+
+  # Only a GMMEstimator carries a J-statistic, and only an over-identified fit
+  # has one set; see GMMEstimator() for what it reports. Its degrees of freedom
+  # are the moment conditions the weight matrix is indexed by, beyond the
+  # parameters. A `subset` fit never reaches here with one, so the count below is
+  # the number of parameters the fit estimated.
+  j_statistic <- NULL
+  j_df <- NULL
+  if (S7::S7_inherits(object, GMMEstimator) && !is.null(object@j_statistic)) {
+    j_statistic <- object@j_statistic
+    j_df <- nrow(object@weight_matrix) - length(object@theta)
+  }
 
   # A subset restricts the displayed rows to the given parameter indices while
   # leaving the reported values and n_params untouched. The row labels track the
@@ -205,7 +231,9 @@ summarize_estimator <- function(
     n_obs = object@n_obs,
     n_params = object@n_params,
     alpha = alpha,
-    estimator = estimator_label
+    estimator = estimator_label,
+    j_statistic = j_statistic,
+    j_df = j_df
   )
 }
 
@@ -231,6 +259,25 @@ method(print, EstimatorSummary) <- function(x, ...) {
 
   cli::cli_text("Observations: {x@n_obs}")
   cli::cli_text("Parameters:   {x@n_params}")
+  # An over-identified GMM fit reports the J-statistic of its moment conditions
+  # alongside the counts, since it describes the fit as a whole rather than any
+  # one parameter. The P-value is formatted as the table's own column is, so the
+  # two agree on how small a probability is reported.
+  #
+  # Both halves are required, rather than the statistic alone, because the
+  # degrees of freedom are what the statistic is read against: summarize_estimator()
+  # fills the two together, but the class can be constructed directly, and a
+  # statistic with no degrees of freedom would reach pchisq() as a missing
+  # argument rather than being left unreported.
+  if (!is.null(x@j_statistic) && !is.null(x@j_df)) {
+    j_fmt <- format(round(x@j_statistic, 4), nsmall = 4)
+    j_p_fmt <- format.pval(
+      stats::pchisq(x@j_statistic, x@j_df, lower.tail = FALSE),
+      digits = 3,
+      eps = 2.2e-16
+    )
+    cli::cli_text("J-statistic:  {j_fmt} on {x@j_df} df (P = {j_p_fmt})")
+  }
   cli::cli_text("")
 
   # Build the results table

@@ -114,6 +114,19 @@
               Estimate    Std.Err    Z-score    95% LCL    95% UCL    P-value    S-value
       mean      3.0000     0.6325     4.7434     1.7604     4.2396    2.1e-06    <S-value>
 
+# print(summary()) over-identified GMMEstimator output
+
+    Code
+      print(summary(g))
+    Message
+      -- GMMEstimator Results --------------------------------------------------------
+      Observations: 200
+      Parameters: 1
+      J-statistic: 0.1063 on 1 df (P = 0.744)
+      
+               Estimate    Std.Err    Z-score    95% LCL    95% UCL    P-value    S-value
+      lambda     3.0702     0.1568    19.5794     2.7629     3.3775     <2e-16   <S-value>
+
 # print(summary()) with alpha = 0.10
 
     Code

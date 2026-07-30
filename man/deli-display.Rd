@@ -44,6 +44,12 @@ table with one row per parameter. The values are those
 return individually, so \code{alpha} here means what it means there: \code{0.05} gives
 95\% limits.
 
+An over-identified \code{GMMEstimator} fit reports Hansen's J-statistic above the
+table, with its degrees of freedom and its P-value, because it judges the fit
+as a whole rather than any one parameter. See \code{\link[=GMMEstimator]{GMMEstimator()}} for what it
+means and where its reference distribution holds. No other fit has one, so no
+other output carries the line.
+
 The \code{S} column reads \code{Inf} when a P-value underflows to exactly zero, for the
 reason \code{\link[=s_values]{s_values()}} gives. The \code{P} column reports that same underflow as
 \verb{<2e-16}, the threshold below which \code{\link[base:format.pval]{base::format.pval()}} stops printing

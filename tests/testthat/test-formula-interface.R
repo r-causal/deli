@@ -493,9 +493,11 @@ test_that("an under-identified formula GMM fit is told what it is short of", {
     class = "deli_formula_auto_init_error"
   )
   flat <- flatten_message(err)
-  # Both counts, so the reader can see which side is short.
-  expect_match(flat, "1", fixed = TRUE)
-  expect_match(flat, "2", fixed = TRUE)
+  # Both counts, each against the thing it counts, so the reader can see which
+  # side is short and a bare digit from elsewhere in the message cannot stand in
+  # for either.
+  expect_match(flat, "1 moment condition", fixed = TRUE)
+  expect_match(flat, "2 parameters", fixed = TRUE)
   expect_match(flat, "moment condition", ignore.case = TRUE)
   expect_match(flat, "under-identified", ignore.case = TRUE)
   expect_identical(reported_entry_point(err), quote(gmm_estimate))

@@ -187,6 +187,23 @@ test_that("print(summary()) GMMEstimator output", {
   expect_snapshot(print(summary(g)), transform = stabilize_svalue)
 })
 
+test_that("print(summary()) over-identified GMMEstimator output", {
+  # A Poisson count is identified twice over, by its mean and by its variance,
+  # which are equal, so two moment conditions estimate one parameter and the fit
+  # has a degree of freedom left over for the J-statistic to be read against. The
+  # just-identified fit above has none and carries no J line.
+  set.seed(42)
+  counts <- stats::rpois(200, lambda = 3)
+  psi <- function(theta) {
+    rbind(
+      counts - theta[1],
+      (counts - theta[1])^2 - theta[1]
+    )
+  }
+  g <- gmm_estimate(stacked_equations = psi, init = c(lambda = 1))
+  expect_snapshot(print(summary(g)), transform = stabilize_svalue)
+})
+
 test_that("print(summary()) with alpha = 0.10", {
   m <- make_fitted_mean()
   expect_snapshot(print(summary(m, alpha = 0.10)), transform = stabilize_svalue)

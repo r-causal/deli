@@ -222,6 +222,8 @@ m_estimate.default <- function(
 #'
 #' @returns A fitted `GMMEstimator` object.
 #'
+#' @inheritSection GMMEstimator Moment quality of an over-identified fit
+#'
 #' @export
 #' @examples
 #' # Two instruments for a single treatment effect, confounded by an
