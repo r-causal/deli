@@ -18,7 +18,17 @@ algorithm. Names on it label the parameters and take precedence over the
 row names of \code{stacked_equations}.}
 
 \item{subset}{Integer vector of parameter indices to solve for, or \code{NULL}
-(default) to solve for all parameters.}
+(default) to solve for all parameters. Indices are 1-based; parameters not
+listed are held fixed at their \code{init} values while the rest are solved. The
+equations outside the subset are set aside along with the parameters they
+estimate, so the subset parameters are the root of the subset equations
+alone and the rest of the stack has no say in where they land: give a
+three-equation linear regression stack \code{subset = 1L} and the intercept comes
+back as the mean of the response, because the first equation on its own is
+the estimating equation for a mean. \code{\link[=GMMEstimator]{GMMEstimator()}} and \code{\link[=gmm_estimate]{gmm_estimate()}}
+read the argument differently, since the GMM objective sums every equation
+whether the subset lists it or not, so the same stack and the same \code{subset}
+give the two different values. The variance estimator ignores \code{subset}.}
 
 \item{finite_correction}{Character string for finite-sample correction
 (e.g., \code{"HC1"}), or \code{NULL} (default) for no correction.}

@@ -11,8 +11,7 @@
 #' @param init Numeric vector of initial parameter values for the root-finding
 #'   algorithm. Names on it label the parameters and take precedence over the
 #'   row names of `stacked_equations`.
-#' @param subset Integer vector of parameter indices to solve for, or `NULL`
-#'   (default) to solve for all parameters.
+#' @inheritParams m_estimate
 #' @param finite_correction Character string for finite-sample correction
 #'   (e.g., `"HC1"`), or `NULL` (default) for no correction.
 #'

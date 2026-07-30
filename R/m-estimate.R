@@ -62,9 +62,16 @@
 #'   when the parameters are numbered instead.
 #' @param subset Integer vector of parameter indices to solve for, or `NULL`
 #'   (default) to solve for all parameters. Indices are 1-based; parameters not
-#'   listed are held fixed at their `init` values while the rest are solved.
-#'   The variance estimator ignores `subset`. Passed straight through to the
-#'   estimator constructor.
+#'   listed are held fixed at their `init` values while the rest are solved. The
+#'   equations outside the subset are set aside along with the parameters they
+#'   estimate, so the subset parameters are the root of the subset equations
+#'   alone and the rest of the stack has no say in where they land: give a
+#'   three-equation linear regression stack `subset = 1L` and the intercept comes
+#'   back as the mean of the response, because the first equation on its own is
+#'   the estimating equation for a mean. [GMMEstimator()] and [gmm_estimate()]
+#'   read the argument differently, since the GMM objective sums every equation
+#'   whether the subset lists it or not, so the same stack and the same `subset`
+#'   give the two different values. The variance estimator ignores `subset`.
 #' @param finite_correction Character string for finite-sample correction
 #'   (e.g., `"HC1"`), or `NULL` (default) for no correction. When set, the meat
 #'   matrix is rescaled and inference switches to the t-distribution with
@@ -212,6 +219,16 @@ m_estimate.default <- function(
 #' name.
 #'
 #' @inheritParams m_estimate
+#' @param subset Integer vector of parameter indices to solve for, or `NULL`
+#'   (default) to solve for all parameters. Indices are 1-based; parameters not
+#'   listed are held fixed at their `init` values while the rest are solved. The
+#'   objective is a quadratic form in every moment condition and `subset` changes
+#'   only which parameters are free to move within it, so the conditions outside
+#'   the subset are still summed in and still pull on the free parameters. A
+#'   subset fit is therefore not the fit of the subset equations on their own,
+#'   which is what [MEstimator()] and [m_estimate()] return, and the same stack
+#'   and the same `subset` give the two different values. The variance estimator
+#'   ignores `subset`.
 #' @param overid_maxiter Integer maximum iterations for the two-step iterative
 #'   procedure for over-identified problems. Default `200L`. The update converges
 #'   linearly rather than quadratically, so a well-identified system commonly

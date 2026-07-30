@@ -87,9 +87,14 @@ when the parameters are numbered instead.}
 
 \item{subset}{Integer vector of parameter indices to solve for, or \code{NULL}
 (default) to solve for all parameters. Indices are 1-based; parameters not
-listed are held fixed at their \code{init} values while the rest are solved.
-The variance estimator ignores \code{subset}. Passed straight through to the
-estimator constructor.}
+listed are held fixed at their \code{init} values while the rest are solved. The
+objective is a quadratic form in every moment condition and \code{subset} changes
+only which parameters are free to move within it, so the conditions outside
+the subset are still summed in and still pull on the free parameters. A
+subset fit is therefore not the fit of the subset equations on their own,
+which is what \code{\link[=MEstimator]{MEstimator()}} and \code{\link[=m_estimate]{m_estimate()}} return, and the same stack
+and the same \code{subset} give the two different values. The variance estimator
+ignores \code{subset}.}
 
 \item{finite_correction}{Character string for finite-sample correction
 (e.g., \code{"HC1"}), or \code{NULL} (default) for no correction. When set, the meat
