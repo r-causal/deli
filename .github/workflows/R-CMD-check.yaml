@@ -23,6 +23,12 @@ jobs:
           - {os: ubuntu-latest, r: 'devel', http-user-agent: 'release'}
           - {os: ubuntu-latest, r: 'release'}
           - {os: ubuntu-latest, r: 'oldrel-1'}
+          - {os: ubuntu-latest, r: 'oldrel-2'}
+          - {os: ubuntu-latest, r: 'oldrel-3'}
+          # oldrel-4 is currently R 4.2, below the R (>= 4.3) floor declared in
+          # DESCRIPTION. TODO: re-enable when that floor drops to 4.2, or when
+          # the release series advances far enough that oldrel-4 is 4.3 or later.
+          # - {os: ubuntu-latest, r: 'oldrel-4'}
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
