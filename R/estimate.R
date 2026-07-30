@@ -311,11 +311,14 @@ estimate_m_estimator <- function(
 
   # Apply parameter names, from `init` where it has any and otherwise from the
   # row names of the evaluation already made above. No second call to the
-  # estimating functions is needed to read them.
+  # estimating functions is needed to read them. A fill this refuses is about
+  # the `init` the caller wrote, so it names the frame of the method that was
+  # called rather than either of the naming helpers below it.
   param_names <- resolve_param_names(
     names(object@init),
     evald,
-    length(full_theta)
+    length(full_theta),
+    error_call = rlang::caller_env()
   )
   names(full_theta) <- param_names
   dimnames(bread) <- list(param_names, param_names)
@@ -1673,11 +1676,13 @@ estimate_gmm_estimator <- function(
 
   # Apply parameter names, from `init` where it has any and otherwise from the
   # row names of the evaluation already made above. No second call to the
-  # estimating functions is needed to read them.
+  # estimating functions is needed to read them. A refused fill names the frame
+  # of the method that was called, as the MEstimator path does.
   param_names <- resolve_param_names(
     names(object@init),
     evald,
-    length(current_theta)
+    length(current_theta),
+    error_call = rlang::caller_env()
   )
   names(current_theta) <- param_names
   # Bread and meat may be non-square in the over-identified case

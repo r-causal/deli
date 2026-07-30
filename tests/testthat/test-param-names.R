@@ -177,6 +177,62 @@ test_that("default_param_names() always returns one name per parameter", {
   expect_length(default_param_names(c("a", "b", "c", "d"), 2), 2)
 })
 
+test_that("default_param_names() refuses a name the fill would repeat", {
+  # `init = c(theta_2 = 0, 1)` carries the names `c("theta_2", "")`, and the
+  # fill answers the empty entry with the default for its position, which is
+  # the name the caller already used at position 1. The two labels are then
+  # identical, so `coef()` shows one name twice and `confint(m)["theta_2", ]`
+  # silently returns whichever row comes first. The fill declines to create
+  # that rather than leaving it to be found later.
+  expect_error(
+    default_param_names(c("theta_2", ""), 2),
+    class = "deli_param_name_collision"
+  )
+  # Which position the caller typed makes no difference, since the fill
+  # synthesizes the same name either way.
+  expect_error(
+    default_param_names(c("", "theta_1"), 2),
+    class = "deli_param_name_collision"
+  )
+})
+
+test_that("the collision report names the label, the position, and the remedy", {
+  err <- expect_error(default_param_names(c("theta_2", ""), 2))
+  # cli wraps a message at the console width, so a phrase can straddle a line
+  # break. Collapsing the whitespace keeps the assertions independent of where
+  # the break falls.
+  flat <- gsub("\\s+", " ", conditionMessage(err))
+
+  expect_match(flat, "theta_2", fixed = TRUE)
+  expect_match(flat, "position 2")
+  expect_match(flat, "every parameter")
+})
+
+test_that("default_param_names() keeps a repetition the caller typed out", {
+  # The refusal above is about what the fill would add. A caller who wrote the
+  # repetition out has said what they meant, and nothing is filled here, so
+  # both entries stand.
+  expect_equal(default_param_names(c("mu", "mu"), 2), c("mu", "mu"))
+  # Including where the repeated name is one the numbering would have supplied.
+  expect_equal(
+    default_param_names(c("theta_2", "theta_2"), 2),
+    c("theta_2", "theta_2")
+  )
+})
+
+test_that("default_param_names() allows a typed name that matches its position", {
+  # `theta_1` at position 1 is the label the fill would have put there anyway,
+  # so it repeats nothing and the remaining entries are filled as usual.
+  expect_equal(
+    default_param_names(c("theta_1", ""), 2),
+    c("theta_1", "theta_2")
+  )
+  expect_equal(
+    default_param_names(c("a", "", "theta_3"), 3),
+    c("a", "theta_2", "theta_3")
+  )
+})
+
 # Parameter names on fitted estimators -----------------------------------------
 
 test_that("estimate() fills the unnamed entries of a partially named init", {
@@ -454,6 +510,123 @@ test_that("names the caller typed on init may repeat", {
   expect_equal(names(coef(m)), c("mu", "mu"))
 })
 
+test_that("a fit named twice returns the first of the two rows by that name", {
+  # What a caller accepts by typing the repetition out, pinned as the boundary
+  # the refusal below must leave alone rather than as behavior to build on. It
+  # is the same silent selection that makes a repetition the fill would have
+  # created worth refusing.
+  y <- mean_variance_y()
+  m <- m_estimate(
+    stacked_equations = mean_variance_psi(y),
+    init = c(mu = 0, mu = 1)
+  )
+
+  expect_equal(dimnames(vcov(m)), list(c("mu", "mu"), c("mu", "mu")))
+  expect_equal(confint(m)["mu", ], confint(m)[1, ])
+})
+
+test_that("estimate() refuses an init whose fill would repeat a typed name", {
+  y <- mean_variance_y()
+
+  expect_error(
+    m_estimate(
+      stacked_equations = mean_variance_psi(y),
+      init = c(theta_2 = 0, 1)
+    ),
+    class = "deli_param_name_collision"
+  )
+})
+
+test_that("gmm_estimate() refuses the same init", {
+  # Both estimators label their results through resolve_param_names(), so the
+  # refusal reaches a GMM fit on the same terms.
+  y <- mean_variance_y()
+
+  expect_error(
+    gmm_estimate(
+      stacked_equations = mean_variance_psi(y),
+      init = c(theta_2 = 0, 1)
+    ),
+    class = "deli_param_name_collision"
+  )
+})
+
+test_that("a typed name matching its own position leaves the fit named", {
+  y <- mean_variance_y()
+  m <- m_estimate(
+    stacked_equations = mean_variance_psi(y),
+    init = c(theta_1 = 0, 1)
+  )
+
+  expect_equal(names(coef(m)), c("theta_1", "theta_2"))
+})
+
+test_that("an incomplete psi row-name vector cannot reach the fill", {
+  # The row-name channel carries a complete, distinct set of names or nothing
+  # at all, since psi_param_names() discards anything else whole. So no label
+  # that looks like a positional default reaches the fill through it, and a
+  # stack that labels only its first row is numbered rather than refused.
+  y <- mean_variance_y()
+  psi <- labelled_mean_variance_psi(y, labels = c("theta_2", ""))
+
+  expect_null(psi_param_names(psi(c(0, 1)), 2))
+
+  m <- m_estimate(stacked_equations = psi, init = c(0, 1))
+
+  expect_equal(names(coef(m)), c("theta_1", "theta_2"))
+})
+
+# ---- the frame the refusal reports -------------------------------------------
+#
+# The fill runs in a helper, several frames below the method the caller reached,
+# and that frame names the helper's own parameters rather than the `init` the
+# report is about. A fit names the method instead, the way the checks at the
+# initial values do. The print and summary paths reach the same fill from a
+# parameter vector renamed after the fit, where the frame doing the displaying
+# is not the one that set the names, so those report no call at all and nothing
+# below is pinned about them.
+
+reported_call <- function(err) {
+  paste(deparse(conditionCall(err)), collapse = " ")
+}
+
+test_that("a refused fit reports the MEstimator method the caller reached", {
+  y <- mean_variance_y()
+  err <- expect_error(
+    m_estimate(
+      stacked_equations = mean_variance_psi(y),
+      init = c(theta_2 = 0, 1)
+    ),
+    class = "deli_param_name_collision"
+  )
+
+  expect_match(
+    reported_call(err),
+    "method(estimate, deli::MEstimator)",
+    fixed = TRUE
+  )
+  expect_false(grepl("default_param_names", reported_call(err), fixed = TRUE))
+  expect_false(grepl("resolve_param_names", reported_call(err), fixed = TRUE))
+})
+
+test_that("a refused GMM fit reports the GMMEstimator method", {
+  y <- mean_variance_y()
+  err <- expect_error(
+    gmm_estimate(
+      stacked_equations = mean_variance_psi(y),
+      init = c(theta_2 = 0, 1)
+    ),
+    class = "deli_param_name_collision"
+  )
+
+  expect_match(
+    reported_call(err),
+    "method(estimate, deli::GMMEstimator)",
+    fixed = TRUE
+  )
+  expect_false(grepl("default_param_names", reported_call(err), fixed = TRUE))
+})
+
 # Parameter names on the formula interface -------------------------------------
 
 test_that("an unnamed init takes the model matrix column names", {
@@ -686,6 +859,40 @@ test_that("a GMM formula fit labels an unnamed init as well", {
   g <- gmm_estimate(y ~ x, data = d, .ee = ee_over, init = c(0, 0))
 
   expect_equal(names(coef(g)), c("(Intercept)", "x"))
+})
+
+test_that("a partially named init on the formula interface reaches the refusal", {
+  # The interface names an `init` carrying no names of its own, and
+  # design_param_names() answers with a complete set of column headings or with
+  # nothing, so the automatic route cannot produce a repetition. A partially
+  # named `init` is left as the caller wrote it and reaches the positional fill
+  # exactly as one on the function interface does.
+  expect_error(
+    m_estimate(
+      y ~ x,
+      data = formula_frame(),
+      .ee = ee_regression,
+      model = "linear",
+      init = c(theta_2 = 0, 0)
+    ),
+    class = "deli_param_name_collision"
+  )
+})
+
+test_that("model matrix column names cannot collide with the fill", {
+  # A design column the caller happened to call `theta_2` sits at position 2 of
+  # a complete set, so nothing is filled and nothing is repeated.
+  d <- formula_frame()
+  names(d)[names(d) == "x"] <- "theta_2"
+
+  m <- m_estimate(
+    y ~ theta_2,
+    data = d,
+    .ee = ee_regression,
+    model = "linear"
+  )
+
+  expect_equal(names(coef(m)), c("(Intercept)", "theta_2"))
 })
 
 # ee_*() functions and the naming channel --------------------------------------

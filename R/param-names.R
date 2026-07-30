@@ -1,3 +1,14 @@
+# ---- parameter-name conditions -----------------------------------------------
+# The abort raised while labeling a parameter vector carries a condition class,
+# so a caller or a test can match on the class rather than on the prose, as the
+# initial-value failures in `R/validation.R` do.
+#
+#   deli_param_name_collision
+#     The positional fill would give an unnamed parameter a name another
+#     parameter in the same vector already carries. Raised by
+#     default_param_names(), which is the one place a label no caller typed is
+#     created, and so the one place such a repetition can come from.
+
 #' Default names for a parameter vector
 #'
 #' Supplies the labels the estimators put on estimates, variance matrices, and
@@ -11,15 +22,33 @@
 #' giving `c("a", "theta_2", "theta_3")`. Without that, naming one parameter
 #' costs the labels of all the others.
 #'
+#' What the fill will not do is synthesize a name another parameter already
+#' carries. `init = c(theta_2 = 0, 1)` carries the names `c("theta_2", "")`, and
+#' the default for the empty entry is `theta_2`, the name position 1 was given.
+#' A repeated label is worse than no label, because `coef()` then shows one name
+#' twice and `confint(m)["theta_2", ]` silently returns whichever row comes
+#' first, so that fill is refused rather than performed. Only a repetition the
+#' fill would create is refused: one the caller typed out stands, for the reason
+#' `psi_param_names()` gives below. A name matching the default for its own
+#' position repeats nothing and is filled around as usual.
+#'
 #' The result always has `p` entries, whatever the length of `nm`, so a caller
 #' can label `p` parameters with it unconditionally.
 #'
 #' @param nm A character vector of names, or `NULL` when the parameters were
 #'   given none.
 #' @param p The number of parameters.
-#' @returns A character vector of length `p`.
+#' @param error_call The frame to report the refusal against. This function is
+#'   several frames below whatever the caller reached and names its own
+#'   parameters, so a fit passes the frame of the method that was called.
+#'   `NULL`, the default, reports no call, which is what the print and summary
+#'   paths leave: they reach the fill from a parameter vector renamed after the
+#'   fit, and the frame that displays a name is not the one that set it.
+#' @returns A character vector of length `p`. Raises an error carrying the class
+#'   `deli_param_name_collision` where the fill would repeat a name the vector
+#'   already holds.
 #' @noRd
-default_param_names <- function(nm, p) {
+default_param_names <- function(nm, p, error_call = NULL) {
   # sprintf() rather than paste0(), which treats a zero-length argument as ""
   # and would answer a zero-parameter fit with the single name "theta_".
   defaults <- sprintf("theta_%d", seq_len(p))
@@ -30,6 +59,28 @@ default_param_names <- function(nm, p) {
   # what follows works on exactly p entries.
   nm <- as.character(nm)[seq_len(p)]
   named <- !is.na(nm) & nzchar(nm)
+  # Judged over the whole vector before any of it is filled, so the report
+  # covers every position the numbering would repeat at rather than however many
+  # it had reached, and so a refused vector is left exactly as it arrived.
+  repeated <- which(!named & defaults %in% nm[named])
+  if (length(repeated) > 0L) {
+    # The positions are written out as strings because cli reads a single number
+    # as the quantity to pluralize on rather than counting the values it was
+    # given, so one collision at position 2 would be described in the plural.
+    positions <- as.character(repeated)
+    cli::cli_abort(
+      c(
+        "The unnamed parameters cannot be numbered without repeating a name.",
+        "x" = "The numbering would put {.val {defaults[repeated]}} at
+               position{?s} {positions}, and {?that name is/those names are}
+               already in use.",
+        "i" = "Name every parameter, or use names outside the
+               {.code theta_<i>} pattern the numbering follows."
+      ),
+      class = "deli_param_name_collision",
+      call = error_call
+    )
+  }
   defaults[named] <- nm[named]
   defaults
 }
@@ -63,10 +114,16 @@ default_param_names <- function(nm, p) {
 #' @param init_names The names of the estimator's `init`, or `NULL`.
 #' @param evald The estimating functions evaluated at the solved values.
 #' @param p The number of parameters.
+#' @param error_call The frame to report a refused fill against, passed through
+#'   to `default_param_names()`.
 #' @returns A character vector of length `p`.
 #' @noRd
-resolve_param_names <- function(init_names, evald, p) {
-  default_param_names(init_names %||% psi_param_names(evald, p), p)
+resolve_param_names <- function(init_names, evald, p, error_call = NULL) {
+  default_param_names(
+    init_names %||% psi_param_names(evald, p),
+    p,
+    error_call = error_call
+  )
 }
 
 #' Read parameter names off an estimating-function evaluation
