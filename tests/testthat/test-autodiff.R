@@ -2064,8 +2064,8 @@ test_that("row-name assignment records the labels on a shaped tangent container"
     expect_equal(as.vector(named$primal), as.vector(x$primal))
     expect_equal(as.vector(named$tangent), as.vector(x$tangent))
     # Assigning NULL to an unlabeled container returns within base R's own
-    # frame, before either setter is reached, which is why the
-    # `rownames(out) <- NULL` lines in R/ee-glm.R survive the exact pass.
+    # frame, before either setter is reached, so clearing labels a container
+    # never carried is the no-op it is on the numeric pass.
     expect_identical(base::`rownames<-`(x, NULL), x)
     # Clearing labels that were recorded drops them from both slots. base R
     # leaves the all-NULL list its own setter builds rather than removing the

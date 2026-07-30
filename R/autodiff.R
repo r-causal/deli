@@ -984,16 +984,14 @@ as.logical.PrimalTangentVector <- function(x, ...) {
 # scalar payload was the one shape a coercion could satisfy, since its primal is
 # already a plain double, and satisfying it dropped a live derivative with no
 # NA and no warning for any later rule to catch.
+#
+# This governs `as.numeric()` as well, which R dispatches through the
+# `as.double()` method table rather than one of its own. A method registered on
+# `as.numeric` would never be selected, so there is none.
 #' @export
 as.double.PrimalTangent <- function(x, ...) {
   pt_coercion_abort("numeric", c("as.numeric", "as.double"))
 }
-
-# R dispatches `as.numeric()` through the `as.double()` method table, so this
-# method is never reached and the rule above governs both spellings. Changing
-# the behavior here alone would have no effect.
-#' @export
-as.numeric.PrimalTangent <- function(x, ...) as.numeric(x$primal)
 
 # No tangent-carrying value has a representation in a plain numeric type that
 # keeps its derivative, so every coercion to one aborts rather than losing the
@@ -1153,7 +1151,16 @@ as.vector.PrimalTangentVector <- pt_vector_coercion
 # tangent is scalar-per-element, every linear operation (matrix product,
 # transpose, binding, reshaping, indexing) applies the same operation to both
 # slots, and elementwise arithmetic applies the usual differentiation rules.
-
+#
+# That the two slots match is held by construction rather than checked. Every
+# method that builds a container applies the same operation to both slots, so
+# the shapes cannot come apart, and a container is built once per operation on
+# the forward pass, which is the hot path of the whole differentiation. The one
+# tolerated departure is a scalar broadcast tangent standing for a vector or
+# matrix primal, which `pt_recycle_tangent()` grows to the primal's shape at the
+# points that need it shaped. It grows a short tangent only, so a tangent longer
+# than its primal is passed through untouched and would go on to be read
+# elementwise against a shorter primal. Nothing in the package constructs one.
 #' @noRd
 primal_tangent_array <- function(primal, tangent) {
   structure(
@@ -1514,8 +1521,9 @@ cbind <- function(..., deparse.level = 1) {
 # on anything with fewer than one dimension, so a PrimalTangentVector, and a
 # PrimalTangent whose primal is a plain vector, both raise the error that a plain
 # numeric vector raises on the numeric pass. Assigning `NULL` to an unlabeled
-# container returns earlier still and reaches neither setter, which is why the
-# `rownames(out) <- NULL` lines in `R/ee-glm.R` survive the exact pass.
+# container returns earlier still, within base R's own frame and before either
+# setter runs, so clearing labels a container never carried is the no-op it is on
+# the numeric pass.
 #
 # The reader is what lets a second assignment keep the first: base R's
 # `colnames<-` builds its replacement list from `dimnames(x)`, so labels that do
