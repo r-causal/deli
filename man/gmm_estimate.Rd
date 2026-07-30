@@ -22,7 +22,7 @@ gmm_estimate(stacked_equations, ...)
   deriv_method = "capprox",
   dx = 1e-09,
   allow_pinv = TRUE,
-  overid_maxiter = 10L,
+  overid_maxiter = 200L,
   overid_tolerance = 1e-09
 )
 
@@ -38,7 +38,7 @@ gmm_estimate(stacked_equations, ...)
   deriv_method = "capprox",
   dx = 1e-09,
   allow_pinv = TRUE,
-  overid_maxiter = 10L,
+  overid_maxiter = 200L,
   overid_tolerance = 1e-09
 )
 }
@@ -119,7 +119,10 @@ reduce it to nothing; see \code{\link[=approx_differentiation]{approx_differenti
 \code{TRUE}.}
 
 \item{overid_maxiter}{Integer maximum iterations for the two-step iterative
-procedure for over-identified problems. Default \code{10L}.}
+procedure for over-identified problems. Default \code{200L}. The update converges
+linearly rather than quadratically, so a well-identified system commonly
+needs tens of passes to reach \code{overid_tolerance} and a weakly identified one
+can need hundreds.}
 
 \item{overid_tolerance}{Numeric tolerance for convergence of the two-step
 iterative procedure. Default \code{1e-9}.}
@@ -168,14 +171,12 @@ ee_iv_moments <- function(theta, X, y, Z) {
 }
 
 # The formula interface reads the design and the starting values off the
-# model and passes anything else, here the instruments, on to `.ee`. The
-# two-step weight matrix update needs more than the default 10 iterations.
+# model and passes anything else, here the instruments, on to `.ee`.
 g <- gmm_estimate(
   Y ~ A - 1,
   data = d,
   .ee = ee_iv_moments,
-  Z = cbind(Z1, Z2),
-  overid_maxiter = 200L
+  Z = cbind(Z1, Z2)
 )
 
 # The instruments move the estimate toward the treatment effect of 2 that
@@ -194,8 +195,7 @@ psi_iv <- function(theta) {
 
 g2 <- gmm_estimate(
   stacked_equations = psi_iv,
-  init = c(effect = 0),
-  overid_maxiter = 200L
+  init = c(effect = 0)
 )
 coef(g2)
 }

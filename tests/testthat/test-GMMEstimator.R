@@ -51,7 +51,7 @@ test_that("GMMEstimator defaults are correct", {
   g <- GMMEstimator(stacked_equations = psi, init = c(0))
   expect_null(g@subset)
   expect_null(g@finite_correction)
-  expect_equal(g@overid_maxiter, 10L)
+  expect_equal(g@overid_maxiter, 200L)
   expect_equal(g@overid_tolerance, 1e-9)
 })
 
@@ -547,6 +547,141 @@ test_that("GMMEstimator signals over-identification non-convergence as a cli war
   )
 
   cnd <- rlang::catch_cnd(estimate(g), classes = "warning")
+  expect_s3_class(cnd, "rlang_warning")
+  expect_match(conditionMessage(cnd), "iterative GMM updating")
+})
+
+# ---- the default over-identification budget ----------------------------------
+#
+# The two-step weight update converges linearly, not quadratically. Measured on
+# well-specified linear IV systems the per-iteration error ratio runs between
+# 0.42 and 0.88, so reaching the default `overid_tolerance` of 1e-9 takes tens
+# of updates rather than the handful a budget of ten allows. Bisecting the
+# budget over a hundred seeds of the construction below puts the median at 17
+# updates and the worst case at 42, and four fifths of those seeds need more
+# than ten. A well-specified, well-identified fit that warns is reporting the
+# budget rather than anything about the data, so the default has to clear the
+# range the data actually needs.
+#
+# Three instruments for an intercept and a treatment effect: three moment
+# conditions for two parameters, over-identified by one. The instruments are
+# strong and the outcome model is correct, so nothing here is a specification
+# failure and the budget is the only thing that can stop the fit short.
+
+make_overid_iv_psi <- function(seed, n = 500) {
+  set.seed(seed)
+  instruments <- cbind(
+    stats::rbinom(n, 1, 0.5),
+    stats::rnorm(n),
+    stats::rnorm(n)
+  )
+  confounder <- stats::rnorm(n)
+  treatment <- as.numeric(instruments %*% rep(0.4, 3)) +
+    confounder +
+    stats::rnorm(n)
+  outcome <- 1 + 2 * treatment - confounder + stats::rnorm(n)
+  design <- cbind(1, treatment)
+  function(theta) {
+    t(instruments * as.numeric(outcome - design %*% theta))
+  }
+}
+
+overid_iv_init <- c(intercept = 0, effect = 0)
+
+# Seeds of that construction whose updating loop needs 32, 26 and 24 updates to
+# settle, measured by bisecting `overid_maxiter` against the real fit. All three
+# are inside any budget the measurements support and outside a budget of ten.
+slow_overid_seeds <- c(3L, 11L, 12L)
+
+test_that("the default overid_maxiter clears what a well-specified fit needs", {
+  # The measured worst case over a hundred seeds is 42 updates, and a weakly
+  # identified system can want several hundred, so the default is set well above
+  # the range a well-identified fit occupies rather than at the edge of it.
+  psi <- function(theta) {
+    y <- c(1, 2, 3)
+    matrix(y - theta[1], nrow = 1)
+  }
+  expect_identical(
+    GMMEstimator(stacked_equations = psi, init = c(0))@overid_maxiter,
+    200L
+  )
+  expect_identical(formals(gmm_estimate.default)$overid_maxiter, quote(200L))
+  expect_identical(formals(gmm_estimate.formula)$overid_maxiter, quote(200L))
+})
+
+test_that("a well-specified over-identified fit is silent at the default budget", {
+  for (seed in slow_overid_seeds) {
+    psi <- make_overid_iv_psi(seed)
+    expect_no_warning(
+      gmm_estimate(stacked_equations = psi, init = overid_iv_init)
+    )
+  }
+})
+
+test_that("the default budget reaches the same fit as a generous one", {
+  # Silence on its own would be satisfied by loosening the tolerance, so the
+  # point the default lands on is compared with the point a budget nobody
+  # doubts lands on, to the last bit rather than to a tolerance.
+  for (seed in slow_overid_seeds) {
+    psi <- make_overid_iv_psi(seed)
+    at_default <- expect_no_warning(
+      gmm_estimate(stacked_equations = psi, init = overid_iv_init)
+    )
+    generous <- gmm_estimate(
+      stacked_equations = psi,
+      init = overid_iv_init,
+      overid_maxiter = 400L
+    )
+    expect_identical(at_default@theta, generous@theta)
+    expect_identical(at_default@variance, generous@variance)
+    expect_identical(at_default@weight_matrix, generous@weight_matrix)
+  }
+})
+
+test_that("the over-identified IV system of the examples is silent at the default", {
+  # The system the `gmm_estimate()` examples fit, which needs 26 updates and so
+  # passed an explicit `overid_maxiter` to stay quiet.
+  set.seed(42)
+  n <- 200
+  z1 <- stats::rbinom(n, 1, 0.5)
+  z2 <- stats::rnorm(n)
+  confounder <- stats::rnorm(n)
+  treatment <- 0.5 * z1 + 0.3 * z2 + confounder + stats::rnorm(n)
+  outcome <- 2 * treatment - confounder + stats::rnorm(n)
+  psi <- function(theta) {
+    residual <- outcome - theta[1] * treatment
+    rbind(z1 * residual, z2 * residual)
+  }
+  expect_no_warning(gmm_estimate(
+    stacked_equations = psi,
+    init = c(effect = 0)
+  ))
+})
+
+test_that("an updating loop that does not settle still warns at the default", {
+  # Raising the budget cannot cure weak identification: the same construction
+  # with instruments a tenth as strong takes several hundred updates to settle,
+  # or never settles, and saying so is the warning's job.
+  set.seed(1)
+  n <- 300
+  instruments <- cbind(
+    stats::rbinom(n, 1, 0.5),
+    stats::rnorm(n),
+    stats::rnorm(n)
+  )
+  confounder <- stats::rnorm(n)
+  treatment <- as.numeric(instruments %*% rep(0.05, 3)) +
+    confounder +
+    stats::rnorm(n)
+  outcome <- 1 + 2 * treatment - confounder + stats::rnorm(n)
+  design <- cbind(1, treatment)
+  psi <- function(theta) {
+    t(instruments * as.numeric(outcome - design %*% theta))
+  }
+  cnd <- rlang::catch_cnd(
+    gmm_estimate(stacked_equations = psi, init = overid_iv_init),
+    classes = "warning"
+  )
   expect_s3_class(cnd, "rlang_warning")
   expect_match(conditionMessage(cnd), "iterative GMM updating")
 })

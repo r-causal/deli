@@ -19,7 +19,10 @@
 #' @param finite_correction Character string for finite-sample correction
 #'   (e.g., `"HC1"`), or `NULL` (default) for no correction.
 #' @param overid_maxiter Integer maximum iterations for the two-step iterative
-#'   procedure for over-identified problems. Default `10L`.
+#'   procedure for over-identified problems. Default `200L`. The update converges
+#'   linearly rather than quadratically, so a well-identified system commonly
+#'   needs tens of passes to reach `overid_tolerance` and a weakly identified one
+#'   can need hundreds.
 #' @param overid_tolerance Numeric tolerance for convergence of the two-step
 #'   iterative procedure for over-identified problems. Default `1e-9`.
 #'
@@ -69,7 +72,7 @@ GMMEstimator <- new_class(
   properties = list(
     overid_maxiter = new_property(
       class = class_integer,
-      default = 10L
+      default = 200L
     ),
     overid_tolerance = new_property(
       class = class_numeric,
@@ -85,7 +88,7 @@ GMMEstimator <- new_class(
     init,
     subset = NULL,
     finite_correction = NULL,
-    overid_maxiter = 10L,
+    overid_maxiter = 200L,
     overid_tolerance = 1e-9
   ) {
     check_estimator_init(init)

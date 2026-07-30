@@ -9,7 +9,7 @@ GMMEstimator(
   init,
   subset = NULL,
   finite_correction = NULL,
-  overid_maxiter = 10L,
+  overid_maxiter = 200L,
   overid_tolerance = 1e-09
 )
 }
@@ -33,7 +33,10 @@ row names of \code{stacked_equations}.}
 (e.g., \code{"HC1"}), or \code{NULL} (default) for no correction.}
 
 \item{overid_maxiter}{Integer maximum iterations for the two-step iterative
-procedure for over-identified problems. Default \code{10L}.}
+procedure for over-identified problems. Default \code{200L}. The update converges
+linearly rather than quadratically, so a well-identified system commonly
+needs tens of passes to reach \code{overid_tolerance} and a weakly identified one
+can need hundreds.}
 
 \item{overid_tolerance}{Numeric tolerance for convergence of the two-step
 iterative procedure for over-identified problems. Default \code{1e-9}.}
