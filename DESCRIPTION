@@ -39,6 +39,9 @@ VignetteBuilder:
 Config/Needs/website: ggplot2, quarto, reticulate
 Config/roxygen2/version: 8.0.0
 Config/testthat/edition: 3
+Config/testthat/parallel: true
+Config/testthat/start-first: confidence-bands, autodiff, predictions,
+    estimate-solvers, validation, formula-interface
 Encoding: UTF-8
 Language: en-US
 LazyData: true
