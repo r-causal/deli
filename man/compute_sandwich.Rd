@@ -51,10 +51,17 @@ estimate, so a large parameter magnitude cannot silently reduce it to
 nothing; see \code{\link[=approx_differentiation]{approx_differentiation()}}.}
 
 \item{allow_pinv}{Logical. When \code{TRUE} (default), the Moore-Penrose
-pseudo-inverse is used if the bread matrix has no inverse, which is the
-case for the rectangular bread of an over-identified system as well as for
-a singular square one; when \code{FALSE}, a bread with no inverse raises an
-error.}
+pseudo-inverse is used where the bread matrix cannot be solved, which is
+the case for the rectangular bread of an over-identified system as well as
+for a square one whose solve fails; when \code{FALSE}, a bread with no inverse
+raises an error carrying the class \code{deli_bread_not_invertible}.
+
+What the two settings choose between is what to do when the solve fails,
+and nothing else: a bread the solve inverts is inverted under either. An
+ill-conditioned bread that base R returns an inverse for is one of those,
+however far its condition number runs, so \code{allow_pinv = FALSE} is not a
+conditioning test and a caller who wants one applies it to the returned
+matrix.}
 
 \item{finite_correction}{Character string or \code{NULL}. Finite-sample correction
 applied to the meat matrix. \code{NULL} (default) applies no correction; \code{"HC1"}
@@ -115,8 +122,9 @@ A covariance matrix is the only thing this function returns. Where the
 bread has no inverse, and so no sandwich can be assembled from it, the call
 raises an error carrying the class \code{deli_bread_not_invertible} rather than
 returning something that has to be tested for. That covers a bread holding
-\code{NA}, and, under \code{allow_pinv = FALSE}, a rectangular or a rank-deficient
-one. \code{\link[=estimate]{estimate()}} makes the other choice from the same matrices: a fit whose
+\code{NA}, and, under \code{allow_pinv = FALSE}, a rectangular bread and one the
+solve could not invert. \code{\link[=estimate]{estimate()}} makes the other choice from the same
+matrices: a fit whose
 bread holds \code{NA} warns and comes back with no variance, since it still
 carries the estimates.
 }

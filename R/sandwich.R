@@ -326,8 +326,17 @@ build_sandwich <- function(
       }
     )
   } else {
-    check_bread_invertible(bread, call = call)
-    bread_inv <- solve(bread)
+    # The shape is read ahead of the solve because it is not a question the
+    # solve can answer usefully: base R reports a rectangular bread as
+    # `'a' (2 x 1) must be square`, naming an argument of its own, and an
+    # over-identified system has a remedy of its own to be told about. Whether a
+    # square bread has an inverse is left to the solve, which is the whole of
+    # what that question means here.
+    check_bread_square(bread, call = call)
+    bread_inv <- tryCatch(
+      solve(bread),
+      error = function(e) abort_bread_not_invertible(bread, call = call)
+    )
   }
 
   # Sandwich: B^{-1} M (B^{-1})^T
@@ -348,8 +357,10 @@ build_sandwich <- function(
 #   deli_bread_not_invertible
 #     The bread cannot be inverted and the caller refused the pseudo-inverse, or
 #     asked for a matrix and there is none to give. Raised by
-#     check_bread_invertible() for a rectangular or a rank-deficient bread under
-#     `allow_pinv = FALSE`, and by compute_sandwich() for a bread holding `NA`.
+#     check_bread_square() for a rectangular bread under `allow_pinv = FALSE`,
+#     by abort_bread_not_invertible() where the solve of a square one fails
+#     under the same setting, and by compute_sandwich() for a bread holding
+#     `NA`.
 #
 #   deli_meat_not_invertible
 #     The covariance of the moment conditions cannot be inverted and the caller
@@ -357,82 +368,132 @@ build_sandwich <- function(
 #     weight matrix to take. Raised by abort_meat_not_invertible(), from the
 #     update in estimate_gmm_estimator().
 
-#' Check that a bread matrix can be inverted without the pseudo-inverse
+#' Refuse a bread that has no inverse at any rank
 #'
-#' `allow_pinv = FALSE` says a bread that has no inverse is to be refused rather
-#' than pseudo-inverted, and leaving that to [base::solve()] did not deliver it.
-#' Two breads got through.
+#' A rectangular bread is the over-identified GMM system, whose bread has no
+#' inverse however well conditioned it is, and base R reported it as
+#' `'a' (2 x 1) must be square`, naming an argument of its own. It is refused
+#' here with the reason it has no inverse and the setting that would accept one.
 #'
-#' A rectangular bread is the over-identified GMM system, which has no inverse at
-#' any rank, and base R reported it as `'a' (2 x 1) must be square`, naming an
-#' argument of its own. It is refused here with the reason it has no inverse and
-#' the setting that would accept one.
-#'
-#' A square bread that is rank deficient has no inverse either, but a
-#' finite-difference Jacobian does not reproduce the dependence exactly: the
-#' round-off in the difference quotient perturbs the dependent row, and a bread
-#' whose rank is short by one can still clear the reciprocal-condition tolerance
-#' `solve()` applies and come back with finite standard errors that carry no
-#' information about the parameters the design cannot tell apart. The rank is
-#' therefore read directly, with `rank_deficient()`, which is the same reading
-#' `not_identified()` makes of the same matrix when a fit reports that its
-#' parameters are not identified. Its criterion is the rank `qr()` returns, whose
-#' tolerance is `1e-7` relative to the largest pivot, so a bread whose condition
-#' number runs past roughly `1e7` is counted as singular. That is strict for a
-#' matrix that is merely ill conditioned, and deliberately so: `allow_pinv =
-#' FALSE` is an explicit request to be told rather than to be given an answer,
-#' and the alternative reading, waiting for `solve()` to fail, is what let the
-#' rank-deficient case through.
-#'
-#' A bread holding values that are not finite is not read here. `qr()` cannot
-#' factor one, and `build_sandwich()` has already returned for a bread holding
-#' `NA`.
+#' This is the whole of what is read ahead of the solve. Whether a square bread
+#' can be inverted is what the solve answers, and answering it another way is
+#' answering a different question: the rank `qr()` returns is read at a
+#' tolerance of `1e-7` relative to the largest pivot, so reading it here refused
+#' every bread whose condition number runs past roughly `1e7`, including the
+#' ones base R inverts and the caller has a more discriminating gate of their
+#' own for. deli's contract is solve-or-fail, and `solve()` fails at a
+#' reciprocal condition number near the resolution of a double. See
+#' `abort_bread_not_invertible()`, which is what the failure reaches.
 #'
 #' @param bread The bread matrix, with one row per estimating equation and one
 #'   column per parameter.
 #' @param call The frame to report the error against.
 #'
 #' @returns Invisible `NULL`. Raises an error carrying the class
-#'   `deli_bread_not_invertible` where the bread has no inverse.
+#'   `deli_bread_not_invertible` where the bread is not square.
 #' @noRd
-check_bread_invertible <- function(bread, call = rlang::caller_env()) {
+check_bread_square <- function(bread, call = rlang::caller_env()) {
   n_eqs <- nrow(bread)
   n_params <- ncol(bread)
-  if (n_eqs != n_params) {
-    cli::cli_abort(
-      c(
-        "!" = "The bread matrix has {n_eqs} row{?s} and {n_params} column{?s},
-               so it has no inverse.",
-        "i" = "An over-identified system has more estimating equations than
-               parameters, and its rectangular bread is pseudo-inverted rather
-               than solved.",
-        "i" = "Set {.code allow_pinv = TRUE} to build the variance from the
-               Moore-Penrose pseudo-inverse, which is what an over-identified
-               fit reports."
-      ),
-      class = "deli_bread_not_invertible",
-      call = call
-    )
+  if (n_eqs == n_params) {
+    return(invisible(NULL))
   }
-  if (rank_deficient(bread)) {
-    rank <- qr(bread)$rank
-    cli::cli_abort(
-      c(
-        "!" = "The bread matrix is singular, and {.arg allow_pinv} is
-               {.code FALSE}.",
-        "i" = "Its rank is {rank} of {n_params}, so at least one direction in
-               the parameter space leaves the mean estimating equations
-               unchanged and the parameters along it cannot be told apart.",
-        "i" = "Set {.code allow_pinv = TRUE} to build the variance from the
-               Moore-Penrose pseudo-inverse, or check the estimating equations
-               for a redundant parameter and the design for linearly dependent
-               columns."
-      ),
-      class = "deli_bread_not_invertible",
-      call = call
+  cli::cli_abort(
+    c(
+      "!" = "The bread matrix has {n_eqs} row{?s} and {n_params} column{?s},
+             so it has no inverse.",
+      "i" = "An over-identified system has more estimating equations than
+             parameters, and its rectangular bread is pseudo-inverted rather
+             than solved.",
+      "i" = "Set {.code allow_pinv = TRUE} to build the variance from the
+             Moore-Penrose pseudo-inverse, which is what an over-identified
+             fit reports."
+    ),
+    class = "deli_bread_not_invertible",
+    call = call
+  )
+}
+
+#' Refuse a bread the solve could not invert
+#'
+#' The counterpart of `abort_meat_not_invertible()` for the other half of the
+#' sandwich, and raised the same way: where the solve fails rather than ahead of
+#' it. That is what makes the refusal cover both ways a bread defeats the
+#' inverse, and only those ways. Linearly dependent estimating equations are the
+#' usual one and the factorization names the directions. The other is a bread
+#' whose columns are independent to the factorization's tolerance and whose
+#' scales differ by more than the reciprocal condition number `solve()` accepts,
+#' which a rank reading cannot see at all.
+#'
+#' What a rank reading ahead of the solve sees instead is every bread whose
+#' condition number runs past roughly `1e7`, since that is where the `1e-7`
+#' tolerance `qr()` applies falls. A finite-difference Jacobian of a system with
+#' a dependent direction lands there routinely: the round-off in the difference
+#' quotient perturbs the dependent row, so the matrix reads as rank deficient and
+#' inverts without complaint. Refusing it took the reading out of the caller's
+#' hands, and the caller's own is the more discriminating one. A dependence
+#' confined to a nuisance block leaves the effects a fit reports identified to
+#' every digit they had, and a fit is still told about the dependence: see
+#' `not_identified()`, which reads the same matrix at the same tolerance and
+#' warns rather than refusing to return a variance.
+#'
+#' The rank is read here, on the path where the matrix has already been found to
+#' have no inverse, because it is what says which directions were lost and it
+#' costs one factorization of a matrix the call is about to abandon.
+#'
+#' @param bread The bread matrix the solve could not invert.
+#' @param call The frame to report the error against.
+#'
+#' @returns Nothing; it throws.
+#' @noRd
+abort_bread_not_invertible <- function(bread, call = rlang::caller_env()) {
+  n_params <- ncol(bread)
+  if (!all(is.finite(bread))) {
+    detail <- c(
+      "i" = "It holds values that are not finite, so it has no inverse and no
+             factorization to read one from."
     )
+  } else {
+    factored <- qr(bread)
+    if (factored$rank < n_params) {
+      # The directions are named by the pivoting `qr()` does, which drops one
+      # column per lost direction and reports which. Those are the parameters
+      # the remaining ones already account for rather than the ones at fault:
+      # a dependence is a property of a set, and which member of the set is
+      # named is the factorization's choice. The positions are written out as
+      # strings, and the count stated with `qty()`, for the reason
+      # `warn_dependent_moments()` writes its own out: cli would otherwise read
+      # a single number as the quantity to pluralize on.
+      dependent <- as.character(sort(factored$pivot[-seq_len(factored$rank)]))
+      detail <- c(
+        "i" = "Its rank is {factored$rank} of {n_params}, so it is singular: at
+               least one direction in the parameter space leaves the mean
+               estimating equations unchanged, and the parameters along it
+               cannot be told apart.",
+        "i" = "{cli::qty(dependent)}Parameter{?s} {dependent} {?is/are}
+               accounted for by the others."
+      )
+    } else {
+      detail <- c(
+        "i" = "It factors at full rank, so no direction in the parameter space
+               is accounted for by the others, and what defeats the inverse is
+               the range of scale across them."
+      )
+    }
   }
-  invisible(NULL)
+  cli::cli_abort(
+    c(
+      "!" = "The bread matrix cannot be inverted, and {.arg allow_pinv} is
+             {.code FALSE}.",
+      detail,
+      "i" = "Set {.code allow_pinv = TRUE} to build the variance from the
+             Moore-Penrose pseudo-inverse, or look for a redundant parameter, a
+             design whose columns are linearly dependent, and an estimating
+             equation whose scale stands far from the rest."
+    ),
+    class = "deli_bread_not_invertible",
+    call = call
+  )
 }
 
 #' Refuse a moment covariance that has no inverse
@@ -794,10 +855,17 @@ check_summed_agreement <- function(
 #'   estimate, so a large parameter magnitude cannot silently reduce it to
 #'   nothing; see [approx_differentiation()].
 #' @param allow_pinv Logical. When `TRUE` (default), the Moore-Penrose
-#'   pseudo-inverse is used if the bread matrix has no inverse, which is the
-#'   case for the rectangular bread of an over-identified system as well as for
-#'   a singular square one; when `FALSE`, a bread with no inverse raises an
-#'   error.
+#'   pseudo-inverse is used where the bread matrix cannot be solved, which is
+#'   the case for the rectangular bread of an over-identified system as well as
+#'   for a square one whose solve fails; when `FALSE`, a bread with no inverse
+#'   raises an error carrying the class `deli_bread_not_invertible`.
+#'
+#'   What the two settings choose between is what to do when the solve fails,
+#'   and nothing else: a bread the solve inverts is inverted under either. An
+#'   ill-conditioned bread that base R returns an inverse for is one of those,
+#'   however far its condition number runs, so `allow_pinv = FALSE` is not a
+#'   conditioning test and a caller who wants one applies it to the returned
+#'   matrix.
 #' @param finite_correction Character string or `NULL`. Finite-sample correction
 #'   applied to the meat matrix. `NULL` (default) applies no correction; `"HC1"`
 #'   rescales the meat by \eqn{n / (n - p)}, where p is the number of parameters.
@@ -854,8 +922,9 @@ check_summed_agreement <- function(
 #'   bread has no inverse, and so no sandwich can be assembled from it, the call
 #'   raises an error carrying the class `deli_bread_not_invertible` rather than
 #'   returning something that has to be tested for. That covers a bread holding
-#'   `NA`, and, under `allow_pinv = FALSE`, a rectangular or a rank-deficient
-#'   one. [estimate()] makes the other choice from the same matrices: a fit whose
+#'   `NA`, and, under `allow_pinv = FALSE`, a rectangular bread and one the
+#'   solve could not invert. [estimate()] makes the other choice from the same
+#'   matrices: a fit whose
 #'   bread holds `NA` warns and comes back with no variance, since it still
 #'   carries the estimates.
 #'

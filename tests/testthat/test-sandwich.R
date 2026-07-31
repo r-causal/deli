@@ -1062,13 +1062,20 @@ test_that("estimate() still reports an NA bread as a fit with no variance", {
   expect_null(fit@variance)
 })
 
+# ---- the rank reading is the caller's, not the sandwich's ---------------------
+#
+# `allow_pinv = FALSE` says a bread that has no inverse is to be refused rather
+# than pseudo-inverted, and what has no inverse is decided by the solve. A rank
+# read ahead of it, at the 1e-7 relative tolerance `qr()` applies, refuses far
+# more than that: a bread whose condition number runs past roughly 1e7 has an
+# inverse, and base R hands it over, and a caller applying a more discriminating
+# gate of their own never reached it.
+
 # A design whose fourth column is the sum of two others is rank deficient
-# analytically, and the bread of a logistic fit on it is rank deficient too. The
-# finite differences do not reproduce that exactly, though: the round-off in the
-# difference quotient perturbs the dependent row enough to clear the tolerance
-# base R's solve() applies, so `allow_pinv = FALSE` inverted a matrix of
-# condition number 1e7 and returned standard errors that carry no information
-# about the parameters the design cannot tell apart.
+# analytically, and the bread of a logistic fit on it is read as rank deficient
+# too. The finite differences do not reproduce the dependence exactly, though:
+# the round-off in the difference quotient perturbs the dependent row enough
+# that `solve()` inverts the matrix without complaint.
 collinear_sandwich_case <- function() {
   set.seed(1)
   n <- 200
@@ -1084,31 +1091,127 @@ collinear_sandwich_case <- function() {
   )
 }
 
-test_that("a rank-deficient bread solve() accepts is refused without pinv", {
+test_that("a bread solve() inverts is not refused for its rank reading", {
   case <- collinear_sandwich_case()
   bread <- compute_bread(case$psi, case$theta) / 200
 
-  # The premise: base R inverts this bread without complaint, so nothing but a
-  # rank reading stands between the caller and a finite answer.
-  expect_no_error(solve(bread))
+  # The premise: `qr()` reads this bread as rank deficient at its own tolerance,
+  # and base R inverts it without complaint.
   expect_lt(qr(bread)$rank, ncol(bread))
+  expect_no_error(solve(bread))
+
+  expect_no_error(
+    compute_sandwich(case$psi, theta = case$theta, allow_pinv = FALSE)
+  )
+})
+
+test_that("the same bread reaches no pseudo-inverse when one is allowed", {
+  case <- collinear_sandwich_case()
+
+  # `allow_pinv = TRUE` reaches `MASS::ginv()` only where `solve()` fails, and
+  # it does not fail here, so the setting makes no difference to what comes
+  # back.
+  expect_identical(
+    compute_sandwich(case$psi, theta = case$theta, allow_pinv = FALSE),
+    compute_sandwich(case$psi, theta = case$theta)
+  )
+})
+
+# A stacked system whose reported block is well conditioned and whose nuisance
+# block carries the dependent column above. The two blocks share no parameters,
+# so the bread is block diagonal and the reported block of the sandwich is the
+# sandwich of the reported equations on their own. That is the shape the rank
+# pre-check was measured costing: the whole matrix reads as rank deficient, the
+# effects the caller reports are identified to every digit they had, and the
+# refusal named a direction nobody was asking about.
+nuisance_collinear_case <- function() {
+  set.seed(4)
+  n <- 300
+  w <- stats::rnorm(n, 3, 2)
+  x1 <- stats::rnorm(n)
+  x2 <- stats::rnorm(n)
+  y <- stats::rbinom(n, 1, 1 / (1 + exp(-(0.5 + 0.8 * x1))))
+  X <- cbind(1, x1, x2, x1 + x2)
+  list(
+    n = n,
+    psi = function(theta) {
+      rbind(
+        ee_mean_variance(theta[1:2], y = w),
+        ee_regression(theta[3:6], X = X, y = y, model = "logistic")
+      )
+    },
+    reported = function(theta) ee_mean_variance(theta, y = w),
+    theta = c(mean(w), stats::var(w) * (n - 1) / n, 0.5, 0.4, 0, 0)
+  )
+}
+
+test_that("a bread whose dependence sits in a nuisance block is inverted", {
+  skip_if_not_installed("MASS")
+  case <- nuisance_collinear_case()
+  bread <- compute_bread(case$psi, case$theta) / case$n
+
+  expect_lt(qr(bread)$rank, ncol(bread))
+  expect_no_error(solve(bread))
+
+  sandwich <- compute_sandwich(
+    case$psi,
+    theta = case$theta,
+    allow_pinv = FALSE
+  )
+  reported <- sandwich[1:2, 1:2]
+
+  # Against the pseudo-inverse the same call would have taken with
+  # `allow_pinv = TRUE`, had the solve failed.
+  meat <- compute_meat(case$psi(case$theta)) / case$n
+  pinv <- MASS::ginv(bread)
+  expect_equal(
+    reported,
+    (pinv %*% meat %*% t(pinv))[1:2, 1:2],
+    tolerance = 1e-10
+  )
+
+  # And against the fit of the reported equations alone, which is the full-rank
+  # system the nuisance block was stacked onto.
+  expect_equal(
+    reported,
+    compute_sandwich(case$reported, theta = case$theta[1:2]),
+    tolerance = 1e-10
+  )
+})
+
+test_that("an exactly singular bread is still refused without the pinv", {
+  # The second equation does not move when either parameter does, so its row of
+  # the bread is zero however the difference quotient rounds, and `solve()`
+  # fails on the matrix outright.
+  psi <- function(theta) rbind(c(1, 2, 3) - theta[1], rep(0, 3))
 
   err <- expect_error(
-    compute_sandwich(case$psi, theta = case$theta, allow_pinv = FALSE),
+    compute_sandwich(psi, theta = c(2, 0), allow_pinv = FALSE),
     class = "deli_bread_not_invertible"
   )
 
   expect_match(conditionMessage(err), "singular")
   expect_match(conditionMessage(err), "allow_pinv")
+  # The rank reading is made on the failure path, where it says which
+  # directions the matrix lost rather than whether to refuse at all.
+  expect_match(conditionMessage(err), "rank is 1 of 2", fixed = TRUE)
 })
 
-test_that("the same rank-deficient bread is pseudo-inverted when allowed", {
-  skip_if_not_installed("MASS")
-  case <- collinear_sandwich_case()
+test_that("a bread whose columns differ only in scale is refused by name", {
+  # Columns that are independent to the factorization's tolerance and whose
+  # scales differ by more than the reciprocal condition number `solve()`
+  # accepts. Nothing is rank deficient here, so the refusal has no direction to
+  # name and says what it does know.
+  bread <- diag(c(1, 1e-300))
+  meat <- diag(2)
 
-  sandwich <- compute_sandwich(case$psi, theta = case$theta)
+  err <- expect_error(
+    build_sandwich(bread, meat, allow_pinv = FALSE),
+    class = "deli_bread_not_invertible"
+  )
 
-  expect_equal(dim(sandwich), c(4L, 4L))
+  expect_match(conditionMessage(err), "full rank", fixed = TRUE)
+  expect_match(conditionMessage(err), "allow_pinv")
 })
 
 test_that("a rectangular bread is refused with the pseudo-inverse named", {
