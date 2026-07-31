@@ -936,6 +936,43 @@ test_that("a singular moment covariance is classed under allow_pinv = FALSE", {
   expect_false(grepl("reciprocal condition number", flat, fixed = TRUE))
 })
 
+test_that("the singular-meat abort reports the method the caller reached", {
+  # The refusal is about a setting the caller passed, so it names the frame of
+  # the method that was called. That frame is read where the fallback is set up
+  # rather than inside the `tryCatch()` handler, because one frame up from a
+  # handler is the handler's own rather than the method's caller. Only this
+  # pins the placement: the class and the wording both survive the move, so a
+  # frame read in the wrong place would report a call no caller wrote and
+  # nothing else would notice.
+  set.seed(13)
+  n <- 120
+  z1 <- stats::rnorm(n)
+  z2 <- stats::rnorm(n)
+  a <- z1 + 0.5 * z2 + stats::rnorm(n)
+  y <- 2 * a + stats::rnorm(n)
+
+  psi <- function(theta) {
+    resid <- y - theta[1] * a
+    rbind(z1 * resid, z1 * resid, z2 * resid)
+  }
+
+  g <- GMMEstimator(stacked_equations = psi, init = 0)
+  err <- expect_error(
+    estimate(g, allow_pinv = FALSE),
+    class = "deli_meat_not_invertible"
+  )
+
+  reported <- paste(deparse(conditionCall(err)), collapse = " ")
+  # The generic the caller typed, and the setting the refusal is about, both
+  # stand in the reported call.
+  expect_match(reported, "estimate", fixed = TRUE)
+  expect_match(reported, "allow_pinv = FALSE", fixed = TRUE)
+  # The frames a handler-side read would have named instead.
+  expect_false(grepl("tryCatch", reported, fixed = TRUE))
+  expect_false(grepl("doTryCatch", reported, fixed = TRUE))
+  expect_false(grepl("abort_meat_not_invertible", reported, fixed = TRUE))
+})
+
 test_that("the dependent-moment report degrades where qr sees full rank", {
   # `warn_dependent_moments()` is reached whenever `solve()` fails, and it
   # assumed that a failed solve means a rank-deficient factorization. A

@@ -835,10 +835,13 @@ error_looks_length_related <- function(cnd) {
 #     `theta`, `X`, or the one the response is passed to.
 #
 #   deli_formula_ee_lookup_error
-#     `.ee` arrived as a character vector that names no one function, either
-#     because no function of that name exists or because the vector is not of
-#     length one. Raised at the point the name is resolved, in
-#     prepare_formula_psi().
+#     `.ee` is neither a function nor the name of one. Three faults carry the
+#     class: a value of some other type entirely, a character vector that names
+#     no function, and a character vector that is not of length one. All are
+#     raised in prepare_formula_psi(), the type ahead of the two lookups because
+#     the checks that follow read arguments a value of another type has none of.
+#     A handler that reads the name off the condition has to allow for the first,
+#     where there is no name to read.
 #
 #   deli_formula_auto_init_error
 #     The automatic `init` does not fit the estimating equation. Raised by
@@ -870,7 +873,9 @@ error_looks_length_related <- function(cnd) {
 #'
 #' @returns Invisible `NULL`. Raises an error carrying the class
 #'   `deli_formula_ee_signature_error` if an argument the interface fills has
-#'   nowhere to go.
+#'   nowhere to go, or if the equation writes formals after its `...`, which
+#'   the interface can reach by name only and so can never fill with the
+#'   positional response.
 #' @noRd
 check_formula_ee_signature <- function(
   .ee,
@@ -906,11 +911,15 @@ check_formula_ee_signature <- function(
     cli::cli_abort(
       c(
         "{equation} cannot be driven by a formula.",
-        "x" = "It has no argument left for the response, which is passed
-               positionally after {.arg theta} and {.arg X} and so reaches only
-               an argument written before {.arg ...}.",
-        "i" = "{.arg {trailing}} follow{?s} {.arg ...}, so {?it/they} can be
-               filled by name and by nothing else.",
+        "x" = "{.arg {trailing}} {?is/are} written after {.arg ...}, so
+               {?it/they} can be filled by name and by nothing else.",
+        "i" = "The response is passed positionally, after {.arg theta} and
+               {.arg X}, so it would fall into {.arg ...} and leave
+               {.arg {trailing}} unfilled.",
+        "i" = "An equation whose response argument is the one written there
+               would be fitted to no response at all. Nothing in the signature
+               tells such an argument from a tuning one, so the shape is
+               refused rather than guessed at.",
         "i" = "Move the response argument ahead of {.arg ...}, or fit the
                equation through the function interface by passing a function of
                {.arg theta} as {.arg stacked_equations}."

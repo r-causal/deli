@@ -26,13 +26,18 @@
 #'   failing on the summed equations. Leads `deli_psi_return_error`.
 #'
 #' @section The formula interface:
-#' - `deli_formula_ee_lookup_error`: `.ee` arrived as a character vector naming
-#'   no one function, either because no function of that name was found or
-#'   because the vector is not of length one.
+#' - `deli_formula_ee_lookup_error`: `.ee` is neither a function nor the name of
+#'   one. Either it arrived as some other type entirely, or it arrived as a
+#'   character vector naming no one function, because no function of that name
+#'   was found or because the vector is not of length one. A handler that means
+#'   to read the name it failed to resolve should confirm it has a character
+#'   vector first.
 #' - `deli_formula_ee_signature_error`: the arguments of `.ee` leave something
 #'   the interface fills nowhere to go: `theta`, the model matrix it passes as
 #'   `X`, the response it passes by position, or the offset an `offset()` term
-#'   in the formula supplies.
+#'   in the formula supplies. It also covers an equation that writes formals
+#'   after its `...`, which can be filled by name and by nothing else, so the
+#'   positional response would fall into the dots and leave them unfilled.
 #' - `deli_formula_ee_argument_error`: something in the `...` the caller wrote
 #'   cannot be forwarded to `.ee`. On its own it is a name matching no argument
 #'   of `.ee` exactly, which is what keeps an abbreviation from reaching an
