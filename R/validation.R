@@ -448,7 +448,16 @@ check_psi_at_init <- function(
   }
   # Last, so it reports a non-finite value only once the return is the right
   # shape and the value is the remaining explanation.
-  if (!all(is.finite(vals))) {
+  #
+  # The values are read in place rather than through `is.finite()`, which builds
+  # a logical the size of the whole return for a reading that needs no such
+  # object. `check_psi_at_theta()` reads the same values the same way, and the
+  # comment there sets out why the two forms refuse exactly the same returns.
+  no_extremes <- length(vals) == 0L
+  if (
+    anyNA(vals) ||
+      (!no_extremes && (is.infinite(max(vals)) || is.infinite(min(vals))))
+  ) {
     cli::cli_abort(
       c(
         "{.arg stacked_equations} returned non-finite values at the initial
