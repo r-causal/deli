@@ -77,7 +77,16 @@ took.
 Under \code{deriv_method = "exact"} the reduction is called with a
 tangent-carrying \code{theta}, so it must be written in operations that carry
 derivatives: \code{t(X) \%*\% r} does, and \code{\link[base:crossprod]{base::crossprod()}} does not. See
-\code{\link[=auto_differentiation]{auto_differentiation()}} for which operations carry a tangent and where.}
+\code{\link[=auto_differentiation]{auto_differentiation()}} for which operations carry a tangent and where.
+
+An argument that is neither \code{NULL} nor a function raises an error carrying
+the class \code{deli_summed_equations_error}, whatever \code{check_summed_equations}
+says. So does a return at \code{theta} that is not numeric, or one holding fewer
+values than there are parameters, both of which \code{\link[=compute_bread]{compute_bread()}} reads
+before it differentiates anything. That the return holds exactly one value
+per estimating equation is read by the comparison below, since only a call
+that has evaluated the estimating functions knows how many of them there
+are.}
 
 \item{check_summed_equations}{Logical. When \code{TRUE} (default) and
 \code{summed_equations} was supplied, its value at \code{theta} is compared against

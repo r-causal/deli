@@ -16,10 +16,15 @@
 #' @param summed_equations A function of `theta` returning the length-p vector of
 #'   row sums of `stacked_equations` at `theta`, or `NULL` (default) to derive
 #'   that reduction from the full p-by-n return. See [compute_sandwich()] for
-#'   what a supplied reduction saves and what it must satisfy. This function
-#'   evaluates nothing else, so it has nothing to check a supplied reduction
-#'   against and takes it on trust: a reduction that sums some other system
-#'   returns the Jacobian of that other system, with nothing to say so.
+#'   what a supplied reduction saves and what it must satisfy.
+#'
+#'   Anything that is neither `NULL` nor a function, and any return at `theta`
+#'   that is not numeric or holds fewer values than there are parameters, raises
+#'   an error carrying the class `deli_summed_equations_error`. The values
+#'   themselves are taken on trust: this function evaluates the estimating
+#'   equations nowhere, so it has nothing to compare them against, and a
+#'   reduction that sums some other system returns the Jacobian of that other
+#'   system with nothing to say so.
 #'
 #' @returns The negated Jacobian of the summed estimating equations, with one
 #'   row per estimating equation and one column per parameter. That is p-by-p
@@ -43,6 +48,7 @@ compute_bread <- function(
   summed_equations = NULL
 ) {
   deriv_method <- check_deriv_method(deriv_method)
+  check_summed_function(summed_equations)
 
   # Sum the estimating equations across observations
   derived_summed_ee <- function(input_theta) {
@@ -135,6 +141,19 @@ compute_bread <- function(
   # the derived reduction is the same closure it always was, so a call that
   # supplies nothing differentiates exactly what it differentiated before.
   summed_ee <- summed_equations %||% derived_summed_ee
+
+  # One plain evaluation of a supplied reduction, read before one or two per
+  # parameter are spent differentiating it. This function evaluates nothing else,
+  # so the shape is the whole of what it can judge; whether the reduction sums
+  # the estimating functions it was passed with is [compute_sandwich()]'s
+  # reading, and a caller that comes here directly is trusted on it.
+  if (!is.null(summed_equations)) {
+    check_summed_return(
+      summed_equations(theta),
+      length(theta),
+      exact = FALSE
+    )
+  }
 
   if (deriv_method == "exact") {
     bread_matrix <- auto_differentiation(theta, summed_ee)
@@ -507,6 +526,116 @@ finite_sample_correction <- function(meat, n, p, adjustment = NULL) {
   }
 }
 
+# ---- the reduction the bread is differentiated from --------------------------
+# Three readings of `summed_equations`, in the order a call reaches them, and one
+# family class across all of them.
+#
+#   check_summed_function()
+#     The argument itself. Nothing evaluates it until the bread does, so an
+#     argument that is not a function surfaced from wherever it was first called
+#     as base R's `could not find function`, naming an internal formal.
+#
+#   check_summed_return()
+#     The shape of one evaluation. A return that is not numeric failed inside the
+#     difference quotient as `non-numeric argument to binary operator`, and a
+#     return of the wrong length built a Jacobian with too few rows, which has no
+#     inverse at any rank and nothing to say why.
+#
+#   check_summed_agreement()
+#     Whether the values are the ones the meat is built from, which only
+#     compute_sandwich() has the evaluation to judge.
+
+#' Check that a supplied reduction is a function
+#'
+#' @param summed_equations The argument as the caller passed it.
+#' @param call The frame to report the error against.
+#'
+#' @returns Invisible `NULL`. Raises an error carrying the class
+#'   `deli_summed_equations_error` for anything that is neither `NULL` nor a
+#'   function.
+#' @noRd
+check_summed_function <- function(
+  summed_equations,
+  call = rlang::caller_env()
+) {
+  if (is.null(summed_equations) || is.function(summed_equations)) {
+    return(invisible(NULL))
+  }
+  cli::cli_abort(
+    c(
+      "!" = "{.arg summed_equations} must be a function or {.val NULL}, not
+             {.obj_type_friendly {summed_equations}}.",
+      "i" = "It takes the parameter vector and returns the sum of each
+             estimating equation across the observations, which is what the
+             bread is differentiated from."
+    ),
+    class = "deli_summed_equations_error",
+    call = call
+  )
+}
+
+#' Check the shape of one evaluation of a supplied reduction
+#'
+#' The two callers know different amounts about the count. [compute_sandwich()]
+#' has the estimating functions in hand and so knows exactly how many values the
+#' reduction holds, one per row of their return. [compute_bread()] evaluates
+#' nothing else and knows only that a system has at least one estimating equation
+#' per parameter, since a Jacobian with fewer rows than columns has no inverse at
+#' any rank; more of them is the over-identified system, whose rectangular bread
+#' is pseudo-inverted.
+#'
+#' @param summed The value of the reduction at `theta`.
+#' @param n_values The number of values the return is judged against.
+#' @param exact Whether that number is the count it must hold, or the fewest it
+#'   may hold.
+#' @param call The frame to report the error against.
+#'
+#' @returns Invisible `NULL`. Raises an error carrying the class
+#'   `deli_summed_equations_error` for a return the bread cannot be built from.
+#' @noRd
+check_summed_return <- function(
+  summed,
+  n_values,
+  exact = TRUE,
+  call = rlang::caller_env()
+) {
+  if (!is.numeric(summed)) {
+    cli::cli_abort(
+      c(
+        "!" = "{.arg summed_equations} must return a numeric vector at
+               {.arg theta}, not {.obj_type_friendly {summed}}.",
+        "i" = "The bread is the Jacobian of what it returns, so the return holds
+               one number per estimating equation."
+      ),
+      class = "deli_summed_equations_error",
+      call = call
+    )
+  }
+  n_summed <- length(summed)
+  if (if (exact) n_summed == n_values else n_summed >= n_values) {
+    return(invisible(NULL))
+  }
+  detail <- if (exact) {
+    "{.arg stacked_equations} returns {n_values} estimating equation{?s} at
+     {.arg theta}, and the reduction holds the sum of each of them across the
+     observations."
+  } else {
+    "A system has at least one estimating equation for each of its {n_values}
+     parameter{?s}, and the reduction holds the sum of each of them across the
+     observations. Fewer leaves the bread with more columns than rows, so it has
+     no inverse at any rank."
+  }
+  cli::cli_abort(
+    c(
+      "!" = "{.arg summed_equations} returned {n_summed} value{?s} at
+             {.arg theta}.",
+      "i" = detail
+    ),
+    class = "deli_summed_equations_error",
+    call = call
+  )
+}
+
 #' Check that a supplied reduction sums the estimating functions it is paired
 #' with
 #'
@@ -541,8 +670,9 @@ finite_sample_correction <- function(meat, n, p, adjustment = NULL) {
 #' @param from_matrix The row sums of the full evaluation at `theta`.
 #' @param call The frame to report the error against.
 #'
-#' @returns Invisible `NULL`. Raises an error carrying the class
-#'   `deli_summed_equations_disagree` where the two disagree.
+#' @returns Invisible `NULL`. Raises an error carrying the classes
+#'   `deli_summed_equations_disagree` and `deli_summed_equations_error` where the
+#'   two disagree, and the family class alone where the shape is what is wrong.
 #' @noRd
 check_summed_agreement <- function(
   summed,
@@ -550,22 +680,56 @@ check_summed_agreement <- function(
   call = rlang::caller_env()
 ) {
   n_eqs <- length(from_matrix)
-  if (length(summed) != n_eqs) {
+  check_summed_return(summed, n_eqs, exact = TRUE, call = call)
+  summed <- unname(as.numeric(summed))
+
+  # A value that is not a number is read before the comparison rather than
+  # through it. The comparison takes the largest disagreement, and `which.max()`
+  # passes over what it cannot order: a return that is missing throughout named
+  # no equation at all and reported base R's `argument is of length zero` from
+  # the test itself, and a return missing in one equation was passed over
+  # altogether, differentiated, and surfaced two steps later as a bread that
+  # could not be inverted.
+  #
+  # The values it is compared against are the row sums of a return already judged
+  # finite, so nothing here is a reading of the estimating functions: a reduction
+  # that is not a number where they are cannot be summing them.
+  if (anyNA(summed)) {
+    missing <- as.character(which(is.na(summed)))
     cli::cli_abort(
       c(
-        "!" = "{.arg summed_equations} returned {length(summed)} value{?s} at
-               {.arg theta}, for {n_eqs} estimating equation{?s}.",
-        "i" = "It returns the sum of each estimating equation across the
-               observations, so it holds one value per row of what
-               {.arg stacked_equations} returns."
+        "!" = "{.arg summed_equations} returned a value that is not a number at
+               {.arg theta}.",
+        "i" = "{cli::qty(missing)}Estimating equation{?s} {missing} {?sums/sum}
+               to {.val {NA_real_}}, where {.arg stacked_equations} sums to a
+               number.",
+        "i" = "The bread is differentiated from {.arg summed_equations}, so a
+               bread built from this one holds {.val {NA_real_}} throughout and
+               no sandwich can be assembled from it."
       ),
-      class = "deli_summed_equations_disagree",
+      class = c(
+        "deli_summed_equations_disagree",
+        "deli_summed_equations_error"
+      ),
       call = call
     )
   }
+
+  # A comparison of no values has nothing to disagree about, and an ordering of
+  # none has no equation to name.
+  if (n_eqs == 0L) {
+    return(invisible(NULL))
+  }
   scale <- pmax(abs(from_matrix), 1)
-  worst <- which.max(abs(summed - from_matrix) / scale)
-  if (abs(summed[worst] - from_matrix[worst]) / scale[worst] < 1e-6) {
+  relative <- abs(summed - from_matrix) / scale
+  # Subtracting one infinity from another is the one remaining way the
+  # difference of two numbers is not one, and it takes a row sum that overflowed
+  # on both sides. Ordering passes over such a value, which would again leave the
+  # largest disagreement naming no equation, so it is read as the disagreement it
+  # is.
+  relative[is.na(relative)] <- Inf
+  worst <- which.max(relative)
+  if (relative[[worst]] < 1e-6) {
     return(invisible(NULL))
   }
   cli::cli_abort(
@@ -579,7 +743,7 @@ check_summed_agreement <- function(
              meat is built from {.arg stacked_equations}, so the two must be the
              same system."
     ),
-    class = "deli_summed_equations_disagree",
+    class = c("deli_summed_equations_disagree", "deli_summed_equations_error"),
     call = call
   )
 }
@@ -655,6 +819,15 @@ check_summed_agreement <- function(
 #'   tangent-carrying `theta`, so it must be written in operations that carry
 #'   derivatives: `t(X) %*% r` does, and [base::crossprod()] does not. See
 #'   [auto_differentiation()] for which operations carry a tangent and where.
+#'
+#'   An argument that is neither `NULL` nor a function raises an error carrying
+#'   the class `deli_summed_equations_error`, whatever `check_summed_equations`
+#'   says. So does a return at `theta` that is not numeric, or one holding fewer
+#'   values than there are parameters, both of which [compute_bread()] reads
+#'   before it differentiates anything. That the return holds exactly one value
+#'   per estimating equation is read by the comparison below, since only a call
+#'   that has evaluated the estimating functions knows how many of them there
+#'   are.
 #' @param check_summed_equations Logical. When `TRUE` (default) and
 #'   `summed_equations` was supplied, its value at `theta` is compared against
 #'   the row sums of the one full evaluation the meat is built from, and a
@@ -741,6 +914,7 @@ compute_sandwich <- function(
   # them.
   call <- rlang::current_env()
   deriv_method <- check_deriv_method(deriv_method, call = call)
+  check_summed_function(summed_equations, call = call)
   # This evaluates the estimating function once for itself and once or twice per
   # parameter for the bread, so an estimating function that warns raises the same
   # warning several times for one call. See R/conditions.R. The body is short
@@ -780,7 +954,7 @@ compute_sandwich <- function(
     # why reading it here is what makes the check affordable.
     if (!is.null(summed_equations) && isTRUE(check_summed_equations)) {
       check_summed_agreement(
-        unname(as.numeric(summed_equations(theta))),
+        summed_equations(theta),
         unname(rowSums(evald)),
         call = call
       )

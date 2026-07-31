@@ -1250,13 +1250,111 @@ test_that("a reducer returning the wrong number of values is refused", {
   case <- reducer_case()
   short <- function(th) case$summed(th)[1:2]
 
+  # A return of the wrong length is a shape the sandwich cannot be assembled
+  # from rather than a disagreement between two systems, so it carries the
+  # family class alone.
   err <- expect_error(
     compute_sandwich(case$psi, theta = case$theta, summed_equations = short),
-    class = "deli_summed_equations_disagree"
+    class = "deli_summed_equations_error"
   )
 
   expect_match(conditionMessage(err), "2")
   expect_match(conditionMessage(err), "3")
+  expect_false(inherits(err, "deli_summed_equations_disagree"))
+})
+
+test_that("a reducer that is not a function is refused before it is called", {
+  case <- reducer_case()
+
+  err <- expect_error(
+    compute_sandwich(
+      case$psi,
+      theta = case$theta,
+      summed_equations = c(1, 2, 3)
+    ),
+    class = "deli_summed_equations_error"
+  )
+  expect_match(conditionMessage(err), "summed_equations")
+
+  expect_error(
+    compute_bread(case$psi, case$theta, summed_equations = c(1, 2, 3)),
+    class = "deli_summed_equations_error"
+  )
+})
+
+test_that("a reducer returning something other than numbers is refused", {
+  case <- reducer_case()
+  as_text <- function(th) as.character(case$summed(th))
+  as_list <- function(th) as.list(case$summed(th))
+
+  for (bad in list(as_text, as_list)) {
+    expect_error(
+      compute_sandwich(case$psi, theta = case$theta, summed_equations = bad),
+      class = "deli_summed_equations_error"
+    )
+    expect_error(
+      compute_bread(case$psi, case$theta, summed_equations = bad),
+      class = "deli_summed_equations_error"
+    )
+  }
+})
+
+test_that("compute_bread() refuses a reduction shorter than the parameters", {
+  case <- reducer_case()
+  short <- function(th) case$summed(th)[1:2]
+
+  # It has no evaluation of the estimating functions to compare against, so the
+  # shape is the whole of what it can read. Unread, this returned a two-by-three
+  # bread, which has no inverse at any rank and says nothing about why.
+  err <- expect_error(
+    compute_bread(case$psi, case$theta, summed_equations = short),
+    class = "deli_summed_equations_error"
+  )
+  expect_match(conditionMessage(err), "2")
+  expect_match(conditionMessage(err), "3")
+})
+
+test_that("a reducer that returns NA is refused rather than differentiated", {
+  case <- reducer_case()
+  all_missing <- function(th) rep(NA_real_, 3)
+  one_missing <- function(th) c(NA_real_, case$summed(th)[-1])
+
+  # The whole return: this reported base R's `argument is of length zero`, from
+  # the comparison itself, because there was no largest disagreement to name.
+  err <- expect_error(
+    compute_sandwich(
+      case$psi,
+      theta = case$theta,
+      summed_equations = all_missing
+    ),
+    class = "deli_summed_equations_disagree"
+  )
+  expect_match(conditionMessage(err), "NA")
+
+  # One equation of it: this passed the comparison, which reads the largest
+  # disagreement and ignores the missing one, and surfaced two steps later as a
+  # bread that could not be inverted.
+  partial <- expect_error(
+    compute_sandwich(
+      case$psi,
+      theta = case$theta,
+      summed_equations = one_missing
+    ),
+    class = "deli_summed_equations_disagree"
+  )
+  expect_match(conditionMessage(partial), "equation 1", fixed = TRUE)
+})
+
+test_that("the narrower reducer class leads the family it belongs to", {
+  case <- reducer_case()
+  wrong <- function(th) case$summed(th) + c(0, 5, 0)
+
+  err <- expect_error(
+    compute_sandwich(case$psi, theta = case$theta, summed_equations = wrong),
+    class = "deli_summed_equations_disagree"
+  )
+  expect_s3_class(err, "deli_summed_equations_error")
+  expect_identical(class(err)[[1]], "deli_summed_equations_disagree")
 })
 
 test_that("the agreement check can be turned off", {
@@ -1300,5 +1398,42 @@ test_that("a reducer that rescales the same system is not what the check sees", 
 
   expect_no_error(
     compute_sandwich(case$psi, theta = case$theta, summed_equations = rescaled)
+  )
+})
+
+test_that("the argument and its shape are read with the comparison turned off", {
+  case <- reducer_case()
+  as_text <- function(th) as.character(case$summed(th))
+  short <- function(th) case$summed(th)[1:2]
+
+  # Neither reading is a comparison against the estimating functions, so both
+  # stand where the comparison is off: the argument here, and the shape in
+  # compute_bread(), which reads what it can know without evaluating them.
+  expect_error(
+    compute_sandwich(
+      case$psi,
+      theta = case$theta,
+      summed_equations = c(1, 2, 3),
+      check_summed_equations = FALSE
+    ),
+    class = "deli_summed_equations_error"
+  )
+  expect_error(
+    compute_sandwich(
+      case$psi,
+      theta = case$theta,
+      summed_equations = as_text,
+      check_summed_equations = FALSE
+    ),
+    class = "deli_summed_equations_error"
+  )
+  expect_error(
+    compute_sandwich(
+      case$psi,
+      theta = case$theta,
+      summed_equations = short,
+      check_summed_equations = FALSE
+    ),
+    class = "deli_summed_equations_error"
   )
 })

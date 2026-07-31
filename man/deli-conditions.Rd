@@ -99,12 +99,18 @@ has nothing but a matrix to return and converts it into the error below.
 \item \code{deli_bread_not_invertible}: the bread cannot be inverted and
 \code{allow_pinv = FALSE} refused the pseudo-inverse, or it is rectangular and
 has no inverse at any rank, or it holds \code{NA}.
-\item \code{deli_summed_equations_disagree}: the \code{summed_equations} passed to
-\code{\link[=compute_sandwich]{compute_sandwich()}} does not sum the \code{stacked_equations} passed with it,
-either by returning a different number of values or by disagreeing with
-their row sums at \code{theta}. The bread is differentiated from the one and the
-meat is built from the other, so a sandwich assembled from two systems
-would carry the shape of a covariance matrix without the meaning.
+\item \code{deli_summed_equations_error}: the \code{summed_equations} handed to
+\code{\link[=compute_sandwich]{compute_sandwich()}} or \code{\link[=compute_bread]{compute_bread()}} is not one the bread can be
+differentiated from. It is neither \code{NULL} nor a function, or its return at
+\code{theta} is not numeric, or that return does not hold one value per
+estimating equation. Every refusal of the argument carries it.
+\item \code{deli_summed_equations_disagree}: the reduction is a function of the right
+shape and does not sum the \code{stacked_equations} passed with it, either by
+differing from their row sums at \code{theta} or by returning a value that is not
+a number where they sum to one. The bread is differentiated from the one and
+the meat is built from the other, so a sandwich assembled from two systems
+would carry the shape of a covariance matrix without the meaning. Leads
+\code{deli_summed_equations_error}.
 }
 }
 

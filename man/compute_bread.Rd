@@ -28,10 +28,15 @@ at the floating-point resolution of each estimate; see
 \item{summed_equations}{A function of \code{theta} returning the length-p vector of
 row sums of \code{stacked_equations} at \code{theta}, or \code{NULL} (default) to derive
 that reduction from the full p-by-n return. See \code{\link[=compute_sandwich]{compute_sandwich()}} for
-what a supplied reduction saves and what it must satisfy. This function
-evaluates nothing else, so it has nothing to check a supplied reduction
-against and takes it on trust: a reduction that sums some other system
-returns the Jacobian of that other system, with nothing to say so.}
+what a supplied reduction saves and what it must satisfy.
+
+Anything that is neither \code{NULL} nor a function, and any return at \code{theta}
+that is not numeric or holds fewer values than there are parameters, raises
+an error carrying the class \code{deli_summed_equations_error}. The values
+themselves are taken on trust: this function evaluates the estimating
+equations nowhere, so it has nothing to compare them against, and a
+reduction that sums some other system returns the Jacobian of that other
+system with nothing to say so.}
 }
 \value{
 The negated Jacobian of the summed estimating equations, with one
