@@ -25,8 +25,8 @@ environment reaches the base versions, and the differentiation aborts
 rather than returning a silent approximation. Coercion cannot preserve a
 derivative: \code{as.numeric()}, \code{as.double()}, \code{as.integer()}, \code{as.character()},
 \code{as.complex()}, \code{as.matrix()},
-and \code{as.vector()} asked for one of those types by \code{mode} each return plain
-values,
+and \code{as.vector()} asked by \code{mode} for one of those types or for \code{"raw"}
+each return plain values,
 which have nowhere to carry one, so each aborts on a tangent-carrying value
 rather than dropping the tangents silently. \code{as.vector()} with its default \code{mode = "any"} returns its
 argument unchanged and keeps the tangents. Use \code{c()} to flatten a

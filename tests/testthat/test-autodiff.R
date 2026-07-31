@@ -3278,6 +3278,42 @@ test_that("as.vector() aborts for the character and complex modes too", {
   expect_error(as.vector(arr, "complex"), class = "deli_exact_tangent_lost")
 })
 
+# ---- coercing a tangent-carrying container to a raw ---------------------------
+
+test_that("as.vector() aborts for the raw mode too", {
+  # The same defect family as the integer coercion, in the one mode that had no
+  # method of its own to stand on: as.vector(primal_tangent(2.7, 1), "raw")
+  # returned the two bytes 02 01, both slots coerced and the tangent standing
+  # where a datum belongs. Only the scalar pair corrupted; the wider payloads
+  # stopped inside base R with a message about a list.
+  pair <- primal_tangent(2.7, 1)
+  arr <- primal_tangent_array(c(1, 2), c(1, 0))
+  vec <- primal_tangent_vector(list(primal_tangent(1, 1), primal_tangent(2, 0)))
+
+  for (x in list(pair, arr, vec)) {
+    expect_error(as.vector(x, "raw"), class = "deli_exact_tangent_lost")
+  }
+})
+
+test_that("a raw coercion inside a psi aborts rather than zeroing the bread", {
+  # Through the exact pass the corrupted coercion reported a zero derivative for
+  # a parameter the function does depend on, because the bytes carry none.
+  f <- function(theta) sum(as.numeric(as.vector(theta[1], "raw")) * 2)
+  expect_error(auto_differentiation(2.7, f), class = "deli_exact_tangent_lost")
+
+  psi <- function(theta) {
+    as.vector(theta[1], "raw") + c(1, 2, 3)
+  }
+  expect_error(
+    compute_bread(psi, 2.7, deriv_method = "exact"),
+    class = "deli_exact_tangent_lost"
+  )
+})
+
+test_that("raw coercion of ordinary values is untouched", {
+  expect_identical(as.vector(c(1, 2), "raw"), as.raw(c(1, 2)))
+})
+
 test_that("as.vector() with mode 'list' still hands the slots back", {
   # A list is the one non-numeric mode a container has a faithful representation
   # in, since it is what the container already is, so this mode keeps

@@ -410,12 +410,13 @@ value that carries one rather than silently handing back a zero derivative,
 including a single parameter such as `as.numeric(theta[1])`, where the primal
 is already a plain double and returning it would have looked harmless.
 `as.double()`, `as.integer()`, `as.character()`, `as.complex()`,
-`as.matrix()`, and `as.vector()` asked for one of those types by `mode` abort
-for the same reason. `as.vector()` with its default `mode = "any"` hands its
-argument back unchanged, so it keeps the derivatives. `as.logical()` is the one
-coercion that answers, because a logical is a step function of its argument and
-so has a derivative of zero almost everywhere; that is what lets the conditional
-idiom `ind * yes + (1 - ind) * no` take a condition built from `theta`.
+`as.matrix()`, and `as.vector()` asked by `mode` for one of those types or for
+`"raw"` abort for the same reason. `as.vector()` with its default
+`mode = "any"` hands its argument back unchanged, so it keeps the derivatives.
+`as.logical()` is the one coercion that answers, because a logical is a step
+function of its argument and so has a derivative of zero almost everywhere;
+that is what lets the conditional idiom `ind * yes + (1 - ind) * no` take a
+condition built from `theta`.
 `as.vector(x, "logical")` asks for the same coercion and answers the same way.
 
 `c()` has one wrinkle worth knowing. R dispatches it on its first argument

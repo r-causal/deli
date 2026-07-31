@@ -1115,9 +1115,17 @@ as.complex.PrimalTangentVector <- pt_as_complex
 
 # `as.vector()` dispatches on the class of its first argument, so its `mode`
 # argument is another spelling of the coercions above and carries the same rule:
-# every mode that names a plain numeric or character type aborts, and
+# every mode that names a plain numeric, character, or raw type aborts, and
 # `"double"` aborts here even though it reached base R's coercion rather than
 # the `as.double()` method.
+#
+# `"raw"` is the mode with no method of its own to stand on, since no
+# `as.raw()` generic dispatches. Left to base R it read the container, and a
+# scalar pair was the one payload it could: `as.vector(primal_tangent(2.7, 1),
+# "raw")` handed back the two bytes `02 01`, the tangent standing where a datum
+# belongs and nothing downstream able to tell it from one. The wider payloads
+# happened to stop inside base R with `'list' object cannot be coerced to type
+# 'raw'`, which names neither the cause nor the remedy.
 #
 # `"logical"` is the mode `as.logical()` answers for, and the rule it stands on
 # is the rule here, since the two spellings are one request: a logical coercion
@@ -1135,7 +1143,15 @@ as.complex.PrimalTangentVector <- pt_as_complex
 # representation of it outside its own class.
 #' @noRd
 pt_vector_coercion <- function(x, mode = "any") {
-  if (mode %in% c("integer", "double", "numeric", "character", "complex")) {
+  plain_modes <- c(
+    "integer",
+    "double",
+    "numeric",
+    "character",
+    "complex",
+    "raw"
+  )
+  if (mode %in% plain_modes) {
     pt_coercion_abort(mode, "as.vector")
   }
   if (identical(mode, "logical")) {
@@ -1814,8 +1830,8 @@ pt_where <- function(test, yes, no) {
 #'   rather than returning a silent approximation. Coercion cannot preserve a
 #'   derivative: `as.numeric()`, `as.double()`, `as.integer()`, `as.character()`,
 #'   `as.complex()`, `as.matrix()`,
-#'   and `as.vector()` asked for one of those types by `mode` each return plain
-#'   values,
+#'   and `as.vector()` asked by `mode` for one of those types or for `"raw"`
+#'   each return plain values,
 #'   which have nowhere to carry one, so each aborts on a tangent-carrying value
 #'   rather than dropping the tangents silently. `as.vector()` with its default `mode = "any"` returns its
 #'   argument unchanged and keeps the tangents. Use `c()` to flatten a
