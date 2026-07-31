@@ -514,7 +514,10 @@ finite_sample_correction <- function(meat, n, p, adjustment = NULL) {
 #'   element per equation, each holding that equation's contributions across the
 #'   observations, is accepted as well. [estimate()] has no support for that
 #'   shape, so an estimating function written in it reaches a variance through
-#'   this entry point and a Jacobian through [compute_bread()].
+#'   this entry point and a Jacobian through [compute_bread()]. The list form
+#'   holds exactly one element per parameter, each of one length, so an
+#'   over-identified system reaches this function as a matrix rather than as a
+#'   list.
 #' @param theta Numeric vector of parameter estimates. This function assumes
 #'   `theta` is the root of `stacked_equations`; it does not solve for it.
 #' @param deriv_method Character string selecting the method used to build the

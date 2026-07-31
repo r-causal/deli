@@ -20,7 +20,10 @@ the number of parameters and n is the number of observations. A list of one
 element per equation, each holding that equation's contributions across the
 observations, is accepted as well. \code{\link[=estimate]{estimate()}} has no support for that
 shape, so an estimating function written in it reaches a variance through
-this entry point and a Jacobian through \code{\link[=compute_bread]{compute_bread()}}.}
+this entry point and a Jacobian through \code{\link[=compute_bread]{compute_bread()}}. The list form
+holds exactly one element per parameter, each of one length, so an
+over-identified system reaches this function as a matrix rather than as a
+list.}
 
 \item{theta}{Numeric vector of parameter estimates. This function assumes
 \code{theta} is the root of \code{stacked_equations}; it does not solve for it.}

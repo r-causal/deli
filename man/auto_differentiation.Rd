@@ -28,7 +28,11 @@ derivative: \code{as.numeric()}, \code{as.double()}, \code{as.integer()}, \code{
 and \code{as.vector()} asked by \code{mode} for one of those types or for \code{"raw"}
 each return plain values,
 which have nowhere to carry one, so each aborts on a tangent-carrying value
-rather than dropping the tangents silently. \code{as.vector()} with its default \code{mode = "any"} returns its
+rather than dropping the tangents silently. The \code{"pairlist"} and
+\code{"expression"} modes abort for the neighboring reason: each hands back the
+primal and the tangent as two ordinary elements of a container, which no
+later operation reads as a derivative.
+\code{as.vector()} with its default \code{mode = "any"} returns its
 argument unchanged and keeps the tangents. Use \code{c()} to flatten a
 matrix-shaped result such as \code{X \%*\% theta} to a vector instead.
 \code{as.logical()} is the exception, because a logical coercion is a step

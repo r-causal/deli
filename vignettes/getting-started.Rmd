@@ -411,7 +411,10 @@ including a single parameter such as `as.numeric(theta[1])`, where the primal
 is already a plain double and returning it would have looked harmless.
 `as.double()`, `as.integer()`, `as.character()`, `as.complex()`,
 `as.matrix()`, and `as.vector()` asked by `mode` for one of those types or for
-`"raw"` abort for the same reason. `as.vector()` with its default
+`"raw"` abort for the same reason. The `"pairlist"` and `"expression"` modes
+abort as well, because each hands back the primal and the tangent as two
+ordinary elements of a container rather than as a value that still carries a
+derivative. `as.vector()` with its default
 `mode = "any"` hands its argument back unchanged, so it keeps the derivatives.
 `as.logical()` is the one coercion that answers, because a logical is a step
 function of its argument and so has a derivative of zero almost everywhere;

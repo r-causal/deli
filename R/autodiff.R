@@ -1127,6 +1127,16 @@ as.complex.PrimalTangentVector <- pt_as_complex
 # happened to stop inside base R with `'list' object cannot be coerced to type
 # 'raw'`, which names neither the cause nor the remedy.
 #
+# `"pairlist"` and `"expression"` lose the derivative a third way. Neither
+# coerces the slots to another type, so neither trips base R's refusal of a
+# list, and each hands back the primal and the tangent as two ordinary elements:
+# `as.vector(primal_tangent(2.7, 1), "pairlist")` returned `pairlist(2.7, 1)`
+# and the expression mode returned `expression(primal = 2.7, tangent = 1)`.
+# Nothing reads the second element as a derivative afterwards, and no arithmetic
+# on either container propagates one, so the tangent is as gone as it is in a
+# double. `"symbol"` and `"name"` need no rule, since base R refuses them on the
+# container's type and length rather than reading it.
+#
 # `"logical"` is the mode `as.logical()` answers for, and the rule it stands on
 # is the rule here, since the two spellings are one request: a logical coercion
 # is a step function whose derivative is zero almost everywhere, so the payload
@@ -1143,15 +1153,19 @@ as.complex.PrimalTangentVector <- pt_as_complex
 # representation of it outside its own class.
 #' @noRd
 pt_vector_coercion <- function(x, mode = "any") {
-  plain_modes <- c(
+  # The modes a tangent cannot survive: those that name a plain type, and those
+  # that keep both slots but stop treating either as a derivative.
+  stripping_modes <- c(
     "integer",
     "double",
     "numeric",
     "character",
     "complex",
-    "raw"
+    "raw",
+    "pairlist",
+    "expression"
   )
-  if (mode %in% plain_modes) {
+  if (mode %in% stripping_modes) {
     pt_coercion_abort(mode, "as.vector")
   }
   if (identical(mode, "logical")) {
@@ -1833,7 +1847,11 @@ pt_where <- function(test, yes, no) {
 #'   and `as.vector()` asked by `mode` for one of those types or for `"raw"`
 #'   each return plain values,
 #'   which have nowhere to carry one, so each aborts on a tangent-carrying value
-#'   rather than dropping the tangents silently. `as.vector()` with its default `mode = "any"` returns its
+#'   rather than dropping the tangents silently. The `"pairlist"` and
+#'   `"expression"` modes abort for the neighboring reason: each hands back the
+#'   primal and the tangent as two ordinary elements of a container, which no
+#'   later operation reads as a derivative.
+#'   `as.vector()` with its default `mode = "any"` returns its
 #'   argument unchanged and keeps the tangents. Use `c()` to flatten a
 #'   matrix-shaped result such as `X %*% theta` to a vector instead.
 #'   `as.logical()` is the exception, because a logical coercion is a step

@@ -3314,6 +3314,35 @@ test_that("raw coercion of ordinary values is untouched", {
   expect_identical(as.vector(c(1, 2), "raw"), as.raw(c(1, 2)))
 })
 
+# ---- the modes that hand back the two slots as elements ----------------------
+#
+# `"pairlist"` and `"expression"` are the remaining modes that read the
+# container rather than the payload. Neither coerces the slots to another type,
+# so neither trips base R's refusal of a list, and each hands back the primal
+# and the tangent as two ordinary elements:
+# `as.vector(primal_tangent(2.7, 1), "pairlist")` returned `pairlist(2.7, 1)`
+# and the expression mode returned `expression(primal = 2.7, tangent = 1)`.
+# Nothing downstream treats the second element as a derivative, so this is the
+# raw defect in another spelling. `"symbol"` and `"name"` need no rule of their
+# own, since base R refuses them on the container's type and length.
+
+test_that("as.vector() aborts for the pairlist and expression modes", {
+  pair <- primal_tangent(2.7, 1)
+  arr <- primal_tangent_array(c(1, 2), c(1, 0))
+  vec <- primal_tangent_vector(list(primal_tangent(1, 1), primal_tangent(2, 0)))
+
+  for (target in c("pairlist", "expression")) {
+    for (x in list(pair, arr, vec)) {
+      expect_error(as.vector(x, target), class = "deli_exact_tangent_lost")
+    }
+  }
+})
+
+test_that("pairlist and expression coercion of ordinary values is untouched", {
+  expect_identical(as.vector(c(1, 2), "pairlist"), as.pairlist(c(1, 2)))
+  expect_length(as.vector(c(1, 2), "expression"), 2L)
+})
+
 test_that("as.vector() with mode 'list' still hands the slots back", {
   # A list is the one non-numeric mode a container has a faithful representation
   # in, since it is what the container already is, so this mode keeps
