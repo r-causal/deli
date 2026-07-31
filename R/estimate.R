@@ -2251,13 +2251,24 @@ estimate_gmm_estimator <- function(
 #' the pass would otherwise pay for; see `estimate_gmm_estimator()`.
 #'
 #' What brings the update here is `solve()` failing, and a dependence is the
-#' usual reason for that rather than the only one. A covariance whose columns
-#' are independent to the factorization's tolerance and whose scales differ by
-#' more than the reciprocal condition number `solve()` accepts defeats it too,
-#' and leaves the pivoting with no direction to name: the report would have read
-#' a rank of k out of k beside an empty list of conditions. That case gets a
-#' reading of its own rather than a rendering of the one below with nothing in
-#' it.
+#' usual reason for that rather than the only one. Two others leave the pivoting
+#' with no condition to name, and each gets a reading of its own rather than a
+#' rendering of the one below with nothing in it.
+#'
+#' A covariance whose columns are independent to the factorization's tolerance
+#' and whose scales differ by more than the reciprocal condition number
+#' `solve()` accepts defeats it while factoring at full rank, so the report
+#' would have read a rank of k out of k beside an empty list of conditions.
+#'
+#' A covariance of rank zero is the other end of the same reading. Dropping the
+#' columns past a rank of zero drops every column, and negative indexing by an
+#' empty vector returns an empty one, so the list came back empty there too and
+#' cli rendered a sentence with no subject. It says something different from the
+#' full-rank case: the covariance is a cross-product, so no rank at all means
+#' every moment condition is zero at every observation, and there is no
+#' condition left for the others to account for. This is the counterpart of the
+#' rank-zero degrade `abort_bread_not_invertible()` makes on the other half of
+#' the sandwich.
 #'
 #' @param meat The moment covariance the update could not invert.
 #' @returns Invisible `NULL`, called for the warning.
@@ -2275,6 +2286,23 @@ warn_dependent_moments <- function(meat) {
                the inverse is the range of scale across them.",
         "i" = "Results may be unreliable. Look for a moment condition whose
                scale stands far from the rest, and rescale it."
+      ),
+      class = "deli_gmm_moments_dependent"
+    )
+    return(invisible(NULL))
+  }
+  if (factored$rank == 0L) {
+    cli::cli_warn(
+      c(
+        "!" = "The moment conditions carry no information at the estimated
+               values, so the weight matrix is a pseudo-inverse.",
+        "i" = "Their covariance factors at rank 0 of {n_moments}, so it has no
+               direction at all and there is no condition the others account for
+               to name.",
+        "i" = "Results may be unreliable. The covariance is a cross-product of
+               the moment conditions, so no rank at all means every one of them
+               is zero at every observation, and the fit reports estimates the
+               conditions said nothing about."
       ),
       class = "deli_gmm_moments_dependent"
     )

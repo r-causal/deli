@@ -992,6 +992,24 @@ test_that("the dependent-moment report degrades where qr sees full rank", {
   expect_false(grepl("accounted for by the others, so", flat, fixed = TRUE))
 })
 
+test_that("the dependent-moment report degrades where qr sees rank zero", {
+  # The other end of the same reading. `qr()` names the conditions the others
+  # account for by the columns its pivoting drops, and a covariance that lost
+  # every direction leaves none for the rest to account for: dropping the
+  # columns past a rank of zero drops all of them, and negative indexing by an
+  # empty vector returns an empty one, so the list of conditions came back
+  # empty and cli rendered a sentence with no subject.
+  meat <- matrix(0, nrow = 2, ncol = 2)
+  expect_identical(qr(meat)$rank, 0L)
+
+  cnd <- rlang::catch_cnd(warn_dependent_moments(meat), classes = "warning")
+  expect_s3_class(cnd, "deli_gmm_moments_dependent")
+  flat <- gsub("\\s+", " ", conditionMessage(cnd))
+  expect_match(flat, "rank 0 of 2", fixed = TRUE)
+  expect_no_match(flat, "Moment conditions are accounted for", fixed = TRUE)
+  expect_no_match(flat, "Moment condition are accounted for", fixed = TRUE)
+})
+
 # ---- reporting the dependent moments once per fit ----------------------------
 #
 # The two-step weight update takes the pseudo-inverse once per over-identified
