@@ -166,8 +166,9 @@ a <- dc$qsmk
 # Outcome variable
 y <- dc$wt82_71
 
-# Good practice: start the solver from the standalone propensity score fit
-init_ps <- unname(coef(glm(a ~ W - 1, family = binomial())))
+# Good practice: start the solver from the standalone propensity score fit.
+# Keeping the coefficient names labels those parameters in later fits.
+init_ps <- coef(glm(a ~ W - 1, family = binomial()))
 ```
 
 ```{r}
@@ -675,12 +676,13 @@ estr <- m_estimate(
   stacked_equations = function(theta) {
     ee_regression(theta = theta, X = X_out, y = y, model = "linear")
   },
-  init = rep(0, ncol(X_out)),
+  # Naming the starting values names the estimates
+  init = setNames(rep(0, ncol(X_out)), X_out_cols),
   solver = "nleqslv",
   maxiter = 5000
 )
 
-# Save starting values for later use
+# Save starting values, with their names, for later use
 init_reg <- estr@theta
 ```
 
@@ -739,7 +741,7 @@ estr <- m_estimate(
     # Stacking the estimating equations and returning
     rbind(ee_rd, ee_r1, ee_r0, ee_reg)
   },
-  init = c(0, 0, 0, init_reg),
+  init = c(rd = 0, r1 = 0, r0 = 0, init_reg),
   solver = "nleqslv",
   maxiter = 5000
 )
@@ -763,7 +765,7 @@ estr <- m_estimate(
     # Built-in g-formula estimating equation
     ee_gformula(theta, y = y, X = X_out, X1 = X1, X0 = X0)
   },
-  init = c(0, 0, 0, init_reg),
+  init = c(rd = 0, r1 = 0, r0 = 0, init_reg),
   solver = "nleqslv",
   maxiter = 5000
 )
@@ -836,7 +838,7 @@ estr <- m_estimate(
     # Stacking the estimating equations and returning
     rbind(ee_rd, ee_r1, ee_r0, ee_reg, ee_ps)
   },
-  init = c(0, 0, 0, init_reg, init_ps),
+  init = c(rd = 0, r1 = 0, r0 = 0, init_reg, init_ps),
   maxiter = 5000
 )
 
@@ -860,7 +862,7 @@ estr <- m_estimate(
     ee_aipw(theta = theta, y = y, A = a, W = W,
             X = X_out, X1 = X1, X0 = X0)
   },
-  init = c(0, 0, 0, init_ps, init_reg),
+  init = c(rd = 0, r1 = 0, r0 = 0, init_ps, init_reg),
   maxiter = 5000
 )
 
@@ -918,7 +920,7 @@ estr <- m_estimate(
     # Stacking the estimating equations and returning
     rbind(ee_rd, ee_r1, ee_r0, ee_reg, ee_ps)
   },
-  init = c(0, 0, 0, init_reg, init_ps),
+  init = c(rd = 0, r1 = 0, r0 = 0, init_reg, init_ps),
   maxiter = 5000
 )
 
