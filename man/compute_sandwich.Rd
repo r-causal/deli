@@ -16,7 +16,11 @@ compute_sandwich(
 \arguments{
 \item{stacked_equations}{A function that takes a numeric vector \code{theta} and
 returns a p-by-n matrix of estimating equation contributions, where p is
-the number of parameters and n is the number of observations.}
+the number of parameters and n is the number of observations. A list of one
+element per equation, each holding that equation's contributions across the
+observations, is accepted as well. \code{\link[=estimate]{estimate()}} has no support for that
+shape, so an estimating function written in it reaches a variance through
+this entry point and a Jacobian through \code{\link[=compute_bread]{compute_bread()}}.}
 
 \item{theta}{Numeric vector of parameter estimates. This function assumes
 \code{theta} is the root of \code{stacked_equations}; it does not solve for it.}

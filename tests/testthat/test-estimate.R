@@ -170,12 +170,12 @@ test_that("estimate() rejects a custom solver that returns the wrong shape", {
 })
 
 test_that("estimate() names the list return a fit has no support for", {
-  # `compute_bread()` reduces a per-equation list, so a caller who built one for
-  # it reasonably expects a fit to take it as well. No fit does: the summed
-  # equations reach `sum()` on a dimensionless list, which is base R's
-  # `invalid 'type' (list) of argument`, and the generic refusal of a
-  # non-numeric return names the type without saying that the entry points
-  # differ. Both estimator paths reach the same refusal.
+  # `compute_bread()` and `compute_sandwich()` both take a per-equation list, so
+  # a caller who built one for them reasonably expects a fit to take it as well.
+  # No fit does: the summed equations reach `sum()` on a dimensionless list,
+  # which is base R's `invalid 'type' (list) of argument`, and the generic
+  # refusal of a non-numeric return names the type without saying that the entry
+  # points differ. Both estimator paths reach the same refusal.
   psi <- function(theta) {
     y <- c(1, 2, 3, 4, 5)
     list(y - theta[1], (y - theta[1])^2 - theta[2])
@@ -195,6 +195,7 @@ test_that("estimate() names the list return a fit has no support for", {
     expect_match(flat, "p-by-n", fixed = TRUE)
     expect_match(flat, "rbind", fixed = TRUE)
     expect_match(flat, "compute_bread", fixed = TRUE)
+    expect_match(flat, "compute_sandwich", fixed = TRUE)
     # The family class leads with the narrower one, as every other refused
     # return does.
     expect_s3_class(err, "deli_psi_return_error")

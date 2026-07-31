@@ -28,9 +28,9 @@ recognizing one is a match on this rather than on four messages.
 \item \code{deli_psi_shape_error}: the number of estimating equations returned cannot
 be solved against the number of parameters. Leads \code{deli_psi_return_error}.
 \item \code{deli_psi_list_unsupported}: the estimating function returned a list of one
-element per equation. \code{\link[=compute_bread]{compute_bread()}} reduces that shape, and no fit can
-solve it, so \code{\link[=estimate]{estimate()}} refuses it rather than failing on the summed
-equations. Leads \code{deli_psi_return_error}.
+element per equation. \code{\link[=compute_bread]{compute_bread()}} and \code{\link[=compute_sandwich]{compute_sandwich()}} take that
+shape, and no fit can solve it, so \code{\link[=estimate]{estimate()}} refuses it rather than
+failing on the summed equations. Leads \code{deli_psi_return_error}.
 }
 }
 

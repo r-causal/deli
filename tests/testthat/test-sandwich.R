@@ -805,6 +805,95 @@ test_that("compute_sandwich() accepts a one-parameter psi returning a bare vecto
   )
 })
 
+# ---- the per-equation list through compute_sandwich() ------------------------
+#
+# A list of one element per equation is the return compute_bread() reduces, and
+# the two entry points that read a variance at a point supplied as the root are
+# meant to take the same returns. compute_sandwich() judged the raw list and
+# refused it as a non-numeric return before the bread was ever built, so a
+# caller who wrote an estimating function for the documented shape could reach
+# the Jacobian and not the sandwich.
+#
+# The bread reduces each element with one `sum()`, which is the derivative it
+# needs; the meat needs the same equations unreduced, so the elements are bound
+# into the p-by-n matrix here. Both halves accept exactly the lists the bread's
+# element-count rule accepts.
+
+test_that("compute_sandwich() assembles a sandwich from a per-equation list", {
+  y1 <- c(1, 2, 3, 4)
+  y2 <- c(2, 3, 4, 6)
+  per_equation <- function(theta) list(theta[1] - y1, theta[2] - y2)
+  stacked <- function(theta) rbind(theta[1] - y1, theta[2] - y2)
+  theta <- c(mean(y1), mean(y2))
+
+  expect_equal(
+    compute_sandwich(per_equation, theta = theta),
+    compute_sandwich(stacked, theta = theta),
+    tolerance = 1e-8
+  )
+})
+
+test_that("a per-equation list reaches the sandwich under every deriv_method", {
+  y1 <- c(1, 2, 3, 4)
+  y2 <- c(2, 3, 4, 6)
+  per_equation <- function(theta) list(theta[1] - y1, theta[2] - y2)
+  stacked <- function(theta) rbind(theta[1] - y1, theta[2] - y2)
+  theta <- c(mean(y1), mean(y2))
+
+  for (method in c("capprox", "fapprox", "bapprox")) {
+    expect_equal(
+      compute_sandwich(per_equation, theta = theta, deriv_method = method),
+      compute_sandwich(stacked, theta = theta, deriv_method = method),
+      tolerance = 1e-8
+    )
+  }
+  # The stacked reference is differentiated by finite differences, because its
+  # `rbind()` is the base one when the estimating function is written outside
+  # the package and so carries no tangents through the exact pass.
+  expect_equal(
+    compute_sandwich(per_equation, theta = theta, deriv_method = "exact"),
+    compute_sandwich(stacked, theta = theta, deriv_method = "capprox"),
+    tolerance = 1e-6
+  )
+})
+
+test_that("compute_sandwich() refuses the list shapes the bread refuses", {
+  # An element holding a block of several equations sums to a single value, so
+  # it stands in for every equation it holds. The bread rejects it by counting
+  # elements against parameters, and the sandwich rejects it on the same count
+  # rather than building a meat the bread cannot be paired with.
+  y <- c(1, 2, 3)
+  mixed <- function(theta) {
+    list(rbind(theta[1] - y, theta[2] - y), theta[3] - y)
+  }
+
+  expect_error(
+    compute_sandwich(mixed, theta = c(1, 2, 3)),
+    class = "deli_exact_unsupported_shape"
+  )
+  expect_error(
+    compute_sandwich(mixed, theta = c(1, 2, 3), deriv_method = "exact"),
+    class = "deli_exact_unsupported_shape"
+  )
+})
+
+test_that("compute_sandwich() refuses a per-equation list of unequal lengths", {
+  # `rbind()` recycles a short element up to the width of the longest one, and a
+  # length that divides that width is recycled with nothing reported, so the
+  # meat would be built from repeated contributions and carry the shape of a
+  # covariance matrix without the meaning.
+  y1 <- c(1, 2, 3, 4)
+  y2 <- c(2, 3)
+  ragged <- function(theta) list(theta[1] - y1, theta[2] - y2)
+
+  err <- expect_error(
+    compute_sandwich(ragged, theta = c(2.5, 2.5)),
+    class = "deli_psi_return_error"
+  )
+  flat <- gsub("[[:space:]]+", " ", conditionMessage(err))
+  expect_match(flat, "one value per observation", fixed = TRUE)
+})
+
 # ---- the frame those aborts report -------------------------------------------
 #
 # The judgment above is made in a helper, so each of its aborts reported a frame

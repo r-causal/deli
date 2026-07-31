@@ -21,9 +21,9 @@
 #' - `deli_psi_shape_error`: the number of estimating equations returned cannot
 #'   be solved against the number of parameters. Leads `deli_psi_return_error`.
 #' - `deli_psi_list_unsupported`: the estimating function returned a list of one
-#'   element per equation. [compute_bread()] reduces that shape, and no fit can
-#'   solve it, so [estimate()] refuses it rather than failing on the summed
-#'   equations. Leads `deli_psi_return_error`.
+#'   element per equation. [compute_bread()] and [compute_sandwich()] take that
+#'   shape, and no fit can solve it, so [estimate()] refuses it rather than
+#'   failing on the summed equations. Leads `deli_psi_return_error`.
 #'
 #' @section The formula interface:
 #' - `deli_formula_ee_lookup_error`: `.ee` arrived as a character vector naming

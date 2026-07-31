@@ -270,10 +270,10 @@ check_estimator_subset <- function(subset, n_params) {
 #
 #   deli_psi_list_unsupported
 #     The estimating function returned a per-equation list, which is a shape
-#     compute_bread() reduces and no fit can solve. It leads the family for the
-#     same reason the shape class does: what the caller built is a documented
-#     return of another entry point rather than a mistake about the type, and
-#     telling the two apart is worth a class.
+#     compute_bread() and compute_sandwich() take and no fit can solve. It leads
+#     the family for the same reason the shape class does: what the caller built
+#     is a documented return of another entry point rather than a mistake about
+#     the type, and telling the two apart is worth a class.
 #
 #   deli_formula_auto_init_error
 #     A failure at an `init` the formula interface generated itself, reframed
@@ -351,10 +351,11 @@ check_psi_at_init <- function(
   }
   # A bare list ahead of the general type check, which would otherwise catch it
   # and report only that a list is not numeric. That diagnosis is accurate and
-  # incomplete: a per-equation list is the return `compute_bread()` reduces, one
-  # element per equation, so a caller who built one did so against a documented
-  # shape and needs to be told which entry point takes it rather than that the
-  # type is wrong. Fitting is what has no support for it: the summed equations
+  # incomplete: a per-equation list is the return `compute_bread()` reduces and
+  # `compute_sandwich()` binds, one element per equation, so a caller who built
+  # one did so against a documented shape and needs to be told which entry
+  # points take it rather than that the type is wrong. Fitting is what has no
+  # support for it: the summed equations
   # reach `sum()` on a dimensionless list, which is base R's
   # `invalid 'type' (list) of argument`, and the GMM objective does the same.
   #
@@ -371,9 +372,10 @@ check_psi_at_init <- function(
         "i" = "Stack a list of equations into one with
                {.code do.call(rbind, ...)}, or build the matrix directly with
                {.fn rbind} or {.code t()} and arithmetic.",
-        "i" = "{.fn compute_bread} is the entry point that reduces a
-               per-equation list, reading the derivative at a point supplied as
-               the root rather than solving for one."
+        "i" = "{.fn compute_bread} and {.fn compute_sandwich} are the entry
+               points that take a per-equation list, reading the derivative or
+               the variance at a point supplied as the root rather than solving
+               for one."
       ),
       class = c("deli_psi_list_unsupported", "deli_psi_return_error"),
       call = error_call

@@ -181,6 +181,39 @@ check_equation_list <- function(ef, n_params) {
   )
 }
 
+# Bind a per-equation list into the p-by-n matrix the meat is built from.
+# `compute_bread()` reduces the same list with one `sum()` per element, which is
+# the derivative it needs; the meat needs those equations unreduced, so the
+# elements are bound into rows here instead. The element count is judged with
+# the rule the bread reduces under, so both halves of the sandwich take exactly
+# the same lists and a shape one of them refuses is refused before either is
+# built.
+#
+# Equal lengths are the one thing the count does not cover. `rbind()` recycles a
+# short element up to the width of the longest one, and a length that divides
+# that width is recycled with nothing reported, which would build the meat from
+# repeated contributions and hand back the shape of a covariance matrix without
+# the meaning.
+#' @noRd
+stack_equation_list <- function(ef, theta, call = rlang::caller_env()) {
+  check_equation_list(ef, length(theta))
+  widths <- unique(lengths(ef))
+  if (length(widths) > 1L) {
+    cli::cli_abort(
+      c(
+        "{.arg stacked_equations} returned estimating equations of
+         {length(widths)} different lengths at {.arg theta}.",
+        "i" = "Each element of a list return is one estimating equation
+               evaluated at every observation, so each holds one value per
+               observation and all of them are the same length."
+      ),
+      class = "deli_psi_return_error",
+      call = call
+    )
+  }
+  do.call(rbind, ef)
+}
+
 #' Compute the meat matrix
 #'
 #' Computes the meat matrix as the cross-product of the estimating equation
@@ -462,7 +495,11 @@ finite_sample_correction <- function(meat, n, p, adjustment = NULL) {
 #'
 #' @param stacked_equations A function that takes a numeric vector `theta` and
 #'   returns a p-by-n matrix of estimating equation contributions, where p is
-#'   the number of parameters and n is the number of observations.
+#'   the number of parameters and n is the number of observations. A list of one
+#'   element per equation, each holding that equation's contributions across the
+#'   observations, is accepted as well. [estimate()] has no support for that
+#'   shape, so an estimating function written in it reaches a variance through
+#'   this entry point and a Jacobian through [compute_bread()].
 #' @param theta Numeric vector of parameter estimates. This function assumes
 #'   `theta` is the root of `stacked_equations`; it does not solve for it.
 #' @param deriv_method Character string selecting the method used to build the
@@ -563,6 +600,15 @@ compute_sandwich <- function(
     # this function builds from a rectangular bread is the asymptotic variance a
     # GMM fit reports.
     evald <- stacked_equations(theta)
+    # A per-equation list is a documented return of this entry point, the one
+    # `compute_bread()` reduces, so it is bound into the matrix the meat is
+    # built from before the return is judged. Judging the list itself refused it
+    # as a non-numeric return, which meant the bread took a shape the sandwich
+    # would not. A classed list is left to the judgment below, where a data
+    # frame of contributions is named as a data frame.
+    if (is.list(evald) && !is.object(evald)) {
+      evald <- stack_equation_list(evald, theta, call = call)
+    }
     check_psi_at_theta(evald, theta, call = call)
     if (is.null(dim(evald))) {
       n_obs <- length(evald)
