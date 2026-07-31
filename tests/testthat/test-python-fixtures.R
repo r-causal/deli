@@ -98,6 +98,11 @@ test_that("ee_percentile matches Python Delicatessen", {
   # Percentile EE is non-differentiable (indicator function).
   # Python uses solver='hybr', tolerance=1e-3, dx=1, deriv_method='fapprox'
   # to get approximate values. We match those settings here.
+  #
+  # The loose solver tolerance is what the two implementations agree on, not how
+  # closely they agree: every quantity of this fit matches Python to the last
+  # digit either records, so it is held to the default tolerance the rest of the
+  # corpus is held to rather than to the solver's.
   m <- MEstimator(stacked_equations = psi, init = ref$init)
   m <- estimate(
     m,
@@ -107,7 +112,7 @@ test_that("ee_percentile matches Python Delicatessen", {
     deriv_method = "fapprox"
   )
 
-  expect_python_match(m, "ee_percentile_50", tolerance = 1e-3)
+  expect_python_match(m, "ee_percentile_50")
 })
 
 # ---- causal ----
