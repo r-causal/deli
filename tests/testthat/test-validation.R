@@ -976,6 +976,27 @@ test_that("check_psi_at_theta classes every return it rejects", {
   )
 })
 
+test_that("check_psi_at_theta refuses every value that is not finite", {
+  # The reading is taken from the values in place rather than from a logical
+  # the size of the whole return, so each way of not being finite is pinned
+  # here: `NA` and `NaN` are what `anyNA()` sees, and the two infinities are
+  # what the extremes see.
+  for (bad in list(NA_real_, NaN, Inf, -Inf)) {
+    expect_error(
+      check_psi_at_theta(matrix(c(bad, 1:4), nrow = 1), theta = c(0)),
+      class = "deli_psi_return_error"
+    )
+  }
+})
+
+test_that("check_psi_at_theta accepts the returns it accepted before", {
+  expect_null(check_psi_at_theta(matrix(1:5, nrow = 1), theta = c(0)))
+  expect_null(check_psi_at_theta(c(1, 2, 3), theta = c(0)))
+  # A return with no observations has no extremes to read and is not refused
+  # for that, which is how the finite test read it.
+  expect_null(check_psi_at_theta(matrix(numeric(0), nrow = 1), theta = c(0)))
+})
+
 test_that("the shape failures keep the class the reframing catches", {
   shortfall <- expect_error(
     check_psi_at_init(

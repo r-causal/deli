@@ -533,7 +533,22 @@ check_psi_at_theta <- function(vals, theta, call = rlang::caller_env()) {
       call = call
     )
   }
-  if (!all(is.finite(vals))) {
+  # The values are read in place rather than through `is.finite()`, which builds
+  # a logical the size of the whole return: one more p-by-n object, 20 MB of it
+  # for ten equations over half a million observations, in a function whose only
+  # work is to look at values that are already in hand.
+  #
+  # `anyNA()` reads `NA` and `NaN`. The extremes read the infinities: with none
+  # of the former in the return, its maximum is `Inf` exactly when one of its
+  # values is, and its minimum is `-Inf` exactly when one of its values is, so
+  # between them they see every infinity and nothing else. An empty return has
+  # no extremes to take and is finite, which is how `all(is.finite())` read it.
+  # The values refused are therefore exactly the values refused before.
+  no_extremes <- length(vals) == 0L
+  if (
+    anyNA(vals) ||
+      (!no_extremes && (is.infinite(max(vals)) || is.infinite(min(vals))))
+  ) {
     cli::cli_abort(
       c(
         "{.arg stacked_equations} returned non-finite values at {.arg theta}.",

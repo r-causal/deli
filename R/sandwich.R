@@ -13,6 +13,13 @@
 #' @param dx Numeric step size (default `1e-9`). The step is absolute, floored
 #'   at the floating-point resolution of each estimate; see
 #'   [approx_differentiation()].
+#' @param summed_equations A function of `theta` returning the length-p vector of
+#'   row sums of `stacked_equations` at `theta`, or `NULL` (default) to derive
+#'   that reduction from the full p-by-n return. See [compute_sandwich()] for
+#'   what a supplied reduction saves and what it must satisfy. This function
+#'   evaluates nothing else, so it has nothing to check a supplied reduction
+#'   against and takes it on trust: a reduction that sums some other system
+#'   returns the Jacobian of that other system, with nothing to say so.
 #'
 #' @returns The negated Jacobian of the summed estimating equations, with one
 #'   row per estimating equation and one column per parameter. That is p-by-p
@@ -32,12 +39,13 @@ compute_bread <- function(
   stacked_equations,
   theta,
   deriv_method = "capprox",
-  dx = 1e-9
+  dx = 1e-9,
+  summed_equations = NULL
 ) {
   deriv_method <- check_deriv_method(deriv_method)
 
   # Sum the estimating equations across observations
-  summed_ee <- function(input_theta) {
+  derived_summed_ee <- function(input_theta) {
     ef <- stacked_equations(input_theta)
     # Handle PrimalTangent returns (from autodiff-compatible EE functions)
     if (is_pt(ef)) {
@@ -121,6 +129,12 @@ compute_bread <- function(
     }
     unname(rowSums(ef))
   }
+
+  # The reduction above is what the derivative is taken of, and a caller who
+  # supplied one of their own replaces the whole of it. Nothing else changes:
+  # the derived reduction is the same closure it always was, so a call that
+  # supplies nothing differentiates exactly what it differentiated before.
+  summed_ee <- summed_equations %||% derived_summed_ee
 
   if (deriv_method == "exact") {
     bread_matrix <- auto_differentiation(theta, summed_ee)
@@ -493,6 +507,83 @@ finite_sample_correction <- function(meat, n, p, adjustment = NULL) {
   }
 }
 
+#' Check that a supplied reduction sums the estimating functions it is paired
+#' with
+#'
+#' The correctness hazard `summed_equations` introduces is a reduction that does
+#' not sum the estimating functions the meat is built from. The bread would then
+#' be the Jacobian of one system and the meat the cross-product of another, and
+#' the returned matrix would carry the shape of a covariance without the
+#' meaning. Nothing downstream can tell such a matrix from a correct one.
+#'
+#' The check is close to free, which is why it is on by default. The full
+#' evaluation is already in hand for the meat, so one `rowSums()` over it is
+#' O(p n), which the call is already paying, rather than the O(p^2 n) the
+#' argument exists to avoid. It costs one further call to the reduction.
+#'
+#' The comparison is relative, with an absolute floor of one. Two summations of
+#' the same n values in different orders differ by rounding, which is relative to
+#' the size of what was summed, so a fixed absolute tolerance would refuse a
+#' correct reduction on a large sample. The floor is there because the row sums
+#' vanish at a root, which is the point this function is usually called at, and a
+#' purely relative comparison has no scale to stand on there.
+#'
+#' That the comparison is made at one point, and that the point is a root, is
+#' also the limit of what it can see. Both quantities are at rounding there, so a
+#' reduction that is a multiple of the right one agrees with it and is accepted,
+#' and the bread comes back as that multiple of the right bread. What the check
+#' catches is a reduction of some other system, which does not vanish where this
+#' one does. Catching a rescaling would take an evaluation of the estimating
+#' functions somewhere other than the root, which is the whole cost the argument
+#' exists to avoid.
+#'
+#' @param summed The value of the supplied reduction at `theta`.
+#' @param from_matrix The row sums of the full evaluation at `theta`.
+#' @param call The frame to report the error against.
+#'
+#' @returns Invisible `NULL`. Raises an error carrying the class
+#'   `deli_summed_equations_disagree` where the two disagree.
+#' @noRd
+check_summed_agreement <- function(
+  summed,
+  from_matrix,
+  call = rlang::caller_env()
+) {
+  n_eqs <- length(from_matrix)
+  if (length(summed) != n_eqs) {
+    cli::cli_abort(
+      c(
+        "!" = "{.arg summed_equations} returned {length(summed)} value{?s} at
+               {.arg theta}, for {n_eqs} estimating equation{?s}.",
+        "i" = "It returns the sum of each estimating equation across the
+               observations, so it holds one value per row of what
+               {.arg stacked_equations} returns."
+      ),
+      class = "deli_summed_equations_disagree",
+      call = call
+    )
+  }
+  scale <- pmax(abs(from_matrix), 1)
+  worst <- which.max(abs(summed - from_matrix) / scale)
+  if (abs(summed[worst] - from_matrix[worst]) / scale[worst] < 1e-6) {
+    return(invisible(NULL))
+  }
+  cli::cli_abort(
+    c(
+      "!" = "{.arg summed_equations} does not sum {.arg stacked_equations} at
+             {.arg theta}.",
+      "i" = "Estimating equation {worst} sums to
+             {.val {from_matrix[[worst]]}} across the observations, and
+             {.arg summed_equations} reports {.val {summed[[worst]]}}.",
+      "i" = "The bread is differentiated from {.arg summed_equations} and the
+             meat is built from {.arg stacked_equations}, so the two must be the
+             same system."
+    ),
+    class = "deli_summed_equations_disagree",
+    call = call
+  )
+}
+
 #' Compute the empirical sandwich variance estimator
 #'
 #' Computes the empirical sandwich variance estimator directly from a set of
@@ -546,6 +637,39 @@ finite_sample_correction <- function(meat, n, p, adjustment = NULL) {
 #' @param finite_correction Character string or `NULL`. Finite-sample correction
 #'   applied to the meat matrix. `NULL` (default) applies no correction; `"HC1"`
 #'   rescales the meat by \eqn{n / (n - p)}, where p is the number of parameters.
+#' @param summed_equations A function that takes a numeric vector `theta` and
+#'   returns the length-p vector of row sums of `stacked_equations` at `theta`,
+#'   or `NULL` (default) to derive those sums from the full p-by-n return.
+#'
+#'   The bread is the Jacobian of the summed estimating equations, so each of the
+#'   one or two perturbed evaluations it makes per parameter is reduced to one
+#'   value per equation as soon as it is built. Deriving the reduction builds the
+#'   whole p-by-n matrix 2p times for arithmetic that is linear in it; an
+#'   estimating function whose sums have a closed form, such as the
+#'   \eqn{X^T r} of a regression score, can supply them and hand the bread only
+#'   what it uses. The meat is unaffected either way, since it needs the
+#'   per-observation contributions and takes the one full evaluation it always
+#'   took.
+#'
+#'   Under `deriv_method = "exact"` the reduction is called with a
+#'   tangent-carrying `theta`, so it must be written in operations that carry
+#'   derivatives: `t(X) %*% r` does, and [base::crossprod()] does not. See
+#'   [auto_differentiation()] for which operations carry a tangent and where.
+#' @param check_summed_equations Logical. When `TRUE` (default) and
+#'   `summed_equations` was supplied, its value at `theta` is compared against
+#'   the row sums of the one full evaluation the meat is built from, and a
+#'   disagreement raises an error carrying the class
+#'   `deli_summed_equations_disagree`. The comparison costs one call to
+#'   `summed_equations` and one reduction of a matrix the call already holds.
+#'   Set it to `FALSE` to skip the comparison, which leaves a reduction that sums
+#'   some other system to return a matrix with the shape of a covariance and no
+#'   claim to be one.
+#'
+#'   The comparison is made at `theta`, which the caller states is the root, so
+#'   both quantities are at rounding there. That is enough to catch a reduction
+#'   of some other system and not enough to catch a reduction that is a multiple
+#'   of the right one, which agrees at a root and yields that multiple of the
+#'   right bread.
 #'
 #' @returns A p-by-p covariance matrix on the asymptotic scale. The bread and
 #'   meat are each divided by n internally, so the returned matrix is the
@@ -585,6 +709,16 @@ finite_sample_correction <- function(meat, n, p, adjustment = NULL) {
 #' # The diagonal square roots are the standard errors
 #' sqrt(diag(sandwich))
 #'
+#' # The bread only ever needs the sums of the estimating equations, so an
+#' # equation whose sums have a closed form can supply them directly
+#' summed <- function(theta) {
+#'   c(
+#'     sum(y) - length(y) * theta[1],
+#'     sum((y - theta[1])^2) - length(y) * theta[2]
+#'   )
+#' }
+#' compute_sandwich(psi, theta = theta, summed_equations = summed) / length(y)
+#'
 #' @references
 #' Boos DD, & Stefanski LA. (2013). M-estimation (estimating equations). In
 #' Essential Statistical Inference (pp. 297-337). Springer, New York, NY.
@@ -596,7 +730,9 @@ compute_sandwich <- function(
   deriv_method = "capprox",
   dx = 1e-9,
   allow_pinv = TRUE,
-  finite_correction = NULL
+  finite_correction = NULL,
+  summed_equations = NULL,
+  check_summed_equations = TRUE
 ) {
   check_dx(dx)
   # Every failure below judges something the caller passed to this function, and
@@ -638,6 +774,18 @@ compute_sandwich <- function(
       n_params <- nrow(evald)
     }
 
+    # A reduction of the estimating functions is judged against the evaluation
+    # the meat is built from, before the bread is differentiated from it. See
+    # check_summed_agreement() for what the two disagreeing would produce and
+    # why reading it here is what makes the check affordable.
+    if (!is.null(summed_equations) && isTRUE(check_summed_equations)) {
+      check_summed_agreement(
+        unname(as.numeric(summed_equations(theta))),
+        unname(rowSums(evald)),
+        call = call
+      )
+    }
+
     # Step 1: Bread matrix
     #
     # An NA bread is the one failure the assembly reports rather than raises,
@@ -648,7 +796,13 @@ compute_sandwich <- function(
     # is what keeps the report to a single condition: the handler is an exiting
     # one, so the warning never reaches the caller.
     bread <- rlang::try_fetch(
-      compute_bread(stacked_equations, theta, deriv_method, dx),
+      compute_bread(
+        stacked_equations,
+        theta,
+        deriv_method,
+        dx,
+        summed_equations = summed_equations
+      ),
       deli_bread_na = function(cnd) {
         cli::cli_abort(
           c(

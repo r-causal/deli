@@ -1142,3 +1142,163 @@ test_that("an over-identified fit still refuses the pseudo-inverse by class", {
     class = "deli_bread_not_invertible"
   )
 })
+
+# ---- the summed estimating equations the bread differentiates ----------------
+#
+# The bread is the Jacobian of the summed estimating equations, so every
+# perturbed evaluation it makes is reduced to one value per equation the moment
+# it is built. Deriving that reduction from the full p-by-n return costs the
+# whole matrix 2p times over for arithmetic that is linear in it. A caller who
+# can write the sums directly supplies them as `summed_equations`, and the meat
+# still takes the one full evaluation it needs. The two must be the same system,
+# which is what the agreement check below judges.
+
+reducer_case <- function(n = 80) {
+  set.seed(11)
+  X <- cbind(1, stats::rnorm(n), stats::rnorm(n))
+  y <- as.vector(X %*% c(0.5, 1.5, -0.75)) + stats::rnorm(n)
+  theta <- as.vector(qr.solve(X, y))
+  list(
+    X = X,
+    y = y,
+    theta = theta,
+    psi = function(th) t(X * (y - as.vector(X %*% th))),
+    # The row sums of that psi, written as one matrix product rather than as a
+    # reduction over the p-by-n matrix. Under a finite-difference method the
+    # argument is plain numeric, so the whole thing is `t(X) %*% resid`.
+    summed = function(th) as.vector(t(X) %*% (y - as.vector(X %*% th)))
+  )
+}
+
+test_that("a supplied reducer gives the sandwich the matrix route gives", {
+  case <- reducer_case()
+
+  expect_equal(
+    compute_sandwich(
+      case$psi,
+      theta = case$theta,
+      summed_equations = case$summed
+    ),
+    compute_sandwich(case$psi, theta = case$theta),
+    tolerance = 1e-5
+  )
+})
+
+test_that("compute_bread() takes the same reducer", {
+  case <- reducer_case()
+
+  # The two reductions sum the same values in different orders, so their
+  # difference quotients differ by rounding rather than exactly.
+  expect_equal(
+    compute_bread(case$psi, case$theta, summed_equations = case$summed),
+    compute_bread(case$psi, case$theta),
+    tolerance = 1e-5
+  )
+})
+
+test_that("a supplied reducer is what the perturbed evaluations go through", {
+  case <- reducer_case()
+  calls <- 0L
+  counted <- function(th) {
+    calls <<- calls + 1L
+    case$psi(th)
+  }
+
+  compute_sandwich(counted, theta = case$theta, summed_equations = case$summed)
+  # The meat's one evaluation, and no other: the bread went through the
+  # reduction it was handed.
+  expect_identical(calls, 1L)
+
+  calls <- 0L
+  compute_sandwich(counted, theta = case$theta)
+  # The meat's one evaluation, and two per parameter for the central
+  # differences, which is what the argument exists to avoid.
+  expect_identical(calls, 1L + 2L * length(case$theta))
+})
+
+test_that("the derived reduction is what an unsupplied reducer leaves in place", {
+  case <- reducer_case()
+
+  expect_identical(
+    compute_sandwich(case$psi, theta = case$theta, summed_equations = NULL),
+    compute_sandwich(case$psi, theta = case$theta)
+  )
+  expect_identical(
+    compute_bread(case$psi, case$theta, summed_equations = NULL),
+    compute_bread(case$psi, case$theta)
+  )
+})
+
+test_that("a reducer that sums another system is refused", {
+  case <- reducer_case()
+  # The second equation carries a term the estimating function does not, so the
+  # bread would be the Jacobian of one system and the meat the cross-product of
+  # another, and the returned matrix would carry the shape of a covariance
+  # without the meaning.
+  wrong <- function(th) case$summed(th) + c(0, 5, 0)
+
+  err <- expect_error(
+    compute_sandwich(case$psi, theta = case$theta, summed_equations = wrong),
+    class = "deli_summed_equations_disagree"
+  )
+
+  expect_match(conditionMessage(err), "summed_equations")
+  expect_match(conditionMessage(err), "stacked_equations")
+})
+
+test_that("a reducer returning the wrong number of values is refused", {
+  case <- reducer_case()
+  short <- function(th) case$summed(th)[1:2]
+
+  err <- expect_error(
+    compute_sandwich(case$psi, theta = case$theta, summed_equations = short),
+    class = "deli_summed_equations_disagree"
+  )
+
+  expect_match(conditionMessage(err), "2")
+  expect_match(conditionMessage(err), "3")
+})
+
+test_that("the agreement check can be turned off", {
+  case <- reducer_case()
+  wrong <- function(th) case$summed(th) + c(0, 5, 0)
+
+  expect_no_error(
+    compute_sandwich(
+      case$psi,
+      theta = case$theta,
+      summed_equations = wrong,
+      check_summed_equations = FALSE
+    )
+  )
+})
+
+test_that("a tangent-safe reducer differentiates exactly", {
+  case <- reducer_case()
+  # `t(X) %*% resid` carries tangents through the registered `%*%` and `t()`
+  # methods, so the same reducer serves the exact pass. The crossprod shortcut
+  # would not.
+  expect_equal(
+    compute_sandwich(
+      case$psi,
+      theta = case$theta,
+      deriv_method = "exact",
+      summed_equations = case$summed
+    ),
+    compute_sandwich(case$psi, theta = case$theta, deriv_method = "exact")
+  )
+})
+
+test_that("a reducer that rescales the same system is not what the check sees", {
+  case <- reducer_case()
+  # The comparison is made at `theta`, which the caller states is the root, so
+  # the sums it compares are at rounding there and a reduction that is a
+  # multiple of the right one agrees with it. The bread it yields is that
+  # multiple of the right bread. The check sees a reduction of some other
+  # system, not a rescaling of this one, and the documentation says so.
+  rescaled <- function(th) case$summed(th) * 2
+
+  expect_no_error(
+    compute_sandwich(case$psi, theta = case$theta, summed_equations = rescaled)
+  )
+})

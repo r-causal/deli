@@ -10,7 +10,9 @@ compute_sandwich(
   deriv_method = "capprox",
   dx = 1e-09,
   allow_pinv = TRUE,
-  finite_correction = NULL
+  finite_correction = NULL,
+  summed_equations = NULL,
+  check_summed_equations = TRUE
 )
 }
 \arguments{
@@ -57,6 +59,41 @@ error.}
 \item{finite_correction}{Character string or \code{NULL}. Finite-sample correction
 applied to the meat matrix. \code{NULL} (default) applies no correction; \code{"HC1"}
 rescales the meat by \eqn{n / (n - p)}, where p is the number of parameters.}
+
+\item{summed_equations}{A function that takes a numeric vector \code{theta} and
+returns the length-p vector of row sums of \code{stacked_equations} at \code{theta},
+or \code{NULL} (default) to derive those sums from the full p-by-n return.
+
+The bread is the Jacobian of the summed estimating equations, so each of the
+one or two perturbed evaluations it makes per parameter is reduced to one
+value per equation as soon as it is built. Deriving the reduction builds the
+whole p-by-n matrix 2p times for arithmetic that is linear in it; an
+estimating function whose sums have a closed form, such as the
+\eqn{X^T r} of a regression score, can supply them and hand the bread only
+what it uses. The meat is unaffected either way, since it needs the
+per-observation contributions and takes the one full evaluation it always
+took.
+
+Under \code{deriv_method = "exact"} the reduction is called with a
+tangent-carrying \code{theta}, so it must be written in operations that carry
+derivatives: \code{t(X) \%*\% r} does, and \code{\link[base:crossprod]{base::crossprod()}} does not. See
+\code{\link[=auto_differentiation]{auto_differentiation()}} for which operations carry a tangent and where.}
+
+\item{check_summed_equations}{Logical. When \code{TRUE} (default) and
+\code{summed_equations} was supplied, its value at \code{theta} is compared against
+the row sums of the one full evaluation the meat is built from, and a
+disagreement raises an error carrying the class
+\code{deli_summed_equations_disagree}. The comparison costs one call to
+\code{summed_equations} and one reduction of a matrix the call already holds.
+Set it to \code{FALSE} to skip the comparison, which leaves a reduction that sums
+some other system to return a matrix with the shape of a covariance and no
+claim to be one.
+
+The comparison is made at \code{theta}, which the caller states is the root, so
+both quantities are at rounding there. That is enough to catch a reduction
+of some other system and not enough to catch a reduction that is a multiple
+of the right one, which agrees at a root and yields that multiple of the
+right bread.}
 }
 \value{
 A p-by-p covariance matrix on the asymptotic scale. The bread and
@@ -107,6 +144,16 @@ sandwich
 
 # The diagonal square roots are the standard errors
 sqrt(diag(sandwich))
+
+# The bread only ever needs the sums of the estimating equations, so an
+# equation whose sums have a closed form can supply them directly
+summed <- function(theta) {
+  c(
+    sum(y) - length(y) * theta[1],
+    sum((y - theta[1])^2) - length(y) * theta[2]
+  )
+}
+compute_sandwich(psi, theta = theta, summed_equations = summed) / length(y)
 
 }
 \references{

@@ -4,7 +4,13 @@
 \alias{compute_bread}
 \title{Compute the bread matrix}
 \usage{
-compute_bread(stacked_equations, theta, deriv_method = "capprox", dx = 1e-09)
+compute_bread(
+  stacked_equations,
+  theta,
+  deriv_method = "capprox",
+  dx = 1e-09,
+  summed_equations = NULL
+)
 }
 \arguments{
 \item{stacked_equations}{A function that takes a numeric vector \code{theta} and
@@ -18,6 +24,14 @@ returns a p-by-n matrix of estimating equation contributions.}
 \item{dx}{Numeric step size (default \code{1e-9}). The step is absolute, floored
 at the floating-point resolution of each estimate; see
 \code{\link[=approx_differentiation]{approx_differentiation()}}.}
+
+\item{summed_equations}{A function of \code{theta} returning the length-p vector of
+row sums of \code{stacked_equations} at \code{theta}, or \code{NULL} (default) to derive
+that reduction from the full p-by-n return. See \code{\link[=compute_sandwich]{compute_sandwich()}} for
+what a supplied reduction saves and what it must satisfy. This function
+evaluates nothing else, so it has nothing to check a supplied reduction
+against and takes it on trust: a reduction that sums some other system
+returns the Jacobian of that other system, with nothing to say so.}
 }
 \value{
 The negated Jacobian of the summed estimating equations, with one
