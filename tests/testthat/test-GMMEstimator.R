@@ -849,3 +849,108 @@ test_that("GMMEstimator works for linear regression EE", {
   expect_equal(g@theta, m@theta, tolerance = 1e-3)
   expect_equal(diag(g@variance), diag(m@variance), tolerance = 1e-3)
 })
+
+# ---- what the bread of a GMM fit says about identification -------------------
+#
+# A GMM fit judges its moments, through the J-statistic where it is
+# over-identified and through the readings of the returned point where it is
+# not, but nothing asked the bread whether the parameters can be told apart. A
+# rank-deficient just-identified system therefore came back silent, where the
+# same system fitted as an M-estimator reports that its parameters are not
+# identified. The reading is the M path's, reused.
+
+rank_deficient_gmm_data <- function() {
+  set.seed(11)
+  n <- 60
+  x <- stats::rnorm(n)
+  # The third column repeats the second, so no value of the parameters is
+  # distinguishable from another that trades between the two.
+  list(X = cbind(1, x, x), y = 1 + 2 * x + stats::rnorm(n))
+}
+
+test_that("a rank-deficient just-identified GMM fit reports its parameters", {
+  d <- rank_deficient_gmm_data()
+  psi <- function(theta) t(d$X * as.vector(d$y - d$X %*% theta))
+
+  g <- GMMEstimator(stacked_equations = psi, init = c(0, 0, 0))
+  cnd <- rlang::catch_cnd(estimate(g), classes = "warning")
+
+  expect_s3_class(cnd, "deli_solver_not_converged")
+  expect_match(conditionMessage(cnd), "not identified")
+})
+
+test_that("a healthy over-identified GMM fit stays silent about identification", {
+  # The bread of an over-identified fit is rectangular by design, so the
+  # question its rank answers is whether the columns are independent rather
+  # than whether the matrix is square. Reading squareness would report every
+  # over-identified fit.
+  set.seed(12)
+  n <- 200
+  z1 <- stats::rbinom(n, 1, 0.5)
+  z2 <- stats::rnorm(n)
+  u <- stats::rnorm(n)
+  a <- 0.5 * z1 + 0.3 * z2 + u + stats::rnorm(n)
+  y <- 2 * a - u + stats::rnorm(n)
+
+  psi <- function(theta) {
+    resid <- y - theta[1] * a
+    rbind(z1 * resid, z2 * resid)
+  }
+
+  g <- GMMEstimator(stacked_equations = psi, init = 0)
+  expect_no_warning(estimate(g))
+  expect_equal(unname(coef(estimate(g))), 2, tolerance = 0.3)
+})
+
+# ---- the moment covariance the weight update cannot invert -------------------
+
+test_that("a singular moment covariance is classed under allow_pinv = FALSE", {
+  # The update takes the inverse of the moment covariance, and under
+  # `allow_pinv = FALSE` it took it with a bare `solve()`, so a covariance with
+  # no inverse surfaced as LAPACK's "system is exactly singular" against an
+  # argument no caller wrote. The bread has carried a class for this since
+  # `check_bread_invertible()`; the meat had none.
+  set.seed(13)
+  n <- 120
+  z1 <- stats::rnorm(n)
+  z2 <- stats::rnorm(n)
+  a <- z1 + 0.5 * z2 + stats::rnorm(n)
+  y <- 2 * a + stats::rnorm(n)
+
+  # The second moment condition repeats the first exactly, so the covariance of
+  # the three is singular.
+  psi <- function(theta) {
+    resid <- y - theta[1] * a
+    rbind(z1 * resid, z1 * resid, z2 * resid)
+  }
+
+  g <- GMMEstimator(stacked_equations = psi, init = 0)
+  err <- expect_error(
+    estimate(g, allow_pinv = FALSE),
+    class = "deli_meat_not_invertible"
+  )
+  flat <- gsub("\\s+", " ", conditionMessage(err))
+  expect_match(flat, "allow_pinv", fixed = TRUE)
+  expect_match(flat, "rank is 2 of 3", fixed = TRUE)
+  # LAPACK's own account of the failure named an argument no caller wrote.
+  expect_false(grepl("reciprocal condition number", flat, fixed = TRUE))
+})
+
+test_that("the dependent-moment report degrades where qr sees full rank", {
+  # `warn_dependent_moments()` is reached whenever `solve()` fails, and it
+  # assumed that a failed solve means a rank-deficient factorization. A
+  # covariance whose columns are orthogonal but whose scales differ by more than
+  # the reciprocal condition tolerance defeats `solve()` while `qr()` still
+  # reports full rank, which left the report naming a rank of k out of k and
+  # listing no condition at all.
+  meat <- diag(c(1, 1e-20))
+  expect_identical(qr(meat)$rank, 2L)
+
+  cnd <- rlang::catch_cnd(warn_dependent_moments(meat), classes = "warning")
+  expect_s3_class(cnd, "deli_gmm_moments_dependent")
+  flat <- gsub("\\s+", " ", conditionMessage(cnd))
+  expect_match(flat, "poorly conditioned", fixed = TRUE)
+  expect_match(flat, "full rank", fixed = TRUE)
+  # The sentence that names the dependent conditions has none to name here.
+  expect_false(grepl("accounted for by the others, so", flat, fixed = TRUE))
+})

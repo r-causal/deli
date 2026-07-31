@@ -27,6 +27,10 @@ handed to \code{\link[=compute_sandwich]{compute_sandwich()}}. Every refusal of 
 recognizing one is a match on this rather than on four messages.
 \item \code{deli_psi_shape_error}: the number of estimating equations returned cannot
 be solved against the number of parameters. Leads \code{deli_psi_return_error}.
+\item \code{deli_psi_list_unsupported}: the estimating function returned a list of one
+element per equation. \code{\link[=compute_bread]{compute_bread()}} reduces that shape, and no fit can
+solve it, so \code{\link[=estimate]{estimate()}} refuses it rather than failing on the summed
+equations. Leads \code{deli_psi_return_error}.
 }
 }
 
@@ -72,7 +76,12 @@ conditions cannot all hold at one value of the parameters.
 \item \code{deli_gmm_moments_dependent}, a warning: the moment conditions are linearly
 dependent at the estimated values, so the two-step weight matrix is a
 pseudo-inverse and what comes back is the fit of the independent conditions
-alone.
+alone. It also carries the rarer covariance that has no inverse for want of
+conditioning rather than of rank, which the message tells apart.
+\item \code{deli_meat_not_invertible}: the covariance of the moment conditions cannot
+be inverted, so the two-step GMM weight update has no weight matrix to
+take, and \code{allow_pinv = FALSE} refused the pseudo-inverse. The counterpart
+of \code{deli_bread_not_invertible} for the other half of the sandwich.
 }
 }
 

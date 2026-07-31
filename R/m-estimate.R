@@ -84,7 +84,8 @@
 #'   uses `"rootSolve"` for M-estimation and `"BFGS"` for GMM. See [estimate()]
 #'   for the full list of solvers and for how the returned point is judged
 #'   against the estimating equations.
-#' @param maxiter Integer maximum iterations (default 5000).
+#' @param maxiter Integer maximum iterations (default 5000). Must be a single
+#'   positive whole number.
 #' @param tolerance Numeric convergence tolerance (default 1e-9).
 #' @param deriv_method Character string for numerical differentiation method
 #'   (default `"capprox"`).
@@ -443,6 +444,31 @@ prepare_formula_psi <- function(
       )
     }
     ee_args$offset <- formula_offset
+  }
+
+  # A function and the name of one are the two forms the interface takes, and
+  # anything else has no arguments to check and nothing to call. Judged here,
+  # ahead of both, because the checks below read arguments and decline to speak
+  # about a value whose arguments cannot be read, so such an `.ee` reached
+  # `do.call()` inside the estimating function and failed there as `'what' must
+  # be a function or character string`. The automatic-`init` diagnostic wraps
+  # whatever fails there, so the report named the starting values and buried the
+  # cause, exactly as it did for a character vector of the wrong length.
+  if (!is.character(.ee) && !is.function(.ee)) {
+    # Held in a local because a cli literal cannot start with a dot, which is
+    # the character a cli style begins with.
+    supplied <- .ee
+    cli::cli_abort(
+      c(
+        "{.arg .ee} must be a function or the name of one.",
+        "x" = "It is {.obj_type_friendly {supplied}}.",
+        "i" = "Pass the estimating equation itself, as in
+               {.code .ee = ee_regression}, or its name, as in
+               {.code .ee = \"ee_regression\"}."
+      ),
+      call = error_call,
+      class = "deli_formula_ee_lookup_error"
+    )
   }
 
   # `do.call()` takes the name of a function as readily as the function itself,

@@ -269,6 +269,12 @@ build_sandwich <- function(
 #     asked for a matrix and there is none to give. Raised by
 #     check_bread_invertible() for a rectangular or a rank-deficient bread under
 #     `allow_pinv = FALSE`, and by compute_sandwich() for a bread holding `NA`.
+#
+#   deli_meat_not_invertible
+#     The covariance of the moment conditions cannot be inverted and the caller
+#     refused the pseudo-inverse, so the two-step GMM weight update has no
+#     weight matrix to take. Raised by abort_meat_not_invertible(), from the
+#     update in estimate_gmm_estimator().
 
 #' Check that a bread matrix can be inverted without the pseudo-inverse
 #'
@@ -346,6 +352,60 @@ check_bread_invertible <- function(bread, call = rlang::caller_env()) {
     )
   }
   invisible(NULL)
+}
+
+#' Refuse a moment covariance that has no inverse
+#'
+#' The counterpart of `check_bread_invertible()` for the two-step GMM weight
+#' update, which sets the weight matrix to the inverse of the moment covariance.
+#' `allow_pinv = FALSE` says a matrix with no inverse is to be refused rather
+#' than pseudo-inverted, and the update took its inverse with a bare
+#' [base::solve()], so a covariance with none surfaced as LAPACK's
+#' `system is exactly singular` or `system is computationally singular`, naming
+#' neither the setting that produced the refusal nor the conditions at fault.
+#'
+#' The refusal is raised where the solve fails rather than ahead of it, which is
+#' what makes it cover both ways a covariance defeats the inverse. Linearly
+#' dependent conditions are the usual one and the factorization names them. The
+#' other is a covariance whose columns are independent to the factorization's
+#' tolerance and whose scales differ by more than the reciprocal condition
+#' number `solve()` accepts; reading the rank ahead of the solve would let that
+#' one through to fail as base R.
+#'
+#' @param meat The moment covariance the update could not invert.
+#' @param call The frame to report the error against.
+#'
+#' @returns Nothing; it throws.
+#' @noRd
+abort_meat_not_invertible <- function(meat, call = rlang::caller_env()) {
+  detail <- if (!all(is.finite(meat))) {
+    "It holds values that are not finite, so it has no inverse and no
+     factorization to read one from."
+  } else {
+    factored <- qr(meat)
+    n_moments <- ncol(meat)
+    if (factored$rank < n_moments) {
+      "Its rank is {factored$rank} of {n_moments}, so at least one moment
+       condition is accounted for by the others and their covariance has no
+       inverse."
+    } else {
+      "It factors at full rank, so no one condition is accounted for by the
+       others, and what defeats the inverse is the range of scale across them."
+    }
+  }
+  cli::cli_abort(
+    c(
+      "!" = "The moment covariance cannot be inverted, and {.arg allow_pinv} is
+             {.code FALSE}.",
+      "i" = detail,
+      "i" = "Set {.code allow_pinv = TRUE} to build the two-step weight matrix
+             from the Moore-Penrose pseudo-inverse, which is what an
+             over-identified fit reports, or drop the moment conditions the
+             others already account for."
+    ),
+    class = "deli_meat_not_invertible",
+    call = call
+  )
 }
 
 #' Apply finite-sample correction to the meat matrix

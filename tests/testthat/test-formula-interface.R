@@ -1205,6 +1205,48 @@ test_that("an .ee taking dots is still refused the arguments the interface fills
   )
 })
 
+test_that("the response slot stops at the equation's own dots", {
+  # The response is passed positionally, and R matches a positional argument
+  # only against formals that precede `...`. An argument written after the dots
+  # can be filled by name and by nothing else, so reading past them named an
+  # argument the interface cannot reach.
+  expect_identical(formula_ee_response_slot(c("theta", "X", "y")), "y")
+  expect_identical(formula_ee_response_slot(c("theta", "X", "y", "...")), "y")
+  expect_null(formula_ee_response_slot(c("theta", "X", "...", "y")))
+  expect_null(formula_ee_response_slot(c("theta", "...", "X", "y")))
+  expect_null(formula_ee_response_slot(c("theta", "X", "...")))
+})
+
+test_that("an equation whose response argument follows its dots is refused", {
+  # The response lands in the equation's `...` here and `y` is never filled, so
+  # the fit failed with `argument "y" is missing, with no default` wrapped in
+  # the automatic-`init` diagnostic, which named the starting values and said
+  # nothing about the signature. It is refused before the equation is called.
+  d <- make_weighted_data()
+  ee_dots_first <- function(theta, X, ..., y) {
+    t(X * as.vector(y - X %*% theta))
+  }
+  err <- expect_error(
+    m_estimate(y ~ x, data = d, .ee = ee_dots_first),
+    class = "deli_formula_ee_signature_error"
+  )
+  flat <- flatten_message(err)
+  expect_match(flat, "response", fixed = TRUE)
+  expect_false(grepl("automatic zero", flat, fixed = TRUE))
+})
+
+test_that("an equation whose dots follow its response still fits", {
+  # The truncation must not cost the ordinary dots-last signature, where the
+  # response reaches the argument before the dots exactly as before.
+  d <- make_weighted_data()
+  ee_dots_last <- function(theta, X, y, ...) {
+    t(X * as.vector(y - X %*% theta))
+  }
+  oracle <- stats::lm(y ~ x, data = d)
+  m <- m_estimate(y ~ x, data = d, .ee = ee_dots_last)
+  expect_equal(unname(coef(m)), unname(coef(oracle)), tolerance = 1e-6)
+})
+
 test_that("the arguments the formula interface fills are still forwarded", {
   # The refusals above must not cost the ordinary route: the response comes from
   # the formula, the design from the formula and `data`, and a legitimate name
@@ -1578,6 +1620,31 @@ test_that("gmm_estimate() holds a character .ee to the same length", {
     class = "deli_formula_ee_lookup_error"
   )
   expect_identical(reported_entry_point(err), quote(gmm_estimate))
+})
+
+test_that("an .ee that is neither a function nor a name is refused up front", {
+  # The two accepted forms are a function and the name of one. Anything else
+  # reached `do.call()` from inside the estimating function, where it failed as
+  # `'what' must be a function or character string` and the automatic-`init`
+  # diagnostic wrapped it, so the report named the starting values and buried
+  # the cause. The type is judged before the interface builds anything.
+  d <- make_weighted_data()
+
+  for (entry in list(m_estimate, gmm_estimate)) {
+    err <- expect_error(
+      entry(y ~ x, data = d, .ee = 42),
+      class = "deli_formula_ee_lookup_error"
+    )
+    flat <- flatten_message(err)
+    expect_match(flat, "`.ee`", fixed = TRUE)
+    expect_false(grepl("automatic zero", flat, fixed = TRUE))
+    expect_false(grepl("'what' must be", flat, fixed = TRUE))
+  }
+
+  from_m <- expect_error(m_estimate(y ~ x, data = d, .ee = 42))
+  expect_identical(reported_entry_point(from_m), quote(m_estimate))
+  from_gmm <- expect_error(gmm_estimate(y ~ x, data = d, .ee = 42))
+  expect_identical(reported_entry_point(from_gmm), quote(gmm_estimate))
 })
 
 test_that("a character .ee reaches the signature check as well", {

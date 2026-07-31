@@ -52,9 +52,30 @@ estimates, and inspect \code{rowSums()} of the estimating functions at the
 returned values. \code{\link[rootSolve:multiroot]{rootSolve::multiroot()}} cannot run inside itself,
 so a fit whose estimating function fits a second M-estimator cannot leave
 both on the default solver; that is refused rather than attempted, and
-naming \code{"nleqslv"} for either of the two fits resolves it.}
+naming \code{"nleqslv"} for either of the two fits resolves it.
 
-\item{maxiter}{Integer maximum iterations for the solver (default 5000).}
+That refusal covers the solves deli makes and cannot cover a solve made
+inside a custom function, whose body deli does not read. \strong{A custom solver
+that calls \code{\link[rootSolve:multiroot]{rootSolve::multiroot()}} itself must not be used while another
+\code{rootSolve} solve is running.} The inner call overwrites the environment
+the outer one is still using, and neither reports it: the outer solve was
+measured returning the inner fit's estimates under nothing louder than a
+generic non-convergence warning. Give either the outer fit or the custom
+solver a different algorithm, \code{"nleqslv"} or \code{"lm"}, so that no two
+\code{rootSolve} solves are open at once.
+
+A \code{"rootSolve"} solve discards anything printed to standard output while it
+runs, because \code{\link[rootSolve:multiroot]{rootSolve::multiroot()}} prints Fortran diagnostics there that
+report on its internals rather than on the fit. The sink covers the whole
+solve rather than the solver alone, so a \code{print()} or a \code{cat()} in the
+estimating function is discarded along with them and its output does not
+reach the console. Warnings and messages are untouched, since neither goes
+to standard output, so \code{message()} traces an estimating function under
+every solver.}
+
+\item{maxiter}{Integer maximum iterations for the solver (default 5000). Must
+be a single positive whole number, which is checked whichever solver is in
+force.}
 
 \item{tolerance}{Numeric tolerance for the solver (default 1e-9).}
 

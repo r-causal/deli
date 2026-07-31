@@ -136,6 +136,37 @@ test_that("compute_bread() warns through cli when the bread contains NA", {
   expect_match(conditionMessage(w), "variance will not be calculated")
 })
 
+test_that("the NA bread warning carries the class the catalog documents", {
+  # `deli_bread_na` is documented on `?deli-conditions` as the class a caller
+  # matches to answer an NA bread, and every assertion about it read the prose
+  # instead, which is the part a message is free to change. The class and the
+  # wording are pinned together here.
+  psi <- function(theta) matrix(rep(NA_real_, 3) * theta[1], nrow = 1)
+
+  w <- expect_warning(
+    compute_bread(psi, theta = 1),
+    class = "deli_bread_na"
+  )
+  expect_equal(class(w)[[1L]], "deli_bread_na")
+  flat <- gsub("\\s+", " ", conditionMessage(w))
+  expect_match(flat, "bread matrix contains NA values", fixed = TRUE)
+  expect_match(flat, "cannot be inverted", fixed = TRUE)
+  expect_match(flat, "variance will not be calculated", fixed = TRUE)
+
+  # `compute_sandwich()` converts an NA bread into the error the catalog names,
+  # so a caller who cannot carry on without a variance matches that one. The
+  # return has to be finite where it is asked for and NA only at a perturbed
+  # point, since a return that is non-finite at `theta` is refused ahead of the
+  # bread.
+  at_theta <- function(theta) {
+    matrix(rep(if (theta[1] == 0) 0 else NA_real_, 3), nrow = 1)
+  }
+  expect_error(
+    compute_sandwich(at_theta, theta = 0),
+    class = "deli_bread_not_invertible"
+  )
+})
+
 # The finite-difference step is an absolute perturbation, so a large enough
 # parameter magnitude drives it below the spacing of the doubles around `theta`
 # and the Jacobian degrades, then vanishes. Nothing about the returned bread

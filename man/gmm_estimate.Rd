@@ -107,7 +107,8 @@ uses \code{"rootSolve"} for M-estimation and \code{"BFGS"} for GMM. See \code{\l
 for the full list of solvers and for how the returned point is judged
 against the estimating equations.}
 
-\item{maxiter}{Integer maximum iterations (default 5000).}
+\item{maxiter}{Integer maximum iterations (default 5000). Must be a single
+positive whole number.}
 
 \item{tolerance}{Numeric convergence tolerance (default 1e-9).}
 

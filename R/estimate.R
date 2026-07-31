@@ -70,7 +70,28 @@
 #'   so a fit whose estimating function fits a second M-estimator cannot leave
 #'   both on the default solver; that is refused rather than attempted, and
 #'   naming `"nleqslv"` for either of the two fits resolves it.
-#' @param maxiter Integer maximum iterations for the solver (default 5000).
+#'
+#'   That refusal covers the solves deli makes and cannot cover a solve made
+#'   inside a custom function, whose body deli does not read. **A custom solver
+#'   that calls [rootSolve::multiroot()] itself must not be used while another
+#'   `rootSolve` solve is running.** The inner call overwrites the environment
+#'   the outer one is still using, and neither reports it: the outer solve was
+#'   measured returning the inner fit's estimates under nothing louder than a
+#'   generic non-convergence warning. Give either the outer fit or the custom
+#'   solver a different algorithm, `"nleqslv"` or `"lm"`, so that no two
+#'   `rootSolve` solves are open at once.
+#'
+#'   A `"rootSolve"` solve discards anything printed to standard output while it
+#'   runs, because [rootSolve::multiroot()] prints Fortran diagnostics there that
+#'   report on its internals rather than on the fit. The sink covers the whole
+#'   solve rather than the solver alone, so a `print()` or a `cat()` in the
+#'   estimating function is discarded along with them and its output does not
+#'   reach the console. Warnings and messages are untouched, since neither goes
+#'   to standard output, so `message()` traces an estimating function under
+#'   every solver.
+#' @param maxiter Integer maximum iterations for the solver (default 5000). Must
+#'   be a single positive whole number, which is checked whichever solver is in
+#'   force.
 #' @param tolerance Numeric tolerance for the solver (default 1e-9).
 #' @param deriv_method Character string for the derivative method used to
 #'   compute the bread matrix. One of `"capprox"` (central difference),
@@ -132,12 +153,13 @@ method(estimate, MEstimator) <- function(
   ...
 ) {
   rlang::check_dots_empty(call = rlang::caller_env())
-  # The step and the derivative method are judged here, where the frame to
-  # report them against is this method rather than the worker below it. The
-  # method the caller reached is the nearest frame that appears in a man page.
-  # `compute_bread()` normalizes the method again for the callers that reach it
-  # by another route.
+  # The step, the iteration budget, and the derivative method are judged here,
+  # where the frame to report them against is this method rather than the worker
+  # below it. The method the caller reached is the nearest frame that appears in
+  # a man page. `compute_bread()` normalizes the method again for the callers
+  # that reach it by another route.
   check_dx(dx)
+  check_maxiter(maxiter)
   deriv_method <- check_deriv_method(deriv_method)
   # One fit evaluates the estimating function many times, so an estimating
   # function that warns raises the same warning repeatedly for one operation.
@@ -405,7 +427,15 @@ estimate_m_estimator <- function(
 #     for the same reason as the one above: the estimates are the ones the
 #     objective asked for, and what is being reported on is the system. It is
 #     separate from the J-statistic reading because J cannot see this at all.
-#     Raised by `warn_dependent_moments()`.
+#     Raised by `warn_dependent_moments()`, which also carries the covariance
+#     that has no inverse for want of conditioning rather than of rank.
+#
+#   deli_meat_not_invertible
+#     The same covariance under `allow_pinv = FALSE`, where the pseudo-inverse
+#     is refused rather than taken. An error rather than a warning, because the
+#     update has no weight matrix to carry on with. Raised by
+#     `abort_meat_not_invertible()`; see R/sandwich.R, where it sits beside the
+#     bread's counterpart.
 #
 #   deli_nested_solver_error
 #     A rootSolve solve was asked for while another one was running. This one is
@@ -1030,6 +1060,34 @@ not_identified <- function(bread) {
   rank_deficient(bread) && !any(flat_rows(bread))
 }
 
+#' Whether the bread of a GMM fit says the parameters are not identified
+#'
+#' The reading `not_identified()` makes, asked of a bread that need not be
+#' square. An over-identified system has one row per moment condition and one
+#' column per parameter, so it is rectangular by design and squareness says
+#' nothing about it. What the question is about in either shape is the column
+#' rank: a bread whose columns are dependent leaves a direction in the parameter
+#' space along which the mean moments do not change, so no value of the
+#' parameters along it is distinguishable from another.
+#'
+#' The excuse `not_identified()` makes is kept. A row of the bread that is
+#' identically zero is a moment condition that does not move when any parameter
+#' does, which costs the matrix its rank for a reason that is not a redundant
+#' parameter, and the remedy this reading names would send the caller looking
+#' for one that is not there.
+#'
+#' @param bread The bread matrix at the estimated values.
+#' @returns `TRUE` where the columns of a finite bread are dependent and no row
+#'   of it is identically zero.
+#' @noRd
+gmm_not_identified <- function(bread) {
+  usable <- is.matrix(bread) && ncol(bread) > 0L && nrow(bread) > 0L
+  if (!usable || !all(is.finite(bread))) {
+    return(FALSE)
+  }
+  qr(bread)$rank < ncol(bread) && !any(flat_rows(bread))
+}
+
 #' Whether a bread matrix leaves a direction the equations cannot see
 #'
 #' A square bread whose rank falls short of its dimension has at least one
@@ -1056,6 +1114,17 @@ rank_deficient <- function(bread) {
 #' Returns the value of `expr`, unlike [utils::capture.output()], which returns
 #' the captured output and so forces the value to be assigned from inside the
 #' call.
+#'
+#' What it is for is the Fortran diagnostics `rootSolve::multiroot()` prints,
+#' which report on its internals rather than on the fit. A sink is the only way
+#' to reach them, since they are written from compiled code rather than
+#' signaled, and it takes everything written to standard output for the duration
+#' rather than only what the solver writes. A `print()` or a `cat()` in the
+#' caller's estimating function is therefore discarded too, for as long as the
+#' solve runs. That scope is documented under `solver` in [estimate()], because
+#' it is what a user tracing an estimating function runs into. Warnings and
+#' messages are unaffected, since neither is written to standard output, so a
+#' trace written with `message()` survives.
 #'
 #' @noRd
 without_output <- function(expr) {
@@ -1244,7 +1313,11 @@ check_not_nested_multiroot <- function(call) {
              single environment it holds on to, so the inner solve overwrites
              what the outer one is still using and the outer one carries on
              over corrupted state.",
-      "i" = "Give one of the two fits {.code solver = \"nleqslv\"}."
+      "i" = "Give one of the two fits {.code solver = \"nleqslv\"}.",
+      "i" = "A custom solver that calls {.fn rootSolve::multiroot} itself
+             reaches the same state and is not refused, because deli does not
+             read a solver's body. Such a solver needs the same treatment: give
+             it or the fit around it a different algorithm."
     ),
     class = "deli_nested_solver_error",
     call = call
@@ -1567,6 +1640,7 @@ method(estimate, GMMEstimator) <- function(
 ) {
   rlang::check_dots_empty(call = rlang::caller_env())
   check_dx(dx)
+  check_maxiter(maxiter)
   deriv_method <- check_deriv_method(deriv_method)
   # See the MEstimator method above and R/conditions.R for why the body sits in
   # a worker and what the scope does.
@@ -1739,7 +1813,17 @@ estimate_gmm_estimator <- function(
             }
           )
         } else {
-          weight_matrix <- solve(meat_q)
+          # The refusal is about the setting the caller passed, so it names the
+          # frame of the method that was called, as the bread's refusal does.
+          # Read here rather than inside the handler, where the frame one up is
+          # the handler's own.
+          entry_point <- rlang::caller_env()
+          weight_matrix <- tryCatch(
+            solve(meat_q),
+            error = function(e) {
+              abort_meat_not_invertible(meat_q, call = entry_point)
+            }
+          )
         }
 
         # Re-minimize with updated weight matrix
@@ -1810,6 +1894,15 @@ estimate_gmm_estimator <- function(
   # every moment to zero, and a subset fit holds the parameters outside the
   # subset at their initial values while still summing every equation into the
   # objective. None of those three can be judged this way, so none is.
+  #
+  # A point every reading accepts is still no evidence that the parameters it
+  # names can be told apart, and the minimizer reports on that no more than a
+  # root finder does, so the bread is asked afterward. That question is asked of
+  # every fit the minimizer converged on, over-identified or not, because it is
+  # about the parameters rather than about the moments. `judged_identification`
+  # carries the reading forward so that the two readings of one point report
+  # through exactly one of them, as the M path's three branches do.
+  judged_identification <- minimizer_converged && is.null(subset)
   if (minimizer_converged && !over_identified && is.null(subset)) {
     unsolved <- unsolved_point(
       evald,
@@ -1858,7 +1951,15 @@ estimate_gmm_estimator <- function(
         ),
         class = "deli_solver_not_converged"
       )
+      # The point has been reported on, so the identification reading is not
+      # asked as well: a fit that did not solve its moments is not also told
+      # that the parameters it did not reach cannot be told apart.
+      judged_identification <- FALSE
     }
+  }
+
+  if (judged_identification && gmm_not_identified(bread)) {
+    warn_not_identified()
   }
 
   # An over-identified problem cannot be judged that way, because no value of the
@@ -1996,12 +2097,36 @@ estimate_gmm_estimator <- function(
 #' themselves are identified is a separate question, which the bread answers and
 #' `not_identified()` reports on for an M-estimation fit.
 #'
+#' What brings the update here is `solve()` failing, and a dependence is the
+#' usual reason for that rather than the only one. A covariance whose columns
+#' are independent to the factorization's tolerance and whose scales differ by
+#' more than the reciprocal condition number `solve()` accepts defeats it too,
+#' and leaves the pivoting with no direction to name: the report would have read
+#' a rank of k out of k beside an empty list of conditions. That case gets a
+#' reading of its own rather than a rendering of the one below with nothing in
+#' it.
+#'
 #' @param meat The moment covariance the update could not invert.
 #' @returns Invisible `NULL`, called for the warning.
 #' @noRd
 warn_dependent_moments <- function(meat) {
   factored <- qr(meat)
   n_moments <- ncol(meat)
+  if (factored$rank == n_moments) {
+    cli::cli_warn(
+      c(
+        "!" = "The moment conditions are too poorly conditioned to invert at the
+               estimated values, so the weight matrix is a pseudo-inverse.",
+        "i" = "Their covariance factors at full rank, so no one condition is
+               accounted for by the others and none can be named. What defeats
+               the inverse is the range of scale across them.",
+        "i" = "Results may be unreliable. Look for a moment condition whose
+               scale stands far from the rest, and rescale it."
+      ),
+      class = "deli_gmm_moments_dependent"
+    )
+    return(invisible(NULL))
+  }
   # cli reads a single number as the quantity to pluralize on rather than
   # counting the values it was given, so one dependent condition at position 3
   # would be described in the plural. The positions are written out as strings

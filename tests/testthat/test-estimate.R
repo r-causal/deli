@@ -169,6 +169,69 @@ test_that("estimate() rejects a custom solver that returns the wrong shape", {
   expect_error(estimate(m, solver = bad_solver), "numeric vector of length 1")
 })
 
+test_that("estimate() names the list return a fit has no support for", {
+  # `compute_bread()` reduces a per-equation list, so a caller who built one for
+  # it reasonably expects a fit to take it as well. No fit does: the summed
+  # equations reach `sum()` on a dimensionless list, which is base R's
+  # `invalid 'type' (list) of argument`, and the generic refusal of a
+  # non-numeric return names the type without saying that the entry points
+  # differ. Both estimator paths reach the same refusal.
+  psi <- function(theta) {
+    y <- c(1, 2, 3, 4, 5)
+    list(y - theta[1], (y - theta[1])^2 - theta[2])
+  }
+
+  m <- expect_error(
+    estimate(MEstimator(stacked_equations = psi, init = c(0, 1))),
+    class = "deli_psi_list_unsupported"
+  )
+  g <- expect_error(
+    estimate(GMMEstimator(stacked_equations = psi, init = c(0, 1))),
+    class = "deli_psi_list_unsupported"
+  )
+
+  for (err in list(m, g)) {
+    flat <- gsub("\\s+", " ", conditionMessage(err))
+    expect_match(flat, "p-by-n", fixed = TRUE)
+    expect_match(flat, "rbind", fixed = TRUE)
+    expect_match(flat, "compute_bread", fixed = TRUE)
+    # The family class leads with the narrower one, as every other refused
+    # return does.
+    expect_s3_class(err, "deli_psi_return_error")
+  }
+})
+
+test_that("estimate() refuses a maxiter that is not a single positive count", {
+  # The budget reached the solver unjudged, beside a `dx` and a `deriv_method`
+  # that are both checked. A vector budget pluralized the non-convergence report
+  # on its own length rather than on the budget, and a budget that is not a
+  # number failed inside the solver against an argument the caller never wrote.
+  y <- c(1, 2, 3, 4, 5)
+  psi <- function(theta) matrix(y - theta[1], nrow = 1)
+  m <- MEstimator(stacked_equations = psi, init = 0)
+  g <- GMMEstimator(stacked_equations = psi, init = 0)
+
+  budgets <- list(c(10, 20), "many", 0, -5, NA_integer_, 2.5, Inf, numeric(0))
+  for (budget in budgets) {
+    expect_error(estimate(m, maxiter = budget), "maxiter")
+    expect_error(estimate(g, maxiter = budget), "maxiter")
+  }
+})
+
+test_that("estimate() reports the budget it refuses against the caller", {
+  y <- c(1, 2, 3, 4, 5)
+  psi <- function(theta) matrix(y - theta[1], nrow = 1)
+  m <- MEstimator(stacked_equations = psi, init = 0)
+
+  err <- expect_error(estimate(m, maxiter = c(10, 20)))
+  expect_match(
+    paste(deparse(conditionCall(err)), collapse = " "),
+    "estimate",
+    fixed = TRUE
+  )
+  expect_no_error(estimate(m, maxiter = 100))
+})
+
 # ---- estimate(deriv_method = "exact") for built-in EEs ----------------------
 #
 # Exact-mode bread for a built-in estimating equation must agree with the

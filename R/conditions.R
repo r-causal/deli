@@ -20,6 +20,10 @@
 #'   recognizing one is a match on this rather than on four messages.
 #' - `deli_psi_shape_error`: the number of estimating equations returned cannot
 #'   be solved against the number of parameters. Leads `deli_psi_return_error`.
+#' - `deli_psi_list_unsupported`: the estimating function returned a list of one
+#'   element per equation. [compute_bread()] reduces that shape, and no fit can
+#'   solve it, so [estimate()] refuses it rather than failing on the summed
+#'   equations. Leads `deli_psi_return_error`.
 #'
 #' @section The formula interface:
 #' - `deli_formula_ee_lookup_error`: `.ee` arrived as a character vector naming
@@ -57,7 +61,12 @@
 #' - `deli_gmm_moments_dependent`, a warning: the moment conditions are linearly
 #'   dependent at the estimated values, so the two-step weight matrix is a
 #'   pseudo-inverse and what comes back is the fit of the independent conditions
-#'   alone.
+#'   alone. It also carries the rarer covariance that has no inverse for want of
+#'   conditioning rather than of rank, which the message tells apart.
+#' - `deli_meat_not_invertible`: the covariance of the moment conditions cannot
+#'   be inverted, so the two-step GMM weight update has no weight matrix to
+#'   take, and `allow_pinv = FALSE` refused the pseudo-inverse. The counterpart
+#'   of `deli_bread_not_invertible` for the other half of the sandwich.
 #'
 #' @section The sandwich variance:
 #' - `deli_bread_na`, a warning: the bread matrix holds `NA`, so no inverse of

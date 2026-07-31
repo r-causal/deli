@@ -374,10 +374,14 @@ method(stats_residuals, deli_estimator) <- function(
   #
   # `sys.call(-1)` names the `residuals()` call the caller wrote; see the
   # comment on the same call in `predict()` for why the default would name the
-  # wrong frame.
-  rlang::check_dots_empty(call = sys.call(-1))
+  # wrong frame. It is read once, here, because it counts frames on the stack as
+  # it stands rather than from the environment an argument is evaluated in, so
+  # passing the expression on to be forced further down would count from
+  # wherever it was forced.
+  entry_point <- sys.call(-1)
+  rlang::check_dots_empty(call = entry_point)
   check_has_estimates(object)
-  check_residual_type(type)
+  check_residual_type(type, call = entry_point)
   resolve_predict_link(object, "residuals")
   mu <- predict(object, type = "response")
 
@@ -509,9 +513,12 @@ method(stats_deviance, deli_estimator) <- function(object, ...) {
 #' Validate the residual type asked for
 #'
 #' @param type The `type` supplied to `residuals()`.
+#' @param call The frame to report the refusal against. This function appears in
+#'   no man page and sits below the method the caller reached, so the frame
+#'   travels with the value, as it does for the dots guard beside it.
 #' @returns Invisible `NULL`. Raises an error unless `type` is `"response"`.
 #' @noRd
-check_residual_type <- function(type) {
+check_residual_type <- function(type, call = NULL) {
   if (identical(type, "response")) {
     return(invisible(NULL))
   }
@@ -526,7 +533,7 @@ check_residual_type <- function(type) {
              residual needs a variance function, and an M-estimator need not
              state either."
     ),
-    call = NULL
+    call = call
   )
 }
 

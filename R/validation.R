@@ -268,6 +268,13 @@ check_estimator_subset <- function(subset, n_params) {
 #     which is why eval_psi_at_init() catches this class alone rather than the
 #     family or every error.
 #
+#   deli_psi_list_unsupported
+#     The estimating function returned a per-equation list, which is a shape
+#     compute_bread() reduces and no fit can solve. It leads the family for the
+#     same reason the shape class does: what the caller built is a documented
+#     return of another entry point rather than a mistake about the type, and
+#     telling the two apart is worth a class.
+#
 #   deli_formula_auto_init_error
 #     A failure at an `init` the formula interface generated itself, reframed
 #     as a failure at those automatic starting values rather than reported
@@ -339,6 +346,36 @@ check_psi_at_init <- function(
                contributions."
       ),
       class = "deli_psi_return_error",
+      call = error_call
+    )
+  }
+  # A bare list ahead of the general type check, which would otherwise catch it
+  # and report only that a list is not numeric. That diagnosis is accurate and
+  # incomplete: a per-equation list is the return `compute_bread()` reduces, one
+  # element per equation, so a caller who built one did so against a documented
+  # shape and needs to be told which entry point takes it rather than that the
+  # type is wrong. Fitting is what has no support for it: the summed equations
+  # reach `sum()` on a dimensionless list, which is base R's
+  # `invalid 'type' (list) of argument`, and the GMM objective does the same.
+  #
+  # A classed list is left to the check below. A data frame of contributions is
+  # the one a caller is likeliest to build, and naming it as a data frame says
+  # more about what to change than calling it a list would.
+  if (is.list(vals) && !is.object(vals)) {
+    cli::cli_abort(
+      c(
+        "{.arg stacked_equations} returned a list at the initial values, which
+         cannot be solved.",
+        "i" = "A fit needs the whole system as one numeric value, a p-by-n
+               matrix of one row per parameter and one column per observation.",
+        "i" = "Stack a list of equations into one with
+               {.code do.call(rbind, ...)}, or build the matrix directly with
+               {.fn rbind} or {.code t()} and arithmetic.",
+        "i" = "{.fn compute_bread} is the entry point that reduces a
+               per-equation list, reading the derivative at a point supplied as
+               the root rather than solving for one."
+      ),
+      class = c("deli_psi_list_unsupported", "deli_psi_return_error"),
       call = error_call
     )
   }
@@ -844,10 +881,41 @@ check_formula_ee_signature <- function(
   if (is.null(formal_names)) {
     return(invisible(NULL))
   }
-  # An equation with a `...` of its own has somewhere to put every argument,
-  # so nothing the interface fills can be left out.
+  # An equation with a `...` of its own has somewhere to put every argument, so
+  # nothing the interface fills can be left out: `theta` and `X` are passed by
+  # name and reach their own formals wherever those sit, and the response falls
+  # into the dots where no formal ahead of them is free.
+  #
+  # The exception is an equation that writes formals after its dots. Those can
+  # be filled by name and by nothing else, so the interface can never reach one
+  # with the response, and an equation that keeps its response argument there
+  # was called without it: `function(theta, X, ..., y)` failed with
+  # `argument "y" is missing, with no default`, wrapped by the automatic-`init`
+  # diagnostic, which named the starting values rather than the signature. Such
+  # an equation is refused here, where the reason can be stated.
   if ("..." %in% formal_names) {
-    return(invisible(NULL))
+    trailing <- formal_names[-seq_len(formula_ee_dots_position(formal_names))]
+    if (
+      length(trailing) == 0L || !is.null(formula_ee_response_slot(formal_names))
+    ) {
+      return(invisible(NULL))
+    }
+    equation <- formula_ee_label(ee_name)
+    cli::cli_abort(
+      c(
+        "{equation} cannot be driven by a formula.",
+        "x" = "It has no argument left for the response, which is passed
+               positionally after {.arg theta} and {.arg X} and so reaches only
+               an argument written before {.arg ...}.",
+        "i" = "{.arg {trailing}} follow{?s} {.arg ...}, so {?it/they} can be
+               filled by name and by nothing else.",
+        "i" = "Move the response argument ahead of {.arg ...}, or fit the
+               equation through the function interface by passing a function of
+               {.arg theta} as {.arg stacked_equations}."
+      ),
+      call = error_call,
+      class = "deli_formula_ee_signature_error"
+    )
   }
 
   faults <- character()
@@ -1111,6 +1179,15 @@ formula_ee_formals <- function(.ee) {
 #' to go, and equally when its only remaining argument is a `...` of its own,
 #' which no name of the caller's can collide with.
 #'
+#' The scan stops at a `...`. R matches a positional argument only against
+#' formals that precede the dots, so an argument written after them can be
+#' filled by name and by nothing else and is never where the response lands.
+#' Reading past them named such an argument as the response slot, which made two
+#' reports wrong about `function(theta, X, ..., y)`: the equation was accepted by
+#' the signature check although the response reaches nothing, and a caller who
+#' wrote `y =`, the only way to fill that argument, was told the interface fills
+#' it from the left-hand side of the formula.
+#'
 #' The answer does not depend on what the caller wrote in `...`, because a name
 #' that would take this argument is refused by `check_formula_ee_dots()`. Before
 #' that refusal existed the slot had to be computed against the supplied names,
@@ -1122,8 +1199,24 @@ formula_ee_formals <- function(.ee) {
 #' @returns A string, or `NULL`.
 #' @noRd
 formula_ee_response_slot <- function(formal_names) {
-  free <- setdiff(formal_names, c("theta", "X", "..."))
+  positional <- formal_names[seq_len(formula_ee_dots_position(formal_names))]
+  free <- setdiff(positional, c("theta", "X", "..."))
   if (length(free) == 0L) NULL else free[[1]]
+}
+
+#' How many of an equation's arguments a positional value can reach
+#'
+#' The count of formals up to and including a `...`, which is every formal where
+#' the equation has none. Written as a count rather than as the position of the
+#' dots so that the caller can index with it either way.
+#'
+#' @param formal_names The argument names of the estimating equation.
+#'
+#' @returns A single integer.
+#' @noRd
+formula_ee_dots_position <- function(formal_names) {
+  dots <- match("...", formal_names, nomatch = 0L)
+  if (dots == 0L) length(formal_names) else dots
 }
 
 #' The arguments of `.ee` that the formula interface fills itself
@@ -1369,6 +1462,54 @@ check_dx <- function(dx, call = rlang::caller_env()) {
         "The step supplied was {.val {dx}}."
       } else {
         "The step supplied was {.obj_type_friendly {dx}}."
+      }
+    ),
+    call = call
+  )
+}
+
+#' Check that an iteration budget is a single positive whole number
+#'
+#' Validates `maxiter`, the number of iterations a solver is allowed. Nothing
+#' downstream reports a budget that cannot be counted with, and each solver
+#' mishandles a bad one in its own way. A vector budget reached
+#' [rootSolve::multiroot()], whose own guard tests it with an `if` and failed
+#' with `the condition has length > 1` against an expression no caller wrote,
+#' and where the budget survived to be reported the non-convergence message
+#' pluralized on the length of the vector rather than on the budget. A budget
+#' that is not a number failed as `'maxiter' must be numeric` from the same
+#' place. A budget below one asks for a solve with no iterations in it.
+#'
+#' Judged where it is supplied, on the same terms as [check_dx()], so a budget
+#' that cannot be used is reported whether or not the solver this call reaches
+#' would have looked at it.
+#'
+#' @param maxiter The iteration budget supplied by the caller.
+#' @param call The frame to report the refusal against, on the same terms as
+#'   [check_dx()]'s.
+#'
+#' @returns Invisible `NULL`. Raises an error if the budget is not a single
+#'   positive whole number.
+#' @keywords internal
+check_maxiter <- function(maxiter, call = rlang::caller_env()) {
+  usable <- is.numeric(maxiter) &&
+    length(maxiter) == 1L &&
+    is.finite(maxiter) &&
+    maxiter >= 1 &&
+    maxiter == trunc(maxiter)
+  if (usable) {
+    return(invisible(NULL))
+  }
+  cli::cli_abort(
+    c(
+      "{.arg maxiter} must be a single positive whole number.",
+      # Reported by value where it is one number, which says which of the
+      # requirements it missed, and by type otherwise, which is what it failed
+      # on. The division is the one `check_dx()` makes for the same reason.
+      "x" = if (is.numeric(maxiter) && length(maxiter) == 1L) {
+        "The budget supplied was {.val {maxiter}}."
+      } else {
+        "The budget supplied was {.obj_type_friendly {maxiter}}."
       }
     ),
     call = call

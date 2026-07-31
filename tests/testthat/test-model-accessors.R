@@ -217,6 +217,15 @@ test_that("residuals() aborts on a type it does not compute", {
   )
 })
 
+test_that("the refused residual type names the call the caller wrote", {
+  # The guard beside it, `check_dots_empty()`, already reports the
+  # `residuals()` call, and this one reported no call at all, so one message
+  # about the same call carried a frame and the other did not.
+  m <- accessor_fit()
+  err <- expect_error(residuals(m, type = "pearson"))
+  expect_identical(conditionCall(err), quote(residuals(m, type = "pearson")))
+})
+
 # model.frame ------------------------------------------------------------------
 
 test_that("model.frame() returns the frame the fit was built from", {
