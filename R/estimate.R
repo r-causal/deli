@@ -81,6 +81,16 @@
 #'   solver a different algorithm, `"nleqslv"` or `"lm"`, so that no two
 #'   `rootSolve` solves are open at once.
 #'
+#'   What every solver is given is the estimating equations summed across the
+#'   observations, since a root of the system is a root of those sums, and the
+#'   bread is differentiated from the same reduction. A `GMMEstimator` minimizes
+#'   a quadratic form in them instead and reduces them just as often. Both
+#'   reductions are derived from the full p-by-n return unless the estimator
+#'   carries a `summed_equations` property, which replaces them with the closed
+#'   form the caller supplied and leaves the full evaluation to the meat and to
+#'   the validation at the starting values; see [MEstimator()] and
+#'   [GMMEstimator()] for what each class reduces and what it cannot.
+#'
 #'   A `"rootSolve"` solve discards anything printed to standard output while it
 #'   runs, because [rootSolve::multiroot()] prints Fortran diagnostics there that
 #'   report on its internals rather than on the fit. The sink covers the whole
@@ -199,6 +209,7 @@ estimate_m_estimator <- function(
     solver <- "rootSolve"
   }
   stacked_equations <- object@stacked_equations
+  summed_equations <- object@summed_equations
   init <- object@init
   subset <- object@subset
   finite_correction <- object@finite_correction
@@ -218,7 +229,17 @@ estimate_m_estimator <- function(
     error_call = rlang::caller_env()
   ))
 
-  # Build the summed EE function for root-finding
+  # Build the summed EE function for root-finding. What the solver searches for
+  # is a root of the sums, so a reduction the caller supplied replaces the
+  # reduction of the full return here as it does inside the bread, and the
+  # solver evaluates the estimating functions nowhere. Everything around it is
+  # unchanged, so a fit that supplies no reduction hands the solver exactly the
+  # closure it always did.
+  #
+  # A subset fit expands and subsets on either route. The reduction is a
+  # function of the whole parameter vector, since the estimating functions are,
+  # and it holds one value per equation, so the subset is taken from its return
+  # the same way.
   summed_ee <- function(theta) {
     # If subset, expand theta into full parameter vector
     if (!is.null(subset)) {
@@ -228,11 +249,15 @@ estimate_m_estimator <- function(
       full_theta <- theta
     }
 
-    ef <- stacked_equations(full_theta)
-    if (is.null(dim(ef))) {
-      s <- sum(ef)
+    if (is.null(summed_equations)) {
+      ef <- stacked_equations(full_theta)
+      if (is.null(dim(ef))) {
+        s <- sum(ef)
+      } else {
+        s <- rowSums(ef)
+      }
     } else {
-      s <- rowSums(ef)
+      s <- summed_equations(full_theta)
     }
 
     # If subset, return only the subset equations
@@ -297,8 +322,40 @@ estimate_m_estimator <- function(
     n_obs <- ncol(evald)
   }
 
+  # A reduction of the estimating functions is judged against the evaluation the
+  # meat is built from, before the bread is differentiated from it and before the
+  # solve is judged. The evaluation is the one already in hand, so the whole
+  # reading is one call to the reduction and one pass over a matrix the fit
+  # holds; see check_summed_agreement() for what the two disagreeing would
+  # produce.
+  #
+  # The point it is read at is the one the solver returned, which is a root of
+  # the reduction rather than of the estimating functions. That is what makes
+  # the reading here stronger than the same reading at a root: a reduction of
+  # another system is driven to zero where these equations are not, so the
+  # disagreement is the whole of their summed value rather than the difference
+  # of two quantities that both vanish.
+  #
+  # It is read ahead of the solve's own report because a fit sent to another
+  # system's root has an accurate diagnosis and `unsolved_point()` would give it
+  # a symptom. The failure is about the reduction the caller supplied, so it
+  # names the frame of the method that was called.
+  if (!is.null(summed_equations) && isTRUE(object@check_summed_equations)) {
+    check_summed_agreement(
+      summed_equations(full_theta),
+      unname(rowSums(evald)),
+      call = rlang::caller_env()
+    )
+  }
+
   # Compute sandwich components
-  bread <- compute_bread(stacked_equations, full_theta, deriv_method, dx) /
+  bread <- compute_bread(
+    stacked_equations,
+    full_theta,
+    deriv_method,
+    dx,
+    summed_equations = summed_equations
+  ) /
     n_obs
 
   # Account for the solve, unless the solver reported a failure the caller has
@@ -1677,6 +1734,7 @@ estimate_gmm_estimator <- function(
     solver <- "BFGS"
   }
   stacked_equations <- object@stacked_equations
+  summed_equations <- object@summed_equations
   init <- object@init
   subset <- object@subset
   finite_correction <- object@finite_correction
@@ -1713,6 +1771,13 @@ estimate_gmm_estimator <- function(
 
   # Build the GMM objective function
   # Minimizes: t(sum_ef / n) %*% Q %*% (sum_ef / n)
+  #
+  # The objective is a quadratic form in the summed moment conditions and reads
+  # nothing else of the estimating functions, so a reduction the caller supplied
+  # is exactly what it wants and replaces the reduction of the full return. The
+  # weight matrix the form is taken against is not: it is the inverse of a
+  # cross-product of the per-observation contributions, so the update that sets
+  # it evaluates the estimating functions in full whatever this fit was given.
   build_gmm_objective <- function(weight_mat, current_full_theta) {
     function(theta) {
       # If subset, expand theta into full parameter vector
@@ -1724,11 +1789,15 @@ estimate_gmm_estimator <- function(
       }
 
       # Evaluate estimating equations
-      ef <- stacked_equations(full_theta)
-      if (is.null(dim(ef))) {
-        sum_ef <- sum(ef)
+      if (is.null(summed_equations)) {
+        ef <- stacked_equations(full_theta)
+        if (is.null(dim(ef))) {
+          sum_ef <- sum(ef)
+        } else {
+          sum_ef <- rowSums(ef)
+        }
       } else {
-        sum_ef <- rowSums(ef)
+        sum_ef <- summed_equations(full_theta)
       }
 
       # Scale by n for numerical stability (as Python does)
@@ -1897,8 +1966,25 @@ estimate_gmm_estimator <- function(
     evald <- matrix(evald, nrow = 1)
   }
 
+  # A reduction of the moment conditions is judged against the evaluation the
+  # meat is built from, before the bread is differentiated from it and before
+  # the moments are judged, for the reasons the MEstimator path gives.
+  if (!is.null(summed_equations) && isTRUE(object@check_summed_equations)) {
+    check_summed_agreement(
+      summed_equations(current_theta),
+      unname(rowSums(evald)),
+      call = rlang::caller_env()
+    )
+  }
+
   # Bread matrix
-  bread <- compute_bread(stacked_equations, current_theta, deriv_method, dx) /
+  bread <- compute_bread(
+    stacked_equations,
+    current_theta,
+    deriv_method,
+    dx,
+    summed_equations = summed_equations
+  ) /
     n_obs
 
   # A just-identified problem has as many moment conditions as parameters, so

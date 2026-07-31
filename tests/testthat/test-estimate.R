@@ -326,3 +326,263 @@ test_that("estimate() fits a psi built with %*% under numerical methods", {
     }
   }
 })
+
+# ---- the reduction a fit differentiates and solves ---------------------------
+#
+# A fit reduces the estimating functions to their row sums everywhere but the
+# meat: once per solver evaluation, and once or twice per parameter while the
+# bread is differentiated. Only the meat needs the per-observation contributions.
+# An estimator whose `summed_equations` property holds those sums hands every
+# reduction the closed form instead, and the meat takes the one full evaluation
+# it always took.
+
+reducer_fit_case <- function(n = 120) {
+  set.seed(21)
+  X <- cbind(1, stats::rnorm(n), stats::rnorm(n))
+  y <- as.vector(X %*% c(0.5, 1.5, -0.75)) + stats::rnorm(n)
+  list(
+    X = X,
+    y = y,
+    init = c(0, 0, 0),
+    psi = function(theta) t(X * (y - as.vector(X %*% theta))),
+    # The row sums of that psi as one matrix product. `t(X) %*% resid` carries
+    # tangents through the registered methods, so the same reduction serves the
+    # exact pass.
+    summed = function(theta) {
+      as.vector(t(X) %*% (y - as.vector(X %*% theta)))
+    }
+  )
+}
+
+counting_psi <- function(psi, counter) {
+  function(theta) {
+    counter$calls <- counter$calls + 1L
+    psi(theta)
+  }
+}
+
+test_that("a fit through a reduction evaluates psi only for the meat", {
+  case <- reducer_fit_case()
+  counter <- new.env(parent = emptyenv())
+
+  counter$calls <- 0L
+  MEstimator(
+    stacked_equations = counting_psi(case$psi, counter),
+    init = case$init,
+    summed_equations = case$summed
+  ) |>
+    estimate()
+  # The validation at the starting values, and the one the meat is built from.
+  # The solver and the bread went through the reduction.
+  expect_identical(counter$calls, 2L)
+
+  counter$calls <- 0L
+  MEstimator(
+    stacked_equations = counting_psi(case$psi, counter),
+    init = case$init
+  ) |>
+    estimate()
+  # The same two, plus one per solver evaluation and two per parameter for the
+  # central differences, which is what the property exists to avoid.
+  expect_gt(counter$calls, 2L + 2L * length(case$init))
+})
+
+test_that("a fit through a reduction agrees with the fit through the matrix", {
+  case <- reducer_fit_case()
+
+  reduced <- MEstimator(
+    stacked_equations = case$psi,
+    init = case$init,
+    summed_equations = case$summed
+  ) |>
+    estimate()
+  matrix_route <- MEstimator(
+    stacked_equations = case$psi,
+    init = case$init
+  ) |>
+    estimate()
+
+  expect_equal(coef(reduced), coef(matrix_route), tolerance = 1e-8)
+  # The two reductions sum the same values in different orders, so their
+  # difference quotients differ by rounding rather than exactly.
+  expect_equal(vcov(reduced), vcov(matrix_route), tolerance = 1e-5)
+})
+
+test_that("a fit that supplies no reduction is the fit it always was", {
+  case <- reducer_fit_case()
+
+  expect_identical(
+    MEstimator(
+      stacked_equations = case$psi,
+      init = case$init,
+      summed_equations = NULL
+    ) |>
+      estimate() |>
+      vcov(),
+    MEstimator(stacked_equations = case$psi, init = case$init) |>
+      estimate() |>
+      vcov()
+  )
+})
+
+test_that("a reduction of another system fails the fit", {
+  case <- reducer_fit_case()
+  # The second equation carries a term the estimating functions do not, so the
+  # solver drives another system to zero and the bread would be the Jacobian of
+  # that one while the meat is the cross-product of these.
+  wrong <- function(theta) case$summed(theta) + c(0, 5, 0)
+
+  err <- expect_error(
+    MEstimator(
+      stacked_equations = case$psi,
+      init = case$init,
+      summed_equations = wrong
+    ) |>
+      estimate(),
+    class = "deli_summed_equations_disagree"
+  )
+
+  expect_match(conditionMessage(err), "summed_equations")
+  expect_match(conditionMessage(err), "stacked_equations")
+})
+
+test_that("the fit's agreement check can be turned off", {
+  case <- reducer_fit_case()
+  wrong <- function(theta) case$summed(theta) + c(0, 5, 0)
+
+  # What the check bought is then gone, and the fit reports the most it can
+  # still see on its own: the estimating equations it was given are not solved
+  # where the reduction sent it.
+  expect_warning(
+    fit <- MEstimator(
+      stacked_equations = case$psi,
+      init = case$init,
+      summed_equations = wrong,
+      check_summed_equations = FALSE
+    ) |>
+      estimate(),
+    class = "deli_solver_not_converged"
+  )
+
+  expect_length(coef(fit), 3L)
+})
+
+test_that("a reduction serves a subset fit and an exact one", {
+  case <- reducer_fit_case()
+
+  subset_reduced <- MEstimator(
+    stacked_equations = case$psi,
+    init = case$init,
+    subset = c(1L, 2L),
+    summed_equations = case$summed
+  ) |>
+    estimate()
+  subset_matrix <- MEstimator(
+    stacked_equations = case$psi,
+    init = case$init,
+    subset = c(1L, 2L)
+  ) |>
+    estimate()
+  expect_equal(coef(subset_reduced), coef(subset_matrix), tolerance = 1e-8)
+
+  exact_reduced <- MEstimator(
+    stacked_equations = case$psi,
+    init = case$init,
+    summed_equations = case$summed
+  ) |>
+    estimate(deriv_method = "exact")
+  exact_matrix <- MEstimator(
+    stacked_equations = case$psi,
+    init = case$init
+  ) |>
+    estimate(deriv_method = "exact")
+  expect_equal(vcov(exact_reduced), vcov(exact_matrix), tolerance = 1e-8)
+})
+
+test_that("a GMM fit takes the reduction for its objective and its bread", {
+  case <- reducer_fit_case()
+  counter <- new.env(parent = emptyenv())
+
+  counter$calls <- 0L
+  GMMEstimator(
+    stacked_equations = counting_psi(case$psi, counter),
+    init = case$init,
+    summed_equations = case$summed
+  ) |>
+    estimate()
+  # Just-identified, so no weight update runs: the validation at the starting
+  # values and the one the meat is built from are the whole of it.
+  expect_identical(counter$calls, 2L)
+
+  counter$calls <- 0L
+  GMMEstimator(
+    stacked_equations = counting_psi(case$psi, counter),
+    init = case$init
+  ) |>
+    estimate()
+  expect_gt(counter$calls, 2L + 2L * length(case$init))
+})
+
+test_that("a GMM weight update keeps the per-observation contributions", {
+  set.seed(31)
+  counts <- stats::rpois(200, 3)
+  psi <- function(theta) {
+    rbind(counts - theta[1], (counts - theta[1])^2 - theta[1])
+  }
+  summed <- function(theta) {
+    c(
+      sum(counts) - 200 * theta[1],
+      sum((counts - theta[1])^2) - 200 * theta[1]
+    )
+  }
+  counter <- new.env(parent = emptyenv())
+  counter$calls <- 0L
+
+  # One weight-update pass, which a tolerance this wide settles after.
+  GMMEstimator(
+    stacked_equations = counting_psi(psi, counter),
+    init = 1,
+    summed_equations = summed,
+    overid_maxiter = 1L,
+    overid_tolerance = 1
+  ) |>
+    estimate()
+
+  # The starting values, the one pass of the weight update, and the meat. The
+  # weight matrix is the inverse of a cross-product, so that pass needs the
+  # columns and the reduction cannot serve it.
+  expect_identical(counter$calls, 3L)
+})
+
+test_that("a reduction that is not a function is refused at construction", {
+  case <- reducer_fit_case()
+
+  expect_error(
+    MEstimator(
+      stacked_equations = case$psi,
+      init = case$init,
+      summed_equations = c(1, 2, 3)
+    ),
+    class = "deli_summed_equations_error"
+  )
+  expect_error(
+    GMMEstimator(
+      stacked_equations = case$psi,
+      init = case$init,
+      summed_equations = c(1, 2, 3)
+    ),
+    class = "deli_summed_equations_error"
+  )
+})
+
+test_that("the reduction properties default to no reduction and a check", {
+  case <- reducer_fit_case()
+
+  m <- MEstimator(stacked_equations = case$psi, init = case$init)
+  expect_null(m@summed_equations)
+  expect_true(m@check_summed_equations)
+
+  g <- GMMEstimator(stacked_equations = case$psi, init = case$init)
+  expect_null(g@summed_equations)
+  expect_true(g@check_summed_equations)
+})

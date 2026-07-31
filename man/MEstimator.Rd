@@ -4,7 +4,14 @@
 \alias{MEstimator}
 \title{M-Estimator}
 \usage{
-MEstimator(stacked_equations, init, subset = NULL, finite_correction = NULL)
+MEstimator(
+  stacked_equations,
+  init,
+  subset = NULL,
+  finite_correction = NULL,
+  summed_equations = NULL,
+  check_summed_equations = TRUE
+)
 }
 \arguments{
 \item{stacked_equations}{A function that takes a numeric vector \code{theta} and
@@ -35,6 +42,56 @@ give the two different values. The variance estimator ignores \code{subset}.}
 
 \item{finite_correction}{Character string for finite-sample correction
 (e.g., \code{"HC1"}), or \code{NULL} (default) for no correction.}
+
+\item{summed_equations}{A function that takes a numeric vector \code{theta} and
+returns the length-p vector of row sums of \code{stacked_equations} at \code{theta},
+or \code{NULL} (default) to derive those sums from the full p-by-n return.
+
+A fit reduces the estimating functions to those sums everywhere but the
+meat. The solver is given the summed equations to find a root of, and the
+bread is their Jacobian, so a fit builds the whole p-by-n matrix once per
+solver evaluation and once or twice more per parameter, all of it for
+arithmetic that is linear in it. An estimating function whose sums have a
+closed form, such as the \eqn{X^T r} of a regression score, can supply them
+here and give both steps only what they use. The meat is unaffected either
+way: it needs the per-observation contributions and takes the one full
+evaluation it always took, as does the validation at the starting values.
+
+Under \code{deriv_method = "exact"} the reduction is called with a
+tangent-carrying \code{theta}, so it must be written in operations that carry
+derivatives: \code{t(X) \%*\% r} does, and \code{\link[base:crossprod]{base::crossprod()}} does not. See
+\code{\link[=auto_differentiation]{auto_differentiation()}} for which operations carry a tangent and where.
+
+Anything that is neither \code{NULL} nor a function is refused here, with an
+error carrying the class \code{deli_summed_equations_error}. So is a return at
+the estimated values that is not numeric or does not hold one value per
+estimating equation, which \code{\link[=estimate]{estimate()}} reads.
+
+\code{\link[=m_estimate]{m_estimate()}} and \code{\link[=gmm_estimate]{gmm_estimate()}} do not offer it. Both build
+\code{stacked_equations} themselves from a formula and the equation named in
+\code{.ee}, so the estimating functions a reduction would have to match are ones
+the caller never writes; this is for a system assembled by hand.}
+
+\item{check_summed_equations}{Logical. When \code{TRUE} (default) and
+\code{summed_equations} was supplied, its value at the estimated values is
+compared against the row sums of the one full evaluation the meat is built
+from, and a disagreement raises an error carrying the class
+\code{deli_summed_equations_disagree}. The comparison costs one call to
+\code{summed_equations} and one reduction of a matrix the fit already holds.
+
+What it is for is a reduction that sums some other system. The solver drives
+whatever it is given to zero, so such a reduction sends the fit to that
+other system's root and leaves the bread the Jacobian of one system and the
+meat the cross-product of another. Set it to \code{FALSE} to skip the
+comparison, which leaves a fit that reports estimates nobody solved for and
+a covariance with the shape of one and no claim to be one.
+
+A reduction that is a multiple of the right one is not what the comparison
+sees. It vanishes where the right one does, so the fit lands at the same
+estimates and both quantities are at rounding where they are compared; the
+bread comes back as that multiple of the right bread. See
+\code{\link[=compute_sandwich]{compute_sandwich()}}, whose argument of the same name reads the same
+comparison at a point the caller supplies.}
 }
 \value{
 An \code{MEstimator} S7 object. Call \code{\link[=estimate]{estimate()}} to solve the
@@ -54,4 +111,12 @@ m <- MEstimator(stacked_equations = psi, init = 0) |>
   estimate()
 coef(m)
 summary(m)
+
+# The solver and the bread only ever need the sums of the estimating
+# equations, so an equation whose sums have a closed form can supply them
+# and leave the whole matrix to the meat
+summed <- function(theta) sum(y) - length(y) * theta[1]
+MEstimator(stacked_equations = psi, init = 0, summed_equations = summed) |>
+  estimate() |>
+  summary()
 }

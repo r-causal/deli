@@ -11,6 +11,14 @@
 # MEstimator adds nothing beyond them; GMMEstimator adds the weight matrix and
 # the over-identification controls.
 #
+# summed_equations and check_summed_equations are the pair that says how the
+# estimating functions are reduced to one value per equation, and both children
+# take them because both reduce them: the M path for its solver and its bread,
+# the GMM path for its objective and its bread. They sit together because the
+# second is about the first alone, which is also why neither is an argument of
+# estimate(): a fit that supplies no reduction has nothing to check, and the
+# settings estimate() takes describe one solve rather than the system.
+#
 # model_spec is the one property no constructor takes. A fit built by hand from
 # a `stacked_equations` closure has no model to describe: the estimator is
 # handed an arbitrary function and cannot recover a formula, a design, or a
@@ -24,6 +32,14 @@ deli_estimator <- new_class(
   abstract = TRUE,
   properties = list(
     stacked_equations = class_function,
+    summed_equations = new_property(
+      class = NULL | class_function,
+      default = NULL
+    ),
+    check_summed_equations = new_property(
+      class = class_logical,
+      default = TRUE
+    ),
     init = class_numeric,
     subset = new_property(
       class = NULL | class_integer,

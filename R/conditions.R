@@ -81,16 +81,19 @@
 #'   `allow_pinv = FALSE` refused the pseudo-inverse, or it is rectangular and
 #'   has no inverse at any rank, or it holds `NA`.
 #' - `deli_summed_equations_error`: the `summed_equations` handed to
-#'   [compute_sandwich()] or [compute_bread()] is not one the bread can be
+#'   [compute_sandwich()] or [compute_bread()], or carried as a property of
+#'   [MEstimator()] or [GMMEstimator()], is not one the bread can be
 #'   differentiated from. It is neither `NULL` nor a function, or its return at
-#'   `theta` is not numeric, or that return does not hold one value per
-#'   estimating equation. Every refusal of the argument carries it.
+#'   the point in hand is not numeric, or that return does not hold one value
+#'   per estimating equation. Every refusal of the argument carries it, as does
+#'   a `check_summed_equations` that is not a single `TRUE` or `FALSE`.
 #' - `deli_summed_equations_disagree`: the reduction is a function of the right
-#'   shape and does not sum the `stacked_equations` passed with it, either by
-#'   differing from their row sums at `theta` or by returning a value that is not
-#'   a number where they sum to one. The bread is differentiated from the one and
-#'   the meat is built from the other, so a sandwich assembled from two systems
-#'   would carry the shape of a covariance matrix without the meaning. Leads
+#'   shape and does not sum the `stacked_equations` it is paired with, either by
+#'   differing from their row sums or by returning a value that is not a number
+#'   where they sum to one. The bread is differentiated from the one and the
+#'   meat is built from the other, so a sandwich assembled from two systems
+#'   would carry the shape of a covariance matrix without the meaning, and a fit
+#'   would report the estimates of the other system as well. Leads
 #'   `deli_summed_equations_error`.
 #'
 #' @section Differentiation:

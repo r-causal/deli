@@ -588,13 +588,22 @@ finite_sample_correction <- function(meat, n, p, adjustment = NULL) {
 }
 
 # ---- the reduction the bread is differentiated from --------------------------
-# Three readings of `summed_equations`, in the order a call reaches them, and one
-# family class across all of them.
+# Four readings of `summed_equations` and the switch that governs the last of
+# them, in the order a call reaches them, and one family class across all of
+# them. [MEstimator()] and [GMMEstimator()] carry the pair as properties and
+# reach the same readings, the first two at construction and the third where the
+# fit has the evaluation to make it.
 #
 #   check_summed_function()
 #     The argument itself. Nothing evaluates it until the bread does, so an
 #     argument that is not a function surfaced from wherever it was first called
 #     as base R's `could not find function`, naming an internal formal.
+#
+#   check_summed_switch()
+#     The switch. It is a property rather than an argument on the fit path, so
+#     it is read once at construction rather than at every use, and a value that
+#     is not a single `TRUE` or `FALSE` would otherwise be collapsed to one by
+#     `isTRUE()` with nothing said.
 #
 #   check_summed_return()
 #     The shape of one evaluation. A return that is not numeric failed inside the
@@ -629,6 +638,38 @@ check_summed_function <- function(
       "i" = "It takes the parameter vector and returns the sum of each
              estimating equation across the observations, which is what the
              bread is differentiated from."
+    ),
+    class = "deli_summed_equations_error",
+    call = call
+  )
+}
+
+#' Check that the agreement switch is a single logical value
+#'
+#' @param check_summed_equations The argument as the caller passed it.
+#' @param call The frame to report the error against.
+#'
+#' @returns Invisible `NULL`. Raises an error carrying the class
+#'   `deli_summed_equations_error` for anything that is not a single `TRUE` or
+#'   `FALSE`.
+#' @noRd
+check_summed_switch <- function(
+  check_summed_equations,
+  call = rlang::caller_env()
+) {
+  usable <- is.logical(check_summed_equations) &&
+    length(check_summed_equations) == 1L &&
+    !is.na(check_summed_equations)
+  if (usable) {
+    return(invisible(NULL))
+  }
+  cli::cli_abort(
+    c(
+      "!" = "{.arg check_summed_equations} must be {.code TRUE} or
+             {.code FALSE}.",
+      "i" = "It says whether {.arg summed_equations} is compared against the
+             estimating functions it is paired with, which is the reading that
+             tells a reduction of this system from a reduction of another one."
     ),
     class = "deli_summed_equations_error",
     call = call

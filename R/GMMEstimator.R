@@ -24,6 +24,46 @@
 #'   can need hundreds.
 #' @param overid_tolerance Numeric tolerance for convergence of the two-step
 #'   iterative procedure for over-identified problems. Default `1e-9`.
+#' @param summed_equations A function that takes a numeric vector `theta` and
+#'   returns the length-p vector of row sums of `stacked_equations` at `theta`,
+#'   or `NULL` (default) to derive those sums from the full p-by-n return.
+#'
+#'   Two of the three things a GMM fit does with the estimating functions want
+#'   nothing but those sums. The objective is a quadratic form in the mean
+#'   moments, \eqn{\bar{g}(\theta)' W \bar{g}(\theta)}, so every evaluation the
+#'   minimizer makes reduces the whole p-by-n matrix to the reduction's own
+#'   output; the bread is the Jacobian of the same sums. Both take a supplied
+#'   reduction and skip the matrix.
+#'
+#'   The third does not. The two-step weight matrix is the inverse of the
+#'   covariance of the moment conditions, which is a cross-product of the
+#'   per-observation contributions, so each pass of the update over an
+#'   over-identified system evaluates `stacked_equations` in full whatever this
+#'   property holds. So do the validation at the starting values and the meat.
+#'   A just-identified fit runs no weight update, so it makes exactly those two
+#'   full evaluations.
+#'
+#'   Under `deriv_method = "exact"` the reduction is called with a
+#'   tangent-carrying `theta`, so it must be written in operations that carry
+#'   derivatives: `t(X) %*% r` does, and [base::crossprod()] does not. See
+#'   [auto_differentiation()] for which operations carry a tangent and where.
+#'
+#'   Anything that is neither `NULL` nor a function is refused here, with an
+#'   error carrying the class `deli_summed_equations_error`. So is a return at
+#'   the estimated values that is not numeric or holds fewer values than the
+#'   system has moment conditions, which [estimate()] reads.
+#'
+#'   [gmm_estimate()] and [m_estimate()] do not offer it, for the reason
+#'   [MEstimator()] gives: both build `stacked_equations` themselves, so the
+#'   moment conditions a reduction would have to match are ones the caller never
+#'   writes.
+#' @param check_summed_equations Logical. When `TRUE` (default) and
+#'   `summed_equations` was supplied, its value at the estimated values is
+#'   compared against the row sums of the one full evaluation the meat is built
+#'   from, and a disagreement raises an error carrying the class
+#'   `deli_summed_equations_disagree`. See [MEstimator()] for what the
+#'   comparison catches, what it cannot, and what setting it to `FALSE` leaves
+#'   behind.
 #'
 #' @returns A `GMMEstimator` S7 object. Call [estimate()] to minimize the
 #'   estimating equations and compute the sandwich variance.
@@ -134,13 +174,17 @@ GMMEstimator <- new_class(
     subset = NULL,
     finite_correction = NULL,
     overid_maxiter = 200L,
-    overid_tolerance = 1e-9
+    overid_tolerance = 1e-9,
+    summed_equations = NULL,
+    check_summed_equations = TRUE
   ) {
     check_estimator_init(init)
     check_finite_correction(finite_correction)
     check_estimator_subset(subset, length(init))
     check_overid_scalar(overid_maxiter, "overid_maxiter")
     check_overid_scalar(overid_tolerance, "overid_tolerance")
+    check_summed_function(summed_equations)
+    check_summed_switch(check_summed_equations)
 
     init_names <- names(init)
     init <- as.numeric(init)
@@ -154,6 +198,8 @@ GMMEstimator <- new_class(
     new_object(
       S7_object(),
       stacked_equations = stacked_equations,
+      summed_equations = summed_equations,
+      check_summed_equations = check_summed_equations,
       init = init,
       subset = subset,
       finite_correction = finite_correction,

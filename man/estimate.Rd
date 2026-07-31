@@ -64,6 +64,16 @@ generic non-convergence warning. Give either the outer fit or the custom
 solver a different algorithm, \code{"nleqslv"} or \code{"lm"}, so that no two
 \code{rootSolve} solves are open at once.
 
+What every solver is given is the estimating equations summed across the
+observations, since a root of the system is a root of those sums, and the
+bread is differentiated from the same reduction. A \code{GMMEstimator} minimizes
+a quadratic form in them instead and reduces them just as often. Both
+reductions are derived from the full p-by-n return unless the estimator
+carries a \code{summed_equations} property, which replaces them with the closed
+form the caller supplied and leaves the full evaluation to the meat and to
+the validation at the starting values; see \code{\link[=MEstimator]{MEstimator()}} and
+\code{\link[=GMMEstimator]{GMMEstimator()}} for what each class reduces and what it cannot.
+
 A \code{"rootSolve"} solve discards anything printed to standard output while it
 runs, because \code{\link[rootSolve:multiroot]{rootSolve::multiroot()}} prints Fortran diagnostics there that
 report on its internals rather than on the fit. The sink covers the whole

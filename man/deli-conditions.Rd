@@ -100,16 +100,19 @@ has nothing but a matrix to return and converts it into the error below.
 \code{allow_pinv = FALSE} refused the pseudo-inverse, or it is rectangular and
 has no inverse at any rank, or it holds \code{NA}.
 \item \code{deli_summed_equations_error}: the \code{summed_equations} handed to
-\code{\link[=compute_sandwich]{compute_sandwich()}} or \code{\link[=compute_bread]{compute_bread()}} is not one the bread can be
+\code{\link[=compute_sandwich]{compute_sandwich()}} or \code{\link[=compute_bread]{compute_bread()}}, or carried as a property of
+\code{\link[=MEstimator]{MEstimator()}} or \code{\link[=GMMEstimator]{GMMEstimator()}}, is not one the bread can be
 differentiated from. It is neither \code{NULL} nor a function, or its return at
-\code{theta} is not numeric, or that return does not hold one value per
-estimating equation. Every refusal of the argument carries it.
+the point in hand is not numeric, or that return does not hold one value
+per estimating equation. Every refusal of the argument carries it, as does
+a \code{check_summed_equations} that is not a single \code{TRUE} or \code{FALSE}.
 \item \code{deli_summed_equations_disagree}: the reduction is a function of the right
-shape and does not sum the \code{stacked_equations} passed with it, either by
-differing from their row sums at \code{theta} or by returning a value that is not
-a number where they sum to one. The bread is differentiated from the one and
-the meat is built from the other, so a sandwich assembled from two systems
-would carry the shape of a covariance matrix without the meaning. Leads
+shape and does not sum the \code{stacked_equations} it is paired with, either by
+differing from their row sums or by returning a value that is not a number
+where they sum to one. The bread is differentiated from the one and the
+meat is built from the other, so a sandwich assembled from two systems
+would carry the shape of a covariance matrix without the meaning, and a fit
+would report the estimates of the other system as well. Leads
 \code{deli_summed_equations_error}.
 }
 }
