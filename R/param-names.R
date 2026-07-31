@@ -75,7 +75,10 @@ default_param_names <- function(nm, p, error_call = NULL) {
                position{?s} {positions}, and {?that name is/those names are}
                already in use.",
         "i" = "Name every parameter, or use names outside the
-               {.code theta_<i>} pattern the numbering follows."
+               {.code theta_<i>} pattern the numbering follows.",
+        "i" = "Names inherited from a previous fit's estimates collide this
+               way; drop them with {.fn unname}, or name the remaining
+               parameters."
       ),
       class = "deli_param_name_collision",
       call = error_call

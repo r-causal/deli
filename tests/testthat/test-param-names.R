@@ -206,6 +206,11 @@ test_that("the collision report names the label, the position, and the remedy", 
   expect_match(flat, "theta_2", fixed = TRUE)
   expect_match(flat, "position 2")
   expect_match(flat, "every parameter")
+  # The common route into this refusal is seeding part of an init from a
+  # previous fit's estimates, whose default names are the same theta_<i> the
+  # numbering assigns, so the report points at that workflow by name.
+  expect_match(flat, "previous fit")
+  expect_match(flat, "unname", fixed = TRUE)
 })
 
 test_that("the collision report counts the positions rather than the number", {
