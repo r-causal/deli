@@ -25,14 +25,16 @@ environment reaches the base versions, and the differentiation aborts
 rather than returning a silent approximation. Coercion cannot preserve a
 derivative: \code{as.numeric()}, \code{as.double()}, \code{as.integer()}, \code{as.character()},
 \code{as.complex()}, \code{as.matrix()},
-and \code{as.vector()} asked for any atomic \code{mode} each return plain values,
+and \code{as.vector()} asked for one of those types by \code{mode} each return plain
+values,
 which have nowhere to carry one, so each aborts on a tangent-carrying value
 rather than dropping the tangents silently. \code{as.vector()} with its default \code{mode = "any"} returns its
 argument unchanged and keeps the tangents. Use \code{c()} to flatten a
 matrix-shaped result such as \code{X \%*\% theta} to a vector instead.
 \code{as.logical()} is the exception, because a logical coercion is a step
 function whose derivative is zero almost everywhere, so it returns the
-logical its payload coerces to. \code{log(x, base)} differentiates
+logical its payload coerces to; \code{as.vector(x, "logical")} asks for the same
+coercion and answers the same way. \code{log(x, base)} differentiates
 with respect to \code{x} only; the \code{base} argument is treated as a constant, and
 a \code{base} that itself carries a tangent (a value derived from \code{theta}) is not
 supported and aborts rather than dropping the base's contribution.

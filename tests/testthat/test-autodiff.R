@@ -2781,6 +2781,66 @@ test_that("as.logical() reads the payload of every tangent-carrying container", 
   )
 })
 
+test_that("as.vector() with mode 'logical' answers for the payload too", {
+  # The mode spelling of the coercion and `as.logical()` are the same request,
+  # and the two disagreed. `as.vector()` left this mode to base R, which reads
+  # the classed list rather than the payload: a scalar pair came back as
+  # `c(TRUE, TRUE)`, one value per slot, and every wider payload raised
+  # `'list' object cannot be coerced to type 'logical'` from a base frame.
+  expect_identical(as.vector(primal_tangent(1, 1), "logical"), TRUE)
+  expect_identical(as.vector(primal_tangent(0, 1), "logical"), FALSE)
+  expect_identical(
+    as.vector(primal_tangent_array(c(1, 0, 2), c(1, 0, 1)), "logical"),
+    c(TRUE, FALSE, TRUE)
+  )
+  expect_identical(
+    as.vector(
+      primal_tangent_array(
+        base::matrix(c(1, 0, 2, 0), nrow = 2),
+        base::matrix(0, 2, 2)
+      ),
+      "logical"
+    ),
+    c(TRUE, FALSE, TRUE, FALSE)
+  )
+  expect_identical(
+    as.vector(
+      primal_tangent_vector(list(
+        primal_tangent(1, 1),
+        primal_tangent(0, 0),
+        primal_tangent(2, 0)
+      )),
+      "logical"
+    ),
+    c(TRUE, FALSE, TRUE)
+  )
+})
+
+test_that("the mode spelling of the logical coercion works inside a psi", {
+  # The indicator idiom written with `as.vector(gate, "logical")` rather than
+  # `as.logical(gate)` has to differentiate the same way, because the two are
+  # one coercion and a caller may reach for either.
+  f <- function(theta) {
+    gate <- c(c(1, 0, 1) * theta[1])
+    ind <- as.vector(gate, "logical")
+    sum(ind * (theta[1] * c(1, 2, 3)) + (1 - ind) * (theta[2] * c(1, 2, 3)))
+  }
+  expect_equal(
+    auto_differentiation(c(2, 3), f),
+    base::matrix(c(4, 2), nrow = 1)
+  )
+  expect_equal(
+    approx_differentiation(f, c(2, 3)),
+    base::matrix(c(4, 2), nrow = 1),
+    tolerance = 1e-5
+  )
+})
+
+test_that("logical coercion of ordinary values is untouched", {
+  expect_identical(as.logical(c(1, 0, 2)), c(TRUE, FALSE, TRUE))
+  expect_identical(as.vector(c(1, 0, 2), "logical"), c(TRUE, FALSE, TRUE))
+})
+
 test_that("the indicator idiom differentiates with a container-valued condition", {
   # `ind * yes + (1 - ind) * no` is the conditional deli names in place of
   # ifelse(), and the condition an estimating function builds is a tangent

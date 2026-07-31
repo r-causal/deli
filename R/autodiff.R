@@ -1115,8 +1115,17 @@ as.complex.PrimalTangentVector <- pt_as_complex
 
 # `as.vector()` dispatches on the class of its first argument, so its `mode`
 # argument is another spelling of the coercions above and carries the same rule:
-# every mode that forces an atomic type aborts, and `"double"` aborts here even
-# though it reached base R's coercion rather than the `as.double()` method.
+# every mode that names a plain numeric or character type aborts, and
+# `"double"` aborts here even though it reached base R's coercion rather than
+# the `as.double()` method.
+#
+# `"logical"` is the mode `as.logical()` answers for, and the rule it stands on
+# is the rule here, since the two spellings are one request: a logical coercion
+# is a step function whose derivative is zero almost everywhere, so the payload
+# answers and the tangent is dropped. Left to base R this mode read the
+# container instead of the payload, exactly as the methods above did before they
+# existed, handing back one value per slot for a scalar pair and refusing every
+# wider payload with `'list' object cannot be coerced to type 'logical'`.
 #
 # The default mode is `"any"`, which returns a list unchanged, so
 # `as.vector(X %*% theta)` keeps its tangents and differentiates exactly. That
@@ -1128,6 +1137,9 @@ as.complex.PrimalTangentVector <- pt_as_complex
 pt_vector_coercion <- function(x, mode = "any") {
   if (mode %in% c("integer", "double", "numeric", "character", "complex")) {
     pt_coercion_abort(mode, "as.vector")
+  }
+  if (identical(mode, "logical")) {
+    return(as.logical(x))
   }
   if (identical(mode, "any")) {
     return(x)
@@ -1802,14 +1814,16 @@ pt_where <- function(test, yes, no) {
 #'   rather than returning a silent approximation. Coercion cannot preserve a
 #'   derivative: `as.numeric()`, `as.double()`, `as.integer()`, `as.character()`,
 #'   `as.complex()`, `as.matrix()`,
-#'   and `as.vector()` asked for any atomic `mode` each return plain values,
+#'   and `as.vector()` asked for one of those types by `mode` each return plain
+#'   values,
 #'   which have nowhere to carry one, so each aborts on a tangent-carrying value
 #'   rather than dropping the tangents silently. `as.vector()` with its default `mode = "any"` returns its
 #'   argument unchanged and keeps the tangents. Use `c()` to flatten a
 #'   matrix-shaped result such as `X %*% theta` to a vector instead.
 #'   `as.logical()` is the exception, because a logical coercion is a step
 #'   function whose derivative is zero almost everywhere, so it returns the
-#'   logical its payload coerces to. `log(x, base)` differentiates
+#'   logical its payload coerces to; `as.vector(x, "logical")` asks for the same
+#'   coercion and answers the same way. `log(x, base)` differentiates
 #'   with respect to `x` only; the `base` argument is treated as a constant, and
 #'   a `base` that itself carries a tangent (a value derived from `theta`) is not
 #'   supported and aborts rather than dropping the base's contribution.
