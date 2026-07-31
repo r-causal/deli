@@ -229,6 +229,30 @@ estimate_m_estimator <- function(
     error_call = rlang::caller_env()
   ))
 
+  # The shape of a supplied reduction, read here for the same reason the return
+  # above is: the solver is the next thing to touch it, and what a solver makes
+  # of a reduction of the wrong shape is base R arithmetic failing several
+  # frames inside it, against arguments the caller never named. A reduction
+  # holding too few values reached rootSolve's own count of the derivatives,
+  # whose message is malformed, and a reduction returning text or a list reached
+  # `REAL() can only be applied to a 'numeric'`.
+  #
+  # The count is exact here, unlike the reading `compute_bread()` makes on its
+  # own: the evaluation just validated holds one row per equation, and an
+  # M-estimation system has one equation per parameter, so how many values the
+  # reduction owes is already known. One call to the reduction pays for it, and
+  # it is the only one made at the starting values; the values it returns are
+  # judged later, against the evaluation the meat is built from.
+  if (!is.null(summed_equations)) {
+    check_summed_return(
+      summed_equations(init),
+      length(init_score),
+      exact = TRUE,
+      point = "the initial values",
+      call = rlang::caller_env()
+    )
+  }
+
   # Build the summed EE function for root-finding. What the solver searches for
   # is a root of the sums, so a reduction the caller supplied replaces the
   # reduction of the full return here as it does inside the bread, and the
@@ -344,6 +368,7 @@ estimate_m_estimator <- function(
     check_summed_agreement(
       summed_equations(full_theta),
       unname(rowSums(evald)),
+      point = "the estimated values",
       call = rlang::caller_env()
     )
   }
@@ -1758,6 +1783,25 @@ estimate_gmm_estimator <- function(
     n_obs <- ncol(vals_at_init)
   }
 
+  # The shape of a supplied reduction, read at the starting values, where the
+  # count it owes is already known from the evaluation just validated. The
+  # objective is the next thing to touch it, and what it makes of a reduction of
+  # the wrong shape is base R arithmetic failing inside the minimizer: too few
+  # values reached the weight matrix product as `non-conformable arguments`, and
+  # text or a list reached the scaling by n as `non-numeric argument to binary
+  # operator`. See the MEstimator path, which reads the same thing for the same
+  # reason. The count is the number of moment conditions, which an
+  # over-identified system has more of than parameters.
+  if (!is.null(summed_equations)) {
+    check_summed_return(
+      summed_equations(init),
+      n_eqs,
+      exact = TRUE,
+      point = "the initial values",
+      call = rlang::caller_env()
+    )
+  }
+
   # Determine if problem is over-identified
   over_identified <- length(init) < n_eqs
 
@@ -1973,6 +2017,7 @@ estimate_gmm_estimator <- function(
     check_summed_agreement(
       summed_equations(current_theta),
       unname(rowSums(evald)),
+      point = "the estimated values",
       call = rlang::caller_env()
     )
   }

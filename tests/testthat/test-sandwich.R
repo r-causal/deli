@@ -1540,3 +1540,19 @@ test_that("the argument and its shape are read with the comparison turned off", 
     class = "deli_summed_equations_error"
   )
 })
+
+test_that("a bread of rank zero has no direction left to name", {
+  # `qr()` names the directions a matrix lost by the columns its pivoting
+  # drops, and a matrix that lost every direction leaves nothing for the rest
+  # to account for. Reading the pivot regardless rendered a sentence with no
+  # subject: "Parameters are accounted for by the others."
+  err <- expect_error(
+    build_sandwich(matrix(0, nrow = 2, ncol = 2), diag(2), allow_pinv = FALSE),
+    class = "deli_bread_not_invertible"
+  )
+
+  flat <- gsub("\\s+", " ", conditionMessage(err))
+  expect_match(flat, "rank 0 of 2", fixed = TRUE)
+  expect_no_match(flat, "Parameters are accounted for", fixed = TRUE)
+  expect_no_match(flat, "Parameter are accounted for", fixed = TRUE)
+})

@@ -586,3 +586,85 @@ test_that("the reduction properties default to no reduction and a check", {
   expect_null(g@summed_equations)
   expect_true(g@check_summed_equations)
 })
+
+test_that("a reduction of the wrong shape is refused before the solve", {
+  case <- reducer_fit_case()
+  # A reduction the bread cannot be differentiated from is refused wherever it
+  # is supplied. Reaching the solver with one costs the diagnosis: the shape is
+  # read by whatever base R arithmetic touches it first, several frames inside
+  # a solver, against arguments the caller never named.
+  bad <- list(
+    short = function(theta) case$summed(theta)[1:2],
+    text = function(theta) as.character(case$summed(theta)),
+    list = function(theta) as.list(case$summed(theta))
+  )
+
+  for (label in names(bad)) {
+    expect_error(
+      MEstimator(
+        stacked_equations = case$psi,
+        init = case$init,
+        summed_equations = bad[[label]]
+      ) |>
+        estimate(),
+      class = "deli_summed_equations_error",
+      info = label
+    )
+    expect_error(
+      GMMEstimator(
+        stacked_equations = case$psi,
+        init = case$init,
+        summed_equations = bad[[label]]
+      ) |>
+        estimate(),
+      class = "deli_summed_equations_error",
+      info = label
+    )
+  }
+})
+
+test_that("the refused shape names the starting values and both counts", {
+  case <- reducer_fit_case()
+  short <- function(theta) case$summed(theta)[1:2]
+
+  err <- expect_error(
+    MEstimator(
+      stacked_equations = case$psi,
+      init = case$init,
+      summed_equations = short
+    ) |>
+      estimate(),
+    class = "deli_summed_equations_error"
+  )
+
+  flat <- gsub("\\s+", " ", conditionMessage(err))
+  expect_match(flat, "returned 2 values at the initial values", fixed = TRUE)
+  expect_match(flat, "returns 3 estimating equations", fixed = TRUE)
+  # A fit has no `theta` argument to point the caller at.
+  expect_no_match(flat, "theta", fixed = TRUE)
+})
+
+test_that("the shape read at the starting values costs one reducer call", {
+  case <- reducer_fit_case()
+  counter <- new.env(parent = emptyenv())
+  counter$psi <- 0L
+  counter$summed <- 0L
+
+  MEstimator(
+    stacked_equations = function(theta) {
+      counter$psi <- counter$psi + 1L
+      case$psi(theta)
+    },
+    init = case$init,
+    summed_equations = function(theta) {
+      counter$summed <- counter$summed + 1L
+      case$summed(theta)
+    }
+  ) |>
+    estimate()
+
+  # The shape read is a call to the reduction, not to the estimating functions,
+  # so the count the validation and the meat account for is unchanged.
+  expect_identical(counter$psi, 2L)
+  expect_gt(counter$summed, 0L)
+})

@@ -455,7 +455,18 @@ abort_bread_not_invertible <- function(bread, call = rlang::caller_env()) {
     )
   } else {
     factored <- qr(bread)
-    if (factored$rank < n_params) {
+    if (factored$rank == 0L) {
+      # The directions are named below by the columns the pivoting drops, and a
+      # matrix that lost every direction leaves none for the rest to be
+      # accounted for by. Reading the pivot here named every parameter against
+      # an empty set of others, which cli rendered as a sentence with no
+      # subject. This is the counterpart of the full-rank degrade
+      # `warn_dependent_moments()` makes at the other end of the same reading.
+      detail <- c(
+        "i" = "It factors at rank 0 of {n_params}, so no direction in the
+               parameter space moves the mean estimating equations at all."
+      )
+    } else if (factored$rank < n_params) {
       # The directions are named by the pivoting `qr()` does, which drops one
       # column per lost direction and reports which. Those are the parameters
       # the remaining ones already account for rather than the ones at fault:
@@ -690,6 +701,10 @@ check_summed_switch <- function(
 #' @param n_values The number of values the return is judged against.
 #' @param exact Whether that number is the count it must hold, or the fewest it
 #'   may hold.
+#' @param point The phrase naming the parameter values the reduction was read
+#'   at, already rendered. `NULL` names `theta`, which is what the entry points
+#'   taking one call it; a fit has no such argument and names its starting or
+#'   estimated values instead. See `summed_default_point()`.
 #' @param call The frame to report the error against.
 #'
 #' @returns Invisible `NULL`. Raises an error carrying the class
@@ -699,13 +714,15 @@ check_summed_return <- function(
   summed,
   n_values,
   exact = TRUE,
+  point = NULL,
   call = rlang::caller_env()
 ) {
+  point <- point %||% summed_default_point()
   if (!is.numeric(summed)) {
     cli::cli_abort(
       c(
         "!" = "{.arg summed_equations} must return a numeric vector at
-               {.arg theta}, not {.obj_type_friendly {summed}}.",
+               {point}, not {.obj_type_friendly {summed}}.",
         "i" = "The bread is the Jacobian of what it returns, so the return holds
                one number per estimating equation."
       ),
@@ -719,7 +736,7 @@ check_summed_return <- function(
   }
   detail <- if (exact) {
     "{.arg stacked_equations} returns {n_values} estimating equation{?s} at
-     {.arg theta}, and the reduction holds the sum of each of them across the
+     {point}, and the reduction holds the sum of each of them across the
      observations."
   } else {
     "A system has at least one estimating equation for each of its {n_values}
@@ -730,12 +747,30 @@ check_summed_return <- function(
   cli::cli_abort(
     c(
       "!" = "{.arg summed_equations} returned {n_summed} value{?s} at
-             {.arg theta}.",
+             {point}.",
       "i" = detail
     ),
     class = "deli_summed_equations_error",
     call = call
   )
+}
+
+#' The phrase naming the point a reduction was read at
+#'
+#' The entry points that read a reduction name that point differently. A caller
+#' who passed `theta` is told about `theta`; a fit has no such argument and is
+#' told about the starting values or the estimated ones, which is what it read
+#' the reduction at.
+#'
+#' The default is rendered here rather than written as markup in the messages
+#' because cli escapes the braces of an interpolated value, so `{.arg theta}`
+#' arriving through `point` would print as itself. Rendering it first gives the
+#' same text the markup gives.
+#'
+#' @returns The default phrase, as a single string.
+#' @noRd
+summed_default_point <- function() {
+  cli::format_inline("{.arg theta}")
 }
 
 #' Check that a supplied reduction sums the estimating functions it is paired
@@ -768,8 +803,9 @@ check_summed_return <- function(
 #' functions somewhere other than the root, which is the whole cost the argument
 #' exists to avoid.
 #'
-#' @param summed The value of the supplied reduction at `theta`.
-#' @param from_matrix The row sums of the full evaluation at `theta`.
+#' @param summed The value of the supplied reduction at the point in hand.
+#' @param from_matrix The row sums of the full evaluation at that point.
+#' @param point The phrase naming that point, as in `check_summed_return()`.
 #' @param call The frame to report the error against.
 #'
 #' @returns Invisible `NULL`. Raises an error carrying the classes
@@ -779,10 +815,12 @@ check_summed_return <- function(
 check_summed_agreement <- function(
   summed,
   from_matrix,
+  point = NULL,
   call = rlang::caller_env()
 ) {
+  point <- point %||% summed_default_point()
   n_eqs <- length(from_matrix)
-  check_summed_return(summed, n_eqs, exact = TRUE, call = call)
+  check_summed_return(summed, n_eqs, exact = TRUE, point = point, call = call)
   summed <- unname(as.numeric(summed))
 
   # A value that is not a number is read before the comparison rather than
@@ -801,7 +839,7 @@ check_summed_agreement <- function(
     cli::cli_abort(
       c(
         "!" = "{.arg summed_equations} returned a value that is not a number at
-               {.arg theta}.",
+               {point}.",
         "i" = "{cli::qty(missing)}Estimating equation{?s} {missing} {?sums/sum}
                to {.val {NA_real_}}, where {.arg stacked_equations} sums to a
                number.",
@@ -837,7 +875,7 @@ check_summed_agreement <- function(
   cli::cli_abort(
     c(
       "!" = "{.arg summed_equations} does not sum {.arg stacked_equations} at
-             {.arg theta}.",
+             {point}.",
       "i" = "Estimating equation {worst} sums to
              {.val {from_matrix[[worst]]}} across the observations, and
              {.arg summed_equations} reports {.val {summed[[worst]]}}.",
