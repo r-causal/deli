@@ -30,8 +30,12 @@ parameters.}
 
 \item{V}{Numeric n-by-c design matrix for the marginal structural model.}
 
-\item{distribution}{Character string for the GLM distribution. See
-\code{\link[=ee_glm]{ee_glm()}} for options.}
+\item{distribution}{Character string for the GLM distribution of the outcome
+model. Every name \code{\link[=ee_glm]{ee_glm()}} takes except the three that estimate a
+nuisance parameter, which the \code{theta} partition here reserves no slot for:
+\code{"normal"} (or \code{"gaussian"}), \code{"binomial"} (or \code{"bernoulli"}, or \code{"bin"}),
+\code{"poisson"}, \code{"inverse_normal"} (or \code{"inverse_gaussian"}), and
+\code{"tweedie"}. See \code{hyperparameter} for what naming one of the three does.}
 
 \item{link}{Character string for the GLM link function. See \code{\link[=ee_glm]{ee_glm()}}
 for options.}

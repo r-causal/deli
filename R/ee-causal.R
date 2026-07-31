@@ -364,8 +364,12 @@ ee_aipw <- function(
 #' @param A Numeric vector of n binary treatment indicators (0/1).
 #' @param W Numeric n-by-b design matrix for the propensity score model.
 #' @param V Numeric n-by-c design matrix for the marginal structural model.
-#' @param distribution Character string for the GLM distribution. See
-#'   [ee_glm()] for options.
+#' @param distribution Character string for the GLM distribution of the outcome
+#'   model. Every name [ee_glm()] takes except the three that estimate a
+#'   nuisance parameter, which the `theta` partition here reserves no slot for:
+#'   `"normal"` (or `"gaussian"`), `"binomial"` (or `"bernoulli"`, or `"bin"`),
+#'   `"poisson"`, `"inverse_normal"` (or `"inverse_gaussian"`), and
+#'   `"tweedie"`. See `hyperparameter` for what naming one of the three does.
 #' @param link Character string for the GLM link function. See [ee_glm()]
 #'   for options.
 #' @param hyperparameter Optional numeric hyperparameter passed straight
@@ -452,7 +456,21 @@ ee_ipw_msm <- function(
   # product the caller never wrote. Lowercased as ee_glm() lowercases it, so a
   # capitalized name is refused here rather than reaching that product.
   if (tolower(distribution) %in% c("gamma", "negative_binomial", "nb")) {
-    supported <- c("normal", "poisson", "binomial", "inverse_normal", "tweedie")
+    # Every outcome family this equation takes, aliases included, which is what
+    # `ee_glm()` accepts less the three that estimate a nuisance parameter. The
+    # list is written out rather than described so that a caller who reached
+    # here under an alias can see the alias they were reaching for.
+    supported <- c(
+      "normal",
+      "gaussian",
+      "poisson",
+      "binomial",
+      "bernoulli",
+      "bin",
+      "inverse_normal",
+      "inverse_gaussian",
+      "tweedie"
+    )
     cli::cli_abort(c(
       "The {.val {distribution}} distribution cannot be the outcome model of a
        marginal structural model.",

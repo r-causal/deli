@@ -10,11 +10,11 @@
 #' @param distribution Character string: `"normal"` (or `"gaussian"`),
 #'   `"binomial"` (or `"bernoulli"`, or `"bin"`), `"poisson"`, `"gamma"`,
 #'   `"negative_binomial"` (or `"nb"`), `"inverse_normal"` (or
-#'   `"inverse_gaussian"`), `"tweedie"`. The aliases are Python
-#'   Delicatessen's, which this equation accepts the same set of.
+#'   `"inverse_gaussian"`), `"tweedie"`. Each alias is one Python
+#'   delicatessen accepts, and this equation accepts the same set.
 #' @param link Character string: `"identity"`, `"log"`, `"logit"` (or
-#'   `"logistic"`), `"probit"`, `"cauchit"`, `"loglog"`, `"cloglog"`,
-#'   `"inverse"`, `"sqrt"` (or `"square_root"`).
+#'   `"logistic"`), `"probit"`, `"cauchit"` (or `"cauchy"`), `"loglog"`,
+#'   `"cloglog"`, `"inverse"`, `"sqrt"` (or `"square_root"`).
 #' @param hyperparameter Numeric scalar power \eqn{p} for the variance function
 #'   of the `"tweedie"` distribution. Must be non-negative. Ignored by every
 #'   other distribution. Default `NULL`.
