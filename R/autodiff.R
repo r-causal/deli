@@ -1145,12 +1145,21 @@ as.complex.PrimalTangentVector <- pt_as_complex
 # existed, handing back one value per slot for a scalar pair and refusing every
 # wider payload with `'list' object cannot be coerced to type 'logical'`.
 #
-# The default mode is `"any"`, which returns a list unchanged, so
-# `as.vector(X %*% theta)` keeps its tangents and differentiates exactly. That
-# is the one route a differentiated function reaches this method by on purpose,
-# and it is left alone. `"list"` is left to base R, which coerces nothing: a
-# container already is a list of two slots, so that mode is the one faithful
-# representation of it outside its own class.
+# The default mode is `"any"`, which keeps the tangents, so
+# `as.vector(X %*% theta)` differentiates exactly. That is the one route a
+# differentiated function reaches this method by on purpose. What it does to the
+# payload is the other half of the rule: `as.vector()` on a plain matrix drops
+# its `dim`, and reading the container as a list handed it back whole, so a
+# one-column matrix product stayed one column. A psi written as
+# `t(X * (y - as.vector(X %*% theta)))`, which is the natural way to flatten
+# fitted values, therefore multiplied an n-by-p by an n-by-1 and failed with
+# base R's `non-conformable arrays` under the exact pass while fitting under
+# every finite-difference method. The payload is flattened here for the same
+# reason base R flattens a matrix, and the tangent is kept.
+#
+# `"list"` is left to base R, which coerces nothing: a container already is a
+# list of two slots, so that mode is the one faithful representation of it
+# outside its own class.
 #' @noRd
 pt_vector_coercion <- function(x, mode = "any") {
   # The modes a tangent cannot survive: those that name a plain type, and those
@@ -1172,9 +1181,42 @@ pt_vector_coercion <- function(x, mode = "any") {
     return(as.logical(x))
   }
   if (identical(mode, "any")) {
-    return(x)
+    return(pt_undim_payload(x))
   }
   as.vector(unclass(x), mode)
+}
+
+# Apply a plain reshaping to both slots of a container and rebuild it. The two
+# slots stand element for element, so whatever is done to the shape of the
+# primal is done to the shape of the tangent; a scalar broadcast tangent has no
+# shape to change and passes through whichever reshaping is applied.
+#' @noRd
+pt_reshape_payload <- function(x, reshape) {
+  primal <- reshape(x$primal)
+  tangent <- reshape(x$tangent)
+  if (is_pt_array(x)) {
+    return(primal_tangent_array(primal, tangent))
+  }
+  primal_tangent(primal, tangent)
+}
+
+# Drop the dimensions of a container's payload, which is what `as.vector()` does
+# to a plain matrix.
+#
+# A payload that carries no dimensions is left alone rather than passed through
+# the reshaping, so a scalar pair and a container holding a flat vector come back
+# as themselves, names and all. A PrimalTangentVector holds a list of scalar
+# pairs rather than two slots, and none of those pairs carries a dimension, so it
+# is left alone as well.
+#' @noRd
+pt_undim_payload <- function(x) {
+  if (!is_pt(x) && !is_pt_array(x)) {
+    return(x)
+  }
+  if (is.null(dim(x$primal)) && is.null(dim(x$tangent))) {
+    return(x)
+  }
+  pt_reshape_payload(x, as.vector)
 }
 
 #' @export
@@ -1687,6 +1729,34 @@ matrix <- function(data = NA, ...) {
   primal_tangent_array(primal, tangent)
 }
 
+# ---- tangent-aware drop() ---------------------------------------------------
+
+# `drop()` is masked within the package namespace for the same reason
+# `matrix()` is: it dispatches on nothing. It is not an S3 generic and its
+# internal is not one either, so no method registered on the container classes
+# is ever reached and a mask is the only way to answer for it at all. Left to
+# base R it read the container as a list with no dimensions and handed it back
+# whole, which is the defect `as.vector()` had in its default mode: a
+# one-column matrix product stayed one column and the arithmetic downstream
+# failed as non-conformable.
+#
+# Unlike `as.vector()`, which flattens whatever shape it is given, `drop()`
+# removes the extents of length one and leaves every other shape as it stands,
+# so each slot is handed to `base::drop()` rather than stripped of its
+# dimensions.
+#
+# The mask is in scope inside the package only, as the other masks are, so an
+# estimating function that calls `drop()` from the global environment still
+# reaches base R's. `as.vector()` and `c()` are the flattening operations that
+# answer from anywhere, because both are dispatched.
+#' @noRd
+drop <- function(x) {
+  if (is_pt(x) || is_pt_array(x)) {
+    return(pt_reshape_payload(x, base::drop))
+  }
+  base::drop(x)
+}
+
 # ---- tangent-aware replication and column sums ------------------------------
 # `rep()` and `colSums()` are masked within the package namespace (like matrix,
 # rbind, and cbind) so a reshaping function reaches them under both the exact
@@ -1851,9 +1921,15 @@ pt_where <- function(test, yes, no) {
 #'   `"expression"` modes abort for the neighboring reason: each hands back the
 #'   primal and the tangent as two ordinary elements of a container, which no
 #'   later operation reads as a derivative.
-#'   `as.vector()` with its default `mode = "any"` returns its
-#'   argument unchanged and keeps the tangents. Use `c()` to flatten a
-#'   matrix-shaped result such as `X %*% theta` to a vector instead.
+#'   `as.vector()` with its default `mode = "any"` keeps the tangents and drops
+#'   the dimensions of the value it is given, as it does for a plain matrix, so
+#'   it flattens a matrix-shaped result such as `X %*% theta` to a vector.
+#'   `c()` flattens one too. `drop()` is not dispatched at all, so it is masked
+#'   within the package as the reshaping operations above are: inside the
+#'   package it removes the extents of length one from a tangent-carrying value,
+#'   and a function that calls it from the global environment reaches base R's,
+#'   which hands the value back whole. Flatten with `as.vector()` or `c()`
+#'   there.
 #'   `as.logical()` is the exception, because a logical coercion is a step
 #'   function whose derivative is zero almost everywhere, so it returns the
 #'   logical its payload coerces to; `as.vector(x, "logical")` asks for the same

@@ -402,10 +402,11 @@ anywhere.
 Arithmetic, `%*%`, `t()`, `[`, `c()`, and `mean()` are the operations that
 always carry derivatives, because deli registers each as an S3 method and S3
 dispatch does not depend on where the call is written. Build a p-by-n return
-with `t(X * resid)`, the idiom `ee_regression()` itself uses. Use `c()` to
-flatten a matrix-shaped result such as `X %*% theta` down to a vector;
-`as.numeric()` cannot do that job under exact differentiation, because it has
-to return a plain double and so cannot carry a derivative. It aborts on any
+with `t(X * resid)`, the idiom `ee_regression()` itself uses. Use `c()` or
+`as.vector()` to flatten a matrix-shaped result such as `X %*% theta` down to a
+vector; `as.numeric()` cannot do that job under exact differentiation, because
+it has to return a plain double and so cannot carry a derivative. It aborts on
+any
 value that carries one rather than silently handing back a zero derivative,
 including a single parameter such as `as.numeric(theta[1])`, where the primal
 is already a plain double and returning it would have looked harmless.
@@ -415,7 +416,12 @@ is already a plain double and returning it would have looked harmless.
 abort as well, because each hands back the primal and the tangent as two
 ordinary elements of a container rather than as a value that still carries a
 derivative. `as.vector()` with its default
-`mode = "any"` hands its argument back unchanged, so it keeps the derivatives.
+`mode = "any"` keeps the derivatives and drops the dimensions of the value it is
+given, as it does for a plain matrix, which is what makes it a flattening
+operation here as well. `drop()` is not dispatched on anything, so a call to it
+in an estimating function written in the global environment reaches base R's,
+which hands a value carrying derivatives back whole; flatten with `as.vector()`
+or `c()` instead.
 `as.logical()` is the one coercion that answers, because a logical is a step
 function of its argument and so has a derivative of zero almost everywhere;
 that is what lets the conditional idiom `ind * yes + (1 - ind) * no` take a

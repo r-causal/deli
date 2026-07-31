@@ -32,9 +32,15 @@ rather than dropping the tangents silently. The \code{"pairlist"} and
 \code{"expression"} modes abort for the neighboring reason: each hands back the
 primal and the tangent as two ordinary elements of a container, which no
 later operation reads as a derivative.
-\code{as.vector()} with its default \code{mode = "any"} returns its
-argument unchanged and keeps the tangents. Use \code{c()} to flatten a
-matrix-shaped result such as \code{X \%*\% theta} to a vector instead.
+\code{as.vector()} with its default \code{mode = "any"} keeps the tangents and drops
+the dimensions of the value it is given, as it does for a plain matrix, so
+it flattens a matrix-shaped result such as \code{X \%*\% theta} to a vector.
+\code{c()} flattens one too. \code{drop()} is not dispatched at all, so it is masked
+within the package as the reshaping operations above are: inside the
+package it removes the extents of length one from a tangent-carrying value,
+and a function that calls it from the global environment reaches base R's,
+which hands the value back whole. Flatten with \code{as.vector()} or \code{c()}
+there.
 \code{as.logical()} is the exception, because a logical coercion is a step
 function whose derivative is zero almost everywhere, so it returns the
 logical its payload coerces to; \code{as.vector(x, "logical")} asks for the same

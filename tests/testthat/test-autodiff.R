@@ -3214,14 +3214,104 @@ test_that("as.vector() with a numeric mode aborts on a tangent-carrying value", 
   expect_error(as.vector(arr, "double"), class = "deli_exact_tangent_lost")
 })
 
-test_that("as.vector() with no mode hands the container back with its tangents", {
-  # The default mode is "any", which on a list returns the list, so
-  # `as.vector(X %*% theta)` keeps its derivatives and differentiates exactly.
-  # That has to survive: the abort is about the modes that force an atomic type.
+test_that("as.vector() with no mode keeps the tangents of a flat payload", {
+  # The default mode is "any", which keeps the derivatives, so
+  # `as.vector(X %*% theta)` differentiates exactly. That has to survive: the
+  # abort is about the modes that force an atomic type.
   arr <- primal_tangent_array(c(1, 2), c(1, 0))
   expect_identical(as.vector(arr), arr)
   f <- function(theta) sum(as.vector(c(1, 2, 3) * theta[1]))
   expect_equal(auto_differentiation(2, f)[1, 1], 6)
+})
+
+test_that("as.vector() flattens the payload of a tangent-carrying matrix", {
+  # `as.vector()` on a plain matrix drops its `dim`, and the default mode read
+  # the container as a list and handed it back whole, dimensions included. A
+  # one-column matrix product therefore stayed one column, so
+  # `X * (y - as.vector(X %*% theta))` multiplied an n-by-p by an n-by-1 and
+  # failed with base R's `non-conformable arrays` under the exact pass while
+  # fitting under every finite-difference method.
+  arr <- primal_tangent_array(
+    base::matrix(c(1, 2, 3, 4, 5, 6), nrow = 3),
+    base::matrix(c(7, 8, 9, 10, 11, 12), nrow = 3)
+  )
+  flat <- as.vector(arr)
+
+  expect_s3_class(flat, "PrimalTangentArray")
+  expect_null(dim(flat$primal))
+  expect_null(dim(flat$tangent))
+  expect_equal(flat$primal, c(1, 2, 3, 4, 5, 6))
+  expect_equal(flat$tangent, c(7, 8, 9, 10, 11, 12))
+})
+
+test_that("as.vector() keeps a flattened tangent through the forward pass", {
+  X <- base::matrix(c(1, 2, 3, 4, 5, 6), nrow = 3)
+  f <- function(theta) sum(as.vector(X %*% theta))
+  expect_equal(auto_differentiation(c(1, 1), f), base::matrix(colSums(X), 1))
+})
+
+test_that("a scalar pair carrying a matrix flattens the same way", {
+  pair <- primal_tangent(base::matrix(c(1, 2, 3, 4), nrow = 2), 1)
+  flat <- as.vector(pair)
+
+  expect_s3_class(flat, "PrimalTangent")
+  expect_null(dim(flat$primal))
+  expect_equal(flat$primal, c(1, 2, 3, 4))
+  expect_equal(flat$tangent, 1)
+})
+
+test_that("drop() flattens the payload of a tangent-carrying matrix", {
+  # `drop()` is not a generic, so no method can answer for it; it is masked
+  # within the namespace, as `matrix()` and `rbind()` are.
+  arr <- primal_tangent_array(
+    base::matrix(c(1, 2, 3), ncol = 1),
+    base::matrix(c(4, 5, 6), ncol = 1)
+  )
+  dropped <- drop(arr)
+
+  expect_s3_class(dropped, "PrimalTangentArray")
+  expect_null(dim(dropped$primal))
+  expect_equal(dropped$primal, c(1, 2, 3))
+  expect_equal(dropped$tangent, c(4, 5, 6))
+})
+
+test_that("the masked drop() leaves ordinary values to base R", {
+  m <- base::matrix(c(1, 2, 3, 4, 5, 6), nrow = 3)
+  expect_identical(drop(m[, 1, drop = FALSE]), c(1, 2, 3))
+  expect_identical(drop(m), m)
+  expect_identical(drop(5), 5)
+})
+
+test_that("a psi that flattens its fitted values with as.vector() fits exactly", {
+  # The natural way to write a linear-regression estimating function: flatten
+  # the fitted values so that the residual multiplies the design column by
+  # column. Under the exact pass this failed outright while the same psi fitted
+  # under `capprox`.
+  set.seed(4)
+  n <- 60
+  X <- cbind(1, rnorm(n), rnorm(n))
+  y <- as.vector(X %*% c(1, 2, -1)) + rnorm(n)
+  theta <- as.vector(qr.solve(X, y))
+
+  psi_vec <- function(th) t(X * (y - as.vector(X %*% th)))
+  psi_drop <- function(th) t(X * (y - drop(X %*% th)))
+  psi_c <- function(th) t(X * (y - c(X %*% th)))
+
+  reference <- compute_sandwich(psi_c, theta = theta, deriv_method = "exact")
+
+  expect_equal(
+    compute_sandwich(psi_vec, theta = theta, deriv_method = "exact"),
+    reference
+  )
+  expect_equal(
+    compute_sandwich(psi_drop, theta = theta, deriv_method = "exact"),
+    reference
+  )
+  expect_equal(
+    compute_sandwich(psi_vec, theta = theta, deriv_method = "capprox"),
+    reference,
+    tolerance = 1e-6
+  )
 })
 
 test_that("integer coercion of ordinary values is untouched", {
