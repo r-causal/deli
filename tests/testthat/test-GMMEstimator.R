@@ -991,3 +991,73 @@ test_that("the dependent-moment report degrades where qr sees full rank", {
   # The sentence that names the dependent conditions has none to name here.
   expect_false(grepl("accounted for by the others, so", flat, fixed = TRUE))
 })
+
+# ---- reporting the dependent moments once per fit ----------------------------
+#
+# The two-step weight update takes the pseudo-inverse once per over-identified
+# pass, and the stack below repeats its first moment condition exactly, so every
+# pass falls back. The report about the fallback was raised from inside the
+# handler, which built the whole message on each of them and left
+# `without_repeated_warnings()` to discard all but the first at delivery. A fit
+# that settles in twenty passes therefore paid for twenty reports and showed
+# one.
+
+repeated_moment_case <- function() {
+  set.seed(21)
+  n <- 100
+  X <- cbind(1, stats::rnorm(n), stats::rnorm(n))
+  Z <- cbind(X, stats::rnorm(n), stats::rnorm(n), X[, 1])
+  y <- as.vector(X %*% c(1, 0.5, -0.3)) + stats::rnorm(n)
+  function(theta) t(Z * (y - as.vector(X %*% theta)))
+}
+
+test_that("the dependent-moment report is built once however many passes fall back", {
+  skip_if_not_installed("MASS")
+  psi <- repeated_moment_case()
+
+  fallbacks <- 0L
+  reports <- 0L
+  ginv <- MASS::ginv
+  local_mocked_bindings(
+    ginv = function(X, ...) {
+      fallbacks <<- fallbacks + 1L
+      ginv(X, ...)
+    },
+    .package = "MASS"
+  )
+  local_mocked_bindings(
+    warn_dependent_moments = function(...) {
+      reports <<- reports + 1L
+      invisible(NULL)
+    }
+  )
+
+  gmm_estimate(stacked_equations = psi, init = rep(0, 3))
+
+  # The weight update falls back on every pass, and the bread of an
+  # over-identified fit is pseudo-inverted once more at the end.
+  expect_gt(fallbacks, 2L)
+  expect_identical(reports, 1L)
+})
+
+test_that("the dependent-moment warning still surfaces once with its wording", {
+  skip_if_not_installed("MASS")
+  psi <- repeated_moment_case()
+
+  delivered <- character()
+  fit <- withCallingHandlers(
+    gmm_estimate(stacked_equations = psi, init = rep(0, 3)),
+    deli_gmm_moments_dependent = function(w) {
+      delivered <<- c(delivered, gsub("\\s+", " ", conditionMessage(w)))
+      expect_s3_class(w, "deli_gmm_moments_dependent")
+      rlang::cnd_muffle(w)
+    }
+  )
+
+  expect_length(delivered, 1L)
+  expect_match(delivered, "linearly dependent at the estimated values")
+  expect_match(delivered, "rank 5 of 6", fixed = TRUE)
+  expect_match(delivered, "Moment condition 6 is accounted for", fixed = TRUE)
+  # The estimates are still the ones the objective asked for.
+  expect_length(coef(fit), 3L)
+})

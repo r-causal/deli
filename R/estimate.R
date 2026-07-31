@@ -1782,6 +1782,19 @@ estimate_gmm_estimator <- function(
     overid_tolerance <- object@overid_tolerance
 
     if (overid_maxiter >= 1L) {
+      # The covariance of the first pass whose inverse the update could not
+      # take, and `NULL` for a fit that never falls back. The report about it is
+      # raised once, after the loop, rather than from the handler that takes the
+      # pseudo-inverse: cli renders a message where it is signaled, so a report
+      # raised once per pass was built once per pass, and
+      # without_repeated_warnings() discarded all but the first of them at
+      # delivery. On a fit that settles in twenty passes, nineteen of the twenty
+      # reports were built and thrown away, which was the greater part of the
+      # whole fit. What the user sees is unchanged: the report that survived the
+      # muffler was always the first pass's, so the first pass's covariance is
+      # what is kept.
+      first_dependent_meat <- NULL
+
       for (iter in seq_len(overid_maxiter)) {
         prev_theta <- current_theta
 
@@ -1803,12 +1816,12 @@ estimate_gmm_estimator <- function(
               )
               # The pseudo-inverse is what the update falls back to, and taking
               # it in silence is what let a stack of repeated moment conditions
-              # fit as though it were over-identified. The report is raised
-              # where the fallback is reached, so it costs nothing on a stack
-              # that never needs one. The update runs once per pass and the
-              # conditions it names do not change between them, so the scope in
-              # R/conditions.R delivers the passes as one warning.
-              warn_dependent_moments(meat_q)
+              # fit as though it were over-identified. Recording the covariance
+              # costs nothing on a stack that never needs the fallback, and the
+              # first pass that does is the one the report is built from.
+              if (is.null(first_dependent_meat)) {
+                first_dependent_meat <<- meat_q
+              }
               MASS::ginv(meat_q)
             }
           )
@@ -1868,6 +1881,10 @@ estimate_gmm_estimator <- function(
                    estimated values."
           ))
         }
+      }
+
+      if (!is.null(first_dependent_meat)) {
+        warn_dependent_moments(first_dependent_meat)
       }
     }
   }
@@ -2096,6 +2113,11 @@ estimate_gmm_estimator <- function(
 #' This reading is about the weight matrix alone. Whether the parameters
 #' themselves are identified is a separate question, which the bread answers and
 #' `not_identified()` reports on for an M-estimation fit.
+#'
+#' It is called once per fit, after the weight update has settled, with the
+#' covariance of the first pass that could not be inverted. The update itself
+#' records that covariance and carries on, because building the report is what
+#' the pass would otherwise pay for; see `estimate_gmm_estimator()`.
 #'
 #' What brings the update here is `solve()` failing, and a dependence is the
 #' usual reason for that rather than the only one. A covariance whose columns
