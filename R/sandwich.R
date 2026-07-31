@@ -146,71 +146,86 @@ compute_bread <- function(
   -1 * bread_matrix
 }
 
-# Judge a per-equation list before it is reduced. Each element is reduced with a
-# single `sum()`, so each contributes exactly one row to the bread, and an
-# element holding a block of several equations still reduces to one value. Such
-# an element silently stands in for every equation it holds, and the bread comes
-# back with fewer rows than the system has, which is a shape nothing downstream
-# can tell from a correct one. Counting the elements against the parameters
-# catches it: a list return holds one element per equation, and an M-estimation
-# system has one equation per parameter.
+# Judge a per-equation list before anything is built from it. Two rules, both of
+# them about what one element stands for, and both raised here so that the bread
+# and the meat take exactly the same lists.
 #
-# The count is the whole test because a correctly shaped element cannot be
-# distinguished from a block by its own payload: an equation evaluated over n
-# observations and a one-row block over the same n look alike, and both are
-# right.
+# The count. Each element is reduced with a single `sum()` for the bread, so each
+# contributes exactly one row, and an element holding a block of several
+# equations still reduces to one value. Such an element silently stands in for
+# every equation it holds, and the bread comes back with fewer rows than the
+# system has, which is a shape nothing downstream can tell from a correct one.
+# A list return holds one element per equation, and an M-estimation system has
+# one equation per parameter, so counting elements against parameters catches it.
+#
+# The lengths. The equations of one system are evaluated at one sample, so every
+# element holds one value per observation and all of them are the same length.
+# An element of another length is an equation built from the wrong observations,
+# and neither half of the sandwich reports it on its own: the reduction sums each
+# element whatever its length, and `rbind()` recycles a short element up to the
+# width of the longest, silently where that width is a multiple of it.
+#
+# The count is judged first because it is the coarser reading of the same
+# mistake, and its message names the block an element stands in for. A block
+# whose count happens to fit, two elements for two parameters where one of them
+# holds two equations, is left to the lengths: it is twice the width of its
+# neighbor.
+#
+# Neither rule can tell a correctly shaped element from a one-row block by the
+# payload alone, since an equation over n observations and a one-row block over
+# the same n look alike and both are right.
 #' @noRd
 check_equation_list <- function(ef, n_params) {
-  if (length(ef) == n_params) {
-    return(invisible(ef))
+  if (length(ef) != n_params) {
+    cli::cli_abort(
+      c(
+        "Summing the estimating equations received a list of {length(ef)}
+         element{?s} for {n_params} parameter{?s}.",
+        "i" = "Each element of a list return is one estimating equation, summed
+               across observations on its own, so the list holds one element per
+               parameter.",
+        "i" = "An element holding a block of several equations, such as a matrix
+               of rows, sums to a single value and yields a bread with too few
+               rows. Return the whole system as one p-by-n value instead, built
+               with {.fn rbind} or {.code t()} and arithmetic."
+      ),
+      class = "deli_exact_unsupported_shape",
+      call = NULL
+    )
   }
-  cli::cli_abort(
-    c(
-      "Summing the estimating equations received a list of {length(ef)}
-       element{?s} for {n_params} parameter{?s}.",
-      "i" = "Each element of a list return is one estimating equation, summed
-             across observations on its own, so the list holds one element per
-             parameter.",
-      "i" = "An element holding a block of several equations, such as a matrix
-             of rows, sums to a single value and yields a bread with too few
-             rows. Return the whole system as one p-by-n value instead, built
-             with {.fn rbind} or {.code t()} and arithmetic."
-    ),
-    class = "deli_exact_unsupported_shape",
-    call = NULL
-  )
+  # `lengths()` reads the `length()` method of each element, which answers for
+  # the payload a tangent-carrying value holds rather than for its two slots, so
+  # this reads observations under the exact pass as it does under the others.
+  widths <- unique(lengths(ef))
+  if (length(widths) > 1L) {
+    cli::cli_abort(
+      c(
+        "The estimating equations arrived in a list holding {length(widths)}
+         different lengths.",
+        "i" = "Each element of a list return is one estimating equation
+               evaluated at every observation, so each holds one value per
+               observation and all of them are the same length.",
+        "i" = "An element of another length is either an equation built from a
+               different sample or a block of several equations. Return the
+               whole system as one p-by-n value instead, built with {.fn rbind}
+               or {.code t()} and arithmetic."
+      ),
+      class = "deli_exact_unsupported_shape",
+      call = NULL
+    )
+  }
+  invisible(ef)
 }
 
 # Bind a per-equation list into the p-by-n matrix the meat is built from.
 # `compute_bread()` reduces the same list with one `sum()` per element, which is
 # the derivative it needs; the meat needs those equations unreduced, so the
-# elements are bound into rows here instead. The element count is judged with
-# the rule the bread reduces under, so both halves of the sandwich take exactly
-# the same lists and a shape one of them refuses is refused before either is
-# built.
-#
-# Equal lengths are the one thing the count does not cover. `rbind()` recycles a
-# short element up to the width of the longest one, and a length that divides
-# that width is recycled with nothing reported, which would build the meat from
-# repeated contributions and hand back the shape of a covariance matrix without
-# the meaning.
+# elements are bound into rows here instead. What the two share is the judgment
+# above rather than the reduction, which is why it is the whole of this
+# function besides the binding.
 #' @noRd
-stack_equation_list <- function(ef, theta, call = rlang::caller_env()) {
+stack_equation_list <- function(ef, theta) {
   check_equation_list(ef, length(theta))
-  widths <- unique(lengths(ef))
-  if (length(widths) > 1L) {
-    cli::cli_abort(
-      c(
-        "{.arg stacked_equations} returned estimating equations of
-         {length(widths)} different lengths at {.arg theta}.",
-        "i" = "Each element of a list return is one estimating equation
-               evaluated at every observation, so each holds one value per
-               observation and all of them are the same length."
-      ),
-      class = "deli_psi_return_error",
-      call = call
-    )
-  }
   do.call(rbind, ef)
 }
 
@@ -607,7 +622,7 @@ compute_sandwich <- function(
     # would not. A classed list is left to the judgment below, where a data
     # frame of contributions is named as a data frame.
     if (is.list(evald) && !is.object(evald)) {
-      evald <- stack_equation_list(evald, theta, call = call)
+      evald <- stack_equation_list(evald, theta)
     }
     check_psi_at_theta(evald, theta, call = call)
     if (is.null(dim(evald))) {

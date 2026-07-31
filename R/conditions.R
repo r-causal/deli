@@ -82,9 +82,11 @@
 #'   because it hands its argument to compiled code without dispatching or
 #'   because deli declines to differentiate it. [auto_differentiation()] names
 #'   the replacements to use instead.
-#' - `deli_exact_unsupported_shape`: the tangents survived but arrived in a
-#'   container the summing step has no rule for. Nothing was lost; the shape is
-#'   the problem.
+#' - `deli_exact_unsupported_shape`: the estimating equations arrived in a
+#'   container the summing step has no rule for, either because the tangents
+#'   survived in a shape it cannot reduce or because a per-equation list does
+#'   not hold one element per parameter, each of one length. Nothing was lost;
+#'   the shape is the problem.
 #' - `deli_exact_tangent_lost`: derivative information is gone or would be,
 #'   either because a tangent-carrying value was asked to become a plain double
 #'   or because a result arrived with no tangent and evidence that one had been

@@ -568,6 +568,67 @@ test_that("the element-count abort says what a list element stands for", {
   expect_match(flat, "2 elements", fixed = TRUE)
 })
 
+# ---- one sample, one length -------------------------------------------------
+#
+# The equations of one system are evaluated at one sample, so a per-equation
+# list holds one length. An element of another length is an equation built from
+# the wrong observations, and the reduction hides it: each element is summed
+# whatever its length, so the bread comes back with the documented shape and one
+# row computed from a different number of contributions than the rest.
+
+test_that("compute_bread() refuses a per-equation list of unequal lengths", {
+  ragged <- function(theta) list(theta[1] - c(1, 2, 3, 4), theta[2] - c(2, 3))
+
+  for (method in c("exact", "capprox", "fapprox", "bapprox")) {
+    expect_error(
+      compute_bread(ragged, c(2.5, 2.5), deriv_method = method),
+      class = "deli_exact_unsupported_shape"
+    )
+  }
+})
+
+test_that("the length rule catches a block whose element count happens to fit", {
+  # Two elements for two parameters passes the count, so the count alone let a
+  # 2-by-n block stand beside a single equation and reduced the pair to a
+  # 2-row bread for a system holding three equations. The block is twice the
+  # width of its neighbor, which is what the length rule reads.
+  y <- c(1, 2, 3)
+  blocked <- function(theta) {
+    list(rbind(theta[1] - y, theta[2] - y), theta[1] - y)
+  }
+
+  expect_error(
+    compute_bread(blocked, c(1, 2), deriv_method = "capprox"),
+    class = "deli_exact_unsupported_shape"
+  )
+})
+
+test_that("the unequal-length abort says each equation holds one value per observation", {
+  ragged <- function(theta) list(theta[1] - c(1, 2, 3, 4), theta[2] - c(2, 3))
+  err <- expect_error(
+    compute_bread(ragged, c(2.5, 2.5), deriv_method = "capprox"),
+    class = "deli_exact_unsupported_shape"
+  )
+  flat <- gsub("[[:space:]]+", " ", conditionMessage(err))
+  expect_match(flat, "one value per observation", fixed = TRUE)
+  expect_match(flat, "2 different lengths", fixed = TRUE)
+})
+
+test_that("an equal-length per-equation list is untouched by the length rule", {
+  # The rule must not reach the shapes the reduction is correct for, including
+  # the theta-free equation that arrives as a plain numeric vector of the same
+  # length as the rest.
+  y <- c(2, 3, 4, 6)
+  per_equation <- function(theta) list(rep(0, length(y)), theta[2] - y)
+  stacked <- function(theta) rbind(rep(0, length(y)), theta[2] - y)
+
+  expect_equal(
+    compute_bread(per_equation, c(2.5, 3.75), deriv_method = "exact"),
+    compute_bread(stacked, c(2.5, 3.75), deriv_method = "capprox"),
+    tolerance = 1e-6
+  )
+})
+
 # ---- the per-equation list under the finite-difference methods ---------------
 #
 # The package's rule is that nothing succeeds under the exact pass that would
@@ -881,14 +942,15 @@ test_that("compute_sandwich() refuses a per-equation list of unequal lengths", {
   # `rbind()` recycles a short element up to the width of the longest one, and a
   # length that divides that width is recycled with nothing reported, so the
   # meat would be built from repeated contributions and carry the shape of a
-  # covariance matrix without the meaning.
+  # covariance matrix without the meaning. The bread refuses the same list on
+  # the same rule, so both halves report one class.
   y1 <- c(1, 2, 3, 4)
   y2 <- c(2, 3)
   ragged <- function(theta) list(theta[1] - y1, theta[2] - y2)
 
   err <- expect_error(
     compute_sandwich(ragged, theta = c(2.5, 2.5)),
-    class = "deli_psi_return_error"
+    class = "deli_exact_unsupported_shape"
   )
   flat <- gsub("[[:space:]]+", " ", conditionMessage(err))
   expect_match(flat, "one value per observation", fixed = TRUE)
