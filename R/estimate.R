@@ -410,7 +410,7 @@ estimate_m_estimator <- function(
     if (isTRUE(solved$not_converged)) {
       warn_solver_failure(solved, judged_bread, unsolved)
     } else if (!is.null(unsolved)) {
-      warn_unsolved(solved, unsolved)
+      warn_unsolved(solved, unsolved, judged_bread)
     } else if (not_identified(judged_bread)) {
       warn_not_identified()
     }
@@ -987,16 +987,27 @@ unsolved_point <- function(ef, theta, bread, init_score = NULL, init = theta) {
 #' where it says something the solver cannot. A flat equation is such a case: the
 #' solver reports a convergence test that was met, since the equation it left
 #' unsolved is invisible to the Jacobian it was working with, so the message has
-#' to name the equation itself. The other readings say what the solver has
-#' already said in its own terms, so they add no bullet.
+#' to name the equation itself. A bread `not_identified()` reads that way is the
+#' other: no solver reports on whether the parameters it was given can be told
+#' apart, and a design with linearly dependent columns is what a search that
+#' stopped at a singular Jacobian usually ran into. The other readings say what
+#' the solver has already said in its own terms, so they add no bullet.
+#'
+#' The two details cannot both apply. `not_identified()` says nothing about a
+#' bread with a flat row in it, and a flat row is what `flat_equation()` needs to
+#' report anything, so the order the two are asked in is presentation rather than
+#' precedence.
 #'
 #' @param solved The list `solve_equations()` returned.
 #' @param unsolved The list `unsolved_point()` returned, or `NULL` where the
 #'   solver reported the failure itself and its own account of itself is what is
 #'   reported.
+#' @param bread The bread matrix at the returned point, for the block of
+#'   equations the solver worked on, or `NULL` where the caller has no reading of
+#'   the parameters to add.
 #' @returns Invisible `NULL`, called for the warning.
 #' @noRd
-warn_unsolved <- function(solved, unsolved = NULL) {
+warn_unsolved <- function(solved, unsolved = NULL, bread = NULL) {
   detail <- character(0)
   if (isTRUE(unsolved$flat)) {
     flat_row <- unsolved$row
@@ -1005,6 +1016,15 @@ warn_unsolved <- function(solved, unsolved = NULL) {
       "i" = "Estimating equation {flat_row} does not move when any parameter
              does, so no Newton step can measure the distance to its root, and
              it sums to {.val {flat_score}} rather than to zero."
+    )
+  } else if (not_identified(bread)) {
+    detail <- c(
+      "i" = "The estimating equations are also rank deficient at the returned
+             values, so the parameters are not identified: at least one
+             direction in the parameter space leaves the mean estimating
+             equations unchanged, so they have no unique root.",
+      "i" = "Check the equations for a redundant parameter and the design for
+             linearly dependent columns."
     )
   }
   if (identical(solved$solver, "rootSolve")) {
@@ -1073,12 +1093,20 @@ warn_unsolved <- function(solved, unsolved = NULL) {
 #' say the parameters are not identified, and reporting a search that stopped
 #' short would then be true of the search and beside the point about the problem.
 #'
-#' Both halves are needed because a bread can lose rank without the design being
-#' the reason. Parameters that have run away leave a saturated estimating
-#' function whose derivative underflows to zero, which is a whole column of
-#' zeros; the point such a fit returns is not a root, and the solver's own
-#' account of stopping short is the accurate one. So every failure but the
-#' identified pair keeps that account.
+#' Both halves are needed for the diagnosis to be the headline, because a bread
+#' can lose rank without the design being the reason. Parameters that have run
+#' away leave a saturated estimating function whose derivative underflows to
+#' zero, which is a whole column of zeros; the point such a fit returns is not a
+#' root, and the solver's own account of stopping short is the accurate one. So
+#' every failure but the identified pair keeps that account as its headline.
+#'
+#' Keeping the account is not the same as saying nothing about the parameters. A
+#' returned point the readings reject alongside a bread that reads as not
+#' identified is the ordinary way a collinear design comes back from a solver
+#' that stopped at a singular Jacobian, and the search is then a true account of
+#' a search that a user cannot act on. So the bread goes to `warn_unsolved()`
+#' too, which adds the reading as a detail under the search account wherever it
+#' says the parameters are not identified.
 #'
 #' Neither wording can double up with the readings of the returned point.
 #' `estimate_m_estimator()` reads the point once and reports it through exactly
@@ -1095,7 +1123,7 @@ warn_unsolved <- function(solved, unsolved = NULL) {
 #' @noRd
 warn_solver_failure <- function(solved, bread, unsolved) {
   if (!is.null(unsolved) || !not_identified(bread)) {
-    return(warn_unsolved(solved, unsolved))
+    return(warn_unsolved(solved, unsolved, bread))
   }
   warn_not_identified()
 }
