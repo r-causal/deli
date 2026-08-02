@@ -4333,8 +4333,6 @@ test_that("the log2 tangent stays finite at the largest double", {
 })
 
 test_that("the log10 tangent reads its derivative past the product's overflow", {
-  skip("pending the log10 rule that divides through before the constant")
-
   # ln 10 is above one, so for base ten the product the rule forms runs out of
   # range before the primal does: p log 10 is Inf past a primal of about
   # 7.81e307, the largest double divided by ln 10, while log10(p) there is an
@@ -4777,8 +4775,6 @@ test_that("auto_differentiation reads tanh and atan gradients inside the subnorm
 })
 
 test_that("auto_differentiation reads a log10 gradient inside the subnormal window", {
-  skip("pending the log10 rule that divides through before the constant")
-
   # The machinery-level reading of the log10 window: a gradient taken at a
   # primal inside it has to carry the derivative that exists there rather than
   # the zero the overflowing product leaves behind. The comparison is rescaled

@@ -687,7 +687,16 @@ pt_math_rule <- function(generic, p, t) {
     "exp" = list(primal = exp(p), tangent = exp(p) * t),
     "log" = list(primal = log(p), tangent = t / p),
     "log2" = list(primal = log2(p), tangent = t / (p * log(2))),
-    "log10" = list(primal = log10(p), tangent = t / (p * log(10))),
+    # ln 10 is above one, so the product p log 10 overflows to Inf past a primal
+    # of about 7.81e307 while log10(p) is an ordinary 308 and the derivative is
+    # still a representable subnormal, and the tangent reads a silent zero
+    # across that whole window. Dividing the tangent through by the primal
+    # before the constant reaches the same derivative without ever forming the
+    # product, the same rearrangement the division and tanh rules take, and the
+    # value path is untouched; the rule above keeps the closed form because
+    # ln 2 is below one and its product cannot overflow at any primal a double
+    # holds.
+    "log10" = list(primal = log10(p), tangent = (t / p) / log(10)),
     "sqrt" = list(primal = sqrt(p), tangent = t / (2 * sqrt(p))),
     "sin" = list(primal = sin(p), tangent = cos(p) * t),
     "cos" = list(primal = cos(p), tangent = -sin(p) * t),
