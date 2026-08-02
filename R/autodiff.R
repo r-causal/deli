@@ -825,7 +825,12 @@ pt_math_apply <- function(generic, p, t, dots) {
         "{.fn log} with a tangent-carrying base is not supported."
       )
     }
-    return(list(primal = log(p, base), tangent = t / (p * log(base))))
+    # The tangent divides through by the primal before the base constant rather
+    # than forming the product p log(base), for the reason the log10 rule above
+    # states: any base whose constant is above one overflows that product while
+    # the derivative is still representable, and base ten reaches the same double
+    # here as the dedicated log10 rule does.
+    return(list(primal = log(p, base), tangent = (t / p) / log(base)))
   }
   pt_math_rule(generic, p, t)
 }

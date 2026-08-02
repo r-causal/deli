@@ -4403,8 +4403,6 @@ test_that("the log10 tangent reads its derivative past the product's overflow", 
 # pinned so that rearranging the rule cannot drift it.
 
 test_that("the explicit-base log tangent agrees with log10 past the product's overflow", {
-  skip("pending the explicit-base log rule that divides before the constant")
-
   # `log(x, 10)` and `log10(x)` are two spellings of one derivative, and inside
   # the base ten window they disagree. The primal path already routes
   # `log(p, 10)` to log10 and reads an ordinary 308 at p = 1e308; the tangent
@@ -4434,8 +4432,6 @@ test_that("the explicit-base log tangent agrees with log10 past the product's ov
 })
 
 test_that("a log base with no member of its own reads its derivative past the overflow", {
-  skip("pending the explicit-base log rule that divides before the constant")
-
   # Base one hundred has no dedicated Math member to fall back on, so the
   # explicit-base rule is the only reading of it, and its window opens earlier
   # than base ten's: log 100 is twice log 10, so the product runs out of range
