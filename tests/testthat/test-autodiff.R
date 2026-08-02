@@ -4119,3 +4119,431 @@ test_that("asinh reads non-finite and ordinary primals elementwise", {
   expect_equal(dim(shaped$tangent), c(2L, 2L))
   expect_equal(shaped$tangent, matrix(c(0, 1 / sqrt(5), 0, 1), nrow = 2))
 })
+
+# ---- log-base, inverse trigonometric, and hyperbolic tangents ---------------
+#
+# The nine Math members below (log2, log10, asin, acos, atan, sinh, cosh, tanh,
+# and atanh) all take their rules from the elementwise table in `pt_math_rule`,
+# so each is read here both as a scalar pair and on the array surface the same
+# table serves. Beyond the closed forms, each rule is also read at the extremes
+# its arrangement can reach: where the domain is bounded, as it is for asin,
+# acos, and atanh, no arrangement of the rule can overflow at all, and where it
+# is not, the regime just short of the overflow is pinned so that any later
+# reformulation has to preserve it.
+#
+# Some of those regimes put the true derivative near the bottom of the double
+# range, where the default tolerance compares absolutely and every value below
+# about 1e-300 is a rounding error away from zero. Assertions there are rescaled
+# to the size of the derivative, as the asinh and acosh section above does.
+
+test_that("log2 and log10 tangents scale the natural-log rule by the base", {
+  # d log_b(p) / dp is 1 / (p log b). Each of these differs from the natural-log
+  # rule t / p only by that constant factor, which is exactly what a dropped
+  # base leaves behind, so comparing against the scaled form separates the
+  # three rules from one another.
+  cases <- list(
+    c(p = 0.5, t = 2),
+    c(p = 2, t = -1),
+    c(p = 8, t = 1.25),
+    c(p = 1e-5, t = 3)
+  )
+
+  for (case in cases) {
+    binary <- log2(primal_tangent(case[["p"]], case[["t"]]))
+    expect_equal(binary$primal, log2(case[["p"]]))
+    expect_equal(binary$tangent, case[["t"]] / (case[["p"]] * log(2)))
+
+    decimal <- log10(primal_tangent(case[["p"]], case[["t"]]))
+    expect_equal(decimal$primal, log10(case[["p"]]))
+    expect_equal(decimal$tangent, case[["t"]] / (case[["p"]] * log(10)))
+  }
+})
+
+test_that("asin and acos tangents agree with the closed form", {
+  # The two derivatives differ only in sign, so reading both at the same primals
+  # pins the sign as well as the magnitude. A negative primal is included
+  # because the shared factor 1 / sqrt(1 - p^2) is even in p and would hide a
+  # sign error on its own.
+  cases <- list(
+    c(p = 0.5, t = 2),
+    c(p = -0.25, t = -1),
+    c(p = 0, t = 1.25),
+    c(p = 0.9, t = 0.5)
+  )
+
+  for (case in cases) {
+    derivative <- case[["t"]] / sqrt(1 - case[["p"]]^2)
+
+    forward <- asin(primal_tangent(case[["p"]], case[["t"]]))
+    expect_equal(forward$primal, asin(case[["p"]]))
+    expect_equal(forward$tangent, derivative)
+
+    backward <- acos(primal_tangent(case[["p"]], case[["t"]]))
+    expect_equal(backward$primal, acos(case[["p"]]))
+    expect_equal(backward$tangent, -derivative)
+  }
+})
+
+test_that("atan tangents agree with the closed form", {
+  cases <- list(
+    c(p = 0.5, t = 2),
+    c(p = -3, t = -1),
+    c(p = 0, t = 1.25),
+    c(p = 10, t = 0.5)
+  )
+
+  for (case in cases) {
+    r <- atan(primal_tangent(case[["p"]], case[["t"]]))
+    expect_equal(r$primal, atan(case[["p"]]))
+    expect_equal(r$tangent, case[["t"]] / (1 + case[["p"]]^2))
+  }
+})
+
+test_that("sinh, cosh, and tanh tangents agree with the closed form", {
+  # sinh and cosh are each other's derivative, so a rule that crossed the two
+  # would still read the right magnitude at every positive primal. The negative
+  # cases are what separate them: cosh is even and sinh is odd.
+  cases <- list(
+    c(p = 0.5, t = 2),
+    c(p = -2, t = -1),
+    c(p = 0, t = 1.25),
+    c(p = 1.5, t = 0.5)
+  )
+
+  for (case in cases) {
+    p <- case[["p"]]
+    incoming <- case[["t"]]
+
+    hyperbolic_sine <- sinh(primal_tangent(p, incoming))
+    expect_equal(hyperbolic_sine$primal, sinh(p))
+    expect_equal(hyperbolic_sine$tangent, incoming * cosh(p))
+
+    hyperbolic_cosine <- cosh(primal_tangent(p, incoming))
+    expect_equal(hyperbolic_cosine$primal, cosh(p))
+    expect_equal(hyperbolic_cosine$tangent, incoming * sinh(p))
+
+    hyperbolic_tangent <- tanh(primal_tangent(p, incoming))
+    expect_equal(hyperbolic_tangent$primal, tanh(p))
+    expect_equal(hyperbolic_tangent$tangent, incoming / cosh(p)^2)
+  }
+})
+
+test_that("atanh tangents agree with the closed form", {
+  cases <- list(
+    c(p = 0.5, t = 2),
+    c(p = -0.75, t = -1),
+    c(p = 0, t = 1.25),
+    c(p = 0.99, t = 0.5)
+  )
+
+  for (case in cases) {
+    r <- atanh(primal_tangent(case[["p"]], case[["t"]]))
+    expect_equal(r$primal, atanh(case[["p"]]))
+    expect_equal(r$tangent, case[["t"]] / (1 - case[["p"]]^2))
+  }
+})
+
+test_that("the log, inverse trigonometric, and hyperbolic rules read a tangent array elementwise", {
+  # The scalar and array Math methods share one rule table, so every member has
+  # to read a vector primal on its own terms as well as a scalar pair. log2 and
+  # log10 take a separate array because their domain excludes the negative
+  # element the others use.
+  bounded_primal <- c(0.5, -0.25)
+  bounded_tangent <- c(2, -1)
+  bounded <- primal_tangent_array(bounded_primal, bounded_tangent)
+
+  expect_s3_class(asin(bounded), "PrimalTangentArray")
+  expect_equal(asin(bounded)$primal, asin(bounded_primal))
+  expect_equal(
+    asin(bounded)$tangent,
+    bounded_tangent / sqrt(1 - bounded_primal^2)
+  )
+  expect_equal(
+    acos(bounded)$tangent,
+    -bounded_tangent / sqrt(1 - bounded_primal^2)
+  )
+  expect_equal(atan(bounded)$tangent, bounded_tangent / (1 + bounded_primal^2))
+  expect_equal(atanh(bounded)$tangent, bounded_tangent / (1 - bounded_primal^2))
+  expect_equal(sinh(bounded)$tangent, bounded_tangent * cosh(bounded_primal))
+  expect_equal(cosh(bounded)$tangent, bounded_tangent * sinh(bounded_primal))
+  expect_equal(tanh(bounded)$tangent, bounded_tangent / cosh(bounded_primal)^2)
+
+  positive_primal <- c(0.5, 8)
+  positive_tangent <- c(2, -1)
+  positive <- primal_tangent_array(positive_primal, positive_tangent)
+
+  expect_equal(log2(positive)$primal, log2(positive_primal))
+  expect_equal(
+    log2(positive)$tangent,
+    positive_tangent / (positive_primal * log(2))
+  )
+  expect_equal(
+    log10(positive)$tangent,
+    positive_tangent / (positive_primal * log(10))
+  )
+
+  # A matrix primal keeps its shape through the rule, so the tangent array a
+  # matrix-valued estimating equation carries stays conformable.
+  matrix_primal <- matrix(c(0.5, -0.25, 1.5, 0), nrow = 2)
+  shaped <- tanh(primal_tangent_array(
+    matrix_primal,
+    matrix(1, nrow = 2, ncol = 2)
+  ))
+  expect_equal(dim(shaped$tangent), c(2L, 2L))
+  expect_equal(shaped$tangent, 1 / cosh(matrix_primal)^2)
+})
+
+test_that("asin, acos, and atanh tangents cannot reach an overflow", {
+  # All three rules divide by a function of 1 - p^2, and the domain is bounded
+  # by one, so the divisor never leaves the unit interval: these rules can only
+  # grow their tangents, never overflow the way a rule that squares an
+  # unbounded primal does. At the largest double below one, which is as extreme
+  # as the domain gets, 1 - p^2 is exactly 2^-52 and every tangent is an
+  # ordinary number.
+  p <- 1 - .Machine$double.eps / 2
+  expect_identical(1 - p^2, 2^-52)
+
+  expect_identical(asin(primal_tangent(p, 1))$tangent, 2^26)
+  expect_identical(acos(primal_tangent(p, 1))$tangent, -(2^26))
+  expect_identical(atanh(primal_tangent(p, 1))$tangent, 2^52)
+})
+
+test_that("asin and acos read their derivatives at the edge of the domain", {
+  # At p = 1 - 1e-8 the derivative is large but finite and nothing about the
+  # rule is near an overflow. What moves here is accuracy: 1 - p^2 cancels most
+  # of its significant digits away, while (1 - p)(1 + p) keeps them, because
+  # 1 - p is exact at this magnitude. The reference below is the factored
+  # arrangement for that reason, as the acosh edge guard is. The two agree to
+  # about 3e-10 relative, well inside the default tolerance, so the comparison
+  # is against the mathematical value rather than against the rule's own
+  # arrangement.
+  p <- 1 - 1e-8
+  derivative <- 1 / (sqrt(1 - p) * sqrt(1 + p))
+
+  forward <- asin(primal_tangent(p, 1))
+  expect_equal(forward$primal, asin(p))
+  expect_equal(forward$tangent, derivative)
+
+  backward <- acos(primal_tangent(p, 1))
+  expect_equal(backward$primal, acos(p))
+  expect_equal(backward$tangent, -derivative)
+
+  # The derivative is even in p, so the mirrored primal reads the same
+  # magnitude at the other end of the domain.
+  mirrored <- asin(primal_tangent(-p, 1))
+  expect_equal(mirrored$primal, asin(-p))
+  expect_equal(mirrored$tangent, derivative)
+
+  # At the endpoint itself the derivative is unbounded, and infinity is the
+  # honest reading rather than an overflow: sqrt(1 - 1) is zero and the
+  # quotient runs off without raising a condition.
+  at_one <- asin(primal_tangent(1, 1))
+  expect_equal(at_one$primal, pi / 2)
+  expect_equal(at_one$tangent, Inf)
+
+  acos_at_one <- acos(primal_tangent(1, 1))
+  expect_equal(acos_at_one$primal, 0)
+  expect_equal(acos_at_one$tangent, -Inf)
+})
+
+test_that("atanh reads its derivative at the edge of the domain", {
+  # The same cancellation as asin and acos, one power lower: 1 - p^2 loses
+  # digits where (1 - p)(1 + p) does not, so the reference is again the
+  # factored form.
+  p <- 1 - 1e-8
+  derivative <- 1 / ((1 - p) * (1 + p))
+
+  r <- atanh(primal_tangent(p, 1))
+  expect_equal(r$primal, atanh(p))
+  expect_equal(r$tangent, derivative)
+
+  # The derivative is even in p and the value is odd.
+  mirrored <- atanh(primal_tangent(-p, 1))
+  expect_equal(mirrored$primal, -atanh(p))
+  expect_equal(mirrored$tangent, derivative)
+
+  # At the endpoint the value and its derivative both run off to infinity, and
+  # both readings are the limits rather than an overflow.
+  at_one <- atanh(primal_tangent(1, 1))
+  expect_equal(at_one$primal, Inf)
+  expect_equal(at_one$tangent, Inf)
+})
+
+test_that("the atan tangent reads a primal of 1e200 as a correctly rounded zero", {
+  # d atan(p) / dp is 1 / (1 + p^2), which at p = 1e200 is about 1e-400. That is
+  # far below the smallest subnormal double of about 4.9e-324, so there is no
+  # representable value for the rule to have missed and zero is the correctly
+  # rounded reading rather than a silent one. The primal is an ordinary pi / 2
+  # to every digit a double carries.
+  r <- atan(primal_tangent(1e200, 1))
+  expect_s3_class(r, "PrimalTangent")
+  expect_equal(r$primal, atan(1e200))
+  expect_equal(r$primal, pi / 2)
+  expect_equal(r$tangent, 0)
+
+  # The derivative is even in p, and an incoming tangent of any size reaches the
+  # same zero.
+  expect_equal(atan(primal_tangent(-1e200, 1))$primal, -(pi / 2))
+  expect_equal(atan(primal_tangent(-1e200, 1))$tangent, 0)
+  expect_equal(atan(primal_tangent(1e200, -2.5))$tangent, 0)
+})
+
+test_that("sinh and cosh tangents stay finite wherever their primals do", {
+  # Each of these two is the other's derivative and both grow like e^p / 2, so
+  # the tangent overflows at the primal the value overflows at rather than
+  # ahead of it. There is no window here where a finite value carries an
+  # infinite or silently zeroed derivative, which is what separates these rules
+  # from the ones that form a square of the primal.
+  p <- 700
+
+  hyperbolic_sine <- sinh(primal_tangent(p, 1))
+  expect_equal(hyperbolic_sine$primal, sinh(p))
+  expect_equal(hyperbolic_sine$tangent, cosh(p))
+  expect_true(is.finite(hyperbolic_sine$tangent))
+
+  hyperbolic_cosine <- cosh(primal_tangent(p, -2.5))
+  expect_equal(hyperbolic_cosine$primal, cosh(p))
+  expect_equal(hyperbolic_cosine$tangent, -2.5 * sinh(p))
+  expect_true(is.finite(hyperbolic_cosine$tangent))
+
+  # A negative primal of the same size: sinh is odd and cosh is even, so the
+  # value flips and the derivative does not.
+  negative <- sinh(primal_tangent(-p, 1))
+  expect_equal(negative$primal, -sinh(p))
+  expect_equal(negative$tangent, cosh(p))
+
+  # The overflow is at a primal of about 710.48, and the value and the
+  # derivative cross it together.
+  just_below <- sinh(primal_tangent(710, 1))
+  expect_true(is.finite(just_below$primal))
+  expect_true(is.finite(just_below$tangent))
+
+  just_above <- sinh(primal_tangent(711, 1))
+  expect_equal(just_above$primal, Inf)
+  expect_equal(just_above$tangent, Inf)
+})
+
+test_that("the tanh tangent reads its derivative below the squared cosine's overflow", {
+  # The tanh rule t / cosh(p)^2 forms the square of cosh, which itself grows
+  # like e^p / 2, so the square overflows past a primal of about 355.58 while
+  # the value tanh(p) has settled at +-1 far earlier. At p = 350 the square is
+  # still finite and the derivative is an ordinary 3.94e-304. The assertion is
+  # rescaled to the size of that derivative because the default tolerance
+  # compares absolutely down here, where a tangent of zero and the true tangent
+  # are a rounding error apart. The reference reciprocates before squaring,
+  # an arrangement that reaches the same derivative without forming the large
+  # square, and the two agree to the last few bits.
+  p <- 350
+  r <- tanh(primal_tangent(p, 1))
+  expect_equal(r$primal, 1)
+  expect_equal(r$tangent * 1e304, (1 / cosh(p))^2 * 1e304)
+
+  # An incoming tangent other than one scales through untouched.
+  carried <- tanh(primal_tangent(p, -2.5))
+  expect_equal(carried$tangent * 1e304, -2.5 * (1 / cosh(p))^2 * 1e304)
+
+  # The derivative is even in p and the value is odd.
+  negative <- tanh(primal_tangent(-p, 1))
+  expect_equal(negative$primal, -1)
+  expect_equal(negative$tangent * 1e304, (1 / cosh(p))^2 * 1e304)
+
+  # Past a primal of about 373.26 the derivative 4 e^(-2p) falls below the
+  # smallest subnormal double, so zero is what the derivative rounds to there
+  # under any arrangement of the rule, not a value the rule missed. The second
+  # assertion is the arrangement that never forms the large square, reading the
+  # same zero.
+  beyond <- tanh(primal_tangent(400, 1))
+  expect_equal(beyond$primal, 1)
+  expect_equal(beyond$tangent, 0)
+  expect_identical((1 / cosh(400))^2, 0)
+})
+
+test_that("the newly covered Math tangents read an infinite primal where the domain admits one", {
+  # asin, acos, and atanh are left out: an infinite primal is outside their
+  # domains and asking for one raises R's "NaNs produced" warning, which the
+  # suite runs as an error. log2 and log10 admit only a positive infinity for
+  # the same reason.
+  log2_at_inf <- log2(primal_tangent(Inf, 1))
+  expect_equal(log2_at_inf$primal, Inf)
+  expect_equal(log2_at_inf$tangent, 0)
+
+  # atan flattens at +-pi/2, so its derivative is zero in the limit.
+  at_inf <- atan(primal_tangent(Inf, 1))
+  expect_equal(at_inf$primal, pi / 2)
+  expect_equal(at_inf$tangent, 0)
+
+  at_negative_inf <- atan(primal_tangent(-Inf, 1))
+  expect_equal(at_negative_inf$primal, -(pi / 2))
+  expect_equal(at_negative_inf$tangent, 0)
+
+  # sinh and cosh both run off to infinity, and so do their derivatives, since
+  # each one's derivative is the other.
+  sinh_at_inf <- sinh(primal_tangent(Inf, 1))
+  expect_equal(sinh_at_inf$primal, Inf)
+  expect_equal(sinh_at_inf$tangent, Inf)
+
+  cosh_at_inf <- cosh(primal_tangent(Inf, 1))
+  expect_equal(cosh_at_inf$primal, Inf)
+  expect_equal(cosh_at_inf$tangent, Inf)
+
+  # cosh is even, so a primal of -Inf leaves the value at +Inf while its
+  # derivative, sinh(-Inf), goes the other way.
+  cosh_at_negative_inf <- cosh(primal_tangent(-Inf, 1))
+  expect_equal(cosh_at_negative_inf$primal, Inf)
+  expect_equal(cosh_at_negative_inf$tangent, -Inf)
+
+  # tanh flattens at +-1, and the rule reaches the zero derivative of that
+  # limit: cosh(Inf)^2 is Inf and the quotient is zero.
+  tanh_at_inf <- tanh(primal_tangent(Inf, 1))
+  expect_equal(tanh_at_inf$primal, 1)
+  expect_equal(tanh_at_inf$tangent, 0)
+
+  tanh_at_negative_inf <- tanh(primal_tangent(-Inf, 1))
+  expect_equal(tanh_at_negative_inf$primal, -1)
+  expect_equal(tanh_at_negative_inf$tangent, 0)
+})
+
+test_that("the newly covered Math tangents propagate a missing or undefined primal", {
+  # NaN and NA are separate readings and neither one is a derivative: a primal
+  # that is not a number has no derivative to report, and a missing primal
+  # leaves it unknown. Reading every rule into one named vector keeps a failure
+  # attributable to the member that produced it, and identity rather than
+  # tolerance keeps either reading from standing in for the other.
+  rules <- list(
+    log2 = log2,
+    log10 = log10,
+    asin = asin,
+    acos = acos,
+    atan = atan,
+    sinh = sinh,
+    cosh = cosh,
+    tanh = tanh,
+    atanh = atanh
+  )
+  every_rule <- function(value) {
+    stats::setNames(rep(value, length(rules)), names(rules))
+  }
+  read <- function(primal, slot) {
+    vapply(rules, function(f) slot(f(primal_tangent(primal, 1))), numeric(1))
+  }
+  primal_of <- function(pair) pair$primal
+  tangent_of <- function(pair) pair$tangent
+
+  expect_identical(read(NaN, primal_of), every_rule(NaN))
+  expect_identical(read(NaN, tangent_of), every_rule(NaN))
+  expect_identical(read(NA_real_, primal_of), every_rule(NA_real_))
+  expect_identical(read(NA_real_, tangent_of), every_rule(NA_real_))
+})
+
+test_that("auto_differentiation reads log2, atan, and tanh gradients", {
+  # The machinery-level check: each rule has to be reachable through the
+  # gradient entry point, not only through a hand-built tangent pair.
+  log2_gradient <- auto_differentiation(3, function(x) log2(x[1]))
+  expect_equal(log2_gradient[1, ], 1 / (3 * log(2)))
+
+  atan_gradient <- auto_differentiation(0.75, function(x) atan(x[1]))
+  expect_equal(atan_gradient[1, ], 1 / (1 + 0.75^2))
+
+  tanh_gradient <- auto_differentiation(0.4, function(x) tanh(x[1]))
+  expect_equal(tanh_gradient[1, ], 1 / cosh(0.4)^2)
+})
