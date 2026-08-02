@@ -1,0 +1,1441 @@
+# Hernan & Robins (2023): Causal Inference Examples
+
+> **Note**
+>
+> This article is translated from the [Hernan & Robins (2023): Causal
+> Inference with Models
+> example](https://deli.readthedocs.io/en/latest/Examples/Hernan-Robins-2023.html)
+> in the documentation of [delicatessen](https://deli.readthedocs.io/),
+> deli’s Python counterpart.
+
+``` r
+
+library(deli)
+```
+
+The following section replicates selected examples from the textbook
+[“Causal Inference: What
+If”](https://www.routledge.com/Causal-Inference-What-If/Hernan-Robins/p/book/9781420076165)
+by Hernan and Robins. These replications focus on Part II of the
+textbook. I recommend reading Part I prior to looking through the
+following code. It is a great, approachable, and freely available
+resource on causal inference.
+
+Here, we demonstrate application of `deli` (R) for causal inference.
+Throughout, we use the empirical sandwich variance estimator. This is
+not described in the textbook, but is an alternative to the bootstrap.
+Importantly, it is a consistent estimator of the variance that is
+computationally simpler (in terms of the computer’s computational
+effort). The package automates the whole procedure.
+
+Broadly, interest will be in estimating the average causal effect of
+stopping smoking (variable name: `qsmk`) on 10-year weight change
+(variable name: `wt82_71`). If we let Y^a indicate the potential weight
+change under smoking status a, then the average causal effect can be
+written as E\[Y^1\] - E\[Y^0\] Hereafter, we assume that the interest
+parameter is identified (see the book for details on what this means).
+Our focus will be on estimators described in the book for this quantity
+(or related ones).
+
+## Loading Data
+
+The data set used in the book and this tutorial is a subset of the full
+NHEFS. First, we will load the data and run some basic variable
+manipulations.
+
+``` r
+
+# Load the NHEFS data from causaldata package
+df <- as.data.frame(causaldata::nhefs)
+
+# Convert factors to numeric (matching original CSV format)
+for (col in c("sex", "race", "education", "active", "exercise")) {
+  df[[col]] <- as.numeric(as.character(df[[col]]))
+}
+
+df <- df[complete.cases(df[, c("sex", "age", "race", "ht",
+                                "school", "alcoholpy", "smokeintensity")]), ]
+
+# Recoding some variables
+df$inactive <- ifelse(df$active == 2, 1, 0)
+df$no_exercise <- ifelse(df$exercise == 2, 1, 0)
+df$university <- ifelse(df$education == 5, 1, 0)
+
+# Subsetting only variables of interest
+df <- df[, c("wt82_71", "qsmk", "sex", "age", "race", "wt71", "wt82", "ht",
+             "school", "alcoholpy", "smokeintensity", "smokeyrs",
+             "smkintensity82_71", "education", "exercise", "active", "death")]
+
+# Creating quadratic terms
+for (col in c("age", "wt71", "smokeintensity", "smokeyrs")) {
+  df[[paste0(col, "_sq")]] <- df[[col]] * df[[col]]
+}
+
+df$I <- 1
+
+# Indicator terms
+df$educ_2 <- ifelse(df$education == 2, 1, 0)
+df$educ_3 <- ifelse(df$education == 3, 1, 0)
+df$educ_4 <- ifelse(df$education == 4, 1, 0)
+df$educ_5 <- ifelse(df$education == 5, 1, 0)
+df$exer_1 <- ifelse(df$exercise == 1, 1, 0)
+df$exer_2 <- ifelse(df$exercise == 2, 1, 0)
+df$active_1 <- ifelse(df$active == 1, 1, 0)
+df$active_2 <- ifelse(df$active == 2, 1, 0)
+
+# Interaction terms
+df$qsmk_smkint <- df$qsmk * df$smokeintensity
+
+# Complete-case data
+dc <- df[complete.cases(df[, "wt82_71"]), ]
+```
+
+## Chapter 12: IP weighting and marginal structural models
+
+The first estimation approach is inverse probability weighting. Inverse
+probability weights are defined as \frac{1}{\Pr(A=a \| W)} where W is
+the set of confounders. We will estimate these weights and then use them
+to estimate the parameters of a marginal structural model. An example of
+a marginal structural model is E\[Y^a\] = \alpha_0 + \alpha_1 a where
+\alpha are the parameters to estimate. Here, \alpha_1 represents the
+average causal effect. We will estimate the marginal structural model
+using the observed data and a regression model weighted by the inverse
+probability weights (see the book for details).
+
+### 12.1: The causal question
+
+Chapter 12 starts out with estimating the crude association between
+`qsmk` and `wt82_71` (12.1). We will do this by fitting a linear
+regression model.
+
+``` r
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    ee_regression(theta = theta,
+                  X = as.matrix(dc[, c("I", "qsmk")]),
+                  y = dc$wt82_71,
+                  model = "linear")
+  },
+  init = c(0, 0)
+)
+
+# The crude estimate of qsmk
+crude <- cbind(estimate = coef(estr), confint(estr))
+rownames(crude) <- c("intercept", "qsmk")
+round(crude, 2)
+#>           estimate lower upper
+#> intercept     1.98  1.56  2.41
+#> qsmk          2.54  1.59  3.49
+```
+
+The book reports an unadjusted estimate of 2.5 (95% CI: 1.7, 3.4). The
+confidence interval may differ slightly because we are using the
+sandwich variance (the book uses a different approach). While the
+variance estimators used here and in the book are expected to be
+asymptotically equal (i.e., equal as n goes to \infty), they can produce
+different results in finite samples.
+
+### 12.2: Estimating inverse probability weights via modeling
+
+Now we will estimate the parameters of the marginal structural model
+using unstabilized inverse probability weights.
+
+To do this, we will define the corresponding design matrices. Then we
+will define the stacked estimating equations. Then we will estimate the
+parameters and covariance and present the output.
+
+``` r
+
+# Design matrix for the propensity score model
+W_cols <- c("I", "sex", "race", "age", "age_sq",
+            "educ_2", "educ_3", "educ_4", "educ_5",
+            "smokeintensity", "smokeintensity_sq",
+            "smokeyrs", "smokeyrs_sq",
+            "exer_1", "exer_2", "active_1", "active_2",
+            "wt71", "wt71_sq")
+W <- as.matrix(dc[, W_cols])
+
+# Design matrix for the marginal structural model
+msm <- as.matrix(dc[, c("I", "qsmk")])
+
+# Treatment variable
+a <- dc$qsmk
+
+# Outcome variable
+y <- dc$wt82_71
+
+# Good practice: start the solver from the standalone propensity score fit.
+# Keeping the coefficient names labels those parameters in later fits.
+init_ps <- coef(glm(a ~ W - 1, family = binomial()))
+```
+
+``` r
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    # Dividing parameters into corresponding estimation equations
+    alpha <- theta[1:2]
+    beta <- theta[3:length(theta)]
+
+    # Estimating the propensity scores
+    ee_ps <- ee_regression(theta = beta,        # Estimate propensity scores
+                           X = W, y = a,        # ... given observed A,W
+                           model = "logistic")  # ... with logit model
+    pi_val <- inverse_logit(as.numeric(W %*% beta))  # Get Pr(A = 1 | W)
+    ipw <- 1 / ifelse(a == 1, pi_val, 1 - pi_val)   # Convert to IPW
+
+    # Estimating the MSM using a weighted linear model
+    ee_msm <- ee_regression(theta = alpha,      # MSM parameters
+                            X = msm, y = y,     # ... observed data
+                            model = "linear",   # ... with linear model
+                            weights = ipw)      # ... but weighted by IPW
+
+    # Stacking the estimating equations and returning
+    rbind(ee_msm, ee_ps)
+  },
+  init = c(0, 0, init_ps),
+  solver = "nleqslv",
+  maxiter = 5000
+)
+
+msm_est <- cbind(estimate = coef(estr), confint(estr))[1:2, ]
+rownames(msm_est) <- c("alpha_0", "alpha_1 (ACE)")
+round(msm_est, 2)
+#>               estimate lower upper
+#> alpha_0           1.78  1.35  2.21
+#> alpha_1 (ACE)     3.44  2.49  4.40
+```
+
+The book provides the point estimate for `qsmk` (\hat{\alpha}\_1) as 3.4
+(95% CI: 2.4, 4.5).
+
+Instead of coding this by-hand, we can also use the built-in
+`ee_ipw_msm` function. This function estimates a marginal structural
+model using inverse probability weights, as done above.
+
+``` r
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    # Built-in estimating equation
+    ee_ipw_msm(theta, y = y, A = a, W = W, V = msm,
+               distribution = "normal",
+               link = "identity")
+  },
+  init = c(0, 0, init_ps),
+  solver = "nleqslv",
+  maxiter = 5000
+)
+
+msm_est <- cbind(estimate = coef(estr), confint(estr))[1:2, ]
+rownames(msm_est) <- c("alpha_0", "alpha_1 (ACE)")
+round(msm_est, 2)
+#>               estimate lower upper
+#> alpha_0           1.78  1.35  2.21
+#> alpha_1 (ACE)     3.44  2.49  4.40
+```
+
+As expected, this built-in functionality produces the same results as
+the by-hand version.
+
+### 12.3: Stabilized inverse probability weights
+
+Next, we are going to use stabilized weights. The stabilized weights
+will require us to estimate an additional parameter. We will accomplish
+this by stacking an estimating equation for that parameter. This extra
+estimating equation is for an intercept-only model for the probability
+of `qsmk`.
+
+``` r
+
+# Likewise, start the numerator model from its own intercept-only fit
+init_num <- unname(coef(glm(a ~ 1, family = binomial())))
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    # Dividing parameters into corresponding estimation equations
+    alpha <- theta[1:2]                    # MSM parameters
+    gamma <- theta[3]                      # Numerator parameter
+    beta <- theta[4:length(theta)]         # Propensity score parameters
+
+    # Estimating the propensity scores using a logit model
+    ee_ps <- ee_regression(theta = beta,         # Propensity score model
+                           X = W, y = a,         # ... with observed data
+                           model = "logistic")   # ... and logit model
+    pi_val <- inverse_logit(as.numeric(W %*% beta))  # Predicted prob of A=1
+
+    # Estimating intercept-only for numerator
+    ee_num <- ee_regression(theta = gamma,                       # Numerator model
+                            X = as.matrix(dc[, "I", drop = FALSE]), y = a,  # ... intercept-only
+                            model = "logistic")                  # ... logit model
+    num_val <- inverse_logit(as.numeric(as.matrix(dc[, "I", drop = FALSE]) %*% gamma))
+
+    # Construct stabilized weights
+    ipw <- ifelse(a == 1, num_val / pi_val, (1 - num_val) / (1 - pi_val))
+
+    # Estimating the MSM using a weighted linear model
+    ee_msm <- ee_regression(theta = alpha,      # MSM
+                            X = msm, y = y,     # ... with observed data
+                            model = "linear",   # ... linear
+                            weights = ipw)      # ... weighted by stabilized
+
+    # Stacking the estimating equations and returning
+    rbind(ee_msm, ee_num, ee_ps)
+  },
+  init = c(0, 0, init_num, init_ps),
+  solver = "nleqslv",
+  maxiter = 5000
+)
+
+msm_est <- cbind(estimate = coef(estr), confint(estr))[1:2, ]
+rownames(msm_est) <- c("alpha_0", "alpha_1 (ACE)")
+round(msm_est, 2)
+#>               estimate lower upper
+#> alpha_0           1.78  1.35  2.21
+#> alpha_1 (ACE)     3.44  2.49  4.40
+```
+
+The estimate is the same as in the previous section. This is expected
+because as long as the marginal structural model is saturated, the
+unstabilized and stabilized IPTW should produce the same answer.
+
+### 12.4: Marginal structural models
+
+Now we will consider the IPW estimator for a continuous action. We will
+look at `smokeintensity` on `wt82_71`.
+
+``` r
+
+# Restricting data by smoking intensity
+ds <- dc[dc$smokeintensity <= 25, ]
+
+# Design matrix for the propensity score model
+W_ds <- as.matrix(ds[, W_cols])
+
+# Design matrix for the marginal structural model
+ds$smkint_sq <- ds$smkintensity82_71^2
+msm_ds <- as.matrix(ds[, c("I", "smkintensity82_71", "smkint_sq")])
+
+# Treatment array
+a_ds <- ds$smkintensity82_71
+
+# Outcome array
+y_ds <- ds$wt82_71
+```
+
+``` r
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    # Dividing parameters into corresponding estimation equations
+    alpha <- theta[1:3]                  # Marginal structural model
+    gamma <- theta[4]                    # Numerator
+    beta <- theta[5:length(theta)]       # Propensity score model
+    n_obs <- nrow(W_ds)
+    div_ps <- n_obs - length(beta)       # Divisor for PS SD
+    div_nm <- n_obs - length(gamma)      # Divisor for Num SD
+
+    # Estimating the propensity scores using a linear model
+    ee_ps <- ee_regression(theta = beta,         # Generalized PS model
+                           X = W_ds, y = a_ds,   # ... for observed data
+                           model = "linear")     # ... linear regression
+    mu <- as.numeric(W_ds %*% beta)              # Predicted values
+    mu_resid <- sum((a_ds - mu)^2) / div_ps      # Standard deviation
+    fAL <- dnorm(a_ds, mu, sqrt(mu_resid))       # PDF from normal
+
+    # Estimating intercept-only for numerator
+    I_ds <- as.matrix(ds[, "I", drop = FALSE])
+    ee_num <- ee_regression(theta = gamma,           # Numerator for stabilized
+                            X = I_ds, y = a_ds,      # ... for observed data
+                            model = "linear")        # ... linear regression
+    num_val <- as.numeric(I_ds %*% gamma)            # Predicted values
+    num_resid <- sum((a_ds - num_val)^2) / div_nm    # Standard deviation
+    fA <- dnorm(a_ds, num_val, sqrt(num_resid))      # PDF from normal
+
+    # Stabilized weights
+    ipw <- fA / fAL
+
+    # Estimating the MSM using a weighted linear model
+    ee_msm <- ee_regression(theta = alpha,       # Marginal structural model
+                            X = msm_ds, y = y_ds, # ... observed data
+                            model = "linear",    # ... linear model
+                            weights = ipw)       # ... weighted by IPW
+
+    # Stacking the estimating equations and returning
+    rbind(ee_msm, ee_num, ee_ps)
+  },
+  init = c(0, 0, 0, 0, rep(0, ncol(W_ds))),
+  solver = "nleqslv",
+  tolerance = 1e-12,
+  maxiter = 5000
+)
+
+# MSM coefficients
+msm_est <- cbind(estimate = coef(estr), confint(estr))[1:3, ]
+rownames(msm_est) <- c("alpha_0", "alpha_1", "alpha_2")
+round(msm_est, 3)
+#>         estimate  lower  upper
+#> alpha_0    2.005  1.441  2.568
+#> alpha_1   -0.109 -0.167 -0.051
+#> alpha_2    0.003 -0.002  0.007
+```
+
+The book reports coefficients of: 2.005, -0.109, 0.003. These match the
+output shown above.
+
+As done in the book, we want to know the weight change for no change in
+smoking intensity and a +20 in smoking intensity.
+
+``` r
+
+# Creating design matrix for combinations to predict
+vals <- matrix(c(1, 0, 0,
+                 1, 20, 400), nrow = 2, byrow = TRUE)
+
+# Getting predicted values and variance for combinations
+pred_y <- regression_predictions(vals,
+                                 estr@theta[1:3],
+                                 estr@variance[1:3, 1:3])
+rownames(pred_y) <- c("no change in smoking", "+20 smoking intensity")
+
+pred_y[, c("predicted", "lower", "upper")]
+#>                       predicted     lower    upper
+#> no change in smoking  2.0045247  1.440581 2.568469
+#> +20 smoking intensity 0.9027234 -1.499667 3.305114
+```
+
+Again, we get similar results to those reported in the book: 2.0 (95%
+CI: 1.4, 2.6) and 0.9 (95% CI: -1.7, 3.5). However, our confidence
+intervals are slightly more narrow since we are using a variance
+estimator that is not overly conservative.
+
+#### Binary outcome
+
+We now repeat the process, but for a binary outcome and treatment. We
+will use a GLM with the binomial distribution and logistic link (this
+will estimate the causal odds ratio). We will also be using `qsmk`
+again.
+
+``` r
+
+# Reset design matrices for qsmk analysis
+W <- as.matrix(dc[, W_cols])
+msm <- as.matrix(dc[, c("I", "qsmk")])
+a <- dc$qsmk
+y_death <- dc$death
+```
+
+``` r
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    # Dividing parameters into corresponding estimation equations
+    alpha <- theta[1:2]              # Marginal structural model
+    gamma <- theta[3]                # Numerator model
+    beta <- theta[4:length(theta)]   # Propensity score model
+
+    # Estimating the propensity scores using a logit model
+    ee_ps <- ee_regression(theta = beta,         # Propensity score
+                           X = W, y = a,         # ... observed data
+                           model = "logistic")   # ... logistic model
+    pi_val <- inverse_logit(as.numeric(W %*% beta))
+
+    # Estimating intercept-only for numerator
+    I_dc <- as.matrix(dc[, "I", drop = FALSE])
+    ee_num <- ee_regression(theta = gamma,           # Numerator model
+                            X = I_dc, y = a,         # ... observed data
+                            model = "logistic")      # ... logit model
+    num_val <- inverse_logit(as.numeric(I_dc %*% gamma))
+
+    # Stabilized inverse probability weights
+    ipw <- ifelse(a == 1, num_val / pi_val, (1 - num_val) / (1 - pi_val))
+
+    # Estimating the MSM using a weighted GLM
+    ee_msm <- ee_glm(theta = alpha,                # MSM
+                     X = msm, y = y_death,         # ... observed data
+                     link = "logit",               # ... logit link
+                     distribution = "binomial",    # ... binomial dist
+                     weights = ipw)                # ... weighted
+
+    # Stacking the estimating equations and returning
+    rbind(ee_msm, ee_num, ee_ps)
+  },
+  init = c(0, 0, 0, rep(0, ncol(W))),
+  solver = "nleqslv",
+  maxiter = 5000
+)
+
+# Causal odds ratio for qsmk
+causal_or <- exp(cbind(estimate = coef(estr), confint(estr))[2, , drop = FALSE])
+rownames(causal_or) <- "qsmk"
+round(causal_or, 4)
+#>      estimate  lower  upper
+#> qsmk   1.0306 0.7894 1.3455
+```
+
+The previous results are for the causal odds ratio. They are similar to
+the book with slight differences in the confidence intervals (i.e., 1.0;
+95% CI: 0.8, 1.4).
+
+We can replicate this approach using the built-in `ee_ipw_msm`.
+
+``` r
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    # Built-in estimating equation
+    ee_ipw_msm(theta, y = y_death, A = a, W = W, V = msm,
+               distribution = "binomial",
+               link = "logit")
+  },
+  init = c(0, 0, init_ps),
+  solver = "nleqslv",
+  maxiter = 5000
+)
+
+# Causal odds ratio for qsmk
+causal_or <- exp(cbind(estimate = coef(estr), confint(estr))[2, , drop = FALSE])
+rownames(causal_or) <- "qsmk"
+round(causal_or, 4)
+#>      estimate  lower  upper
+#> qsmk   1.0306 0.7894 1.3455
+```
+
+### 12.5: Effect modification and marginal structural models
+
+We will now use marginal structural models to study effect measure
+modification. We will look at effect modification by sex (`sex`) of
+quitting smoking (`qsmk`) on 10-year weight change (`wt82_71`).
+
+``` r
+
+# Design matrix for propensity scores (already set)
+# Design matrix for marginal structural model
+dc$qsmk_sex <- dc$qsmk * dc$sex
+msm_em <- as.matrix(dc[, c("I", "qsmk", "sex", "qsmk_sex")])
+
+# Treatment and outcome (already set)
+a <- dc$qsmk
+y <- dc$wt82_71
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    # Dividing parameters into corresponding estimation equations
+    alpha <- theta[1:4]              # Marginal structural model
+    gamma <- theta[5]                # Numerator parameter
+    beta <- theta[6:length(theta)]   # Propensity score
+
+    # Estimating the propensity scores using a logit model
+    ee_ps <- ee_regression(theta = beta,         # Propensity score
+                           X = W, y = a,         # ... observed data
+                           model = "logistic")   # ... logit model
+    pi_val <- inverse_logit(as.numeric(W %*% beta))
+
+    # Estimating intercept-only for numerator
+    I_dc <- as.matrix(dc[, "I", drop = FALSE])
+    ee_num <- ee_regression(theta = gamma,            # Numerator model
+                            X = I_dc, y = a,          # ... observed data
+                            model = "logistic")       # ... logit model
+    num_val <- inverse_logit(as.numeric(I_dc %*% gamma))
+
+    # Stabilized inverse probability weights
+    ipw <- ifelse(a == 1, num_val / pi_val, (1 - num_val) / (1 - pi_val))
+
+    # Estimating the MSM using a weighted linear model
+    ee_msm <- ee_regression(theta = alpha,        # Marginal structural model
+                            X = msm_em, y = y,    # ... observed data
+                            model = "linear",     # ... linear model
+                            weights = ipw)        # ... weighted
+
+    # Stacking the estimating equations and returning
+    rbind(ee_msm, ee_num, ee_ps)
+  },
+  init = c(0, 0, 0, 0, init_num, init_ps),
+  solver = "nleqslv",
+  maxiter = 5000
+)
+
+# MSM with effect modification by sex
+msm_est <- cbind(estimate = coef(estr), confint(estr))[1:4, ]
+rownames(msm_est) <- c("alpha_0", "alpha_1", "alpha_2", "alpha_3")
+round(msm_est, 2)
+#>         estimate lower upper
+#> alpha_0     1.78  1.19  2.38
+#> alpha_1     3.52  2.28  4.76
+#> alpha_2    -0.01 -0.88  0.86
+#> alpha_3    -0.16 -2.16  1.84
+```
+
+While not reported in the book, other online references report the
+following coefficients: 1.7844, 3.5220, -0.0087, -0.1595.
+
+### 12.6: Censoring and missing data
+
+To conclude, we will now consider the missing outcomes that were ignored
+earlier. To do this, we will use stabilized inverse probability of
+missingness weights (IPCW in the book).
+
+``` r
+
+# Design matrix for propensity score model (using full df)
+W_full <- as.matrix(df[, W_cols])
+
+# Design matrix for missing model
+X_cols <- c("I", "qsmk", "sex", "race", "age", "age_sq",
+            "educ_2", "educ_3", "educ_4", "educ_5",
+            "smokeintensity", "smokeintensity_sq",
+            "smokeyrs", "smokeyrs_sq",
+            "exer_1", "exer_2", "active_1", "active_2",
+            "wt71", "wt71_sq")
+X_miss <- as.matrix(df[, X_cols])
+
+# Design matrix for marginal structural model
+msm_full <- as.matrix(df[, c("I", "qsmk")])
+
+# Treatment, outcome, and missing indicator
+a_full <- df$qsmk
+y_full <- df$wt82_71
+r <- ifelse(is.na(df$wt82_71), 0, 1)
+```
+
+``` r
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    # Dividing parameters up for their corresponding estimation equations
+    alpha <- theta[1:2]                              # MSM
+    gamma_n <- theta[3]                              # Numerator PS
+    beta_n <- theta[4]                               # Numerator MW
+    gamma_d <- theta[5:(4 + ncol(W_full))]           # Propensity score
+    beta_d <- theta[(5 + ncol(W_full)):length(theta)] # Missing model
+
+    I_full <- as.matrix(df[, "I", drop = FALSE])
+
+    # Estimating the propensity scores using a logit model
+    ee_ps <- ee_regression(theta = gamma_d,      # Propensity score
+                           X = W_full, y = a_full, # ... observed data
+                           model = "logistic")   # ... logit model
+    pi_a <- inverse_logit(as.numeric(W_full %*% gamma_d))
+
+    # Estimating intercept-only for numerator of IPTW
+    ee_num <- ee_regression(theta = gamma_n,     # Numerator
+                            X = I_full, y = a_full, # ... observed data
+                            model = "logistic")  # ... logit model
+    num_a <- inverse_logit(as.numeric(I_full %*% gamma_n))
+
+    # Estimating the missing scores using a logit model
+    ee_ms <- ee_regression(theta = beta_d,       # Missing score
+                           X = X_miss, y = r,    # ... observed data
+                           model = "logistic")   # ... logit model
+    pi_m <- inverse_logit(as.numeric(X_miss %*% beta_d))
+
+    # Estimating intercept-only for numerator of IPMW
+    ee_sms <- ee_regression(theta = beta_n,      # Numerator
+                            X = I_full, y = r,   # ... observed data
+                            model = "logistic")  # ... logit model
+    num_m <- inverse_logit(as.numeric(I_full %*% beta_n))
+
+    # Stabilized inverse probability weights
+    iptw <- ifelse(a_full == 1, num_a / pi_a, (1 - num_a) / (1 - pi_a))
+    ipmw <- ifelse(r == 1, num_m / pi_m, 0)
+    ipw <- iptw * ipmw
+
+    # Estimating the MSM using a weighted linear model
+    ee_msm <- ee_regression(theta = alpha,           # MSM
+                            X = msm_full, y = y_full, # ... observed data
+                            model = "linear",        # ... linear model
+                            weights = ipw)           # ... weighted
+    # Setting rows with missing Y's as zero (no contribution)
+    ee_msm[is.na(ee_msm)] <- 0
+
+    # Stacking the estimating equations and returning
+    rbind(ee_msm, ee_num, ee_sms, ee_ps, ee_ms)
+  },
+  init = c(0, 0, 0, 0, rep(0, ncol(W_full)), rep(0, ncol(X_miss))),
+  maxiter = 5000
+)
+
+msm_est <- cbind(estimate = coef(estr), confint(estr))[1:2, ]
+rownames(msm_est) <- c("alpha_0", "alpha_1 (ACE)")
+round(msm_est, 2)
+#>               estimate lower upper
+#> alpha_0           1.66  1.23  2.10
+#> alpha_1 (ACE)     3.50  2.54  4.45
+```
+
+Here, the book reports 3.5 (95% CI: 2.5, 4.5). This concludes chapter
+12.
+
+## Chapter 13: Standardization and the Parametric G-Formula
+
+For Chapter 13, the book reviews the g-formula. Unlike IPW, the
+g-formula relies on modeling the outcome process. The g-computation
+algorithm estimator is \hat{E}\[Y^a\] = n^{-1} \sum\_{i=1}^n m(a, W_i;
+\beta) where m is a statistical model for E\[Y \| A, W\] and \beta are
+the parameters defining the model. This version is slightly different
+from the standardization form given in the book, but it is equivalent.
+Broadly, we apply the g-computation algorithm via (1) estimate an
+outcome model, (2) predict the outcomes had everyone been assigned a,
+and (3) compute the mean of those predictions.
+
+### 13.2: Estimating the mean outcome via modeling
+
+First, we will fit a linear model for `wt82_71` conditional on `qsmk`
+and the set of confounding variables. To begin, we will ignore the
+missing outcomes.
+
+``` r
+
+# Design matrix for outcome model
+X_out_cols <- c("I", "qsmk", "qsmk_smkint",
+                "sex", "race", "age", "age_sq",
+                "educ_2", "educ_3", "educ_4", "educ_5",
+                "smokeintensity", "smokeintensity_sq",
+                "smokeyrs", "smokeyrs_sq",
+                "exer_1", "exer_2", "active_1", "active_2",
+                "wt71", "wt71_sq")
+X_out <- as.matrix(dc[, X_out_cols])
+y <- dc$wt82_71
+```
+
+``` r
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    ee_regression(theta = theta, X = X_out, y = y, model = "linear")
+  },
+  # Naming the starting values names the estimates
+  init = setNames(rep(0, ncol(X_out)), X_out_cols),
+  solver = "nleqslv",
+  maxiter = 5000
+)
+
+# Save starting values, with their names, for later use
+init_reg <- estr@theta
+```
+
+### 13.3: Standardizing the mean outcome to the confounder distribution
+
+Now we can apply the g-computation algorithm. To do this, we are going
+to create a copy of our data set and set `qsmk=1` for all observations,
+then repeat for `qsmk=0`.
+
+``` r
+
+# Copy of the data that we will update qsmk in
+dca <- dc
+
+# Setting qsmk to 1
+dca$qsmk <- 1
+dca$qsmk_smkint <- dca$qsmk * dca$smokeintensity
+# Design matrix from qsmk=1 data
+X1 <- as.matrix(dca[, X_out_cols])
+
+# Setting qsmk to 0
+dca$qsmk <- 0
+dca$qsmk_smkint <- dca$qsmk * dca$smokeintensity
+# Design matrix from qsmk=0 data
+X0 <- as.matrix(dca[, X_out_cols])
+```
+
+``` r
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    # Dividing parameters into corresponding estimation equations
+    rd <- theta[1]
+    r1 <- theta[2]
+    r0 <- theta[3]
+    beta <- theta[4:length(theta)]
+
+    n <- length(y)
+
+    # Estimating the linear model
+    ee_reg <- ee_regression(theta = beta,       # Outcome model
+                            X = X_out, y = y,   # ... observed data
+                            model = "linear")   # ... linear model
+
+    # Generating pseudo-outcomes using the model
+    y1hat <- as.numeric(X1 %*% beta)  # Predicted Y when qsmk=1
+    y0hat <- as.numeric(X0 %*% beta)  # Predicted Y when qsmk=0
+
+    # Causal means
+    ee_r1 <- matrix(y1hat - r1, nrow = 1)   # Causal mean for qsmk=1
+    ee_r0 <- matrix(y0hat - r0, nrow = 1)   # Causal mean for qsmk=0
+
+    # Average causal effect
+    ee_rd <- matrix(rep((r1 - r0) - rd, n), nrow = 1)
+
+    # Stacking the estimating equations and returning
+    rbind(ee_rd, ee_r1, ee_r0, ee_reg)
+  },
+  init = c(rd = 0, r1 = 0, r0 = 0, init_reg),
+  solver = "nleqslv",
+  maxiter = 5000
+)
+
+gcomp <- cbind(estimate = coef(estr), confint(estr))[1:3, ]
+rownames(gcomp) <- c("ACE", "E[Y^1]", "E[Y^0]")
+round(gcomp, 2)
+#>        estimate lower upper
+#> ACE        3.52  2.58  4.45
+#> E[Y^1]     5.27  4.42  6.13
+#> E[Y^0]     1.76  1.33  2.18
+```
+
+The first estimate is for the average causal effect (the second and
+third are the causal means under all quit smoking and all don’t quit
+smoking). In the book, they report 3.5 (95% CI: 2.6, 4.5).
+
+Rather than implement g-computation by-hand, we can also use the
+built-in estimating equations.
+
+``` r
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    # Built-in g-formula estimating equation
+    ee_gformula(theta, y = y, X = X_out, X1 = X1, X0 = X0)
+  },
+  init = c(rd = 0, r1 = 0, r0 = 0, init_reg),
+  solver = "nleqslv",
+  maxiter = 5000
+)
+
+gcomp <- cbind(estimate = coef(estr), confint(estr))[1:3, ]
+rownames(gcomp) <- c("ACE", "E[Y^1]", "E[Y^0]")
+round(gcomp, 2)
+#>        estimate lower upper
+#> ACE        3.52  2.58  4.45
+#> E[Y^1]     5.27  4.42  6.13
+#> E[Y^0]     1.76  1.33  2.18
+```
+
+Which provides the same answers (as we would expect).
+
+### Fine Point 13.2: A doubly robust estimator
+
+The AIPW estimator combines IPW and the g-formula. Under the identifying
+conditions, the AIPW estimator is doubly robust, meaning it is
+consistent if either the propensity score model or the outcome model is
+correctly specified (but not necessarily both). The canonical AIPW
+estimator is \hat{E}\[Y^a\] = n^{-1} \sum\_{i=1}^n \frac{Y_i I(A_i =
+a)}{\pi\_{A=a}(W_i)} + m(a, W_i; \beta) I(A_i) \frac{\pi\_{A\ne
+a}(W_i)}{\pi\_{A=a}(W_i)} which can be implemented manually with the
+following estimating functions.
+
+``` r
+
+# Refreshing design matrix for the propensity score model
+W <- as.matrix(dc[, W_cols])
+# Refreshing treatment array
+a <- dc$qsmk
+```
+
+``` r
+
+# The default solver converges reliably for the AIPW stacks in this section
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    # Dividing parameters into corresponding estimation equations
+    ndim_X <- ncol(X_out)
+    rd <- theta[1]
+    r1 <- theta[2]
+    r0 <- theta[3]
+    beta <- theta[4:(3 + ndim_X)]
+    alpha <- theta[(4 + ndim_X):length(theta)]
+
+    # Estimating the propensity scores
+    ee_ps <- ee_regression(theta = alpha,        # Estimate propensity scores
+                           X = W, y = a,         # ... given observed A,W
+                           model = "logistic")   # ... with logit model
+    pi_val <- inverse_logit(as.numeric(W %*% alpha))
+
+    # Estimating the outcome model
+    ee_reg <- ee_regression(theta = beta,        # Outcome model
+                            X = X_out, y = y,    # ... observed data
+                            model = "linear")    # ... linear model
+    y1_hat <- as.numeric(X1 %*% beta)            # Pseudo potential outcome
+    y0_hat <- as.numeric(X0 %*% beta)            # Pseudo potential outcome
+
+    n <- length(y)
+
+    # Causal means
+    ee_r1 <- matrix(
+      (y * a / pi_val - y1_hat * (a - pi_val) / pi_val) - r1,
+      nrow = 1
+    )
+    ee_r0 <- matrix(
+      (y * (1 - a) / (1 - pi_val) + y0_hat * (a - pi_val) / (1 - pi_val)) - r0,
+      nrow = 1
+    )
+
+    # Average causal effect
+    ee_rd <- matrix(rep((r1 - r0) - rd, n), nrow = 1)
+
+    # Stacking the estimating equations and returning
+    rbind(ee_rd, ee_r1, ee_r0, ee_reg, ee_ps)
+  },
+  init = c(rd = 0, r1 = 0, r0 = 0, init_reg, init_ps),
+  maxiter = 5000
+)
+
+# AIPW (by-hand)
+aipw <- cbind(estimate = coef(estr), confint(estr))[1:3, ]
+rownames(aipw) <- c("ACE", "E[Y^1]", "E[Y^0]")
+round(aipw, 2)
+#>        estimate lower upper
+#> ACE        3.46  2.51  4.41
+#> E[Y^1]     5.22  4.36  6.09
+#> E[Y^0]     1.77  1.34  2.20
+```
+
+Here, the AIPW results are similar to the previous g-computation and IPW
+results.
+
+We can also use the built-in functionality for the canonical AIPW
+estimator (`ee_aipw`).
+
+``` r
+
+# The default solver again, as above
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    ee_aipw(theta = theta, y = y, A = a, W = W,
+            X = X_out, X1 = X1, X0 = X0)
+  },
+  init = c(rd = 0, r1 = 0, r0 = 0, init_ps, init_reg),
+  maxiter = 5000
+)
+
+# AIPW (built-in)
+aipw <- cbind(estimate = coef(estr), confint(estr))[1:3, ]
+rownames(aipw) <- c("ACE", "E[Y^1]", "E[Y^0]")
+round(aipw, 2)
+#>        estimate lower upper
+#> ACE        3.46  2.51  4.41
+#> E[Y^1]     5.22  4.36  6.09
+#> E[Y^0]     1.77  1.34  2.20
+```
+
+These results match the by-hand implementation, as expected.
+
+There is also an additional way to implement the AIPW estimator. This
+approach fits a weighted outcome model, where the weights are from IPW.
+This model is then used to predict values, like the standard
+g-computation algorithm. This version is sometimes referred to as the
+weighted-regression AIPW.
+
+``` r
+
+# The default solver again, as above
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    # Dividing parameters into corresponding estimation equations
+    ndim_X <- ncol(X_out)
+    rd <- theta[1]
+    r1 <- theta[2]
+    r0 <- theta[3]
+    beta <- theta[4:(3 + ndim_X)]
+    alpha <- theta[(4 + ndim_X):length(theta)]
+
+    # Estimating the propensity scores
+    ee_ps <- ee_regression(theta = alpha,        # Estimate propensity scores
+                           X = W, y = a,         # ... given observed A,W
+                           model = "logistic")   # ... with logit model
+    pi_val <- inverse_logit(as.numeric(W %*% alpha))
+    ipw <- 1 / ifelse(a == 1, pi_val, 1 - pi_val)
+
+    # Estimating the outcome model
+    ee_reg <- ee_regression(theta = beta,        # Outcome model
+                            X = X_out, y = y,    # ... observed data
+                            model = "linear",    # ... linear model
+                            weights = ipw)       # ... weighted by IPW
+    y1_hat <- as.numeric(X1 %*% beta)
+    y0_hat <- as.numeric(X0 %*% beta)
+
+    n <- length(y)
+
+    # Causal means
+    ee_r1 <- matrix(y1_hat - r1, nrow = 1)
+    ee_r0 <- matrix(y0_hat - r0, nrow = 1)
+
+    # Average causal effect
+    ee_rd <- matrix(rep((r1 - r0) - rd, n), nrow = 1)
+
+    # Stacking the estimating equations and returning
+    rbind(ee_rd, ee_r1, ee_r0, ee_reg, ee_ps)
+  },
+  init = c(rd = 0, r1 = 0, r0 = 0, init_reg, init_ps),
+  maxiter = 5000
+)
+
+# Weighted-regression AIPW
+aipw <- cbind(estimate = coef(estr), confint(estr))[1:3, ]
+rownames(aipw) <- c("ACE", "E[Y^1]", "E[Y^0]")
+round(aipw, 2)
+#>        estimate lower upper
+#> ACE        3.43  2.49  4.36
+#> E[Y^1]     5.19  4.33  6.04
+#> E[Y^0]     1.76  1.33  2.19
+```
+
+Note that these estimates differ slightly, but this is expected since it
+solves a different equation. While not relevant in this setting, the
+weighted-regression AIPW may be preferred over the canonical AIPW, since
+the former is guaranteed to be bounded in the parameter space while the
+latter is not.
+
+As detailed in Shook-Sa et al. *Biometrics* 2025, the M-estimation setup
+offers the additional feature that the AIPW estimators have doubly
+robust point *and* variance estimation.
+
+## Chapter 14: G-Estimation of Structural Nested Models
+
+G-estimation differs from the previous approaches in what parameter it
+targets. Rather than the average causal effect, we will estimate the
+parameters of a structural nested model. The structural nested mean
+model is E\[Y^a - Y^{a=0} \| A=a, W\] = \varphi_0 a Here, \varphi_0
+represents the difference by a. However, we can also study effect
+measure modification easily with structural nested models. Consider
+E\[Y^a - Y^{a=0} \| A=a, W\] = \varphi_0 a + \varphi_1 a V where V \in
+W. Therefore, the structural nested model describes effect measure
+modification by V.
+
+### 14.5 G-estimation
+
+We are going to use the estimating equations described in Technical
+Point 14.2.
+
+``` r
+
+# Design matrix for propensity scores (using full df)
+W_ge <- as.matrix(df[, W_cols])
+
+# Design matrix for missing model
+X_ge <- as.matrix(df[, X_cols])
+
+# Design matrix for structural nested model
+snm <- as.matrix(df[, "I", drop = FALSE])
+
+# Treatment, outcome, and missing indicator
+a_ge <- df$qsmk
+y_ge <- df$wt82_71
+r_ge <- ifelse(is.na(df$wt82_71), 0, 1)
+```
+
+``` r
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    # Dividing parameters into corresponding estimation equations
+    n_snm <- ncol(snm)
+    n_W <- ncol(W_ge)
+    alpha <- theta[1:n_snm]
+    beta <- theta[(n_snm + 1):(n_snm + n_W)]
+    gamma <- theta[(n_snm + n_W + 1):length(theta)]
+
+    # Estimating equation for IPMW
+    ee_ms <- ee_regression(theta = gamma,        # Missing score
+                           X = X_ge, y = r_ge,   # ... observed data
+                           model = "logistic")    # ... logit model
+    pi_m <- inverse_logit(as.numeric(X_ge %*% gamma))
+    ipmw <- r_ge / pi_m
+
+    # Estimating equations for PS
+    ee_log <- ee_regression(theta = beta,         # Propensity score
+                            X = W_ge, y = a_ge,   # ... observed data
+                            model = "logistic",   # ... logit model
+                            weights = ipmw)       # ... weighted
+    pi_val <- inverse_logit(as.numeric(W_ge %*% beta))
+
+    # H(psi) equation for linear models
+    h_psi <- y_ge - as.numeric((snm * a_ge) %*% alpha)
+
+    # Estimating equation for the structural nested mean model
+    ee_snm <- t(snm * (ipmw * h_psi * (a_ge - pi_val)))
+    # Setting rows with missing Y's as zero (no contribution)
+    ee_snm[is.na(ee_snm)] <- 0
+
+    rbind(ee_snm, ee_log, ee_ms)
+  },
+  init = c(0, rep(0, ncol(W_ge)), rep(0, ncol(X_ge))),
+  maxiter = 5000
+)
+
+snm_est <- cbind(estimate = coef(estr), confint(estr))[1, , drop = FALSE]
+rownames(snm_est) <- "SNM phi_0"
+round(snm_est, 2)
+#>           estimate lower upper
+#> SNM phi_0     3.45  2.53  4.36
+```
+
+The book reported 3.4 (95% CI: 2.5, 4.5).
+
+Now consider how we can use the built-in g-estimation functionality,
+`ee_gestimation_snmm`.
+
+``` r
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    # Dividing parameters into corresponding estimation equations
+    n_snm <- ncol(snm)
+    n_W <- ncol(W_ge)
+    alpha <- theta[1:(n_snm + n_W)]
+    gamma <- theta[(n_snm + n_W + 1):length(theta)]
+
+    # Estimating equation for IPMW
+    ee_ms <- ee_regression(theta = gamma,        # Missing score
+                           X = X_ge, y = r_ge,   # ... observed data
+                           model = "logistic")    # ... logit model
+    pi_m <- inverse_logit(as.numeric(X_ge %*% gamma))
+    ipmw <- r_ge / pi_m
+
+    # Estimating equations for g-estimation
+    ee_snm_val <- ee_gestimation_snmm(theta = alpha,
+                                      y = y_ge, A = a_ge,
+                                      W = W_ge, V = snm,
+                                      weights = ipmw)
+    # Setting rows with missing Y's as zero (no contribution)
+    ee_snm_val[is.na(ee_snm_val)] <- 0
+
+    rbind(ee_snm_val, ee_ms)
+  },
+  init = c(0, rep(0, ncol(W_ge)), rep(0, ncol(X_ge))),
+  maxiter = 5000
+)
+
+snm_est <- cbind(estimate = coef(estr), confint(estr))[1, , drop = FALSE]
+rownames(snm_est) <- "SNM phi_0 (built-in)"
+round(snm_est, 2)
+#>                      estimate lower upper
+#> SNM phi_0 (built-in)     3.45  2.53  4.36
+```
+
+The structural nested model parameters match between implementations.
+
+### 14.6: Structural nested models with two or more parameters
+
+We now adapt the previous code to consider more than one parameter in
+the structural nested model, adding `smokeintensity` as an effect
+modifier.
+
+``` r
+
+# Update the structural nested model design matrix
+snm2 <- as.matrix(df[, c("I", "smokeintensity")])
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    # Dividing parameters into corresponding estimation equations
+    n_snm <- ncol(snm2)
+    n_W <- ncol(W_ge)
+    alpha <- theta[1:n_snm]
+    beta <- theta[(n_snm + 1):(n_snm + n_W)]
+    gamma <- theta[(n_snm + n_W + 1):length(theta)]
+
+    # Estimating equation for IPMW
+    ee_ms <- ee_regression(theta = gamma,        # Missing score
+                           X = X_ge, y = r_ge,   # ... observed data
+                           model = "logistic")    # ... logit model
+    pi_m <- inverse_logit(as.numeric(X_ge %*% gamma))
+    ipmw <- r_ge / pi_m
+
+    # Estimating equations for PS
+    ee_log <- ee_regression(theta = beta,         # Propensity score
+                            X = W_ge, y = a_ge,   # ... observed data
+                            model = "logistic",   # ... logit model
+                            weights = ipmw)       # ... weighted
+    pi_val <- inverse_logit(as.numeric(W_ge %*% beta))
+
+    # H(psi) equation for linear models
+    h_psi <- y_ge - as.numeric((snm2 * a_ge) %*% alpha)
+
+    # Estimating equation for the structural nested mean model
+    ee_snm_val <- t(snm2 * (ipmw * h_psi * (a_ge - pi_val)))
+    # Setting rows with missing Y's as zero
+    ee_snm_val[is.na(ee_snm_val)] <- 0
+
+    rbind(ee_snm_val, ee_log, ee_ms)
+  },
+  init = c(0, 0, rep(0, ncol(W_ge)), rep(0, ncol(X_ge))),
+  maxiter = 5000
+)
+
+snm_est <- cbind(estimate = coef(estr), confint(estr))[1:2, ]
+rownames(snm_est) <- c("SNM phi_0", "SNM phi_1")
+round(snm_est, 2)
+#>           estimate lower upper
+#> SNM phi_0     2.86  1.03  4.69
+#> SNM phi_1     0.03 -0.06  0.12
+```
+
+This provides the same results as the book (2.86 and 0.03). Unlike the
+book, we also provide confidence intervals.
+
+## Chapter 16: Instrumental Variable Analysis
+
+Chapter 16 focuses on instrumental variable (IV) analysis. Here, we are
+going to utilize an instrument (high state cigarette prices, variable
+name: `highprice`) to estimate the effect of quitting smoking on weight
+gain.
+
+Here, we will reload the data set, since the rows we need to drop due to
+missing data differ from the previous examples.
+
+``` r
+
+df_iv <- as.data.frame(causaldata::nhefs)
+for (col in c("sex", "race", "education", "active", "exercise")) {
+  df_iv[[col]] <- as.numeric(as.character(df_iv[[col]]))
+}
+df_iv$highprice <- as.integer(df_iv$price82 >= 1.5)
+df_iv <- df_iv[complete.cases(df_iv[, c("wt82", "price82")]), ]
+df_iv <- df_iv[, c("highprice", "qsmk", "wt82_71", "price82")]
+df_iv$I <- 1
+
+z_iv <- df_iv$highprice
+a_iv <- df_iv$qsmk
+y_iv <- df_iv$wt82_71
+```
+
+### 16.1: The three instrumental conditions
+
+As described in the book, we will first examine the relationship between
+our instrument Z and the exposure A. Below we present estimating
+equations for \Pr(A=1 \| Z=1) - \Pr(A=1 \| Z=0).
+
+``` r
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    n <- length(a_iv)
+    ee_az1 <- matrix(z_iv * (a_iv - theta[1]), nrow = 1)
+    ee_az0 <- matrix((1 - z_iv) * (a_iv - theta[2]), nrow = 1)
+    ee_rd <- matrix(rep(theta[1] - theta[2] - theta[3], n), nrow = 1)
+    rbind(ee_az1, ee_az0, ee_rd)
+  },
+  init = c(0.5, 0.5, 0)
+)
+
+iv_cond <- cbind(estimate = coef(estr), confint(estr))
+rownames(iv_cond) <- c("Pr(A=1|Z=1)", "Pr(A=1|Z=0)", "Risk difference")
+round(iv_cond, 3)
+#>                 estimate  lower upper
+#> Pr(A=1|Z=1)        0.258  0.235 0.280
+#> Pr(A=1|Z=0)        0.195  0.074 0.316
+#> Risk difference    0.063 -0.061 0.186
+```
+
+These are the same (point) estimates as those reported in the book.
+Here, Z is considered to be a *weak* instrument since the risk
+difference is 6.3%.
+
+### 16.2: The usual IV estimand
+
+The usual IV is defined as \beta = \frac{E\[Y \mid Z=1\] - E\[Y \mid
+Z=0\]}{E\[A \mid Z=1\] - E\[A \mid Z=0\]}
+
+There are a few ways to implement this IV estimator with estimating
+equations. The first is to estimate each of the pieces and combine them.
+
+``` r
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    n <- length(y_iv)
+    ee_uiv <- matrix(rep((theta[2] - theta[3]) - theta[1] * (theta[4] - theta[5]), n),
+                     nrow = 1)
+    ee_yz1 <- matrix(z_iv * (y_iv - theta[2]), nrow = 1)
+    ee_yz0 <- matrix((1 - z_iv) * (y_iv - theta[3]), nrow = 1)
+    ee_az1 <- matrix(z_iv * (a_iv - theta[4]), nrow = 1)
+    ee_az0 <- matrix((1 - z_iv) * (a_iv - theta[5]), nrow = 1)
+    rbind(ee_uiv, ee_yz1, ee_yz0, ee_az1, ee_az0)
+  },
+  init = c(1, 2, 2, 0.3, 0.2),
+  solver = "nleqslv",
+  maxiter = 5000
+)
+
+iv_est <- cbind(estimate = coef(estr), confint(estr))[1, , drop = FALSE]
+rownames(iv_est) <- "IV estimate"
+round(iv_est, 3)
+#>             estimate   lower  upper
+#> IV estimate    2.396 -41.391 46.183
+```
+
+The Z conditional means match those reported in the book (2.686, 2.536,
+0.2578, 0.1951), which gives us the same IV estimate as the book (2.4
+kg).
+
+Another way is shown in Boos & Stefanski (2013). The usual IV can be
+expressed as a simpler pair of estimating equations.
+
+``` r
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    ee_uiv <- matrix((y_iv - a_iv * theta[1]) * (z_iv - theta[2]), nrow = 1)
+    ee_z <- matrix(z_iv - theta[2], nrow = 1)
+    rbind(ee_uiv, ee_z)
+  },
+  init = c(0, 0.5)
+)
+
+iv_est <- cbind(estimate = coef(estr), confint(estr))[1, , drop = FALSE]
+rownames(iv_est) <- "IV estimate"
+round(iv_est, 3)
+#>             estimate   lower  upper
+#> IV estimate    2.396 -41.391 46.183
+```
+
+There is also a built-in version of the usual IV estimator.
+
+``` r
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    ee_iv_causal(theta, y = y_iv, A = a_iv, Z = z_iv)
+  },
+  init = c(0, 0.5)
+)
+
+iv_est <- cbind(estimate = coef(estr), confint(estr))[1, , drop = FALSE]
+rownames(iv_est) <- "IV estimate (built-in)"
+round(iv_est, 3)
+#>                        estimate   lower  upper
+#> IV estimate (built-in)    2.396 -41.391 46.183
+```
+
+As expected, the built-in implementation provides the same result.
+
+In the book, another approach for estimation is also described:
+two-stage least squares (2SLS). 2SLS works by estimating two linear
+regression models. The first is for A given Z. From that model, we get
+the predicted value of A given Z and an intercept, denoted by \hat{A}.
+Next, we fit a model for Y given \hat{A} and an intercept. The
+coefficient for \hat{A} from this model is the IV estimate.
+
+``` r
+
+Z_iv <- as.matrix(df_iv[, c("I", "highprice")])
+```
+
+``` r
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    beta <- theta[1:2]
+    alpha <- theta[3:4]
+
+    # First-stage regression
+    ee_stage1 <- ee_regression(theta = alpha, y = a_iv, X = Z_iv, model = "linear")
+
+    # Second-stage regression
+    a_hat <- as.numeric(Z_iv %*% alpha)
+    A_hat <- cbind(a_hat, rep(1, length(a_iv)))
+    ee_stage2 <- ee_regression(theta = beta, y = y_iv, X = A_hat, model = "linear")
+
+    # Returning stacked estimating equations
+    rbind(ee_stage2, ee_stage1)
+  },
+  init = c(2, 2, 0.2, 0.1),
+  solver = "nleqslv",
+  maxiter = 5000
+)
+
+iv_est <- cbind(estimate = coef(estr), confint(estr))[1, , drop = FALSE]
+rownames(iv_est) <- "2SLS IV estimate"
+round(iv_est, 2)
+#>                  estimate  lower upper
+#> 2SLS IV estimate      2.4 -41.39 46.18
+```
+
+The first element is the IV estimate. This matches the previous methods
+and the book. The book reports their 95% CI as -36.5 to 41.3, which
+differs slightly from what we have because we are using a different
+variance estimator. The one reported in the book assumes
+homoskedasticity, whereas the empirical sandwich variance estimator does
+not.
+
+There is also a built-in procedure for 2SLS.
+
+``` r
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    ee_2sls(theta, y = df_iv$wt82_71, A = df_iv$qsmk,
+            Z = as.matrix(df_iv[, "highprice", drop = FALSE]),
+            W = as.matrix(df_iv[, "I", drop = FALSE]))
+  },
+  init = c(2, 2, 0.2, 0.1),
+  solver = "nleqslv",
+  maxiter = 5000
+)
+
+iv_est <- cbind(estimate = coef(estr), confint(estr))[1, , drop = FALSE]
+rownames(iv_est) <- "2SLS (built-in) IV estimate"
+round(iv_est, 2)
+#>                             estimate  lower upper
+#> 2SLS (built-in) IV estimate      2.4 -41.39 46.18
+```
+
+The built-in procedure matches the by-hand implementation, as expected.
+Note that the 2SLS implementation is more general and allows for one to
+adjust for other variables or use multiple instruments.
+
+### 16.5: The three instrument conditions revisited
+
+Below is code to run the analysis at different thresholds for the ‘high
+price’ cut-off, as described in the book.
+
+``` r
+
+cutoffs <- c(1.60, 1.70, 1.80, 1.90)
+by_cutoff <- data.frame(
+  cutoff = cutoffs,
+  iv = NA_real_,
+  lower = NA_real_,
+  upper = NA_real_
+)
+
+for (i in seq_along(cutoffs)) {
+  z_new <- as.integer(df_iv$price82 >= cutoffs[i])
+  estr <- m_estimate(
+    stacked_equations = function(theta) {
+      ee_2sls(theta, y = df_iv$wt82_71, A = df_iv$qsmk,
+              Z = matrix(z_new, ncol = 1),
+              W = as.matrix(df_iv[, "I", drop = FALSE]))
+    },
+    init = c(2, 2, 0.2, 0.1),
+    solver = "nleqslv",
+    maxiter = 5000
+  )
+  by_cutoff[i, c("iv", "lower", "upper")] <- c(coef(estr)[1], confint(estr)[1, ])
+}
+
+round(by_cutoff, 3)
+#>   cutoff      iv    lower   upper
+#> 1    1.6  41.281 -275.123 357.685
+#> 2    1.7 -40.912 -431.307 349.483
+#> 3    1.8 -21.103  -77.166  34.959
+#> 4    1.9 -12.811  -54.946  29.323
+```
+
+These results are the same as those reported in the book (41.3, -40.9,
+-21.1, -12.8).
+
+## Chapter 17: Causal Survival Analysis
+
+Replication of the following chapter 17 is not available yet.
+
+## References
+
+Hernan MA & Robins JM (2023). *Causal Inference: What If*. Boca Raton:
+Chapman & Hall/CRC.
+
+Shook-Sa BE, Zivich PN, Lee C, Xue K, Ross RK, Edwards JK, Stringer JSA,
+& Cole SR. (2025). Double robust variance estimation with parametric
+working models. *Biometrics*, 81(2), ujaf054.

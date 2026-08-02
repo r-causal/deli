@@ -1,0 +1,186 @@
+# The condition classes deli raises
+
+Where a caller might reasonably want to answer an error or a warning
+rather than let it stop the work, deli attaches a condition class to it,
+so that [`base::tryCatch()`](https://rdrr.io/r/base/conditions.html),
+[`base::withCallingHandlers()`](https://rdrr.io/r/base/conditions.html),
+or
+[`rlang::try_fetch()`](https://rlang.r-lib.org/reference/try_fetch.html)
+can match on the class rather than on the wording of a message. This
+page lists those classes and says what each of them reports on.
+
+## Details
+
+Every class below belongs to an error unless the entry says otherwise. A
+condition carrying two of them leads with the narrower one, so a handler
+for either the family or the particular fault catches it.
+
+A condition a user's own estimating function raises reaches the caller
+with whatever class that function gave it. Nothing here renames one.
+
+## What an estimating function returned
+
+- `deli_psi_return_error`: the estimating function returned something no
+  sandwich can be built from, either at the starting values or at the
+  point handed to
+  [`compute_sandwich()`](https://r-causal.github.io/deli/reference/compute_sandwich.md).
+  Every refusal of a return carries it, so recognizing one is a match on
+  this rather than on four messages.
+
+- `deli_psi_shape_error`: the number of estimating equations returned
+  cannot be solved against the number of parameters. Leads
+  `deli_psi_return_error`.
+
+- `deli_psi_list_unsupported`: the estimating function returned a list
+  of one element per equation.
+  [`compute_bread()`](https://r-causal.github.io/deli/reference/compute_bread.md)
+  and
+  [`compute_sandwich()`](https://r-causal.github.io/deli/reference/compute_sandwich.md)
+  take that shape, and no fit can solve it, so
+  [`estimate()`](https://r-causal.github.io/deli/reference/estimate.md)
+  refuses it rather than failing on the summed equations. Leads
+  `deli_psi_return_error`.
+
+## The estimating equations deli supplies
+
+- `deli_mlogit_binary_outcome`: the indicator matrix handed to
+  [`ee_mlogit()`](https://r-causal.github.io/deli/reference/ee_mlogit.md)
+  holds two columns. Two categories leave a single non-reference
+  residual whose reference residual is its exact negative, so the
+  equations cancel to zero at every value of the parameters and a fit of
+  them reports the values it started from with no variance. A two-level
+  outcome is logistic regression, which
+  [`ee_glm()`](https://r-causal.github.io/deli/reference/ee_glm.md) fits
+  with `distribution = "binomial"`.
+
+## The formula interface
+
+- `deli_formula_ee_lookup_error`: `.ee` is neither a function nor the
+  name of one. Either it arrived as some other type entirely, or it
+  arrived as a character vector naming no one function, because no
+  function of that name was found or because the vector is not of length
+  one. A handler that means to read the name it failed to resolve should
+  confirm it has a character vector first.
+
+- `deli_formula_ee_signature_error`: the arguments of `.ee` leave
+  something the interface fills nowhere to go: `theta`, the model matrix
+  it passes as `X`, the response it passes by position, or the offset an
+  [`offset()`](https://rdrr.io/r/stats/offset.html) term in the formula
+  supplies. It also covers an equation that writes formals after its
+  `...`, which can be filled by name and by nothing else, so the
+  positional response would fall into the dots and leave them unfilled.
+
+- `deli_formula_ee_argument_error`: something in the `...` the caller
+  wrote cannot be forwarded to `.ee`. On its own it is a name matching
+  no argument of `.ee` exactly, which is what keeps an abbreviation from
+  reaching an argument the caller did not mean.
+
+- `deli_formula_ee_unnamed_argument`: an argument was forwarded with no
+  name, and so by position, into whichever argument the response did not
+  take. Leads `deli_formula_ee_argument_error`.
+
+- `deli_formula_ee_reserved_argument`: a name the caller supplied is one
+  the interface fills itself, either `theta`, `X`, or the argument the
+  response is passed to. Leads `deli_formula_ee_argument_error`.
+
+- `deli_formula_auto_init_error`: the `init` the formula interface
+  generated itself, one zero per model-matrix column, does not fit the
+  estimating equation.
+
+## Solving
+
+- `deli_solver_not_converged`, a warning: the solver stopped without
+  solving the estimating equations, either because it reported a failure
+  of its own or because the point it returned does not solve them.
+
+- `deli_nested_solver_error`: a
+  [`rootSolve::multiroot()`](https://rdrr.io/pkg/rootSolve/man/multiroot.html)
+  solve was asked for while another one was running, which it cannot be.
+  An error rather than a warning, because the solve cannot be attempted
+  at all.
+
+- `deli_gmm_moments_rejected`, a warning: the Hansen J-statistic of an
+  over-identified GMM fit stands so far out against its reference
+  distribution as to all but rule the fit out, which usually means the
+  moment conditions cannot all hold at one value of the parameters.
+
+- `deli_gmm_moments_dependent`, a warning: the moment conditions are
+  linearly dependent at the estimated values, so the two-step weight
+  matrix is a pseudo-inverse and what comes back is the fit of the
+  independent conditions alone. It also carries the rarer covariance
+  that has no inverse for want of conditioning rather than of rank,
+  which the message tells apart.
+
+- `deli_meat_not_invertible`: the covariance of the moment conditions
+  cannot be inverted, so the two-step GMM weight update has no weight
+  matrix to take, and `allow_pinv = FALSE` refused the pseudo-inverse.
+  The counterpart of `deli_bread_not_invertible` for the other half of
+  the sandwich.
+
+## The sandwich variance
+
+- `deli_bread_na`, a warning: the bread matrix holds `NA`, so no inverse
+  of it exists. A fit records no variance and carries on;
+  [`compute_sandwich()`](https://r-causal.github.io/deli/reference/compute_sandwich.md)
+  has nothing but a matrix to return and converts it into the error
+  below.
+
+- `deli_bread_not_invertible`: the bread cannot be inverted and
+  `allow_pinv = FALSE` refused the pseudo-inverse, or it is rectangular
+  and has no inverse at any rank, or it holds `NA`.
+
+- `deli_summed_equations_error`: the `summed_equations` handed to
+  [`compute_sandwich()`](https://r-causal.github.io/deli/reference/compute_sandwich.md)
+  or
+  [`compute_bread()`](https://r-causal.github.io/deli/reference/compute_bread.md),
+  or carried as a property of
+  [`MEstimator()`](https://r-causal.github.io/deli/reference/MEstimator.md)
+  or
+  [`GMMEstimator()`](https://r-causal.github.io/deli/reference/GMMEstimator.md),
+  is not one the bread can be differentiated from. It is neither `NULL`
+  nor a function, or its return at the point in hand is not numeric, or
+  that return does not hold one value per estimating equation. Every
+  refusal of the argument carries it, as does a `check_summed_equations`
+  that is not a single `TRUE` or `FALSE`.
+
+- `deli_summed_equations_disagree`: the reduction is a function of the
+  right shape and does not sum the `stacked_equations` it is paired
+  with, either by differing from their row sums or by returning a value
+  that is not a number where they sum to one. The bread is
+  differentiated from the one and the meat is built from the other, so a
+  sandwich assembled from two systems would carry the shape of a
+  covariance matrix without the meaning, and a fit would report the
+  estimates of the other system as well. Leads
+  `deli_summed_equations_error`.
+
+## Differentiation
+
+- `deli_exact_unsupported_function`: under `deriv_method = "exact"`, a
+  function reached with a tangent-carrying argument has no rule, either
+  because it hands its argument to compiled code without dispatching or
+  because deli declines to differentiate it.
+  [`auto_differentiation()`](https://r-causal.github.io/deli/reference/auto_differentiation.md)
+  names the replacements to use instead.
+
+- `deli_exact_unsupported_shape`: the estimating equations arrived in a
+  container the summing step has no rule for, either because the
+  tangents survived in a shape it cannot reduce or because a
+  per-equation list does not hold one element per parameter, each of one
+  length. Nothing was lost; the shape is the problem.
+
+- `deli_exact_tangent_lost`: derivative information is gone or would be,
+  either because a tangent-carrying value was asked to become a plain
+  double or because a result arrived with no tangent and evidence that
+  one had been dropped on the way.
+
+- `deli_finite_difference_lost`, a warning: a finite-difference step
+  changed the function by less than the floating-point spacing of its
+  values, so an entry of the Jacobian carries none of the digits of the
+  values it came from.
+
+## Parameter names
+
+- `deli_param_name_collision`: filling the unnamed entries of a partly
+  named parameter vector with positional `theta_1`, `theta_2`, ...
+  labels would repeat a label another parameter in the same vector
+  already carries.

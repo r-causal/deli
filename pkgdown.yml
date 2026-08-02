@@ -1,0 +1,34 @@
+pandoc: 3.8.3
+pkgdown: 2.2.1
+pkgdown_sha: ~
+articles:
+  articles/agresti-crime: agresti-crime.html
+  articles/ash-jcheminform-2022: ash-jcheminform-2022.html
+  articles/bonate-pharmaco: bonate-pharmaco.html
+  articles/boos-stefanski-ch7: boos-stefanski-ch7.html
+  causal-inference: causal-inference.html
+  articles/clustered-data: clustered-data.html
+  articles/coffman-2021: coffman-2021.html
+  articles/cole-aje-2022: cole-aje-2022.html
+  articles/cole-aje-2023: cole-aje-2023.html
+  articles/cole-epid-2023: cole-epid-2023.html
+  articles/collett-survival: collett-survival.html
+  custom-estimating-equations: custom-estimating-equations.html
+  articles/generalized-additive-model: generalized-additive-model.html
+  getting-started: getting-started.html
+  articles/gmm-overid: gmm-overid.html
+  articles/hernan-robins-2023: hernan-robins-2023.html
+  articles/life-science-examples: life-science-examples.html
+  articles/morris-trials-2022: morris-trials-2022.html
+  articles/mroz-1987: mroz-1987.html
+  articles/optimization-advice: optimization-advice.html
+  regression-models: regression-models.html
+  articles/ross-ije-2024: ross-ije-2024.html
+  articles/sdss-quasar: sdss-quasar.html
+  articles/translating-from-python: translating-from-python.html
+  articles/zivich-cbands: zivich-cbands.html
+  articles/zivich-plogit: zivich-plogit.html
+last_built: 2026-08-02T22:23Z
+urls:
+  reference: https://r-causal.github.io/deli/reference
+  article: https://r-causal.github.io/deli/articles

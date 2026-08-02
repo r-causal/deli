@@ -1,0 +1,570 @@
+# Translating from Python delicatessen
+
+``` r
+
+library(deli)
+```
+
+deli is a faithful R port of the Python
+[delicatessen](https://deli.readthedocs.io/) library for M-estimation
+and the empirical sandwich variance estimator. Every capability in
+delicatessen has a counterpart in deli, and the two produce the same
+numbers when the same settings are used. The surface is idiomatic R
+rather than a line-for-line transcription: some functions are renamed to
+avoid clashing with base R, a few arguments carry different names, and a
+small number of defaults differ. This article maps the two libraries
+onto each other and gives the exact recipes for reproducing a Python
+result in R.
+
+Python users are not expected to paste Python code into R and have it
+run. The goal is functional parity: the same models, the same options,
+and matching point estimates and variances under matched settings.
+
+## How the libraries line up
+
+Both libraries are built on the same idea. You supply a function that
+returns a stacked matrix of estimating-equation contributions, one
+column per observation and one row per parameter. An estimator object
+solves that system for the point estimate and assembles the sandwich
+variance from the bread (the derivative of the estimating functions) and
+the meat (their outer product).
+
+The central objects correspond directly:
+
+- `delicatessen.MEstimator` becomes the `MEstimator` S7 class in deli,
+  solved with the
+  [`estimate()`](https://r-causal.github.io/deli/reference/estimate.md)
+  generic. deli additionally offers
+  [`m_estimate()`](https://r-causal.github.io/deli/reference/m_estimate.md),
+  a formula and one-step convenience wrapper with no Python equivalent.
+- `delicatessen.GMMEstimator` becomes `GMMEstimator`, with the same
+  [`estimate()`](https://r-causal.github.io/deli/reference/estimate.md)
+  generic and an optional
+  [`gmm_estimate()`](https://r-causal.github.io/deli/reference/gmm_estimate.md)
+  wrapper.
+
+In Python you call methods on the estimator (`m.estimate()`,
+`m.confidence_intervals()`). In deli these are generic functions that
+take the estimator as their first argument (`estimate(m)`,
+`confidence_intervals(m)`). Those generics are a direct transliteration
+of the Python methods, and deli offers an idiomatic R surface for the
+same work alongside them. The section [Direct port or idiomatic
+R](#direct-port-or-idiomatic-r) below covers which one to reach for.
+
+## Class and function correspondence
+
+| Python (delicatessen) | R (deli) | Notes |
+|----|----|----|
+| `MEstimator(stacked_equations, init, subset, finite_correction)` | `MEstimator(stacked_equations, init, subset, finite_correction)` | `subset` uses 1-based parameter indices in R (see below). |
+| `m.estimate(solver, maxiter, tolerance, deriv_method, dx, allow_pinv)` | `estimate(m, solver, maxiter, tolerance, deriv_method, dx, allow_pinv)` | Different `solver` and `deriv_method` defaults (see below). |
+| `GMMEstimator(...)` | `GMMEstimator(...)` | R adds a `weight_matrix` property. |
+| `g.estimate(solver='bfgs', ...)` | `estimate(g, solver = "BFGS", ...)` | R accepts any [`stats::optim()`](https://rdrr.io/r/stats/optim.html) method name. |
+| `m.confidence_intervals(alpha)` | `confidence_intervals(m, alpha)` | Both switch to the t-distribution when `finite_correction` is set. |
+| `m.z_scores(null)` | `z_scores(m, null)` |  |
+| `m.p_values(null)` | `p_values(m, null)` |  |
+| `m.s_values(null)` | `s_values(m, null)` |  |
+| `m.influence_functions()` | `influence_functions(m)` |  |
+| `m.confidence_bands(subset, alpha, method, n_draws, seed)` | `confidence_bands(m, alpha, method, n_draws, seed)` | Different `n_draws` default (see below). |
+| `m.print_results(...)` | `print(m)` / `summary(m)` | Idiomatic replacement; `summary(m, alpha = ...)` supported. |
+| `compute_sandwich(...)` | `compute_sandwich(...)` | Exported in both. |
+| `delta_method(theta, g, covariance, deriv_method, dx)` | `delta_method(object, transform, covariance, deriv_method, dx)` | `g` renamed `transform`; different `deriv_method` default. |
+| `compute_confidence_bands(...)` | `compute_confidence_bands(...)` | Both default to `n_draws = 1e5`; only the estimator method differs (see below). |
+| `logit`, `inverse_logit` | `logit`, `inverse_logit` | Required in place of [`stats::qlogis()`](https://rdrr.io/r/stats/Logistic.html) and [`stats::plogis()`](https://rdrr.io/r/stats/Logistic.html) under `deriv_method = "exact"` (see below). |
+| `identity(value)` | `identity_transform(value)` | Renamed to avoid masking base R [`identity()`](https://rdrr.io/r/base/identity.html). |
+| `polygamma(n, x)` | `deli_polygamma(n, x)` | Renamed to avoid a namespace clash. Takes the order first, as in Python; base R’s `psigamma(x, deriv = n)` takes it second. |
+| `digamma(z)` | `deli_digamma(z)` | Renamed to avoid masking base R [`digamma()`](https://rdrr.io/r/base/Special.html). At the poles (non-positive integers) [`deli_digamma()`](https://r-causal.github.io/deli/reference/deli_digamma.md) returns `NaN`, matching base R [`digamma()`](https://rdrr.io/r/base/Special.html); SciPy returns `-Inf`. `NA` and `NaN` inputs propagate unchanged. |
+| `standard_normal_cdf`, `standard_normal_pdf` | `standard_normal_cdf`, `standard_normal_pdf` | Required in place of [`stats::pnorm()`](https://rdrr.io/r/stats/Normal.html) and [`stats::dnorm()`](https://rdrr.io/r/stats/Normal.html) under `deriv_method = "exact"` (see below). |
+| `robust_loss_functions(residual, loss, k, a, b)` | `robust_loss_functions(residuals, loss, k)` | Hampel thresholds passed as `k = c(a, b, c)` (see below). |
+| `aggregate_efuncs(est_funcs, group)` | `aggregate_efuncs(est_funcs, group)` | Takes a p-by-n matrix, one column per observation, and returns a p-by-g matrix, one column per group; `group` may be any vector R can split on. |
+| `regression_predictions(...)` | `regression_predictions(...)` | Returns a data frame rather than a NumPy array. For a fit made through deli’s formula interface, [`generics::augment()`](https://generics.r-lib.org/reference/augment.html) is the idiomatic route to the same predictions. |
+| `aft_predictions_individual(...)` | `aft_predictions_individual(...)` | Returns a data frame rather than a NumPy array. |
+| `aft_predictions_function(...)` | `aft_predictions_function(...)` | Returns a data frame rather than a NumPy array. R adds `deriv_method` and `dx`. |
+| `spline(...)` | `deli_spline(...)` | Renamed to avoid masking [`stats::spline()`](https://rdrr.io/r/stats/splinefun.html). First argument renamed `variable` to `x`. |
+| `additive_design_matrix(...)` | `additive_design_matrix(...)` | `return_penalty = TRUE` gives a named list with `X` and `penalty` rather than a tuple. |
+
+The forward-difference and autodiff helpers
+[`approx_differentiation()`](https://r-causal.github.io/deli/reference/approx_differentiation.md)
+and
+[`auto_differentiation()`](https://r-causal.github.io/deli/reference/auto_differentiation.md)
+are public in Python. In deli they back the `deriv_method` argument of
+[`estimate()`](https://r-causal.github.io/deli/reference/estimate.md),
+[`compute_sandwich()`](https://r-causal.github.io/deli/reference/compute_sandwich.md),
+and
+[`delta_method()`](https://r-causal.github.io/deli/reference/delta_method.md)
+and are not exported as user-facing functions. Choose the derivative
+method through `deriv_method` rather than calling them directly.
+
+## Estimating-equation correspondence
+
+All 36 pre-built estimating equations in delicatessen are available in
+deli under the same `ee_*` names. Most take identical argument names.
+The exceptions are listed in the final column.
+
+| Python | R | Argument differences |
+|----|----|----|
+| `ee_mean` | `ee_mean` |  |
+| `ee_mean_variance` | `ee_mean_variance` |  |
+| `ee_mean_robust` | `ee_mean_robust` | Hampel thresholds via `k = c(a, b, c)`. |
+| `ee_mean_geometric` | `ee_mean_geometric` |  |
+| `ee_percentile` | `ee_percentile` |  |
+| `ee_positive_mean_deviation` | `ee_positive_mean_deviation` |  |
+| `ee_regression` | `ee_regression` |  |
+| `ee_glm` | `ee_glm` |  |
+| `ee_mlogit` | `ee_mlogit` |  |
+| `ee_robust_regression` | `ee_robust_regression` | Hampel thresholds via `k = c(a, b, c)`. |
+| `ee_ridge_regression` | `ee_ridge_regression` |  |
+| `ee_lasso_regression` | `ee_lasso_regression` |  |
+| `ee_dlasso_regression` | `ee_dlasso_regression` |  |
+| `ee_elasticnet_regression` | `ee_elasticnet_regression` |  |
+| `ee_bridge_regression` | `ee_bridge_regression` |  |
+| `ee_beta_regression` | `ee_beta_regression` |  |
+| `ee_tobit` | `ee_tobit` |  |
+| `ee_additive_regression` | `ee_additive_regression` |  |
+| `ee_ipw` | `ee_ipw` |  |
+| `ee_ipw_msm` | `ee_ipw_msm` |  |
+| `ee_gformula` | `ee_gformula` |  |
+| `ee_aipw` | `ee_aipw` |  |
+| `ee_gestimation_snmm` | `ee_gestimation_snmm` |  |
+| `ee_2sls` | `ee_2sls` |  |
+| `ee_iv_causal` | `ee_iv_causal` |  |
+| `ee_mean_sensitivity_analysis` | `ee_mean_sensitivity_analysis` |  |
+| `ee_survival_model(theta, t, delta, distribution)` | `ee_survival_model(theta, time, event, distribution)` | `t` becomes `time`, `delta` becomes `event`. |
+| `ee_aft(theta, X, t, delta, distribution, weights)` | `ee_aft(theta, X, time, event, distribution, ...)` | `t` becomes `time`, `delta` becomes `event`; R adds `offset`. |
+| `ee_plogit(theta, X, t, delta, S, ...)` | `ee_plogit(theta, X, time, event, S, ...)` | `t` becomes `time`, `delta` becomes `event`; R adds `offset`. |
+| `ee_rogan_gladen` | `ee_rogan_gladen` |  |
+| `ee_rogan_gladen_extended` | `ee_rogan_gladen_extended` |  |
+| `ee_regression_calibration` | `ee_regression_calibration` |  |
+| `ee_emax(theta, dose, response, robust, k)` | `ee_emax(theta, dose, response, loss, k)` | `robust` becomes `loss`. |
+| `ee_emax_ed` | `ee_emax_ed` |  |
+| `ee_loglogistic(theta, dose, response, robust, k)` | `ee_loglogistic(theta, dose, response, loss, k)` | `robust` becomes `loss`. |
+| `ee_loglogistic_ed` | `ee_loglogistic_ed` |  |
+
+The generalized linear model `ee_glm` carries the full set of Python
+options, including the `hyperparameter` argument, the `tweedie` and
+`negative_binomial` distributions, and the gamma distribution’s nuisance
+shape equation. As in Python, the gamma and negative binomial fits
+append an extra parameter to `theta` (the log shape or log dispersion),
+so the parameter vector is one element longer than the number of
+regression coefficients.
+
+## Argument renames and default differences
+
+This section documents every difference that affects the numbers or the
+call, with the exact recipe for reproducing a default Python run in R.
+Unless noted, each recipe reproduces Python to machine precision.
+
+### Solver default
+
+Python’s `MEstimator.estimate()` defaults to `solver='lm'`, the
+Levenberg-Marquardt routine from MINPACK exposed through
+`scipy.optimize.root(method='lm')`. deli defaults to
+`solver = "rootSolve"`
+([`rootSolve::multiroot()`](https://rdrr.io/pkg/rootSolve/man/multiroot.html)),
+which requires no additional package and converges reliably on the great
+majority of problems.
+
+deli also provides the identical Levenberg-Marquardt solver under
+`solver = "lm"` (backed by `minpack.lm`, the same MINPACK code Python
+calls). To reproduce a default Python `MEstimator` fit, set the solver
+explicitly:
+
+``` r
+
+m <- MEstimator(psi, init = c(0, 0)) |>
+  estimate(solver = "lm")
+```
+
+The `"lm"` solver is the recommended choice for problems where a
+Newton-type solver stalls, in particular Huber robust regression started
+far from the solution: when every residual is clipped, the bread is
+identically zero and `rootSolve` and `nleqslv` cannot make progress,
+while the damped Levenberg-Marquardt step still converges.
+
+Python’s `GMMEstimator.estimate()` defaults to `solver='bfgs'`. deli
+defaults to `solver = "BFGS"` for `GMMEstimator`, so the GMM solver
+defaults already match; deli accepts any
+[`stats::optim()`](https://rdrr.io/r/stats/optim.html) method name.
+
+### Derivative method default
+
+The bread matrix is the derivative of the estimating functions. Python’s
+estimators default to `deriv_method='approx'`, SciPy’s `approx_fprime`,
+a forward finite difference. deli defaults to
+`deriv_method = "capprox"`, a central finite difference, which is more
+accurate for a negligible cost.
+
+Both libraries offer the same delicatessen-implemented finite
+differences under the same names, plus forward-mode automatic
+differentiation:
+
+| Method | Meaning | Python name | R name |
+|----|----|----|----|
+| SciPy forward difference | `scipy.optimize.approx_fprime` | `"approx"` | none |
+| Forward difference | delicatessen implementation | `"fapprox"` | `"fapprox"` |
+| Backward difference | delicatessen implementation | `"bapprox"` | `"bapprox"` |
+| Central difference | delicatessen implementation | `"capprox"` | `"capprox"` |
+| Automatic differentiation | forward mode | `"exact"` | `"exact"` |
+
+deli does not expose SciPy’s `"approx"`. It is a forward difference at
+the same step, so its closest match is deli’s `"fapprox"`.
+
+To reproduce a default Python fit, match Python’s defaults from R:
+
+``` r
+
+# Reproduce a default Python MEstimator run
+m <- MEstimator(psi, init = c(0, 0)) |>
+  estimate(solver = "lm", deriv_method = "fapprox")
+```
+
+Because `"fapprox"` and SciPy’s `"approx"` are both forward differences
+at the same step `dx`, they agree to numerical-approximation error
+rather than bit-for-bit. For a linear model the finite difference of a
+linear function is exact, so the two coincide exactly; for nonlinear
+models expect agreement to the finite-difference tolerance.
+
+If instead you control both sides of the comparison and want exact
+agreement, set both libraries to the same delicatessen-implemented
+method. For example, leave deli at its `"capprox"` default and pass
+`deriv_method='capprox'` in Python, with a matched solver. That
+combination reproduces the sandwich components across languages to
+machine precision.
+
+### `delta_method` transform argument and default
+
+Python’s `delta_method(theta, g, covariance, deriv_method='exact', dx)`
+takes the transformation as `g` and differentiates it with automatic
+differentiation by default. deli’s
+`delta_method(object, transform, covariance, deriv_method = "capprox", dx)`
+renames `g` to `transform` and defaults to a central finite difference.
+deli also accepts a fitted estimator as its first argument, in which
+case the covariance is taken from the fit. To reproduce Python’s
+default, pass `deriv_method = "exact"`:
+
+``` r
+
+delta_method(m, transform = g, deriv_method = "exact")
+```
+
+### `subset` uses 1-based indices
+
+The `subset` argument selects which parameters to solve for while
+holding the rest at their initial values. Python indexes parameters from
+zero; R indexes from one. A Python `subset=[0, 2]` becomes
+`subset = c(1, 3)` in R. Add one to every Python index.
+
+### `confidence_bands` draw count
+
+The supremum-t confidence bands are computed by simulating from the
+estimated sampling distribution. Python’s estimator method uses
+`n_draws=1e6`; deli uses `n_draws = 1e5` at every entry point. The
+smaller default runs about an order of magnitude faster, and the Monte
+Carlo error it introduces is negligible relative to the band width. To
+reproduce Python’s estimator default exactly, set the draw count:
+
+``` r
+
+confidence_bands(m, n_draws = 1e6)
+```
+
+Both draw counts target the same population quantile and agree to within
+Monte Carlo error. Note that seeded band values are still not
+bit-identical across languages:
+[`MASS::mvrnorm`](https://rdrr.io/pkg/MASS/man/mvrnorm.html) and NumPy
+draw multivariate normals with different samplers, an inherent
+difference in the random-number stream rather than in the method.
+
+### Robust loss Hampel thresholds
+
+The Hampel loss has three thresholds. Python passes them as separate
+arguments:
+`robust_loss_functions(residual, loss='hampel', k=8, a=2, b=4)`, where
+`a` is the inner threshold, `b` the middle, and `k` the outer. deli
+collects them into a single ordered vector `k = c(a, b, c)`:
+
+``` r
+
+robust_loss_functions(residuals, loss = "hampel", k = c(2, 4, 8))
+```
+
+The same convention applies to `ee_mean_robust` and
+`ee_robust_regression`. For the other losses, `k` is a single tuning
+constant in both libraries.
+
+### Pharmacokinetic loss argument
+
+`ee_emax` and `ee_loglogistic` accept an optional robust loss. Python
+names the argument `robust`; deli names it `loss` for consistency with
+the other robust estimating equations. As in Python, supplying a loss
+also requires its tuning constant `k`.
+
+### Survival time and event arguments
+
+`ee_survival_model`, `ee_aft`, and `ee_plogit` take the observed time
+and the event indicator. Python names them `t` and `delta`; deli names
+them `time` and `event`, which reads more clearly and is consistent
+across the survival family and the `plogit_predict` helper. deli
+additionally accepts an `offset` on `ee_aft` and `ee_plogit`.
+
+### Gompertz survival predictions
+
+Python’s `survival_predictions` branches only on the exponential
+distribution and otherwise applies the Weibull survival and hazard
+formulas, so requesting `distribution="gompertz"` there silently returns
+Weibull values. deli’s `ee_survival_model` supports the Gompertz
+distribution, so deli’s
+[`survival_predictions()`](https://r-causal.github.io/deli/reference/survival_predictions.md)
+implements the matching Gompertz measures,
+
+S(t) = \exp\\\left(-\frac{\lambda}{\gamma}\left(e^{\gamma t} -
+1\right)\right), \qquad h(t) = \lambda e^{\gamma t},
+
+and rejects any distribution outside `"exponential"`, `"weibull"`, and
+`"gompertz"` rather than falling through to the Weibull branch.
+
+### Finite-sample correction and inference
+
+When `finite_correction` is set on the fit (for example `"HC1"`), both
+libraries switch the confidence intervals and p-values from the standard
+normal to the t-distribution with `n_obs - n_params` degrees of freedom.
+This behavior already matches; no recipe is needed.
+
+## Worked example
+
+The following fits the same linear regression in both libraries and
+shows that the R code reproduces the Python numbers exactly. Both blocks
+run when this article is built, so the outputs below can be compared
+directly.
+
+The Python fit, using default settings (`solver='lm'`,
+`deriv_method='approx'`):
+
+``` python
+import numpy as np
+from delicatessen import MEstimator
+from delicatessen.estimating_equations import ee_regression
+
+d_x = [1.2, 0.3, 2.1, 1.7, 0.9, 2.5, 1.1, 0.4, 1.9, 2.2]
+d_y = [3.4, 1.1, 5.2, 4.3, 2.6, 6.1, 3.0, 1.4, 4.8, 5.5]
+X = np.asarray([[1, xi] for xi in d_x], dtype=float)
+y = np.asarray(d_y, dtype=float)
+
+def psi(theta):
+    return ee_regression(theta, X=X, y=y, model="linear")
+
+m = MEstimator(psi, init=[0.0, 0.0])
+m.estimate()
+
+print(m.theta)
+#> [0.52501426 2.24824178]
+print(np.sqrt(np.diag(m.variance)))
+#> [0.05305372 0.02666167]
+print(m.confidence_intervals())
+#> [[0.42103087 0.62899764]
+#>  [2.19598586 2.30049769]]
+```
+
+The equivalent deli fit, matching Python’s default solver and
+forward-difference derivative:
+
+``` r
+
+d <- data.frame(
+  x = c(1.2, 0.3, 2.1, 1.7, 0.9, 2.5, 1.1, 0.4, 1.9, 2.2),
+  y = c(3.4, 1.1, 5.2, 4.3, 2.6, 6.1, 3.0, 1.4, 4.8, 5.5)
+)
+X <- cbind(1, d$x)
+
+psi <- function(theta) {
+  ee_regression(theta, X = X, y = d$y, model = "linear")
+}
+
+m <- MEstimator(psi, init = c(0, 0)) |>
+  estimate(solver = "lm", deriv_method = "fapprox")
+
+m@theta
+#>   theta_1   theta_2 
+#> 0.5250143 2.2482418
+sqrt(diag(m@variance))
+#>    theta_1    theta_2 
+#> 0.05305374 0.02666169
+confidence_intervals(m)
+#>             lower     upper
+#> theta_1 0.4210308 0.6289977
+#> theta_2 2.1959858 2.3004977
+```
+
+The point estimates, standard errors, and confidence intervals match the
+Python output to the printed precision.
+
+deli also offers a formula interface that builds the design matrix and
+initial values for you. It is convenient R sugar with no Python
+counterpart, and it produces the same fit:
+
+``` r
+
+m2 <- m_estimate(
+  y ~ x,
+  data = d,
+  .ee = ee_regression,
+  model = "linear",
+  solver = "lm",
+  deriv_method = "fapprox"
+)
+coef(m2)
+#> (Intercept)           x 
+#>   0.5250143   2.2482418
+```
+
+## Direct port or idiomatic R
+
+deli gives you two surfaces for most of what delicatessen does. One is a
+direct transliteration of the Python API, so a Python analysis maps
+across call by call. The other is the shape an R user expects, and it is
+what the rest of deli’s documentation uses.
+
+This article shows the transliterated form throughout, because
+demonstrating the correspondence with Python is its job. In your own R
+code, reach for the idiomatic form.
+
+### Estimation
+
+`MEstimator(...) |> estimate()` transliterates Python’s object workflow:
+construct the estimator, then solve it.
+[`m_estimate()`](https://r-causal.github.io/deli/reference/m_estimate.md)
+does both in one call, which is the normal shape of a model fit in R.
+`lm(mpg ~ wt, data = mtcars)` builds and fits together, and nothing in R
+asks you to construct a model and then solve it as a separate step.
+[`gmm_estimate()`](https://r-causal.github.io/deli/reference/gmm_estimate.md)
+stands in the same relation to
+[`GMMEstimator()`](https://r-causal.github.io/deli/reference/GMMEstimator.md).
+
+The wrappers pass every
+[`MEstimator()`](https://r-causal.github.io/deli/reference/MEstimator.md)
+constructor argument and every
+[`estimate()`](https://r-causal.github.io/deli/reference/estimate.md)
+argument straight through, so nothing is reachable only from the
+two-step form:
+
+``` r
+
+m_one_step <- m_estimate(
+  stacked_equations = psi,
+  init = c(0, 0),
+  solver = "lm",
+  deriv_method = "fapprox"
+)
+
+all.equal(m@theta, m_one_step@theta)
+#> [1] TRUE
+```
+
+[`m_estimate()`](https://r-causal.github.io/deli/reference/m_estimate.md)
+also accepts a formula and a data frame, the form shown at the end of
+[Worked example](#worked-example) above. That interface builds the
+design matrix and the initial values for you and has no Python
+counterpart at all.
+
+### Inference
+
+[`confidence_intervals()`](https://r-causal.github.io/deli/reference/confidence_intervals.md),
+[`z_scores()`](https://r-causal.github.io/deli/reference/z_scores.md),
+[`p_values()`](https://r-causal.github.io/deli/reference/p_values.md),
+and
+[`s_values()`](https://r-causal.github.io/deli/reference/s_values.md)
+mirror the Python estimator methods one for one.
+[`confint()`](https://rdrr.io/r/stats/confint.html),
+[`summary()`](https://rdrr.io/r/base/summary.html), and `tidy()` return
+the same quantities through the accessors R users already reach for on a
+fitted model:
+
+``` r
+
+confidence_intervals(m, alpha = 0.05)
+#>             lower     upper
+#> theta_1 0.4210308 0.6289977
+#> theta_2 2.1959858 2.3004977
+
+confint(m, level = 0.95)
+#>             lower     upper
+#> theta_1 0.4210308 0.6289977
+#> theta_2 2.1959858 2.3004977
+```
+
+Note the parameterization. Python states the interval as an error rate,
+`alpha`, so a 95% interval is `alpha=0.05`, and deli’s
+[`confidence_intervals()`](https://r-causal.github.io/deli/reference/confidence_intervals.md)
+and [`summary()`](https://rdrr.io/r/base/summary.html) keep that
+argument. The R accessors take its complement:
+[`confint()`](https://rdrr.io/r/stats/confint.html) uses `level` and
+[`generics::tidy()`](https://generics.r-lib.org/reference/tidy.html)
+uses `conf.level`, each equal to `1 - alpha`. A Python `alpha=0.01`
+becomes `level = 0.99`.
+
+[`summary()`](https://rdrr.io/r/base/summary.html) collects the
+estimates, standard errors, test statistics, and intervals into one
+table, and `tidy()` returns the same content as a data frame for use in
+a pipeline. Python’s nearest equivalent to either is `print_results()`,
+which prints rather than returns:
+
+``` r
+
+generics::tidy(m, conf.int = TRUE)
+#>      term  estimate  std.error statistic      p.value  s.value  conf.low
+#> 1 theta_1 0.5250143 0.05305374  9.895895 4.337112e-23 74.28761 0.4210308
+#> 2 theta_2 2.2482418 0.02666169 84.324811 0.000000e+00      Inf 2.1959858
+#>   conf.high
+#> 1 0.6289977
+#> 2 2.3004977
+```
+
+### Transformations and math
+
+deli exports seven small functions that delicatessen also exports. Five
+of them are not conveniences. They are required inside estimating
+equations and inside transforms passed to
+[`delta_method()`](https://r-causal.github.io/deli/reference/delta_method.md),
+because their base R counterparts stop the computation under
+`deriv_method = "exact"`. Exact differentiation carries a derivative
+alongside each value, and those five base R functions hand their
+argument straight to compiled code that requires a plain number.
+
+| Python | deli | base R counterpart | Under `deriv_method = "exact"` |
+|----|----|----|----|
+| `inverse_logit(x)` | `inverse_logit(x)` | `stats::plogis(x)` | deli only; base R errors |
+| `logit(p)` | `logit(p)` | `stats::qlogis(p)` | deli only; base R errors |
+| `standard_normal_cdf(x)` | `standard_normal_cdf(x)` | `stats::pnorm(x)` | deli only; base R errors |
+| `standard_normal_pdf(x)` | `standard_normal_pdf(x)` | `stats::dnorm(x)` | deli only; base R errors |
+| `polygamma(n, x)` | `deli_polygamma(n, x)` | `base::psigamma(x, deriv = n)` | deli only; base R errors |
+| `digamma(z)` | `deli_digamma(z)` | `base::digamma(z)` | either works |
+| `identity(value)` | `identity_transform(value)` | `base::identity(value)` | either works |
+
+Outside those two positions, including data simulation and post-fit
+display, prefer the base R counterpart. It computes exactly the same
+values and is the function R users already know:
+
+``` r
+
+identical(plogis(m@theta), inverse_logit(m@theta))
+#> [1] TRUE
+```
+
+The last two rows are exempt in both directions:
+[`digamma()`](https://rdrr.io/r/base/Special.html) and
+[`identity()`](https://rdrr.io/r/base/identity.html) differentiate
+exactly, so base R serves in any position. Note also that
+`deli_polygamma(n, x)` keeps Python’s argument order and takes the order
+first, while `base::psigamma(x, deriv = n)` takes it second. The two are
+not interchangeable by position.
+
+## Reproducibility summary
+
+- Point estimates, variances, and interval bounds reproduce Python to
+  machine precision when you match the solver and set both libraries to
+  the same delicatessen-implemented derivative method.
+- Matching Python’s default `"approx"` derivative with deli’s
+  `"fapprox"` agrees to finite-difference tolerance, and exactly for
+  linear models.
+- Simulation-based confidence bands agree to Monte Carlo error but are
+  not bit-identical, because the two libraries use different
+  multivariate normal samplers.

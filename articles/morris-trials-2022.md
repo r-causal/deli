@@ -1,0 +1,291 @@
+# Morris et al. (2022): Randomized Trials
+
+> **Note**
+>
+> This article is translated from the [Morris et al. (2022): Precision
+> in Randomized Trials
+> example](https://deli.readthedocs.io/en/latest/Examples/Morris-Trials-2022.html)
+> in the documentation of [delicatessen](https://deli.readthedocs.io/),
+> deli’s Python counterpart.
+
+``` r
+
+library(deli)
+```
+
+The following is a replication of the analyses described in Morris et
+al. (2022), which uses data from Wilson et al. (2017). Morris et
+al. examine three different approaches to adjust for prognostic factors
+in randomized trials. The three ways are direct adjustment,
+standardization, and inverse probability weighting. This example
+highlights how causal inference methods (like those shown in Hernan &
+Robins (2023)) can also be used with data from randomized trials.
+
+Here, we are not going to consider direct adjustment. Attention is
+further restricted to the any-test outcome. For finer details and
+comparisons between the covariate adjustment approaches, see the
+original publication.
+
+## Data
+
+Data is available from Supplement S1 of Wilson et al. (2017) (referenced
+below).
+
+``` r
+
+d <- get_tested
+```
+
+As done in the main paper, we conduct a complete-case analysis (i.e.,
+discard all the observations with missing outcomes).
+
+``` r
+
+ds <- d[complete.cases(d), ]
+
+# Outcome
+y_r <- ds$anytest
+
+# Treatment
+a_r <- ds$group
+
+# Propensity score covariates: intercept + age + gender + msm + partners + ethnicgrp
+# Create indicator columns for categorical variables
+ps_mat <- model.matrix(
+  ~ age + factor(gender) + factor(msm) + factor(partners) + factor(ethnicgrp),
+  data = ds
+)
+
+# Outcome covariates: intercept + group + age + gender + msm + partners + ethnicgrp
+oc_mat <- model.matrix(
+  ~ group + age + factor(gender) + factor(msm) + factor(partners) + factor(ethnicgrp),
+  data = ds
+)
+
+# Counterfactual design matrices
+ds_a1 <- ds
+ds_a1$group <- 1
+oc_a1_mat <- model.matrix(
+  ~ group + age + factor(gender) + factor(msm) + factor(partners) + factor(ethnicgrp),
+  data = ds_a1
+)
+
+ds_a0 <- ds
+ds_a0$group <- 0
+oc_a0_mat <- model.matrix(
+  ~ group + age + factor(gender) + factor(msm) + factor(partners) + factor(ethnicgrp),
+  data = ds_a0
+)
+```
+
+## Standardization
+
+For standardization (or g-computation), we stack several estimating
+equations together. Let Y indicate the outcome, A indicate the
+treatment, and W be the prognostic factors included in the model (age,
+gender, sexual orientation, number of partners, ethnicity). The
+parameters are \theta, which we further divide into the interest
+parameters (\mu_0, \mu_1, \mu_2, \mu_3) and the nuisance parameters
+(\beta). As their name implies, nuisance parameters are not of interest
+but are necessary for estimation of our interest parameters.
+Importantly, by stacking the estimating equations, we can account for
+the uncertainty in the estimation of the nuisance parameters into the
+uncertainty in our interest parameters automatically.
+
+The estimating functions are \psi(Y_i, A_i, W_i; \theta) =
+\begin{bmatrix} (\mu_1 - \mu_0) - \mu_2 \\ \log(\mu_1 / \mu_0) - \mu_3
+\\ \hat{Y}\_i^{a=1} - \mu_1 \\ \hat{Y}\_i^{a=0} - \mu_0 \\ (Y_i -
+\text{expit}(g(A_i,W_i)^T \beta)) g(A_i,W_i)\_i \end{bmatrix}
+
+where g(A_i,W_i) is a specific function to generate the design matrix,
+and \hat{Y}\_i^{a} = \text{expit}(g(a,W_i)^T \beta). The first equation
+in the stack is the risk difference (RD) and the second is the
+log-transformed risk ratio (RR). Notice that these are defined in terms
+of other parameters. Specifically, parameters from the third and fourth
+equations, which correspond to the risk under all-1 and the risk under
+all-0. The predicted values of the outcome are generated using the
+parameters from the final equation, which is the logistic model used to
+estimate the probability of Y_i conditional on A_i, W_i.
+
+``` r
+
+n_beta_oc <- ncol(oc_mat)
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    # Extracting parameters from theta
+    risk_diff <- theta[1]
+    log_risk_ratio <- theta[2]
+    risk_a1 <- theta[3]
+    risk_a0 <- theta[4]
+    beta <- theta[5:(4 + n_beta_oc)]
+    n <- length(y_r)
+
+    # Estimating nuisance model (outcome regression)
+    ee_log <- ee_regression(
+      theta = beta,
+      X = oc_mat,
+      y = y_r,
+      model = "logistic"
+    )
+
+    # Generating predicted outcome values
+    ee_ya1 <- matrix(
+      inverse_logit(as.numeric(oc_a1_mat %*% beta)) - risk_a1,
+      nrow = 1
+    )
+    ee_ya0 <- matrix(
+      inverse_logit(as.numeric(oc_a0_mat %*% beta)) - risk_a0,
+      nrow = 1
+    )
+
+    # Estimating interest parameters
+    ee_risk_diff <- matrix(rep((risk_a1 - risk_a0) - risk_diff, n), nrow = 1)
+    ee_risk_ratio <- matrix(rep(log(risk_a1 / risk_a0) - log_risk_ratio, n), nrow = 1)
+
+    # Returning stacked estimating equations (order matters)
+    rbind(
+      ee_risk_diff,   # risk difference
+      ee_risk_ratio,  # log risk ratio
+      ee_ya1,         # risk a=1
+      ee_ya0,         # risk a=0
+      ee_log          # logistic model
+    )
+  },
+  init = c(0, 0, 0.5, 0.5, rep(0, n_beta_oc))
+)
+
+# Results
+se <- sqrt(diag(estr@variance))
+data.frame(
+  Measure = c("Risk Difference", "Log Risk Ratio"),
+  Estimate = round(estr@theta[1:2], 3),
+  SE = round(se[1:2], 3)
+)
+#>                 Measure Estimate    SE
+#> theta_1 Risk Difference    0.260 0.021
+#> theta_2  Log Risk Ratio    0.796 0.075
+```
+
+## Inverse Probability Weighting
+
+Now, we will consider the case of inverse probability weighting. Inverse
+probability weighting relies on a separate nuisance model. To clarify
+this, our nuisance parameters will be indicated by \alpha here.
+
+The estimating functions are \psi(Y_i, A_i, W_i; \theta) =
+\begin{bmatrix} (\mu_3 - \mu_4) - \mu_1 \\ \log(\mu_3 / \mu_4) - \mu_2
+\\ \frac{Y_i A_i}{\text{expit}(g(W_i)^T \beta)} - \mu_3 \\ \frac{Y_i
+(1-A_i)}{1 - \text{expit}(g(W_i)^T \beta)} - \mu_4 \\ (A_i -
+\text{expit}(g(W_i)^T \beta)) g(W_i) \end{bmatrix}
+
+where g(W_i) is a specific function to generate the design matrix. As
+before, the first and second equations are the risk difference and the
+log-transformed risk ratio, respectively. Third and fourth equations
+correspond to the risk under all-1 and the risk under all-0. The final
+estimating equation is the propensity score model and is used to
+generate the propensity scores given W_i.
+
+``` r
+
+n_beta_ps <- ncol(ps_mat)
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    # Extracting parameters from theta
+    risk_diff <- theta[1]
+    log_risk_ratio <- theta[2]
+    risk_a1 <- theta[3]
+    risk_a0 <- theta[4]
+    beta <- theta[5:(4 + n_beta_ps)]
+    n <- length(a_r)
+
+    # Estimating nuisance model (propensity score)
+    ee_log <- ee_regression(
+      theta = beta,
+      X = ps_mat,
+      y = a_r,
+      model = "logistic"
+    )
+
+    # Generating predicted propensity score
+    prop_score <- inverse_logit(as.numeric(ps_mat %*% beta))
+
+    # Calculating weighted pieces
+    ee_ya1 <- matrix((a_r * y_r) / prop_score - risk_a1, nrow = 1)
+    ee_ya0 <- matrix(((1 - a_r) * y_r) / (1 - prop_score) - risk_a0, nrow = 1)
+
+    # Estimating interest parameters
+    ee_risk_diff <- matrix(rep((risk_a1 - risk_a0) - risk_diff, n), nrow = 1)
+    ee_risk_ratio <- matrix(rep(log(risk_a1 / risk_a0) - log_risk_ratio, n), nrow = 1)
+
+    # Returning stacked estimating equations (order matters)
+    rbind(
+      ee_risk_diff,   # risk difference
+      ee_risk_ratio,  # log risk ratio
+      ee_ya1,         # risk a=1
+      ee_ya0,         # risk a=0
+      ee_log          # logistic model
+    )
+  },
+  init = c(0, 0, 0.5, 0.5, rep(0, n_beta_ps))
+)
+
+# Results
+se <- sqrt(diag(estr@variance))
+data.frame(
+  Measure = c("Risk Difference", "Log Risk Ratio"),
+  Estimate = round(estr@theta[1:2], 3),
+  SE = round(se[1:2], 3)
+)
+#>                 Measure Estimate    SE
+#> theta_1 Risk Difference    0.262 0.021
+#> theta_2  Log Risk Ratio    0.806 0.075
+```
+
+## Discussion
+
+Results are the same as Morris et al. up to the third decimal place. We
+replicated selected analyses in Morris et al. (2022) to showcase the
+basics of stacking estimating equations and how they are implemented in
+`deli`. While the package has built-in functionalities for
+standardization and inverse probability weighting, we opted to present
+them by-hand here. By-hand takes some extra work but can provide a
+better idea of how the package can be used to build estimating
+equations. For example, each of the above approaches could further be
+extended to account for missing outcomes under a weaker assumption.
+
+**Differences in Results**
+
+Why might results differ slightly from those in the original paper? The
+most likely culprit is differences in the procedures for finding
+\hat{\theta} across software.
+
+`deli` operates by a root-finding procedure. Essentially, we are looking
+for the values of \hat{\theta} that lead to the estimating equations all
+being approximately zero. Specifically, these examples use `deli`’s
+default solver, the Newton-type `multiroot()` routine from the rootSolve
+package. A root-finding procedure is used because it simplifies building
+stacked estimating equations. However, this comes at the cost of speed
+and robustness of other approaches.
+
+Other regression software tends to proceed under a different approach.
+Generally, most software aims to maximize the log-likelihood. However,
+most software for regression uses the iteratively reweighted least
+squares (IRLS) algorithm. This algorithm is quite robust and fast, but
+is less general. While these algorithms are expected to give very close
+answers, they can differ with sparse data (e.g., small cells). As there
+is sparse data in this example (there are many categorical variables for
+number of partners), this is the most likely explanation for the small
+differences between results.
+
+## References
+
+Morris TP, Walker AS, Williamson EJ, & White IR. (2022). “Planning a
+method for covariate adjustment in individually-randomised trials: a
+practical guide”. *Trials*, 23:328
+
+Wilson E, Free C, Morris TP, Syred J, Ahamed I, Menon-Johansson AS et
+al. (2017). “Internet-accessed sexually transmitted infection (e-STI)
+testing and results service: a randomised, single-blind, controlled
+trial”. *PLoS Medicine*, 14(12), e1002479.

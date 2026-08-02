@@ -1,0 +1,162 @@
+# High School and Beyond (1982): Clustered Data
+
+> **Note**
+>
+> This article is translated from the [High School and Beyond (1982):
+> Clustered Data
+> example](https://deli.readthedocs.io/en/latest/Examples/ClusteredData.html)
+> in the documentation of [delicatessen](https://deli.readthedocs.io/),
+> deli’s Python counterpart.
+
+``` r
+
+library(deli)
+```
+
+This example demonstrates how to handle clustered data with M-estimation
+using the High School and Beyond (1982) dataset. The HSB82 data contains
+math achievement scores for 7,185 students nested within 160 schools.
+Because students within the same school are not independent, standard
+variance estimates from the empirical sandwich will understate
+uncertainty. The
+[`aggregate_efuncs()`](https://r-causal.github.io/deli/reference/aggregate_efuncs.md)
+utility addresses this by collapsing individual-level estimating
+function contributions to the group (school) level before computing the
+sandwich variance.
+
+## Data
+
+The dataset records math achievement (`MathAch`), sex (`Sex`),
+socioeconomic status (`SES`), the school mean of socioeconomic status
+(`MEANSES`), and school ID (`School`) for students surveyed in 1982. We
+create a binary `female` indicator, a within-school centered
+socioeconomic status (`cses`), and an intercept column for use in the
+design matrix.
+
+``` r
+
+# Load from the nlme package (the High School and Beyond math achievement data)
+d <- as.data.frame(nlme::MathAchieve)
+
+# Prepare columns
+d$intercept <- 1
+d$female <- ifelse(d$Sex == "Female", 1, 0)
+d$cses <- d$SES - d$MEANSES
+
+# Extract arrays for the estimating equations
+y <- d$MathAch
+X <- as.matrix(d[, c("intercept", "female", "cses")])
+g <- d$School
+
+c(students = nrow(d), schools = length(unique(g)))
+#> students  schools 
+#>     7185      160
+```
+
+## Example 1: Ignoring Clustering
+
+We start by fitting a simple linear regression of math achievement on
+sex and centered SES, ignoring the school-level clustering entirely. The
+model is:
+
+\text{MathAch}\_i = \beta_0 + \beta_1 \cdot \text{female}\_i + \beta_2
+\cdot \text{cses}\_i + \epsilon_i
+
+The standard empirical sandwich variance treats all 7,185 observations
+as independent units. This will generally produce standard errors that
+are too small when the data are clustered.
+
+``` r
+
+# Fit linear regression ignoring clustering
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    ee_regression(theta, X = X, y = y, model = "linear")
+  },
+  init = c(10, 0, 0)
+)
+
+# Results
+data.frame(
+  Param = c("Intercept", "Female", "Centered SES"),
+  Coef = round(estr@theta, 4),
+  LCL = round(confint(estr)[, 1], 4),
+  UCL = round(confint(estr)[, 2], 4)
+)
+#>                Param    Coef     LCL     UCL
+#> theta_1    Intercept 13.5921 13.3598 13.8243
+#> theta_2       Female -1.5740 -1.8848 -1.2633
+#> theta_3 Centered SES  2.1397  1.9030  2.3765
+```
+
+## Example 2: Accounting for Clustering by School
+
+When observations are clustered, the empirical sandwich variance
+estimator should sum estimating function contributions within clusters
+rather than across individual observations. The
+[`aggregate_efuncs()`](https://r-causal.github.io/deli/reference/aggregate_efuncs.md)
+function does exactly this: it takes the p \times n matrix of individual
+contributions and collapses it into a p \times m matrix by summing
+within each group, where m is the number of clusters.
+
+This changes the effective sample size from n = 7{,}185 students to m =
+160 schools. The point estimates (theta) remain the same, but the
+standard errors and confidence intervals will be wider, correctly
+reflecting the within-school correlation.
+
+The key idea is straightforward: wrap the output of
+[`ee_regression()`](https://r-causal.github.io/deli/reference/ee_regression.md)
+with
+[`aggregate_efuncs()`](https://r-causal.github.io/deli/reference/aggregate_efuncs.md)
+before returning from the estimating equation function.
+
+``` r
+
+# Fit linear regression accounting for school-level clustering
+estr_cl <- m_estimate(
+  stacked_equations = function(theta) {
+    # Compute individual-level estimating functions
+    ef <- ee_regression(theta, X = X, y = y, model = "linear")
+    # Aggregate to school level
+    aggregate_efuncs(ef, group = g)
+  },
+  init = c(10, 0, 0)
+)
+
+# Results
+data.frame(
+  Param = c("Intercept", "Female", "Centered SES"),
+  Coef = round(estr_cl@theta, 4),
+  LCL = round(confint(estr_cl)[, 1], 4),
+  UCL = round(confint(estr_cl)[, 2], 4)
+)
+#>                Param    Coef     LCL     UCL
+#> theta_1    Intercept 13.5921 13.0061 14.1781
+#> theta_2       Female -1.5740 -2.1874 -0.9607
+#> theta_3 Centered SES  2.1397  1.8895  2.3900
+```
+
+## Comparison
+
+The point estimates are identical between the two approaches; clustering
+affects only the variance estimation, not the parameter estimates
+themselves. However, the confidence intervals from the clustered
+analysis are wider, reflecting the loss of information due to
+within-school correlation. In particular, the intercept (which varies
+substantially across schools) shows the largest increase in standard
+error.
+
+This pattern is typical: ignoring clustering leads to overconfidence in
+the estimates. The
+[`aggregate_efuncs()`](https://r-causal.github.io/deli/reference/aggregate_efuncs.md)
+utility provides a simple, general-purpose correction that works with
+any estimating equation, not just regression.
+
+## References
+
+Raudenbush SW & Bryk AS. (2002). *Hierarchical Linear Models:
+Applications and Data Analysis Methods* (2nd ed.). Sage Publications.
+
+Ross RK, Zivich PN, & Cole SR. (2024). M-estimation for common
+epidemiological measures: introduction and applied examples.
+*International Journal of Epidemiology*, 53(2), dyae030.

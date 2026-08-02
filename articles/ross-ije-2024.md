@@ -1,0 +1,224 @@
+# Ross et al. (2024): Introduction to M-estimation
+
+> **Note**
+>
+> This article is translated from the [Ross et al. (2024): Introduction
+> to M-estimation
+> example](https://deli.readthedocs.io/en/latest/Examples/Ross-IJE-2024.html)
+> in the documentation of [delicatessen](https://deli.readthedocs.io/),
+> deli’s Python counterpart.
+
+``` r
+
+library(deli)
+```
+
+The following is a replication of the cases described in Ross et
+al. (2024). The original paper provides a tutorial on M-estimation with
+introductory examples in the context of regression, standardization, and
+measurement error.
+
+## Data
+
+The following data from Table 1 is used for the first two examples.
+
+``` r
+
+# From Table 1
+d <- data.frame(
+  X = c(0, 0, 0, 0, 1, 1, 1, 1),
+  W = c(0, 0, 1, 1, 0, 0, 1, 1),
+  Y = c(0, 1, 0, 1, 0, 1, 0, 1),
+  n = c(496, 74, 113, 25, 85, 15, 15, 3)
+)
+
+# Expand rows by count
+d <- d[rep(seq_len(nrow(d)), d$n), ]
+d$intercept <- 1
+d$n <- NULL
+rownames(d) <- NULL
+```
+
+## Example 1: Logistic Regression
+
+Fit a logistic regression model for Y given X, W.
+
+``` r
+
+X <- as.matrix(d[, c("intercept", "X", "W")])
+y <- d$Y
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    ee_regression(theta, X = X, y = y, model = "logistic")
+  },
+  init = c(0, 0, 0)
+)
+
+# Results
+data.frame(
+  Param = c("beta_0", "beta_1", "beta_2"),
+  Coef = round(estr@theta, 2),
+  LCL = round(confint(estr)[, 1], 2),
+  UCL = round(confint(estr)[, 2], 2)
+)
+#>          Param  Coef   LCL   UCL
+#> theta_1 beta_0 -1.89 -2.13 -1.66
+#> theta_2 beta_1  0.12 -0.43  0.67
+#> theta_3 beta_2  0.36 -0.11  0.83
+```
+
+## Example 2: Marginal risk difference
+
+### G-computation
+
+Using a logistic model, generate predictions to estimate the marginal
+risk difference by X via g-computation.
+
+``` r
+
+X <- as.matrix(d[, c("intercept", "X", "W")])
+y <- d$Y
+
+# Counterfactual design matrices
+X1 <- X0 <- X
+X1[, "X"] <- 1
+X0[, "X"] <- 0
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    beta <- theta[1:3]
+    mu0 <- theta[4]
+    mu1 <- theta[5]
+    delta1 <- theta[6]
+    n <- length(y)
+
+    # Logistic regression for outcome
+    ee_logit <- ee_regression(beta, X = X, y = y, model = "logistic")
+
+    # Predicted risks under each treatment
+    y1_hat <- inverse_logit(as.numeric(X1 %*% beta))
+    y0_hat <- inverse_logit(as.numeric(X0 %*% beta))
+
+    # Estimating equations for causal means and contrast
+    ee_r0 <- matrix(y0_hat - mu0, nrow = 1)
+    ee_r1 <- matrix(y1_hat - mu1, nrow = 1)
+    ee_rd <- matrix(rep((mu1 - mu0) - delta1, n), nrow = 1)
+
+    rbind(ee_logit, ee_r0, ee_r1, ee_rd)
+  },
+  init = c(0, 0, 0, 0.5, 0.5, 0)
+)
+
+data.frame(
+  Param = c("beta_0", "beta_1", "beta_2", "mu_0", "mu_1", "delta"),
+  Coef = round(estr@theta, 2),
+  LCL = round(confint(estr)[, 1], 2),
+  UCL = round(confint(estr)[, 2], 2)
+)
+#>          Param  Coef   LCL   UCL
+#> theta_1 beta_0 -1.89 -2.13 -1.66
+#> theta_2 beta_1  0.12 -0.43  0.67
+#> theta_3 beta_2  0.36 -0.11  0.83
+#> theta_4   mu_0  0.14  0.11  0.17
+#> theta_5   mu_1  0.15  0.09  0.22
+#> theta_6  delta  0.01 -0.06  0.09
+```
+
+### Inverse probability weighting
+
+Now estimate the marginal risk difference using inverse probability
+weighting.
+
+``` r
+
+a <- d$X
+W <- as.matrix(d[, c("intercept", "W")])
+y <- d$Y
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    alpha <- theta[1:2]
+    mu0 <- theta[3]
+    mu1 <- theta[4]
+    delta1 <- theta[5]
+    n <- length(y)
+
+    # Logistic regression for propensity score
+    ee_logit <- ee_regression(alpha, X = W, y = a, model = "logistic")
+
+    # Propensity score and weights
+    pscore <- inverse_logit(as.numeric(W %*% alpha))
+    wt <- a / pscore + (1 - a) / (1 - pscore)
+
+    # Weighted estimating equations for causal means
+    ee_r1 <- matrix(a * y * wt - mu1, nrow = 1)
+    ee_r0 <- matrix((1 - a) * y * wt - mu0, nrow = 1)
+    ee_rd <- matrix(rep((mu1 - mu0) - delta1, n), nrow = 1)
+
+    rbind(ee_logit, ee_r0, ee_r1, ee_rd)
+  },
+  init = c(0, 0, 0.5, 0.5, 0)
+)
+
+data.frame(
+  Param = c("alpha_0", "alpha_1", "mu_0", "mu_1", "delta"),
+  Coef = round(estr@theta, 2),
+  LCL = round(confint(estr)[, 1], 2),
+  UCL = round(confint(estr)[, 2], 2)
+)
+#>           Param  Coef   LCL   UCL
+#> theta_1 alpha_0 -1.74 -1.95 -1.53
+#> theta_2 alpha_1 -0.30 -0.83  0.24
+#> theta_3    mu_0  0.14  0.11  0.17
+#> theta_4    mu_1  0.15  0.09  0.22
+#> theta_5   delta  0.01 -0.06  0.08
+```
+
+## Example 3: Outcome misclassification
+
+Correct for mismeasurement of the outcome variable with the Rogan-Gladen
+estimator.
+
+``` r
+
+# Misclassification data
+d3 <- data.frame(
+  R = c(1, 1, 0, 0, 0, 0),
+  Y = c(0, 0, 1, 1, 0, 0),
+  W = c(1, 0, 1, 0, 1, 0),
+  n = c(680, 270, 204, 38, 18, 71)
+)
+
+d3 <- d3[rep(seq_len(nrow(d3)), d3$n), ]
+d3$n <- NULL
+rownames(d3) <- NULL
+```
+
+``` r
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    ee_rogan_gladen(theta, y = d3$Y, y_star = d3$W, r = d3$R)
+  },
+  init = c(0.75, 0.75, 0.75, 0.75)
+)
+
+data.frame(
+  Param = c("Corrected", "Mismeasured", "Sensitivity", "Specificity"),
+  Coef = round(estr@theta, 2),
+  LCL = round(confint(estr)[, 1], 2),
+  UCL = round(confint(estr)[, 2], 2)
+)
+#>                            Param Coef  LCL  UCL
+#> corrected_proportion   Corrected 0.80 0.72 0.88
+#> naive_proportion     Mismeasured 0.72 0.69 0.74
+#> sensitivity          Sensitivity 0.84 0.80 0.89
+#> specificity          Specificity 0.80 0.71 0.88
+```
+
+## References
+
+Ross RK, Zivich PN, Stringer JS, & Cole SR. (2024). M-estimation for
+common epidemiological measures: introduction and applied examples.
+*International Journal of Epidemiology*, 53(2), dyae030.

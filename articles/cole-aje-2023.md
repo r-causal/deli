@@ -1,0 +1,270 @@
+# Cole et al. (2023): Fusion Designs
+
+> **Note**
+>
+> This article is translated from the [Cole et al. (2023): Fusion
+> Designs
+> example](https://deli.readthedocs.io/en/latest/Examples/Cole-AJE-2023.html)
+> in the documentation of [delicatessen](https://deli.readthedocs.io/),
+> deli’s Python counterpart.
+
+``` r
+
+library(deli)
+```
+
+The following is a replication of the cases described in Cole et
+al. (2023). Fusion designs combine information from multiple data
+sources to estimate quantities that cannot be identified from any single
+source alone. These designs are useful when the target population lacks
+the outcome of interest but shares covariates with a study population
+where the outcome is measured.
+
+The three cases below illustrate: (1) transporting a proportion to a
+target population using inverse odds of sampling weights, (2) correcting
+for outcome misclassification using the Rogan-Gladen estimator, and (3)
+combining transport and misclassification correction in a single
+analysis.
+
+## Case 1: Transporting the proportion
+
+In this scenario, we have two populations: a study sample (S=0) where
+the outcome Y is observed, and a target population (S=1) where Y is
+missing. Both populations share a covariate W. The goal is to transport
+the estimated proportion from the study to the target population using
+inverse odds of sampling weights derived from a logistic model for S
+\mid W.
+
+``` r
+
+# Data from Cole et al. (2023), Table 1
+d1 <- data.frame(
+  Y = c(0, 1, 0, 1, 0, 0),
+  W = c(0, 0, 1, 1, 0, 1),
+  n = c(266, 67, 400, 267, 333, 167),
+  S = c(0, 0, 0, 0, 1, 1)
+)
+
+# Expand rows by count
+d1 <- d1[rep(seq_len(nrow(d1)), d1$n), ]
+d1$n <- NULL
+rownames(d1) <- NULL
+
+# Replace Y with 0 where S=1 (target population has no outcome)
+d1$Y_fill <- ifelse(d1$S == 1, 0, d1$Y)
+
+# Design matrix for sampling model: intercept + W
+d1$intercept <- 1
+```
+
+``` r
+
+# Extract arrays
+y <- d1$Y_fill
+s <- d1$S
+W <- as.matrix(d1[, c("intercept", "W")])
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    mu_w <- theta[1]    # Weighted (transported) proportion
+    mu_n <- theta[2]    # Naive (study-only) proportion
+    beta <- theta[3:4]  # Sampling model coefficients
+
+    # Sampling model: logistic regression of S on W
+    ee_sm <- ee_regression(beta, X = W, y = s, model = "logistic")
+
+    # Predicted probability of being in sample
+    pi_s <- inverse_logit(as.numeric(W %*% beta))
+
+    # Inverse odds of sampling weights
+    iosw <- (1 - s) * pi_s / (1 - pi_s)
+
+    # Weighted proportion (transported to target)
+    ee_wprop <- matrix(iosw * (y - mu_w), nrow = 1)
+
+    # Naive proportion (study sample only)
+    ee_nprop <- matrix((1 - s) * (y - mu_n), nrow = 1)
+
+    rbind(ee_wprop, ee_nprop, ee_sm)
+  },
+  init = c(0.5, 0.5, 0., 0.)
+)
+
+data.frame(
+  Param = c("mu_weighted", "mu_naive", "beta_0", "beta_1"),
+  Coef = round(estr@theta, 4),
+  LCL = round(confint(estr)[, 1], 4),
+  UCL = round(confint(estr)[, 2], 4)
+)
+#>               Param    Coef     LCL     UCL
+#> theta_1 mu_weighted  0.2677  0.2354  0.3000
+#> theta_2    mu_naive  0.3340  0.3048  0.3632
+#> theta_3      beta_0  0.0000 -0.1519  0.1519
+#> theta_4      beta_1 -1.3848 -1.6125 -1.1571
+```
+
+The weighted (transported) proportion adjusts for the difference in the
+distribution of W between the study and target populations. The naive
+proportion reflects the unadjusted estimate from the study sample alone.
+
+## Case 2: Misclassified proportion (Rogan-Gladen)
+
+When the outcome is subject to misclassification, the Rogan-Gladen
+estimator uses external validation data to estimate sensitivity and
+specificity, then corrects the observed proportion. Here, R=1 denotes
+the main study (where only the mismeasured Y^\* is observed), and R=0
+denotes the external validation sample (where both Y and Y^\* are
+observed).
+
+``` r
+
+# Misclassification data from Cole et al. (2023)
+d2 <- data.frame(
+  R     = c(1, 1, 0, 0, 0, 0),
+  Y     = c(0, 0, 1, 1, 0, 0),
+  Y_star = c(1, 0, 1, 0, 1, 0),
+  n     = c(680, 270, 204, 38, 18, 71)
+)
+
+# Expand rows by count
+d2 <- d2[rep(seq_len(nrow(d2)), d2$n), ]
+d2$n <- NULL
+rownames(d2) <- NULL
+```
+
+``` r
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    ee_rogan_gladen(theta, y = d2$Y, y_star = d2$Y_star, r = d2$R)
+  },
+  init = c(0.5, 0.5, 0.75, 0.75)
+)
+
+data.frame(
+  Param = c("Corrected", "Mismeasured", "Sensitivity", "Specificity"),
+  Coef = round(estr@theta, 4),
+  LCL = round(confint(estr)[, 1], 4),
+  UCL = round(confint(estr)[, 2], 4)
+)
+#>                            Param   Coef    LCL    UCL
+#> corrected_proportion   Corrected 0.8015 0.7243 0.8787
+#> naive_proportion     Mismeasured 0.7158 0.6871 0.7445
+#> sensitivity          Sensitivity 0.8430 0.7971 0.8888
+#> specificity          Specificity 0.7978 0.7143 0.8812
+```
+
+The corrected proportion adjusts the mismeasured proportion using the
+estimated sensitivity and specificity from the validation sample. This
+demonstrates the Rogan-Gladen identity: \mu = (\mu^\* +
+\text{specificity} - 1) / (\text{sensitivity} + \text{specificity} - 1).
+
+## Case 3: Combined transport and misclassification
+
+In this case, we combine both ideas: the outcome is misclassified in the
+study population and must be transported to a target population. We have
+three data sources:
+
+- S=1: Main study with mismeasured outcome Y^\*
+- S=2: Target population with no outcome
+- S=3: Validation sample with both Y and Y^\*
+
+The stacked estimating equations include: (1) the Rogan-Gladen
+correction applied with inverse odds of sampling weights to transport
+the corrected proportion, and (2) a logistic sampling model to estimate
+the weights. The main study (S=1) contributes the mismeasured outcome
+and the covariate W, the target population (S=2) contributes only W, and
+the validation sample (S=3) contributes both Y and Y^\*. Missing entries
+in each source are filled with a placeholder value and excluded from the
+relevant estimating functions by construction.
+
+``` r
+
+# Combined fusion data from Cole et al. (2023) rejoinder
+d3 <- data.frame(
+  Y_star = c(0, 1, 0, 1, NA, NA, 1, 0, 1, 0),
+  Y      = c(NA, NA, NA, NA, NA, NA, 1, 1, 0, 0),
+  W      = c(0, 0, 1, 1, 0, 1, NA, NA, NA, NA),
+  n      = c(266, 67, 400, 267, 333, 167, 180, 20, 60, 240),
+  S      = c(1, 1, 1, 1, 2, 2, 3, 3, 3, 3)
+)
+
+# Expand rows by count
+d3 <- d3[rep(seq_len(nrow(d3)), d3$n), ]
+d3$n <- NULL
+rownames(d3) <- NULL
+d3$intercept <- 1
+```
+
+``` r
+
+# Replace missing values with a placeholder; these rows are zeroed out of the
+# estimating functions where they do not apply
+y_no_nan <- ifelse(is.na(d3$Y), -1, d3$Y)
+ystar_no_nan <- ifelse(is.na(d3$Y_star), -1, d3$Y_star)
+W_no_nan <- as.matrix(
+  data.frame(intercept = d3$intercept, W = ifelse(is.na(d3$W), -1, d3$W))
+)
+
+# Population indicators
+s1 <- as.numeric(d3$S == 1)   # Main study (mismeasured outcome)
+s2 <- as.numeric(d3$S == 2)   # Target population
+s3 <- as.numeric(d3$S == 3)   # Validation sample
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    param <- theta[1:4]  # Measurement error parameters
+    beta <- theta[5:6]   # Sampling model coefficients
+
+    # Sampling model: logistic regression of the target indicator on W,
+    # restricted to the main study and target populations (S=1 or S=2)
+    ee_sm <- ee_regression(beta, X = W_no_nan, y = s2, model = "logistic")
+    ee_sm <- ee_sm * matrix(1 - s3, nrow = nrow(ee_sm),
+                            ncol = ncol(ee_sm), byrow = TRUE)
+
+    # Inverse odds of sampling weights: odds weight for the main study,
+    # one for the validation sample, zero for the target population
+    pi_s <- inverse_logit(as.numeric(W_no_nan %*% beta))
+    iosw <- s1 * pi_s / (1 - pi_s) + s3
+
+    # Weighted Rogan-Gladen correction, restricted to S=1 or S=3
+    ee_rg <- ee_rogan_gladen(param, y = y_no_nan, y_star = ystar_no_nan,
+                             r = s1, weights = iosw)
+    ee_rg <- ee_rg * matrix(1 - s2, nrow = nrow(ee_rg),
+                            ncol = ncol(ee_rg), byrow = TRUE)
+
+    rbind(ee_rg, ee_sm)
+  },
+  init = c(0.5, 0.5, 0.75, 0.75, 0., 0.),
+  solver = "lm"
+)
+
+se <- sqrt(diag(vcov(estr)))
+data.frame(
+  Param = c("Corrected_transported", "Mismeasured_weighted",
+            "Sensitivity", "Specificity", "beta_0", "beta_1"),
+  Coef = round(estr@theta, 4),
+  SE = round(se, 4),
+  LCL = round(confint(estr)[, 1], 4),
+  UCL = round(confint(estr)[, 2], 4)
+)
+#>                         Param    Coef     SE     LCL     UCL
+#> theta_1 Corrected_transported  0.0967 0.0381  0.0220  0.1714
+#> theta_2  Mismeasured_weighted  0.2677 0.0165  0.2354  0.3000
+#> theta_3           Sensitivity  0.9000 0.0212  0.8584  0.9416
+#> theta_4           Specificity  0.8000 0.0231  0.7547  0.8453
+#> theta_5                beta_0  0.0000 0.0775 -0.1519  0.1519
+#> theta_6                beta_1 -1.3848 0.1162 -1.6125 -1.1571
+```
+
+This combined estimator simultaneously corrects for misclassification
+and transports the result to the target population. The sandwich
+variance estimator properly accounts for the uncertainty in all nuisance
+parameters (sensitivity, specificity, and sampling weights), yielding
+valid confidence intervals for the transported, corrected proportion.
+
+## References
+
+Cole SR, Edwards JK, Breskin A, Rosin S, Zivich PN, Shook-Sa BE, &
+Hudgens MG. (2023). Illustration of two fusion designs and estimators.
+*American Journal of Epidemiology*, 192(3), 467-474.

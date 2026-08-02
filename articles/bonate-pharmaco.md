@@ -1,0 +1,412 @@
+# Bonate (2011): Dose-Response Models
+
+> **Note**
+>
+> This article is translated from the [Bonate (2011):
+> Pharmacokinetic-Pharmacodynamic Modeling
+> example](https://deli.readthedocs.io/en/latest/Examples/Bonate-Pharmaco.html)
+> in the documentation of [delicatessen](https://deli.readthedocs.io/),
+> deli’s Python counterpart.
+
+``` r
+
+library(deli)
+```
+
+Here, we replicate some of the examples described in Bonate (2011). The
+purpose of this document is to illustrate the versatility of `deli` by
+applying it to pharmacokinetic modeling. This can easily be done using
+the built-in estimating equations, as will be shown.
+
+## Chapter 4: Variance Models, Weighting, and Transformations
+
+The first example comes from Chapter 4. Data comes from Table 9 (pg 153)
+from a study by Byers et al. (1989) on XomaZyme-791 dose on percent
+change in albumin concentration among 17 patients. Note that this number
+of patients may be below what is considered sufficient for inference
+with the sandwich.
+
+The E-max model is described by R_i = E_0 + (E\_{m} - E_0)
+\frac{D_i}{ED\_{50} + D_i} where D is the dose, R is the response, E_0
+is the response at a dose of zero, E_m is the maximum response, and
+ED\_{50} is the halfway maximal dose. Here, E_0 = 0 so the E-max model
+reduces to R_i = E\_{m} \frac{D_i}{ED\_{50} + D_i}
+
+The corresponding data is presented below.
+
+``` r
+
+d <- c(5, 5, 13, 11, 14.5, 6.8, 42.5, 37.5, 25, 38, 40, 26.5, 27.7, 27.4, 45, 61.4, 52.8)
+r <- c(-12, -13, -28, -24, -45, -18, -26, -40, -45, -26, -29, -26, -22, -28, -36, -27, -48)
+```
+
+In the book, a two parameter E-max model is used. The first parameter is
+maximum response and the second is the 50% effective dose. The minimum
+dose will be set as zero (i.e., not estimated) since there is no data on
+a dose of zero.
+
+### Two-parameter E-max model
+
+Given this dose-response data, it appears that the dose-response begins
+to asymptote at some point beyond a dose of 10. Therefore, we should
+select a starting value of ED\_{50} below 10. Further, a maximum
+response value between -30 and -50 seems reasonable, so we will select
+-40 as the max effect starting value.
+
+``` r
+
+# Define estimating equation for 2-parameter E-max (E0 fixed at 0)
+psi <- function(theta) {
+  lower <- 0
+  vals <- c(lower, theta)
+  # Drop the first row (E0 equation) since E0 is fixed
+  ee_emax(theta = vals, dose = d, response = r)[2:3, , drop = FALSE]
+}
+
+# Estimate the parameters
+estr <- m_estimate(stacked_equations = psi, init = c(-40, 5))
+
+# View results
+coef(estr)
+#>       emax       ed50 
+#> -38.606821   6.194831
+sqrt(diag(vcov(estr)))
+#>     emax     ed50 
+#> 4.127048 2.395068
+confint(estr)
+#>           lower     upper
+#> emax -46.695685 -30.51796
+#> ed50   1.500584  10.88908
+```
+
+These results are close to what is reported in the book (note that a
+different variance estimator is used).
+
+### Outlier-robust E-max model
+
+While not discussed in the chapter, one might be concerned about
+outlying response values. Particularly, there are some large responses
+at low doses. These few response values might be overly influential on
+the overall E-max parameter estimates. To go beyond the book, we can
+consider the use of outlier-robust estimating functions. These apply an
+additional constraint that limits the maximum influence an observation
+can have to the estimating function. The following code uses the Huber
+function to limit the influence.
+
+``` r
+
+# Define robust estimating equation using Huber loss
+psi_robust <- function(theta) {
+  lower <- 0
+  vals <- c(lower, theta)
+  ee_emax(theta = vals, dose = d, response = r,
+          loss = "huber", k = 5)[2:3, , drop = FALSE]
+}
+
+# Estimate the parameters
+estr <- m_estimate(
+  stacked_equations = psi_robust,
+  init = c(-40, 5),
+  solver = "nleqslv"
+)
+
+# View results
+coef(estr)
+#>       emax       ed50 
+#> -35.544112   6.325701
+sqrt(diag(vcov(estr)))
+#>     emax     ed50 
+#> 4.170391 2.051520
+confint(estr)
+#>           lower     upper
+#> emax -43.717927 -27.37030
+#> ed50   2.304796  10.34661
+```
+
+Here, we observe a minor change in the estimated coefficients. The
+dose-response curve estimated using the outlier-robust approach did not
+drop as low as the non-robust method. This is expected given the
+apparent outliers around doses of 15, 25, and 52.
+
+## Chapter 9: Nonlinear Mixed Effects Models: Case Studies
+
+This chapter presents some case studies of nonlinear mixed effects
+models. Here, we will review some of the case studies but modify them to
+use estimating equations instead.
+
+### Pharmacodynamic Modeling of Acetylcholinesterase Inhibition
+
+Data comes from Cutler et al. 1995 and is provided in Table 1 of this
+chapter (pg 360). Data comes from 12 participants with Zifrosilone dose
+on inhibition of acetylcholinesterase. Here, multiple measurements were
+obtained from the same participants over different timings. We will
+explore the use of E-max models again but with some caveats. First, we
+load the data set.
+
+``` r
+
+d <- cutler1995
+```
+
+In this data, participants have multiple measures over time.
+
+#### Ignoring clustering
+
+Let’s first ignore the fact that a single unit contributes multiple
+times to estimation and treat all the observations as if they were
+independent.
+
+``` r
+
+# Define estimating equation for 3-parameter E-max
+psi <- function(theta) {
+  ee_emax(theta = theta, dose = d$zifro, response = d$acetyl)
+}
+
+# Estimate the parameters
+estr <- m_estimate(
+  stacked_equations = psi,
+  init = c(0, 60, 0.5),
+  solver = "nleqslv"
+)
+
+# View results
+coef(estr)
+#>         e0       emax       ed50 
+#> -2.2738986 84.4601225  0.5835241
+sqrt(diag(vcov(estr)))
+#>         e0       emax       ed50 
+#> 1.33595175 6.64581445 0.08522233
+confint(estr)
+#>           lower      upper
+#> e0   -4.8923159  0.3445187
+#> emax 71.4345656 97.4856795
+#> ed50  0.4164914  0.7505568
+```
+
+#### Accounting for clustering
+
+To account for the fact that observations within a participant are not
+independent, we use `aggregate_efuncs` to collapse the contributions by
+unique subject IDs. The dimension of the new estimating functions will
+be 3-by-12, to reflect the fact that there are only 12 independent
+observations.
+
+``` r
+
+# Define estimating equation with aggregation by subject
+psi_c <- function(theta) {
+  ef_emax_i <- ee_emax(theta = theta, dose = d$zifro, response = d$acetyl)
+  aggregate_efuncs(ef_emax_i, group = d$subject)
+}
+
+# Estimate the parameters
+estr <- m_estimate(
+  stacked_equations = psi_c,
+  init = c(0, 60, 0.5),
+  solver = "nleqslv"
+)
+
+# View results
+coef(estr)
+#>         e0       emax       ed50 
+#> -2.2738986 84.4601225  0.5835241
+sqrt(diag(vcov(estr)))
+#>         e0       emax       ed50 
+#> 1.55419104 7.40055760 0.07778967
+confint(estr)
+#>           lower      upper
+#> e0   -5.3200571  0.7722599
+#> emax 69.9552962 98.9649489
+#> ed50  0.4310592  0.7359891
+```
+
+As seen here, the point estimates are similar but the variance changes.
+
+#### Finite-sample correction
+
+However, 12 observations is still relatively few so we can further apply
+a finite-sample correction using `finite_correction`.
+
+``` r
+
+# Apply HC1 finite-sample correction
+estr <- m_estimate(
+  stacked_equations = psi_c,
+  init = c(0, 60, 0.5),
+  finite_correction = "HC1",
+  solver = "nleqslv"
+)
+
+# View results
+coef(estr)
+#>         e0       emax       ed50 
+#> -2.2738986 84.4601225  0.5835241
+sqrt(diag(vcov(estr)))
+#>         e0       emax       ed50 
+#> 1.79462523 8.54542784 0.08982377
+confint(estr)
+#>           lower       upper
+#> e0   -6.3336229   1.7858257
+#> emax 65.1290217 103.7912233
+#> ed50  0.3803286   0.7867196
+```
+
+Here, we see the variance increase a bit further (due to the additional
+correction). This concludes the case study showing how to account for
+non-independent observations and small sample sizes.
+
+## Chapter 11: Generalized Linear Models and Its Extensions
+
+### Adverse Events Case Study
+
+The first example from Chapter 11 is the *Case Study: Assessing the
+Relationship Between Drug Concentrations and Adverse Events Using
+Logistic Regression*. Data comes from Table 2 of the book. In the book,
+a variety of different models for different adverse events are
+considered. Here, we only consider nausea (and vomiting) by AUC. For the
+one observation with a missing AUC value, it is dropped from the data
+set (same as the book). For ease of examining the coefficients, we will
+also divide the AUC value by 1000.
+
+First, we load the data set and transform the columns.
+
+``` r
+
+d <- bonate_adverse
+d <- d[complete.cases(d), ]         # Drop rows with missing values
+d$intercept <- 1                    # Adding intercept to data
+d$auc <- d$auc / 1000              # Rescaling AUC
+d$c_max <- d$c_max / 1000          # Rescaling C_max
+```
+
+#### Null model
+
+To begin, we fit a null (intercept-only) logistic regression model using
+the built-in `ee_glm` estimating equation. For the logistic model, we
+specify a binomial distribution with the logit link.
+
+``` r
+
+# Estimating equation for null model
+psi <- function(theta) {
+  ee_glm(theta = theta,
+         X = as.matrix(d[, "intercept", drop = FALSE]),
+         y = d$nausea,
+         distribution = "binomial",
+         link = "logit")
+}
+
+# Estimate the parameters
+estr_null <- m_estimate(stacked_equations = psi, init = 0)
+coef(estr_null)
+#>    theta_1 
+#> -0.5877867
+```
+
+#### Full model
+
+Next we fit a logistic regression model that includes linear terms for
+all the independent variables in the data set.
+
+``` r
+
+# Estimating equation for full model
+psi <- function(theta) {
+  ee_glm(theta = theta,
+         X = as.matrix(d[, c("intercept", "auc", "sex", "age", "ps")]),
+         y = d$nausea,
+         distribution = "binomial",
+         link = "logit")
+}
+
+# Estimate the parameters
+estr_full <- m_estimate(stacked_equations = psi, init = c(0, 0, 0, 0, 0))
+coef(estr_full)
+#>     theta_1     theta_2     theta_3     theta_4     theta_5 
+#> -5.60289898  0.28978538  1.73029922  0.04953757  0.22054530
+```
+
+#### Reduced model
+
+In the book, Bonate performs some variable selection. In general, we
+would not recommend use of backwards-selection procedures (like those
+done in the book). Such procedures complicate inference (P-values and
+confidence intervals after these procedures are no longer valid). For
+comparison purposes, we estimate the reduced model reported in the book.
+
+``` r
+
+# Estimating equation for reduced model
+psi <- function(theta) {
+  ee_glm(theta = theta,
+         X = as.matrix(d[, c("intercept", "auc", "sex")]),
+         y = d$nausea,
+         distribution = "binomial",
+         link = "logit")
+}
+
+# Estimate the parameters
+estr_redu <- m_estimate(stacked_equations = psi, init = c(0, 0, 0))
+coef(estr_redu)
+#>    theta_1    theta_2    theta_3 
+#> -2.6635223  0.3035024  1.7722376
+```
+
+#### Probit model
+
+Two alternative models are considered: a probit regression model and a
+complementary log-log model. For the probit model, we set the link equal
+to `probit`.
+
+``` r
+
+# Estimating equation for reduced probit model
+psi <- function(theta) {
+  ee_glm(theta = theta,
+         X = as.matrix(d[, c("intercept", "auc", "sex")]),
+         y = d$nausea,
+         distribution = "binomial",
+         link = "probit")
+}
+
+# Estimate the parameters
+estr_prob <- m_estimate(stacked_equations = psi, init = c(0, 0, 0))
+coef(estr_prob)
+#>    theta_1    theta_2    theta_3 
+#> -1.6297287  0.1840296  1.0802533
+```
+
+#### Complementary log-log model
+
+Similarly, the complementary log-log model only requires setting the
+link to `cloglog`.
+
+``` r
+
+# Estimating equation for reduced C-log-log model
+psi <- function(theta) {
+  ee_glm(theta = theta,
+         X = as.matrix(d[, c("intercept", "auc", "sex")]),
+         y = d$nausea,
+         distribution = "binomial",
+         link = "cloglog")
+}
+
+# Estimate the parameters
+estr_clog <- m_estimate(stacked_equations = psi, init = c(0, 0, 0))
+coef(estr_clog)
+#>    theta_1    theta_2    theta_3 
+#> -2.2337199  0.1931076  1.2122905
+```
+
+These point estimates match those reported in Tables 3 and 4 on pages
+469 and 470 in the book (note the null model differs slightly, since we
+dropped the one observation with the missing AUC value to fit this
+model, but the book does not). These results highlight how `deli` allows
+one to easily fit a variety of different models.
+
+## References
+
+Bonate PL. (2011). *Pharmacokinetic-Pharmacodynamic Modeling and
+Simulations*. 2nd Edition. Springer, New York, NY.

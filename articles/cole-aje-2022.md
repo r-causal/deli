@@ -1,0 +1,311 @@
+# Cole et al. (2022): Addressing Missing Outcome Data
+
+> **Note**
+>
+> This article is translated from the [Cole et al. (2022): Addressing
+> Missing Outcome Data
+> example](https://deli.readthedocs.io/en/latest/Examples/Cole-AJE-2022.html)
+> in the documentation of [delicatessen](https://deli.readthedocs.io/),
+> deli’s Python counterpart.
+
+``` r
+
+library(deli)
+```
+
+Cole et al. (2022) reviewed approaches to addressing missing outcome
+data using direct imputation (g-computation). This was done in the
+context of a randomized trial on 17P injection for the prevention of
+preterm birth. All data was described in a table in the paper, so there
+is no need to track down any external data set.
+
+Here, we review selected examples and how g-computation for missing data
+can be implemented using M-estimation.
+
+## Data
+
+The trial data is reconstructed from the table in the paper. Four
+treatment by cervix-length strata define the observed outcomes. Several
+missing-data scenarios (`preterm1` through `preterm4`) induce different
+missingness patterns.
+
+``` r
+
+d <- data.frame(
+  short_cervix = c(rep(0, 215), rep(0, 222), rep(1, 186), rep(1, 177)),
+  p17 = c(rep(0, 215), rep(1, 222), rep(0, 186), rep(1, 177))
+)
+d$placebo <- 1 - d$p17
+
+d$preterm0 <- c(
+  rep(1, 15), rep(0, 215 - 15),
+  rep(1, 13), rep(0, 222 - 13),
+  rep(1, 21), rep(0, 186 - 21),
+  rep(1, 23), rep(0, 177 - 23)
+)
+
+d$preterm1 <- c(
+  rep(1, 11), rep(0, 161 - 11), rep(NA, 54),
+  rep(1, 10), rep(0, 167 - 10), rep(NA, 55),
+  rep(1, 16), rep(0, 140 - 16), rep(NA, 46),
+  rep(1, 17), rep(0, 133 - 17), rep(NA, 44)
+)
+
+d$preterm2 <- c(
+  rep(1, 8), rep(0, 108 - 8), rep(NA, 107),
+  rep(1, 13), rep(0, 222 - 13), rep(NA, 0),
+  rep(1, 21), rep(0, 186 - 21), rep(NA, 0),
+  rep(1, 12), rep(0, 89 - 12), rep(NA, 88)
+)
+
+d$preterm3 <- c(
+  rep(1, 15), rep(0, 215 - 15), rep(NA, 0),
+  rep(1, 13), rep(0, 222 - 13), rep(NA, 0),
+  rep(1, 21), rep(0, 186 - 21), rep(NA, 0),
+  rep(1, 0), rep(0, 0), rep(NA, 177)
+)
+
+d$preterm4 <- c(
+  rep(1, 15), rep(0, 100 - 15), rep(NA, 115),
+  rep(1, 7), rep(0, 216 - 7), rep(NA, 6),
+  rep(1, 21), rep(0, 186 - 21), rep(NA, 0),
+  rep(1, 12), rep(0, 81 - 12), rep(NA, 96)
+)
+
+d$C <- 1
+n <- nrow(d)
+```
+
+## Full-data risk ratio
+
+To start, we estimate the risk ratio using the complete outcome data
+(`preterm0`). The estimating function computes each risk separately and
+then takes the ratio (equivalently, the difference on the log-scale).
+
+``` r
+
+estr <- m_estimate(
+
+  stacked_equations = function(theta) {
+    a <- d$placebo
+    y <- d$preterm0
+
+    # Risk among placebo arm
+    ee_r1 <- matrix(a * (y - theta[2]), nrow = 1)
+    # Risk among 17P arm
+    ee_r0 <- matrix((1 - a) * (y - theta[3]), nrow = 1)
+    # Log risk ratio
+    ee_rr <- matrix(rep(log(theta[2]) - log(theta[3]) - theta[1], n), nrow = 1)
+
+    rbind(ee_rr, ee_r1, ee_r0)
+  },
+  init = c(0, 0.5, 0.5)
+)
+
+exp(c(rr = coef(estr)[[1]], confint(estr)[1, ]))
+#>        rr     lower     upper 
+#> 0.9950125 0.6403828 1.5460282
+```
+
+### Log-binomial model
+
+In the paper, the risk ratio is estimated using a log-binomial model. We
+can also do this via the `ee_glm` built-in estimating function. One
+caution is that the log-binomial can be finicky with starting values. In
+particular, we want to provide a good starting value for the intercept
+(using the mean of Y).
+
+``` r
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    ee_glm(
+      theta = theta,
+      X = as.matrix(d[, c("C", "placebo")]),
+      y = d$preterm0,
+      distribution = "binomial",
+      link = "log"
+    )
+  },
+  init = c(log(0.08), 0)
+)
+
+exp(c(rr = coef(estr)[[2]], confint(estr)[2, ]))
+#>        rr     lower     upper 
+#> 0.9950125 0.6403827 1.5460282
+```
+
+Both approaches give the same risk ratio to many decimal places.
+
+## Scenario A
+
+The first scenario induces non-informative missing outcome data (i.e.,
+missing completely at random). Here, we expect a complete-case analysis
+and g-computation to both be unbiased. The g-computation results should
+also be more efficient (narrower confidence intervals).
+
+### Complete-case analysis
+
+``` r
+
+a <- d$placebo
+r <- ifelse(is.na(d$preterm1), 0, 1)
+y_no_nan <- ifelse(is.na(d$preterm1), -999, d$preterm1)
+```
+
+``` r
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    ee_glm(
+      theta = theta,
+      X = as.matrix(d[, c("C", "placebo")]),
+      y = y_no_nan,
+      distribution = "binomial",
+      link = "log",
+      weights = r
+    )
+  },
+  init = c(log(0.09), 0)
+)
+
+exp(c(rr = coef(estr)[[2]], confint(estr)[2, ]))
+#>        rr     lower     upper 
+#> 0.9966777 0.5991557 1.6579438
+```
+
+As expected in this scenario, the complete-case results are similar to
+the full-data results. The confidence intervals are wider due to smaller
+effective sample size.
+
+### G-computation
+
+``` r
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    beta1 <- theta[4:5]
+    beta0 <- theta[6:7]
+    X <- as.matrix(d[, c("C", "short_cervix")])
+
+    # Outcome model for 17P=1 (placebo)
+    ee_reg1 <- ee_regression(beta1, X = X, y = y_no_nan, model = "logistic")
+    ee_reg1 <- ee_reg1 * matrix(r * a, nrow = nrow(ee_reg1), ncol = n, byrow = TRUE)
+
+    # Outcome model for 17P=0
+    ee_reg0 <- ee_regression(beta0, X = X, y = y_no_nan, model = "logistic")
+    ee_reg0 <- ee_reg0 * matrix(r * (1 - a), nrow = nrow(ee_reg0), ncol = n, byrow = TRUE)
+
+    # Predicted risks under each treatment
+    y1hat <- inverse_logit(as.numeric(X %*% beta1))
+    y0hat <- inverse_logit(as.numeric(X %*% beta0))
+
+    # Risk in each arm and log risk ratio
+    ee_r1 <- matrix(y1hat - theta[2], nrow = 1)
+    ee_r0 <- matrix(y0hat - theta[3], nrow = 1)
+    ee_rr <- matrix(rep(log(theta[2]) - log(theta[3]) - theta[1], n), nrow = 1)
+
+    rbind(ee_rr, ee_r1, ee_r0, ee_reg1, ee_reg0)
+  },
+  init = c(0, 0.5, 0.5, 0, 0, 0, 0)
+)
+
+exp(c(rr = coef(estr)[[1]], confint(estr)[1, ]))
+#>        rr     lower     upper 
+#> 0.9831422 0.5924721 1.6314163
+```
+
+The g-computation results are similar to the complete-case results. Both
+are unbiased under MCAR.
+
+## Scenario B
+
+In scenario B, we consider informative missing data. Specifically,
+cervix length is related to missingness. Here, a complete-case analysis
+will be biased, but g-computation should correct for this bias.
+
+### Complete-case analysis
+
+``` r
+
+a <- d$placebo
+r <- ifelse(is.na(d$preterm2), 0, 1)
+y_no_nan <- ifelse(is.na(d$preterm2), -999, d$preterm2)
+```
+
+``` r
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    ee_glm(
+      theta = theta,
+      X = as.matrix(d[, c("C", "placebo")]),
+      y = y_no_nan,
+      distribution = "binomial",
+      link = "log",
+      weights = r
+    )
+  },
+  init = c(log(0.09), 0)
+)
+
+exp(c(rr = coef(estr)[[2]], confint(estr)[2, ]))
+#>        rr     lower     upper 
+#> 1.2270748 0.7364169 2.0446471
+```
+
+### G-computation
+
+``` r
+
+estr <- m_estimate(
+  stacked_equations = function(theta) {
+    beta1 <- theta[4:5]
+    beta0 <- theta[6:7]
+    X <- as.matrix(d[, c("C", "short_cervix")])
+
+    # Outcome model for 17P=1 (placebo)
+    ee_reg1 <- ee_regression(beta1, X = X, y = y_no_nan, model = "logistic")
+    ee_reg1 <- ee_reg1 * matrix(r * a, nrow = nrow(ee_reg1), ncol = n, byrow = TRUE)
+
+    # Outcome model for 17P=0
+    ee_reg0 <- ee_regression(beta0, X = X, y = y_no_nan, model = "logistic")
+    ee_reg0 <- ee_reg0 * matrix(r * (1 - a), nrow = nrow(ee_reg0), ncol = n, byrow = TRUE)
+
+    # Predicted risks under each treatment
+    y1hat <- inverse_logit(as.numeric(X %*% beta1))
+    y0hat <- inverse_logit(as.numeric(X %*% beta0))
+
+    # Risk in each arm and log risk ratio
+    ee_r1 <- matrix(y1hat - theta[2], nrow = 1)
+    ee_r0 <- matrix(y0hat - theta[3], nrow = 1)
+    ee_rr <- matrix(rep(log(theta[2]) - log(theta[3]) - theta[1], n), nrow = 1)
+
+    rbind(ee_rr, ee_r1, ee_r0, ee_reg1, ee_reg0)
+  },
+  init = c(0, 0.5, 0.5, 0, 0, 0, 0)
+)
+
+exp(c(rr = coef(estr)[[1]], confint(estr)[1, ]))
+#>        rr     lower     upper 
+#> 0.9841727 0.5745667 1.6857850
+```
+
+Here, the complete-case analysis indicates a spurious relationship
+between 17P and preterm birth. However, g-computation correctly removes
+this bias by adjusting for cervix length as the driver of missingness.
+
+Unlike the original paper, we avoid bootstrapping for variance
+estimation by using the sandwich variance estimator instead, which is
+considerably more efficient computationally. This advantage of
+M-estimation was noted in the Discussion of Cole et al. (2022) but had
+not been demonstrated elsewhere.
+
+Additional scenarios are available in the data as `preterm3` and
+`preterm4`.
+
+## References
+
+Cole, S. R., Zivich, P. N., Edwards, J. K., Ross, R. K., Shook-Sa, B.
+E., Price, J. T., & Stringer, J. S. (2023). Missing outcome data in
+epidemiologic studies. *American Journal of Epidemiology*, 192(1), 6-10.
