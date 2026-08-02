@@ -3,6 +3,15 @@ template:
   bootstrap: 5
   math-rendering: katex
 
+navbar:
+  structure:
+    left: [get_started, reference, articles, news]
+    right: [search, github]
+  components:
+    get_started:
+      text: Get started
+      href: articles/getting-started.html
+
 articles:
   - title: Get Started
     navbar: ~
