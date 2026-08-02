@@ -282,11 +282,10 @@ m@theta
 
 ## Predictions after regression
 
-After fitting any regression model, use `regression_predictions()` for
-predicted values with confidence intervals. It takes a design matrix rather
-than a data frame, so build the prediction design with the same columns in the
-same order as the fitted model. Here the formula `y ~ x` gives an intercept
-followed by `x`:
+After fitting any regression model, use `generics::augment()` for predicted
+values with confidence intervals. Give it a data frame of new covariate values
+as `newdata`, with one column for each variable the formula names, and it
+returns that frame with `.fitted`, `.se.fit`, `.lower`, and `.upper` beside it:
 
 ```{r predictions}
 set.seed(42)
@@ -298,7 +297,10 @@ d <- data.frame(x, y)
 m <- m_estimate(y ~ x, data = d, .ee = ee_regression, model = "linear")
 
 # Predict at new covariate values
-x_new <- seq(-2, 2, length.out = 5)
-X_new <- cbind(1, x_new)
-regression_predictions(X_new, coef(m), vcov(m))
+generics::augment(m, newdata = data.frame(x = seq(-2, 2, length.out = 5)))
 ```
+
+Called without `newdata`, `augment()` reports the rows the model was fitted to
+and adds a `.resid` column as well. For a model with a non-identity link,
+`type.predict = "response"` moves `.fitted` and its interval from the linear
+predictor to the scale of the response.
