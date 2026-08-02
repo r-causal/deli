@@ -15,6 +15,14 @@ library(deli)
 #| include: false
 # The Python blocks below run against a project-local virtual environment
 # containing delicatessen and NumPy.
+if (!dir.exists("../../.venv")) {
+  cli::cli_abort(c(
+    "Can't find {.path .venv}, the Python virtual environment that this article's Python chunks run in.",
+    i = "Create it from the repository root with uv: {.code uv venv .venv && uv pip install delicatessen}",
+    i = "Or with base Python: {.code python3 -m venv .venv && .venv/bin/pip install delicatessen}",
+    i = "delicatessen brings NumPy and SciPy in as dependencies."
+  ))
+}
 reticulate::use_virtualenv("../../.venv", required = TRUE)
 ```
 
