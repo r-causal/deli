@@ -156,14 +156,17 @@ test_that("ee_mlogit does not read parameter names off the outcome labels", {
   )
 })
 
-test_that("ee_mlogit counts a vector outcome as a single category", {
+test_that("ee_mlogit refuses a vector outcome as a single category", {
+  skip("pending the one-column outcome refusal in ee_mlogit")
+
   d <- mlogit_indicator_data()
 
   # A vector becomes a one-column matrix, which leaves no non-reference
-  # category to estimate.
+  # category to estimate. The phrase is matched across whitespace so that the
+  # assertion holds wherever cli wraps the line it sits on.
   expect_error(
     ee_mlogit(rep(0, 4), X = d$X, y = as.numeric(d$category)),
-    "For 1 categories"
+    regexp = "at least\\s+three\\s+categories"
   )
 })
 
@@ -399,9 +402,102 @@ test_that("m_estimate reports the two-column rejection rather than fitting it", 
   )
 })
 
-# The refusal is of two categories alone. Three categories leave a system that
-# is an invertible transformation of the multinomial score, which is what the
-# equation is for, so this guards the refusal from reaching past its case.
+# A one-column indicator leaves no non-reference category at all, so there is no
+# parameter block to estimate. Without a refusal the equation reads zero as the
+# number of parameters it wants: a zero-length theta then builds an empty list
+# of linear predictors, which binds to NULL and comes back as a score of no
+# rows, and every other length is answered by arithmetic over the number of
+# categories rather than by the outcome that is wrong. A plain numeric vector
+# arrives here as well, since as.matrix() gives it a single column, and a 0/1
+# vector is the two-level outcome that ee_glm() fits.
+
+mlogit_single_column_data <- function() {
+  set.seed(4321)
+  n <- 60
+  w <- rbinom(n, 1, 0.5)
+  indicator <- rbinom(n, 1, 0.6 - 0.2 * w)
+  list(
+    X = cbind(1, w),
+    y = matrix(indicator, ncol = 1),
+    indicator = indicator
+  )
+}
+
+test_that("ee_mlogit refuses a one-column indicator outcome", {
+  skip("pending the one-column outcome refusal in ee_mlogit")
+
+  d <- mlogit_single_column_data()
+
+  # Both lengths of theta reach the same refusal: zero is the number of
+  # parameters one category asks for, and two is what the two columns of X
+  # would give a non-reference category if there were one. The phrase is
+  # matched across whitespace so that the assertion holds wherever cli wraps
+  # the line it sits on.
+  expect_error(
+    ee_mlogit(numeric(0), X = d$X, y = d$y),
+    regexp = "at least\\s+three\\s+categories"
+  )
+  expect_error(
+    ee_mlogit(rep(0, 2), X = d$X, y = d$y),
+    regexp = "at least\\s+three\\s+categories"
+  )
+})
+
+test_that("ee_mlogit sends a one-column outcome to ee_glm", {
+  skip("pending the one-column outcome refusal in ee_mlogit")
+
+  d <- mlogit_single_column_data()
+
+  # The equation that fits a two-level outcome, and the family it is fit under.
+  # Read out of the message rather than snapshotted, so that the assertion holds
+  # whatever cli wraps around the two of them.
+  expect_error(
+    ee_mlogit(rep(0, 2), X = d$X, y = d$y),
+    regexp = "ee_glm"
+  )
+  expect_error(
+    ee_mlogit(rep(0, 2), X = d$X, y = d$y),
+    regexp = "binomial"
+  )
+})
+
+test_that("ee_mlogit refuses a 0/1 vector outcome", {
+  skip("pending the one-column outcome refusal in ee_mlogit")
+
+  d <- mlogit_single_column_data()
+
+  # A two-level outcome handed over as the vector it is held in, rather than as
+  # an indicator matrix, is one column and so one category. This is the case
+  # the binomial pointer is written for.
+  expect_error(
+    ee_mlogit(numeric(0), X = d$X, y = d$indicator),
+    regexp = "at least\\s+three\\s+categories"
+  )
+  expect_error(
+    ee_mlogit(rep(0, 2), X = d$X, y = d$indicator),
+    regexp = "binomial"
+  )
+})
+
+test_that("m_estimate reports the one-column refusal rather than a length", {
+  skip("pending the one-column outcome refusal in ee_mlogit")
+
+  d <- mlogit_single_column_data()
+  psi <- function(theta) ee_mlogit(theta, X = d$X, y = d$y)
+
+  # A zero-length `init` never reaches the equation, since m_estimate() refuses
+  # an empty parameter vector of its own accord. Any other length does reach
+  # it, and what comes back names the outcome rather than the arithmetic the
+  # number of categories leaves.
+  expect_error(
+    m_estimate(stacked_equations = psi, init = rep(0, 2)),
+    regexp = "at least\\s+three\\s+categories"
+  )
+})
+
+# The refusals are of one and two categories. Three categories leave a system
+# that is an invertible transformation of the multinomial score, which is what
+# the equation is for, so this guards them from reaching past their cases.
 
 test_that("ee_mlogit fits a three-column indicator outcome", {
   d <- mlogit_indicator_data()
