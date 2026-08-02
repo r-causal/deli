@@ -72,13 +72,19 @@ validates it instead.
 
 \examples{
 # Bladder tumor recurrence, fit with disjoint indicators for time
-d <- collett_bladder
-d$novel <- d$treat - 1
-W <- as.matrix(d[, c("novel", "init", "size")])
-k <- length(unique(d$time[d$delta == 1]))
+W <- cbind(
+  novel = collett_bladder$treat - 1,
+  as.matrix(collett_bladder[, c("init", "size")])
+)
+k <- length(unique(collett_bladder$time[collett_bladder$delta == 1]))
 
 psi <- function(theta) {
-  ee_plogit(theta, X = W, time = d$time, event = d$delta)
+  ee_plogit(
+    theta,
+    X = W,
+    time = collett_bladder$time,
+    event = collett_bladder$delta
+  )
 }
 m <- m_estimate(
   stacked_equations = psi,
@@ -89,8 +95,11 @@ m <- m_estimate(
 # disease-free survival at 12, 24, and 59 months for the first five people.
 plogit_predict(
   coef(m),
-  time = d$time, event = d$delta, X = W,
-  times_to_predict = c(12, 24, 59), measure = "survival"
+  time = collett_bladder$time,
+  event = collett_bladder$delta,
+  X = W,
+  times_to_predict = c(12, 24, 59),
+  measure = "survival"
 )[, 1:5]
 
 }

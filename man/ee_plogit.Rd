@@ -57,16 +57,22 @@ does not require creation of a long data set.
 \examples{
 # Bladder tumor recurrence, comparing the novel treatment to placebo while
 # adjusting for the number and size of the initial tumors.
-d <- collett_bladder
-d$novel <- d$treat - 1
-W <- as.matrix(d[, c("novel", "init", "size")])
+W <- cbind(
+  novel = collett_bladder$treat - 1,
+  as.matrix(collett_bladder[, c("init", "size")])
+)
 
 # Time is modeled with disjoint indicators, one per distinct event time,
 # which ee_plogit builds by default.
-k <- length(unique(d$time[d$delta == 1]))
+k <- length(unique(collett_bladder$time[collett_bladder$delta == 1]))
 
 psi <- function(theta) {
-  ee_plogit(theta, X = W, time = d$time, event = d$delta)
+  ee_plogit(
+    theta,
+    X = W,
+    time = collett_bladder$time,
+    event = collett_bladder$delta
+  )
 }
 m <- m_estimate(
   stacked_equations = psi,
