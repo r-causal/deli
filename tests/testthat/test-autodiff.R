@@ -4126,11 +4126,14 @@ test_that("asinh reads non-finite and ordinary primals elementwise", {
 # and atanh) all take their rules from the elementwise table in `pt_math_rule`,
 # so each is read here both as a scalar pair and on the array surface the same
 # table serves. Beyond the closed forms, each rule is also read at the extremes
-# of its domain: where the domain is bounded, as it is for asin, acos, and
-# atanh, no arrangement of the rule can overflow at all, and where it is not,
-# the reading is pinned across the whole range where a derivative is
-# representable, subnormal windows included, up to the primal where zero is the
-# correctly rounded answer.
+# of its domain, and what those extremes hold differs by rule. Where the domain
+# is bounded, as it is for asin, acos, and atanh, no arrangement of the rule can
+# overflow at all. sinh and cosh reach an infinite derivative beside an infinite
+# value, so neither leaves a finite value carrying a derivative it has lost.
+# atan and tanh are the two whose derivatives decay toward zero while the value
+# stays ordinary, and those two are pinned across the whole range where a
+# derivative is representable, subnormal windows included, up to the primal
+# where zero is the correctly rounded answer.
 #
 # Some of those regimes put the true derivative near the bottom of the double
 # range, where the default tolerance compares absolutely and every value below

@@ -732,10 +732,10 @@ pt_math_rule <- function(generic, p, t) {
     # whole window an ordinary tangent silently reads zero beside a value that
     # has long since settled at +-1. Dividing by cosh twice reaches the same
     # derivative without ever forming the square, and at an ordinary primal the
-    # two divisions sit within a unit in the last place of the squared form,
-    # neither one nearer the correctly rounded derivative than the other. An
-    # infinite primal reads t / Inf / Inf, which is the zero the derivative
-    # reaches in the limit.
+    # two divisions sit within a unit or two in the last place of the squared
+    # form, so nothing about the ordinary regime is given up. An infinite primal
+    # reads t / Inf / Inf, which is the zero the derivative reaches in the
+    # limit.
     "tanh" = list(primal = tanh(p), tangent = (t / cosh(p)) / cosh(p)),
     # The asinh derivative 1 / sqrt(p^2 + 1) is written with the square root
     # divided through by a scale rather than as the textbook square. That square
