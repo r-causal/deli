@@ -157,8 +157,6 @@ test_that("ee_mlogit does not read parameter names off the outcome labels", {
 })
 
 test_that("ee_mlogit refuses a vector outcome as a single category", {
-  skip("pending the one-column outcome refusal in ee_mlogit")
-
   d <- mlogit_indicator_data()
 
   # A vector becomes a one-column matrix, which leaves no non-reference
@@ -166,7 +164,7 @@ test_that("ee_mlogit refuses a vector outcome as a single category", {
   # assertion holds wherever cli wraps the line it sits on.
   expect_error(
     ee_mlogit(rep(0, 4), X = d$X, y = as.numeric(d$category)),
-    regexp = "at least\\s+three\\s+categories"
+    regexp = "at\\s+least\\s+three\\s+categories"
   )
 })
 
@@ -424,8 +422,6 @@ mlogit_single_column_data <- function() {
 }
 
 test_that("ee_mlogit refuses a one-column indicator outcome", {
-  skip("pending the one-column outcome refusal in ee_mlogit")
-
   d <- mlogit_single_column_data()
 
   # Both lengths of theta reach the same refusal: zero is the number of
@@ -435,17 +431,15 @@ test_that("ee_mlogit refuses a one-column indicator outcome", {
   # the line it sits on.
   expect_error(
     ee_mlogit(numeric(0), X = d$X, y = d$y),
-    regexp = "at least\\s+three\\s+categories"
+    regexp = "at\\s+least\\s+three\\s+categories"
   )
   expect_error(
     ee_mlogit(rep(0, 2), X = d$X, y = d$y),
-    regexp = "at least\\s+three\\s+categories"
+    regexp = "at\\s+least\\s+three\\s+categories"
   )
 })
 
 test_that("ee_mlogit sends a one-column outcome to ee_glm", {
-  skip("pending the one-column outcome refusal in ee_mlogit")
-
   d <- mlogit_single_column_data()
 
   # The equation that fits a two-level outcome, and the family it is fit under.
@@ -462,8 +456,6 @@ test_that("ee_mlogit sends a one-column outcome to ee_glm", {
 })
 
 test_that("ee_mlogit refuses a 0/1 vector outcome", {
-  skip("pending the one-column outcome refusal in ee_mlogit")
-
   d <- mlogit_single_column_data()
 
   # A two-level outcome handed over as the vector it is held in, rather than as
@@ -471,7 +463,7 @@ test_that("ee_mlogit refuses a 0/1 vector outcome", {
   # the binomial pointer is written for.
   expect_error(
     ee_mlogit(numeric(0), X = d$X, y = d$indicator),
-    regexp = "at least\\s+three\\s+categories"
+    regexp = "at\\s+least\\s+three\\s+categories"
   )
   expect_error(
     ee_mlogit(rep(0, 2), X = d$X, y = d$indicator),
@@ -480,8 +472,6 @@ test_that("ee_mlogit refuses a 0/1 vector outcome", {
 })
 
 test_that("m_estimate reports the one-column refusal rather than a length", {
-  skip("pending the one-column outcome refusal in ee_mlogit")
-
   d <- mlogit_single_column_data()
   psi <- function(theta) ee_mlogit(theta, X = d$X, y = d$y)
 
@@ -491,7 +481,7 @@ test_that("m_estimate reports the one-column refusal rather than a length", {
   # number of categories leaves.
   expect_error(
     m_estimate(stacked_equations = psi, init = rep(0, 2)),
-    regexp = "at least\\s+three\\s+categories"
+    regexp = "at\\s+least\\s+three\\s+categories"
   )
 })
 

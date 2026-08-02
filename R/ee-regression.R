@@ -613,6 +613,20 @@ ee_mlogit <- function(theta, X, y, weights = NULL, offset = NULL) {
       class = "deli_mlogit_binary_outcome"
     )
   }
+  # One column is the reference category on its own, so there is no
+  # non-reference block left for the parameters to describe.
+  if (k <= 1) {
+    cli::cli_abort(
+      c(
+        "{.arg y} must be an indicator matrix with at least three categories.",
+        "x" = "It holds {k} column{?s}, which leave{?s/} no non-reference
+               category to estimate.",
+        "i" = "A 0/1 vector or a one-column indicator is a two-level outcome,
+               which {.fn ee_glm} fits with
+               {.code distribution = \"binomial\"}."
+      )
+    )
+  }
   if (!is.null(offset)) {
     check_data_length(offset, n, "offset")
   }
