@@ -99,13 +99,27 @@ summary(m_ipw)
 
 ### Truncating propensity scores
 
-Extreme propensity scores can inflate variance. Use `truncate` to clip
-them:
+Propensity scores near zero or one produce very large weights, and a
+handful of large weights can dominate an IPW estimate. `truncate` clips
+the fitted scores to a range before they are inverted. Whether that
+changes anything depends on the scores themselves, so look at them
+first:
+
+```{r ps-range}
+# Propensity scores implied by the alphas in the fitted stack
+ps <- plogis(drop(W_ps %*% m_ipw@theta[4:6]))
+range(ps)
+```
+
+Nothing here is close to zero or one, so a conventional range such as
+`c(0.1, 0.9)` would leave every score untouched and the fit unchanged. A
+deliberately tight range shows what truncation does. `c(0.3, 0.7)` clips
+about a sixth of the scores, nearly all of them in the lower tail:
 
 ```{r ipw-truncate}
 psi_ipw_trunc <- function(theta) {
   ee_ipw(theta, y = Y, A = A, W = W_ps,
-         truncate = c(0.1, 0.9))
+         truncate = c(0.3, 0.7))
 }
 
 m_ipw_trunc <- m_estimate(
@@ -114,6 +128,30 @@ m_ipw_trunc <- m_estimate(
 )
 summary(m_ipw_trunc)
 ```
+
+Both the ACE and its standard error move relative to the untruncated
+fit:
+
+```{r compare-truncation}
+data.frame(
+  fit = c("Untruncated", "Truncated"),
+  estimate = round(c(m_ipw@theta[[1]], m_ipw_trunc@theta[[1]]), 4),
+  std_err = round(
+    sqrt(c(vcov(m_ipw)[1, 1], vcov(m_ipw_trunc)[1, 1])),
+    4
+  )
+)
+```
+
+Truncation is usually motivated as a variance reduction, so the rise in
+the standard error is worth dwelling on. Clipping pays for itself only
+when the weights it caps are genuinely extreme, which is not the case
+here. It also costs precision that joint estimation would otherwise
+supply: a clipped score no longer moves with the propensity score
+parameters, so the sandwich variance credits less of the gain from
+estimating those parameters rather than treating them as known. Compare
+a truncated fit against the untruncated one instead of reaching for a
+range by default.
 
 ## Augmented IPW (doubly robust)
 
