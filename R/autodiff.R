@@ -600,7 +600,18 @@ pt_ops_binary <- function(e1, e2, generic) {
     "+" = wrap(p1 + p2, t1 + t2),
     "-" = wrap(p1 - p2, t1 - t2),
     "*" = wrap(p1 * p2, t1 * p2 + p1 * t2),
-    "/" = wrap(p1 / p2, (t1 * p2 - p1 * t2) / p2^2),
+    # The quotient rule is written as (t1 - (p1 / p2) * t2) / p2 rather than as
+    # the textbook (t1 * p2 - p1 * t2) / p2^2. The two are algebraically the
+    # same, but the textbook form squares the denominator, and that square
+    # overflows to Inf past a primal of about 1.3e154 even where the quotient
+    # and its derivative are both ordinary values; the tangent then reads Inf,
+    # NaN, or a silent zero. Dividing through by the denominator once reaches
+    # the same derivative without ever forming the square. The value path is the
+    # same division under either form, so nothing about the primal moves.
+    "/" = {
+      quotient <- p1 / p2
+      wrap(quotient, (t1 - quotient * t2) / p2)
+    },
     "^" = {
       if (pow_is_variable) {
         wrap(p1^p2, p2 * p1^(p2 - 1) * t1 + p1^p2 * log(p1) * t2)

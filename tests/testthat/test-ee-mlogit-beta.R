@@ -230,8 +230,6 @@ test_that("ee_mlogit reads the same scores where nothing overflows", {
 # probabilities has to reach the same derivative the finite differences do.
 
 test_that("ee_mlogit differentiates exactly where the softmax denominator is huge", {
-  skip("pending the division rule that divides through by the denominator")
-
   X <- cbind(1, c(0, 1))
   # The first observation is in the reference category and the second is in the
   # last category.

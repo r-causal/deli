@@ -3850,8 +3850,6 @@ test_that("the already flat tangent shapes report the same column", {
 # apart.
 
 test_that("division tangents survive a denominator whose square overflows", {
-  skip("pending the division rule that divides through by the denominator")
-
   # p1 = 3e200 over p2 = 1e200 carrying tangents t1 = 2 and t2 = 5. The
   # derivative is (t1 - (p1 / p2) * t2) / p2 = (2 - 3 * 5) / 1e200, which is
   # -1.3e-199. Squaring 1e200 reaches Inf and the tangent collapses to zero.
@@ -3879,8 +3877,6 @@ test_that("division tangents survive a denominator whose square overflows", {
 })
 
 test_that("auto_differentiation reads the gradient of a large quotient", {
-  skip("pending the division rule that divides through by the denominator")
-
   f <- function(x) x[1] / x[2]
   result <- auto_differentiation(c(3e200, 1e200), f)
   # df/dx1 = 1 / x2 = 1e-200 and df/dx2 = -x1 / x2^2 = -3e-200, both of which
