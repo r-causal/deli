@@ -4045,3 +4045,75 @@ test_that("acosh reads its derivative just above a primal of one", {
   expect_equal(r$primal, acosh(p))
   expect_equal(r$tangent, 1 / sqrt((p - 1) * (p + 1)))
 })
+
+test_that("asinh and acosh tangents read an infinite primal as zero", {
+  # Both derivatives fall off like 1 / abs(p), so at an infinite primal the
+  # limit is zero, and zero is the reading to hold. It is not the silent zero
+  # the overflow produces: out there the derivative is genuinely zero rather
+  # than unread. A rule that divides the square root through by a scale which is
+  # itself infinite would instead form Inf / Inf and report NaN, raising a false
+  # alarm where the old squared form was right.
+  at_inf <- asinh(primal_tangent(Inf, 1))
+  expect_equal(at_inf$primal, Inf)
+  expect_equal(at_inf$tangent, 0)
+
+  # The derivative is even in p, so a primal of -Inf reads the same zero.
+  at_negative_inf <- asinh(primal_tangent(-Inf, 1))
+  expect_equal(at_negative_inf$primal, -Inf)
+  expect_equal(at_negative_inf$tangent, 0)
+
+  # An incoming tangent other than one is carried to the same zero.
+  carried <- asinh(primal_tangent(Inf, -2.5))
+  expect_equal(carried$tangent, 0)
+
+  # acosh reaches that zero from its factored roots without needing a guard,
+  # since sqrt(p - 1) and sqrt(p + 1) are both infinite together.
+  acosh_at_inf <- acosh(primal_tangent(Inf, 1))
+  expect_equal(acosh_at_inf$primal, Inf)
+  expect_equal(acosh_at_inf$tangent, 0)
+})
+
+test_that("asinh and acosh tangents propagate a missing or undefined primal", {
+  # NaN and NA are separate readings and neither one is a derivative: a primal
+  # that is not a number has no derivative to report, and a missing primal
+  # leaves it unknown. Both have to travel through the scaling rather than be
+  # caught by the guard against an infinite primal and returned as an ordinary
+  # number. The assertions are identity rather than tolerance so that neither
+  # reading can stand in for the other.
+  asinh_nan <- asinh(primal_tangent(NaN, 1))
+  expect_identical(asinh_nan$primal, NaN)
+  expect_identical(asinh_nan$tangent, NaN)
+
+  asinh_na <- asinh(primal_tangent(NA_real_, 1))
+  expect_identical(asinh_na$primal, NA_real_)
+  expect_identical(asinh_na$tangent, NA_real_)
+
+  acosh_nan <- acosh(primal_tangent(NaN, 1))
+  expect_identical(acosh_nan$primal, NaN)
+  expect_identical(acosh_nan$tangent, NaN)
+
+  acosh_na <- acosh(primal_tangent(NA_real_, 1))
+  expect_identical(acosh_na$primal, NA_real_)
+  expect_identical(acosh_na$tangent, NA_real_)
+})
+
+test_that("asinh reads non-finite and ordinary primals elementwise", {
+  # The scaling is elementwise, so an array holding an infinite primal, one that
+  # is not a number, one whose square overflows, and one ordinary value reads
+  # each on its own terms rather than letting the largest set the reading for
+  # the rest.
+  arr <- asinh(primal_tangent_array(c(Inf, NaN, 1e200, 2), c(1, 1, 1, 3)))
+  expect_equal(arr$tangent[[1]], 0)
+  expect_identical(arr$tangent[[2]], NaN)
+  expect_equal(arr$tangent[[3]] * 1e200, 1)
+  expect_equal(arr$tangent[[4]], 3 / sqrt(5))
+
+  # A matrix primal keeps its shape through the scaling, so the tangent array a
+  # matrix-valued estimating equation carries stays conformable.
+  shaped <- asinh(primal_tangent_array(
+    matrix(c(Inf, 2, -Inf, 0), nrow = 2),
+    matrix(1, nrow = 2, ncol = 2)
+  ))
+  expect_equal(dim(shaped$tangent), c(2L, 2L))
+  expect_equal(shaped$tangent, matrix(c(0, 1 / sqrt(5), 0, 1), nrow = 2))
+})

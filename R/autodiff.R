@@ -709,12 +709,17 @@ pt_math_rule <- function(generic, p, t) {
     # what holds both ends. It keeps the derivative at exactly one for a primal
     # of zero, where dividing through unconditionally would read 0 * Inf, and it
     # keeps 1 / p^2 from being formed at a primal small enough for the reciprocal
-    # of its square to be Inf.
+    # of its square to be Inf. An infinite primal is the one magnitude the scale
+    # cannot divide, since it would read Inf / Inf as NaN, so that ratio is held
+    # at one and the infinite scale carries the tangent to the zero the
+    # derivative reaches in the limit. A primal that is NaN or NA passes through
+    # the scale itself and stays unread.
     "asinh" = {
       scale <- pmax(abs(p), 1)
+      scaled <- ifelse(is.finite(p), p / scale, 1)
       list(
         primal = asinh(p),
-        tangent = t / (scale * sqrt((p / scale)^2 + (1 / scale)^2))
+        tangent = t / (scale * sqrt(scaled^2 + (1 / scale)^2))
       )
     },
     # The acosh derivative 1 / sqrt(p^2 - 1) squares the primal for the same
