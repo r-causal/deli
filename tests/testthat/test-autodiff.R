@@ -4130,10 +4130,13 @@ test_that("asinh reads non-finite and ordinary primals elementwise", {
 # is bounded, as it is for asin, acos, and atanh, no arrangement of the rule can
 # overflow at all. sinh and cosh reach an infinite derivative beside an infinite
 # value, so neither leaves a finite value carrying a derivative it has lost.
-# atan and tanh are the two whose derivatives decay toward zero while the value
-# stays ordinary, and those two are pinned across the whole range where a
-# derivative is representable, subnormal windows included, up to the primal
-# where zero is the correctly rounded answer.
+# atan and tanh are the two whose derivatives decay past the bottom of the
+# double range while the value stays ordinary, and both are pinned across the
+# whole range where a derivative is representable, subnormal windows included,
+# up to the primal where zero is the correctly rounded answer. log2 and log10
+# never reach that bottom, since the primal is itself bounded by the largest
+# double, so what the log-base readings below turn on is the arrangement of the
+# rule rather than what a double can hold.
 #
 # Some of those regimes put the true derivative near the bottom of the double
 # range, where the default tolerance compares absolutely and every value below
@@ -4295,6 +4298,98 @@ test_that("the log, inverse trigonometric, and hyperbolic rules read a tangent a
   ))
   expect_equal(dim(shaped$tangent), c(2L, 2L))
   expect_equal(shaped$tangent, 1 / cosh(matrix_primal)^2)
+})
+
+test_that("the log2 tangent stays finite at the largest double", {
+  # d log_b(p) / dp is 1 / (p log b), and for base two the constant is below
+  # one, so the product p log 2 tops out at about 1.25e308 and cannot overflow
+  # at any primal a double holds. log2 therefore has no window of the kind the
+  # guard below reads for log10: there is no primal where an ordinary value
+  # carries a derivative the arrangement has lost. At the largest double itself
+  # the product is finite and the derivative is an ordinary subnormal of about
+  # 8.03e-309.
+  #
+  # Both arrangements are faithful here and the reference could be either. The
+  # closed form 1 / (p log(2)) and the reciprocated form (1 / p) / log(2) agree
+  # to the bit at this primal, which is the measured statement that the
+  # arrangement makes no difference for this base, and the assertion below is
+  # written against the closed form for that reason. The comparison is rescaled
+  # to the size of the derivative, as the subnormal readings elsewhere in this
+  # section are.
+  p <- .Machine$double.xmax
+  expect_true(is.finite(p * log(2)))
+  expect_identical(1 / (p * log(2)), (1 / p) / log(2))
+
+  derivative <- 1 / (p * log(2))
+  r <- log2(primal_tangent(p, 1))
+  expect_s3_class(r, "PrimalTangent")
+  expect_equal(r$primal, log2(p))
+  expect_equal(r$primal, 1024)
+  expect_equal(r$tangent * 1e308, derivative * 1e308)
+
+  # An incoming tangent other than one scales through untouched.
+  carried <- log2(primal_tangent(p, -2.5))
+  expect_equal(carried$tangent * 1e308, -2.5 * derivative * 1e308)
+})
+
+test_that("the log10 tangent reads its derivative past the product's overflow", {
+  skip("pending the log10 rule that divides through before the constant")
+
+  # ln 10 is above one, so for base ten the product the rule forms runs out of
+  # range before the primal does: p log 10 is Inf past a primal of about
+  # 7.81e307, the largest double divided by ln 10, while log10(p) there is an
+  # ordinary 308 and the true derivative 1 / (p ln 10) stays a representable
+  # subnormal across the whole remainder of the range, from about 5.56e-309 at
+  # the near edge of the window down to about 2.42e-309 at the largest double.
+  # Every primal in that window carries a derivative the rule reports as zero.
+  # At p = 1e308 the true derivative is about 4.34e-309.
+  #
+  # The reference reciprocates before dividing by the constant. The closed form
+  # 1 / (p * log(10)) cannot serve as the reference here, because it forms the
+  # same overflowing product the rule does and reads the same zero: it is the
+  # defect rather than a reading to compare against. Measured at this primal,
+  # (1 / p) / log(10) reads 4.342944819032513e-309 and the equivalent
+  # (1 / p) * (1 / log(10)) reads it to the bit. Computing the same derivative
+  # entirely in the normal range, as (1e308 / p) / log(10), agrees with the
+  # rescaled reference to about 4e-16 relative, which is inside the roughly
+  # 1e-15 resolution a subnormal of this size carries. An exponential
+  # arrangement, exp(-log(p) - log(log(10))), reaches the same value to about
+  # 6e-14 relative and is not used because it carries the logarithm's error for
+  # no gain.
+  #
+  # The comparisons are rescaled to the size of the derivative because the
+  # default tolerance compares absolutely down here, where the zero the rule
+  # reads and the true derivative are a rounding error apart.
+  p <- 1e308
+  derivative <- (1 / p) / log(10)
+
+  r <- log10(primal_tangent(p, 1))
+  expect_s3_class(r, "PrimalTangent")
+  expect_equal(r$primal, log10(p))
+  expect_equal(r$primal, 308)
+  expect_equal(r$tangent * 1e308, derivative * 1e308)
+
+  # An incoming tangent other than one scales through untouched.
+  carried <- log10(primal_tangent(p, -2.5))
+  expect_equal(carried$tangent * 1e308, -2.5 * derivative * 1e308)
+
+  # One element inside the window and one at an ordinary magnitude, each read
+  # on its own scale, so the array surface is held to the same rule as the
+  # scalar pair.
+  arr <- log10(primal_tangent_array(c(p, 2), c(1, 3)))
+  expect_s3_class(arr, "PrimalTangentArray")
+  expect_equal(arr$primal, log10(c(p, 2)))
+  expect_equal(
+    arr$tangent * c(1e308, 1),
+    c(derivative * 1e308, 3 / (2 * log(10)))
+  )
+
+  # The window has no far end short of the largest double: the primal runs out
+  # first, so there is no primal beyond it where zero would be the correctly
+  # rounded answer. Reading the tangent at that last primal as strictly
+  # positive pins the far end without a comparison at a magnitude where a
+  # double carries fewer bits than it does here.
+  expect_gt(log10(primal_tangent(.Machine$double.xmax, 1))$tangent, 0)
 })
 
 test_that("asin, acos, and atanh tangents cannot reach an overflow", {
@@ -4679,4 +4774,17 @@ test_that("auto_differentiation reads tanh and atan gradients inside the subnorm
   p <- 1.4e154
   atan_gradient <- auto_differentiation(p, function(x) atan(x[1]))
   expect_equal(atan_gradient[1, ] * 1e308, ((1 / p) / p) * 1e308)
+})
+
+test_that("auto_differentiation reads a log10 gradient inside the subnormal window", {
+  skip("pending the log10 rule that divides through before the constant")
+
+  # The machinery-level reading of the log10 window: a gradient taken at a
+  # primal inside it has to carry the derivative that exists there rather than
+  # the zero the overflowing product leaves behind. The comparison is rescaled
+  # to the size of the derivative and the reference is the arrangement the
+  # guard above names.
+  p <- 1e308
+  log10_gradient <- auto_differentiation(p, function(x) log10(x[1]))
+  expect_equal(log10_gradient[1, ] * 1e308, ((1 / p) / log(10)) * 1e308)
 })
