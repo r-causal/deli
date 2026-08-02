@@ -4390,6 +4390,121 @@ test_that("the log10 tangent reads its derivative past the product's overflow", 
   expect_gt(log10(primal_tangent(.Machine$double.xmax, 1))$tangent, 0)
 })
 
+# `log(x, base)` takes no rule from the table the members above share. The base
+# arrives through the Math group's `...`, so `pt_math_apply` forms the rule
+# itself, in the closed arrangement t / (p log(base)) that log10 was moved off.
+# Every base whose constant is above one therefore has a window of the same
+# shape as log10's, opening at the largest double divided by log(base), and
+# inside it the two spellings of one derivative disagree. The four readings
+# below are the explicit-base counterpart of the log2 and log10 guards: the
+# window is read at base ten, where log10 is the reference the answer must
+# match, and at a base with no member of its own; the bases whose product
+# cannot overflow are pinned as having no window; and the ordinary regime is
+# pinned so that rearranging the rule cannot drift it.
+
+test_that("the explicit-base log tangent agrees with log10 past the product's overflow", {
+  skip("pending the explicit-base log rule that divides before the constant")
+
+  # `log(x, 10)` and `log10(x)` are two spellings of one derivative, and inside
+  # the base ten window they disagree. The primal path already routes
+  # `log(p, 10)` to log10 and reads an ordinary 308 at p = 1e308; the tangent
+  # path forms p log 10, which is Inf there, and reads zero, while log10 reads
+  # the derivative that exists, 4.3429448190325132e-309. The two spellings are
+  # held to each other to the bit as well as to the reference the log10 guard
+  # above uses, which reciprocates before dividing by the constant rather than
+  # forming the product. Comparisons against that reference are rescaled to the
+  # size of the derivative, since the default tolerance compares absolutely at
+  # this magnitude.
+  p <- 1e308
+  derivative <- (1 / p) / log(10)
+  expect_false(is.finite(p * log(10)))
+
+  r <- log(primal_tangent(p, 1), 10)
+  expect_s3_class(r, "PrimalTangent")
+  expect_identical(r$primal, log10(p))
+  expect_equal(r$primal, 308)
+  expect_equal(r$tangent * 1e308, derivative * 1e308)
+  expect_identical(r$tangent, log10(primal_tangent(p, 1))$tangent)
+
+  # An incoming tangent other than one scales through untouched, and the two
+  # spellings stay together as it does.
+  carried <- log(primal_tangent(p, -2.5), 10)
+  expect_equal(carried$tangent * 1e308, -2.5 * derivative * 1e308)
+  expect_identical(carried$tangent, log10(primal_tangent(p, -2.5))$tangent)
+})
+
+test_that("a log base with no member of its own reads its derivative past the overflow", {
+  skip("pending the explicit-base log rule that divides before the constant")
+
+  # Base one hundred has no dedicated Math member to fall back on, so the
+  # explicit-base rule is the only reading of it, and its window opens earlier
+  # than base ten's: log 100 is twice log 10, so the product runs out of range
+  # past a primal of about 3.90e307 rather than 7.81e307. The derivative stays
+  # representable across the whole remainder of the range, from 5.56e-309 at
+  # the near edge, which is 1 / xmax for any base, down to about 1.21e-309 at
+  # the largest double. At p = 1e308 it is about 2.17e-309 while the primal is
+  # an ordinary 154. Reading a base the package has no member for is what
+  # separates a fix covering every base from one that routes base ten to log10.
+  p <- 1e308
+  derivative <- (1 / p) / log(100)
+  expect_false(is.finite(p * log(100)))
+
+  r <- log(primal_tangent(p, 1), 100)
+  expect_s3_class(r, "PrimalTangent")
+  expect_identical(r$primal, 154)
+  expect_equal(r$tangent * 1e308, derivative * 1e308)
+})
+
+test_that("explicit-base log tangents agree with the closed form at ordinary primals", {
+  # The ordinary regime, where no arrangement of the rule can overflow and the
+  # closed form t / (p log(base)) is both what the rule computes today and the
+  # mathematical value. Primals on either side of one are read against two
+  # bases, so the rearrangement the window readings above call for cannot drift
+  # the regime whose reading is already right. The comparison is the tolerant
+  # one the log2 and log10 readings use rather than a bit-level one, because
+  # the two arrangements part in the last bit at some of these points: at
+  # p = 10 with base ten they are about 2e-16 apart relative.
+  incoming <- 1.5
+
+  for (base in c(2, 10)) {
+    for (p in c(0.5, 2, 10)) {
+      r <- log(primal_tangent(p, incoming), base)
+      expect_equal(r$primal, log(p, base))
+      expect_equal(r$tangent, incoming / (p * log(base)))
+    }
+  }
+})
+
+test_that("explicit-base log tangents with no window stay finite at the largest double", {
+  # Not every base has a window. The product p log(base) can only overflow when
+  # log(base) is above one, so base two, whose constant is about 0.693, and
+  # base e, whose constant R computes as exactly one, both hold a finite
+  # product at the largest double and read an ordinary subnormal derivative
+  # there under either arrangement. Pinning the two keeps a rearrangement from
+  # being read as a fix for bases that were never wrong.
+  p <- .Machine$double.xmax
+  expect_true(is.finite(p * log(2)))
+  expect_identical(log(exp(1)), 1)
+  expect_identical(p * log(exp(1)), p)
+
+  # Base two is the explicit-base spelling of log2, and the two agree to the
+  # bit at this primal, where the closed form and the reciprocated form are the
+  # same double, as the log2 guard above states.
+  binary <- log(primal_tangent(p, 1), 2)
+  expect_gt(binary$tangent, 0)
+  expect_equal(binary$primal, 1024)
+  expect_equal(binary$tangent * 1e308, (1 / (p * log(2))) * 1e308)
+  expect_identical(binary$tangent, log2(primal_tangent(p, 1))$tangent)
+
+  # Base e is the explicit-base spelling of the natural log. Its constant is
+  # one, so the product the rule forms is the primal itself and the tangent is
+  # the natural-log reading 1 / p unchanged.
+  natural <- log(primal_tangent(p, 1), exp(1))
+  expect_gt(natural$tangent, 0)
+  expect_identical(natural$primal, log(p))
+  expect_identical(natural$tangent, 1 / p)
+})
+
 test_that("asin, acos, and atanh tangents cannot reach an overflow", {
   # All three rules divide by a function of 1 - p^2, and the domain is bounded
   # by one, so the divisor never leaves the unit interval: these rules can only
