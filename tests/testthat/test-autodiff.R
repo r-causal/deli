@@ -4388,6 +4388,60 @@ test_that("the atan tangent reads a primal of 1e200 as a correctly rounded zero"
   expect_equal(atan(primal_tangent(1e200, -2.5))$tangent, 0)
 })
 
+test_that("the atan tangent reads its derivative past the sum's overflow", {
+  skip("pending the tanh and atan rules that avoid the squared overflow")
+
+  # The zero the guard above reads is correctly rounded because no derivative
+  # is representable at p = 1e200. Short of that primal is a window where one
+  # is and the rule still reads zero: t / (1 + p^2) forms a sum that overflows
+  # to Inf past a primal of about 1.34e154, while the true derivative stays a
+  # representable subnormal out to about 6.36e161. At p = 1.4e154 the true
+  # derivative is about 5.1e-309.
+  #
+  # The reference reciprocates before dividing. Measured at this primal,
+  # 1 / p^2 reads zero for the same reason the rule does, since p^2 is 1.96e308
+  # against a largest double of 1.8e308, while (1 / p) / p reads
+  # 5.102040816326529e-309 and the equivalent (1 / p) * (1 / p) reads it to the
+  # bit. The dropped one contributes about 5e-309 relative to the sum, far
+  # below the last bit of the result. An exponential arrangement,
+  # exp(-2 * log(p)), reaches the same value to about 3e-15 relative and is not
+  # used because it carries the logarithm's error for no gain.
+  #
+  # The comparisons are rescaled to the size of the derivative because the
+  # default tolerance compares absolutely down here, where the zero the rule
+  # reads and the true derivative are a rounding error apart.
+  p <- 1.4e154
+  derivative <- (1 / p) / p
+
+  r <- atan(primal_tangent(p, 1))
+  expect_s3_class(r, "PrimalTangent")
+  expect_equal(r$primal, atan(p))
+  expect_equal(r$tangent * 1e308, derivative * 1e308)
+
+  # The value is odd in p and the derivative is even.
+  negative <- atan(primal_tangent(-p, 1))
+  expect_equal(negative$primal, -atan(p))
+  expect_equal(negative$tangent * 1e308, derivative * 1e308)
+
+  # An incoming tangent other than one scales through untouched.
+  carried <- atan(primal_tangent(p, -2.5))
+  expect_equal(carried$tangent * 1e308, -2.5 * derivative * 1e308)
+
+  # One element inside the window and one at an ordinary magnitude, each read
+  # on its own scale, so the array surface is held to the same rule as the
+  # scalar pair.
+  arr <- atan(primal_tangent_array(c(p, 2), c(1, 3)))
+  expect_s3_class(arr, "PrimalTangentArray")
+  expect_equal(arr$primal, atan(c(p, 2)))
+  expect_equal(arr$tangent * c(1e308, 1), c(derivative * 1e308, 3 / 5))
+
+  # The window is wide. At p = 1e158 the derivative is still about 1e-316, some
+  # twenty million subnormals above the floor. Reading it as strictly positive
+  # pins that without a comparison at a magnitude where a double carries only
+  # about two dozen bits.
+  expect_gt(atan(primal_tangent(1e158, 1))$tangent, 0)
+})
+
 test_that("sinh and cosh tangents stay finite wherever their primals do", {
   # Each of these two is the other's derivative and both grow like e^p / 2, so
   # the tangent overflows at the primal the value overflows at rather than
@@ -4458,6 +4512,62 @@ test_that("the tanh tangent reads its derivative below the squared cosine's over
   expect_identical((1 / cosh(400))^2, 0)
 })
 
+test_that("the tanh tangent reads its derivative past the squared cosine's overflow", {
+  skip("pending the tanh and atan rules that avoid the squared overflow")
+
+  # The guard above reads one primal just short of the overflow and one at
+  # p = 400, past the last representable derivative. Between those two lies a
+  # window it does not reach: cosh(p)^2 is Inf from a primal of about 355.59
+  # onward, while the true derivative sech(p)^2 stays a representable subnormal
+  # out to about 373.26. Every primal in that window carries a derivative the
+  # rule reports as zero. At p = 356 the true derivative is about 2.42e-309.
+  #
+  # The reference reciprocates before squaring, which reaches the derivative
+  # without ever forming the large square. Measured at this primal it agrees to
+  # the bit with dividing by cosh twice. The exponential arrangement
+  # 4 e^(-2p) / (1 + e^(-2p))^2 is not used as the reference: it agrees to
+  # about 4e-15 relative here, but it loses digits further into the window as
+  # its own factors fall subnormal and reads zero past about p = 372.2, where
+  # e^(-2p) underflows ahead of the derivative.
+  #
+  # The comparisons are rescaled to the size of the derivative because the
+  # default tolerance compares absolutely down here, where the zero the rule
+  # reads and the true derivative are a rounding error apart.
+  p <- 356
+  derivative <- (1 / cosh(p))^2
+
+  r <- tanh(primal_tangent(p, 1))
+  expect_s3_class(r, "PrimalTangent")
+  expect_equal(r$primal, 1)
+  expect_equal(r$tangent * 1e308, derivative * 1e308)
+
+  # The value is odd in p and the derivative is even.
+  negative <- tanh(primal_tangent(-p, 1))
+  expect_equal(negative$primal, -1)
+  expect_equal(negative$tangent * 1e308, derivative * 1e308)
+
+  # An incoming tangent other than one scales through untouched.
+  carried <- tanh(primal_tangent(p, -2.5))
+  expect_equal(carried$tangent * 1e308, -2.5 * derivative * 1e308)
+
+  # One element inside the window and one at an ordinary magnitude, each read
+  # on its own scale, so the array surface is held to the same rule as the
+  # scalar pair.
+  arr <- tanh(primal_tangent_array(c(p, 1.5), c(1, 3)))
+  expect_s3_class(arr, "PrimalTangentArray")
+  expect_equal(arr$primal, tanh(c(p, 1.5)))
+  expect_equal(
+    arr$tangent * c(1e308, 1),
+    c(derivative * 1e308, 3 / cosh(1.5)^2)
+  )
+
+  # The window is wide. At p = 370 the derivative is still about 1.7e-321,
+  # hundreds of subnormals above the floor. Reading it as strictly positive
+  # pins that without a comparison at a magnitude where a double carries only a
+  # handful of bits.
+  expect_gt(tanh(primal_tangent(370, 1))$tangent, 0)
+})
+
 test_that("the newly covered Math tangents read an infinite primal where the domain admits one", {
   # asin, acos, and atanh are left out: an infinite primal is outside their
   # domains and asking for one raises R's "NaNs produced" warning, which the
@@ -4466,6 +4576,10 @@ test_that("the newly covered Math tangents read an infinite primal where the dom
   log2_at_inf <- log2(primal_tangent(Inf, 1))
   expect_equal(log2_at_inf$primal, Inf)
   expect_equal(log2_at_inf$tangent, 0)
+
+  log10_at_inf <- log10(primal_tangent(Inf, 1))
+  expect_equal(log10_at_inf$primal, Inf)
+  expect_equal(log10_at_inf$tangent, 0)
 
   # atan flattens at +-pi/2, so its derivative is zero in the limit.
   at_inf <- atan(primal_tangent(Inf, 1))
@@ -4546,4 +4660,20 @@ test_that("auto_differentiation reads log2, atan, and tanh gradients", {
 
   tanh_gradient <- auto_differentiation(0.4, function(x) tanh(x[1]))
   expect_equal(tanh_gradient[1, ], 1 / cosh(0.4)^2)
+})
+
+test_that("auto_differentiation reads tanh and atan gradients inside the subnormal window", {
+  skip("pending the tanh and atan rules that avoid the squared overflow")
+
+  # The machinery-level reading of the same two windows: a gradient taken at a
+  # primal in either one has to carry the derivative that exists there rather
+  # than the zero the squared arrangement leaves behind. Both comparisons are
+  # rescaled to the size of the derivative, and both references are the
+  # arrangements the guards above name.
+  tanh_gradient <- auto_differentiation(356, function(x) tanh(x[1]))
+  expect_equal(tanh_gradient[1, ] * 1e308, (1 / cosh(356))^2 * 1e308)
+
+  p <- 1.4e154
+  atan_gradient <- auto_differentiation(p, function(x) atan(x[1]))
+  expect_equal(atan_gradient[1, ] * 1e308, ((1 / p) / p) * 1e308)
 })
