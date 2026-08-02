@@ -20,12 +20,12 @@ deli is an R package for M-estimation and empirical sandwich variance
 estimation. It provides:
 
 1. `m_estimate()`, a one-step fitting function with a formula interface for
-   the pre-built estimating equations
+   the pre-built estimating equations and a function interface for your own
 2. Pre-built estimating equations for common models (means, regression, causal
    inference, survival analysis, and more)
 3. Automatic sandwich variance estimation
 4. The `MEstimator` and `GMMEstimator` classes, which solve arbitrary
-   user-specified estimating equations
+   user-specified estimating equations and hold the results
 
 deli is an R port of the Python
 [Delicatessen](https://github.com/pzivich/Delicatessen) library.
@@ -119,13 +119,13 @@ beta, and tobit regression.
 
 ## The estimator objects
 
-`m_estimate()` is a convenience wrapper around the `MEstimator` class. When a
-pre-built estimating equation and the formula interface do not fit your
-problem, for example when you supply a custom estimating equation, you can work
-with the estimator directly. The workflow has two steps:
+`m_estimate()` builds and solves an `MEstimator` for you. When a pre-built
+estimating equation and the formula interface do not fit your problem, for
+example when you supply a custom estimating equation, give `m_estimate()` a
+function in place of the formula. The workflow has two steps:
 
 1. Define a `psi` function that returns the estimating equation contributions
-2. Construct an `MEstimator` and call `estimate()` to solve it
+2. Pass it to `m_estimate()` with starting values for the parameters
 
 Here is a simple example that estimates a mean:
 
@@ -137,8 +137,7 @@ psi <- function(theta) {
   ee_mean(theta, y = y)
 }
 
-# Construct the estimator and solve
-m <- MEstimator(stacked_equations = psi, init = 0) |> estimate()
+m <- m_estimate(psi, init = 0)
 
 coef(m)
 ```
@@ -149,21 +148,13 @@ The estimated mean matches `mean(y)`:
 mean(y)
 ```
 
-The same accessors that worked on the formula fit work here. The point
-estimate and variance are also available on the object as `m@theta` and
-`m@variance`:
+The result is an `MEstimator` object, the same class the formula interface
+returns, so the same accessors work here. The point estimate and variance are
+also available on the object as `m@theta` and `m@variance`:
 
 ```{r estimator-slots}
 m@theta       # Point estimate (the mean)
 m@variance    # Sandwich variance estimate
-```
-
-`m_estimate()` accepts a `psi` function directly as well, which fits the same
-model in one step:
-
-```{r psi-one-step}
-m <- m_estimate(psi, init = 0)
-coef(m)
 ```
 
 ## Stacking estimating equations
