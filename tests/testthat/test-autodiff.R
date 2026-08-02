@@ -3834,3 +3834,80 @@ test_that("the already flat tangent shapes report the same column", {
     c(1, 0)
   )
 })
+
+# ---- division tangents where the denominator's square overflows -------------
+#
+# The quotient rule written as (t1 * p2 - p1 * t2) / p2^2 forms the square of
+# the denominator, which overflows to Inf past a primal of about 1.3e154 even
+# where the quotient and its derivative are both ordinary values. The tangent
+# then reads Inf, NaN, or a silent zero. Dividing through by the denominator
+# once instead, (t1 - (p1 / p2) * t2) / p2, reads the same derivative without
+# ever forming p2^2.
+#
+# The assertions below are made on the scale of the denominator rather than on
+# the tangent itself: the default tolerance compares absolutely at magnitudes
+# this small, where a tangent of zero and the true tangent are a rounding error
+# apart.
+
+test_that("division tangents survive a denominator whose square overflows", {
+  skip("pending the division rule that divides through by the denominator")
+
+  # p1 = 3e200 over p2 = 1e200 carrying tangents t1 = 2 and t2 = 5. The
+  # derivative is (t1 - (p1 / p2) * t2) / p2 = (2 - 3 * 5) / 1e200, which is
+  # -1.3e-199. Squaring 1e200 reaches Inf and the tangent collapses to zero.
+  r <- primal_tangent(3e200, 2) / primal_tangent(1e200, 5)
+  expect_s3_class(r, "PrimalTangent")
+  expect_equal(r$primal, 3)
+  expect_equal(r$tangent * 1e200, -13)
+
+  # A plain numeric operand contributes a zero tangent on its side, which
+  # leaves one term of the rule and the same overflowing square.
+  numerator_carries <- primal_tangent(3e200, 2) / 1e200
+  expect_equal(numerator_carries$tangent * 1e200, 2)
+
+  denominator_carries <- 3e200 / primal_tangent(1e200, 5)
+  expect_equal(denominator_carries$tangent * 1e200, -15)
+
+  # A tangent array whose first element overflows the square and whose second
+  # does not: each is read on its own scale, (2 - 3 * 5) / 1e200 and
+  # (1 - 2 * 0) / 3.
+  arr <- primal_tangent_array(c(3e200, 6), c(2, 1)) /
+    primal_tangent_array(c(1e200, 3), c(5, 0))
+  expect_s3_class(arr, "PrimalTangentArray")
+  expect_equal(arr$primal, c(3, 2))
+  expect_equal(arr$tangent * c(1e200, 1), c(-13, 1 / 3))
+})
+
+test_that("auto_differentiation reads the gradient of a large quotient", {
+  skip("pending the division rule that divides through by the denominator")
+
+  f <- function(x) x[1] / x[2]
+  result <- auto_differentiation(c(3e200, 1e200), f)
+  # df/dx1 = 1 / x2 = 1e-200 and df/dx2 = -x1 / x2^2 = -3e-200, both of which
+  # a double holds comfortably. Only the intermediate square does not.
+  expect_equal(result[1, ] * 1e200, c(1, -3))
+})
+
+test_that("division tangents agree with the quotient rule away from the overflow", {
+  # Dividing through must not move ordinary results, so at moderate primals the
+  # two forms of the rule agree to the last bit. These hold as the rule stands
+  # and pin what the reformulation has to preserve.
+  cases <- list(
+    c(p1 = 3, p2 = 2, t1 = 5, t2 = 7),
+    c(p1 = -1.5, p2 = 2, t1 = 0.25, t2 = -4),
+    c(p1 = 6, p2 = 2, t1 = 1, t2 = 0),
+    c(p1 = 0, p2 = 2, t1 = -3, t2 = 2.5),
+    c(p1 = 7.25, p2 = -0.5, t1 = 0, t2 = 1.75)
+  )
+
+  for (case in cases) {
+    r <- primal_tangent(case[["p1"]], case[["t1"]]) /
+      primal_tangent(case[["p2"]], case[["t2"]])
+    expect_equal(r$primal, case[["p1"]] / case[["p2"]])
+    expect_equal(
+      r$tangent,
+      (case[["t1"]] * case[["p2"]] - case[["p1"]] * case[["t2"]]) /
+        case[["p2"]]^2
+    )
+  }
+})

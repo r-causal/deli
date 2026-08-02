@@ -222,6 +222,40 @@ test_that("ee_mlogit reads the same scores where nothing overflows", {
   )
 })
 
+# Below the shift threshold the equation exponentiates the linear predictors as
+# they stand, so the softmax denominator itself grows to whatever exp() reads.
+# A linear predictor a little past 354 puts that denominator past 1.3e154,
+# where the probabilities are ordinary values but the square of the denominator
+# is not. Differentiating exactly through the divisions that read those
+# probabilities has to reach the same derivative the finite differences do.
+
+test_that("ee_mlogit differentiates exactly where the softmax denominator is huge", {
+  skip("pending the division rule that divides through by the denominator")
+
+  X <- cbind(1, c(0, 1))
+  # The first observation is in the reference category and the second is in the
+  # last category.
+  y <- cbind(c(1, 0), c(0, 0), c(0, 1))
+  # The second observation carries a linear predictor of 500 in the first
+  # non-reference category, which is under the threshold the softmax shift
+  # applies at, log(.Machine$double.xmax) - log(k + 1).
+  theta <- c(0, 500, 0, 0)
+  psi <- function(th) ee_mlogit(th, X = X, y = y)
+
+  expect_true(all(is.finite(psi(theta))))
+
+  bread <- expect_no_warning(compute_bread(psi, theta, deriv_method = "exact"))
+  expect_true(all(is.finite(bread)))
+  expect_equal(
+    bread,
+    compute_bread(psi, theta, deriv_method = "capprox"),
+    tolerance = 1e-6
+  )
+
+  sandwich <- compute_sandwich(psi, theta, deriv_method = "exact")
+  expect_true(all(is.finite(sandwich)))
+})
+
 # ee_beta_regression tests ----------------------------------------------------
 
 test_that("ee_beta_regression returns correct shape", {
