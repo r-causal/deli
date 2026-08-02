@@ -251,12 +251,23 @@ make_understated_variance_psi <- function(seed = 21, n = 200) {
   }
 }
 
+# The two fits below state a tolerance as well as a budget. This stack's weight
+# update approaches its fixed point slowly, and how far into that approach a
+# platform gets is where macOS and Linux part company: at 1e-6 the update
+# settles in 97 passes on both, at 1e-7 in 151, and at the default of 1e-9
+# within this budget on macOS but not on Linux. An update that has not settled
+# leaves the fit with no J reading to judge, and an over-identification report
+# in place of the one these tests are about, so the tolerance is stated rather
+# than inherited. The statistic does not turn on the choice: J is 133.9852 at
+# 1e-6 against 133.9848 at the default, on one degree of freedom either way.
+
 test_that("a badly specified over-identified fit warns on its J-statistic", {
   cnd <- rlang::catch_cnd(
     gmm_estimate(
       stacked_equations = make_omitted_covariate_psi(),
       init = c(0, 0),
-      overid_maxiter = settled_budget
+      overid_maxiter = settled_budget,
+      overid_tolerance = 1e-6
     ),
     classes = "warning"
   )
@@ -272,7 +283,8 @@ test_that("the J warning reports the statistic it is judging", {
     gmm_estimate(
       stacked_equations = make_omitted_covariate_psi(),
       init = c(0, 0),
-      overid_maxiter = settled_budget
+      overid_maxiter = settled_budget,
+      overid_tolerance = 1e-6
     ),
     classes = "deli_gmm_moments_rejected"
   )
