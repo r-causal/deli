@@ -613,20 +613,55 @@ ee_mlogit <- function(theta, X, y, weights = NULL, offset = NULL) {
     )
   }
 
-  # Compute denominator: 1 + sum(exp(X %*% beta_j))
-  denom <- rep(1, n)
-  exp_pred <- vector("list", k - 1)
+  # Linear predictors of the non-reference categories. The reference category
+  # carries a structural zero rather than a parameter block.
+  eta <- vector("list", k - 1)
   for (j in seq_len(k - 1)) {
     idx <- ((j - 1) * b + 1):(j * b)
     beta_j <- theta[idx]
-    exp_pred[[j]] <- exp(pt_as_vector(X %*% beta_j) + off)
+    eta[[j]] <- pt_as_vector(X %*% beta_j) + off
+  }
+
+  # The largest linear predictor the denominator can be summed from. It holds k
+  # terms, so bounding each of them by a (k + 1)st of the range a double reaches
+  # leaves the sum inside that range with a term to spare.
+  max_exponent <- log(.Machine$double.xmax) - log(k + 1)
+
+  # The softmax is invariant to a shift shared by every category. An observation
+  # carrying a linear predictor past `max_exponent` therefore reads the same
+  # probabilities from exponentials shifted down by its largest one, which is
+  # the only way left to read them: exponentiating the linear predictors as they
+  # stand overflows to Inf, and the ratios below then read Inf/Inf. The
+  # reference category contributes a structural zero to that largest one, so the
+  # shift is never negative and no exponent is raised.
+  #
+  # An observation under the bound is shifted by zero rather than by its own
+  # maximum, so it exponentiates exactly the linear predictor it carries. The
+  # shifted arithmetic agrees with the unshifted one to the last bit or two, and
+  # the bread is differentiated from these values across a step of 1e-9 by
+  # default, which carries a difference that small into the seventh digit of the
+  # sandwich.
+  shift <- rep(0, n)
+  for (j in seq_len(k - 1)) {
+    shift <- pmax(shift, eta[[j]])
+  }
+  shift <- ifelse(shift > max_exponent, shift, 0)
+
+  # Softmax denominator, exp(-shift) + sum(exp(eta_j - shift)). The reference
+  # category's structural zero takes the shift alongside the rest.
+  exp_ref <- exp(-shift)
+  denom <- exp_ref
+  exp_pred <- vector("list", k - 1)
+  for (j in seq_len(k - 1)) {
+    exp_pred[[j]] <- exp(eta[[j]] - shift)
     denom <- denom + exp_pred[[j]]
   }
+  prob_ref <- exp_ref / denom
 
   # Estimating equations for each non-reference category
   efuncs <- vector("list", k - 1)
   for (j in seq_len(k - 1)) {
-    yhat_ref <- y[, 1] - 1 / denom
+    yhat_ref <- y[, 1] - prob_ref
     y_j <- y[, j + 1]
     yhat_j <- yhat_ref + (y_j - exp_pred[[j]] / denom)
     efuncs[[j]] <- t(X * (w * yhat_j))
