@@ -25,10 +25,24 @@ load_fixture <- function(name) {
 #' Where a comparison sits close to its tolerance the measured margin is
 #' recorded in a comment at the call site.
 #'
+#' The variance and asymptotic variance blocks are the ones that drift between
+#' platforms, because an equation whose bread is differentiated numerically
+#' carries that derivative's error into the sandwich, where it is amplified.
+#' `variance_tolerance` loosens those two blocks alone, so a call site can give
+#' them cross-platform room while theta, the bread, and the interval bounds stay
+#' pinned at `tolerance`.
+#'
 #' @param m A fitted MEstimator object (after calling estimate())
 #' @param fixture_name Name of the fixture file to compare against
 #' @param tolerance Numeric tolerance for comparisons (default 1e-6)
-expect_python_match <- function(m, fixture_name, tolerance = 1e-6) {
+#' @param variance_tolerance Numeric tolerance for the variance and asymptotic
+#'   variance blocks (defaults to `tolerance`)
+expect_python_match <- function(
+  m,
+  fixture_name,
+  tolerance = 1e-6,
+  variance_tolerance = tolerance
+) {
   ref <- load_fixture(fixture_name)
 
   # theta estimates
@@ -43,7 +57,7 @@ expect_python_match <- function(m, fixture_name, tolerance = 1e-6) {
   testthat::expect_equal(
     unname(m@variance),
     as.matrix(ref$variance),
-    tolerance = tolerance,
+    tolerance = variance_tolerance,
     label = paste0(fixture_name, ": variance")
   )
 
@@ -52,7 +66,7 @@ expect_python_match <- function(m, fixture_name, tolerance = 1e-6) {
     testthat::expect_equal(
       unname(m@asymptotic_variance),
       as.matrix(ref$asymptotic_variance),
-      tolerance = tolerance,
+      tolerance = variance_tolerance,
       label = paste0(fixture_name, ": asymptotic_variance")
     )
   }
