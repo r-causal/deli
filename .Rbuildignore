@@ -13,3 +13,5 @@
 ^\.git$
 ^\.venv$
 ^air\.toml$
+^\.beads$
+^\.claude$
