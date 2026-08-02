@@ -56,13 +56,15 @@ expect_golden <- function(actual, expected, label) {
   )
 }
 
-# The prediction data frames carry the analytic predicted column first, one
+# The prediction data frames routed here carry the time column first, which the
+# result[-1] below drops. What remains is the analytic predicted column, one
 # entry per row, and then the variance, lower, and upper columns, all three
 # built from the derivative of the prediction with respect to theta. Where that
 # derivative is a difference quotient the three trailing columns inherit the
 # quotient's rounding error, so they are held to the looser tolerance while the
 # predicted column stays pinned; the note at the top of the file gives the
-# measurements behind the two figures.
+# measurements behind the two figures. A frame without a leading time column
+# would need a different drop.
 expect_golden_prediction <- function(result, expected, label, deriv_method) {
   values <- unlist(result[-1], use.names = FALSE)
   if (identical(deriv_method, "exact")) {

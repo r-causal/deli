@@ -80,7 +80,7 @@ offers an idiomatic R surface for the same work alongside them. The section
 | `standard_normal_cdf`, `standard_normal_pdf` | `standard_normal_cdf`, `standard_normal_pdf` | Required in place of `stats::pnorm()` and `stats::dnorm()` under `deriv_method = "exact"` (see below). |
 | `robust_loss_functions(residual, loss, k, a, b)` | `robust_loss_functions(residuals, loss, k)` | Hampel thresholds passed as `k = c(a, b, c)` (see below). |
 | `aggregate_efuncs(est_funcs, group)` | `aggregate_efuncs(est_funcs, group)` | Takes a p-by-n matrix, one column per observation, and returns a p-by-g matrix, one column per group; `group` may be any vector R can split on. |
-| `regression_predictions(...)` | `regression_predictions(...)` | Returns a data frame rather than a NumPy array. |
+| `regression_predictions(...)` | `regression_predictions(...)` | Returns a data frame rather than a NumPy array. For a fit made through deli's formula interface, `generics::augment()` is the idiomatic route to the same predictions. |
 | `aft_predictions_individual(...)` | `aft_predictions_individual(...)` | Returns a data frame rather than a NumPy array. |
 | `aft_predictions_function(...)` | `aft_predictions_function(...)` | Returns a data frame rather than a NumPy array. R adds `deriv_method` and `dx`. |
 | `spline(...)` | `deli_spline(...)` | Renamed to avoid masking `stats::spline()`. First argument renamed `variable` to `x`. |

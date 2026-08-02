@@ -109,12 +109,15 @@ first:
 # Propensity scores implied by the alphas in the fitted stack
 ps <- plogis(drop(W_ps %*% m_ipw@theta[4:6]))
 range(ps)
+
+# How many scores a tight c(0.3, 0.7) range would clip, by tail
+c(lower = sum(ps < 0.3), upper = sum(ps > 0.7))
 ```
 
 Nothing here is close to zero or one, so a conventional range such as
 `c(0.1, 0.9)` would leave every score untouched and the fit unchanged. A
 deliberately tight range shows what truncation does. `c(0.3, 0.7)` clips
-about a sixth of the scores, nearly all of them in the lower tail:
+166 of the 1000 scores, all but nine of them in the lower tail:
 
 ```{r ipw-truncate}
 psi_ipw_trunc <- function(theta) {
@@ -178,10 +181,10 @@ summary(m_aipw)
 
 ## Comparing methods
 
-The three fits above all target the same average causal effect. Both the
-outcome model and the propensity score model are correctly specified in
-this simulation, so the estimates agree closely with one another and with
-the true value:
+The g-formula, IPW, and AIPW fits above all target the same average
+causal effect. Both the outcome model and the propensity score model are
+correctly specified in this simulation, so the estimates agree closely
+with one another and with the true value:
 
 ```{r compare-methods}
 data.frame(

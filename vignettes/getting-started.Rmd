@@ -208,7 +208,7 @@ m
 
 After fitting a model, use `generics::augment()` for predicted values with
 confidence intervals. Give it a data frame of new covariate values as
-`newdata`, with one column for each variable the formula names, and it returns
+`newdata`, with one column for each covariate the formula names, and it returns
 that frame with `.fitted`, `.se.fit`, `.lower`, and `.upper` beside it:
 
 ```{r predictions}

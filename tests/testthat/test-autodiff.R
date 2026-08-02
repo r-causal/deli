@@ -3914,8 +3914,10 @@ test_that("division tangents agree with the quotient rule away from the overflow
 # form the square of the primal, which overflows to Inf past a primal of about
 # 1.3e154 even where the primal and its derivative are ordinary values: sqrt()
 # of Inf is Inf and the tangent reads a silent zero. Both derivatives fall off
-# like 1 / abs(p) out there, so dividing through by the primal reads them
-# without ever forming the square.
+# like 1 / abs(p) out there, and each rule reaches its own without ever forming
+# the square: asinh divides the root through by a scale of abs(p) floored at
+# one, and acosh factors p^2 - 1 into (p - 1)(p + 1) and takes the square root
+# of each factor on its own.
 #
 # The assertions below are made on the scale of the primal rather than on the
 # tangent itself: the default tolerance compares absolutely at magnitudes this
