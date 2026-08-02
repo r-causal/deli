@@ -254,6 +254,91 @@ test_that("ee_mlogit differentiates exactly where the softmax denominator is hug
   expect_true(all(is.finite(sandwich)))
 })
 
+# A two-column indicator leaves one non-reference category, whose equation reads
+# (y_1 - p_1) + (y_2 - p_2). Two indicators sum to one and so do two
+# probabilities, so that residual is zero for every observation at every value of
+# theta. The score is a matrix of zeros, which the solver reports as solved at
+# whatever it started from, and the sandwich built from it reports a variance of
+# essentially zero. A two-level outcome is a binomial model rather than a
+# multinomial reparameterization, so the equation refuses it and names the one
+# that fits.
+
+mlogit_binary_data <- function() {
+  set.seed(4321)
+  n <- 60
+  w <- rbinom(n, 1, 0.5)
+  probs <- cbind(0.6 - 0.2 * w, 0.4 + 0.2 * w)
+  category <- vapply(
+    seq_len(n),
+    function(i) sample(1:2, 1, prob = probs[i, ]),
+    integer(1)
+  )
+  list(
+    X = cbind(1, w),
+    y = cbind(as.integer(category == 1), as.integer(category == 2))
+  )
+}
+
+test_that("ee_mlogit rejects a two-column indicator outcome", {
+  skip("pending the two-column indicator rejection in ee_mlogit")
+
+  d <- mlogit_binary_data()
+
+  # Two columns of X and one non-reference category would be two parameters, so
+  # the outcome is what is refused rather than the length of theta.
+  expect_error(
+    ee_mlogit(c(0.3, -0.4), X = d$X, y = d$y),
+    class = "deli_mlogit_binary_outcome"
+  )
+})
+
+test_that("ee_mlogit sends a two-column outcome to ee_glm", {
+  skip("pending the two-column indicator rejection in ee_mlogit")
+
+  d <- mlogit_binary_data()
+
+  # The equation that fits a two-level outcome, and the family it is fit under.
+  # Read out of the message rather than snapshotted, so that the assertion holds
+  # whatever cli wraps around the two of them.
+  expect_error(
+    ee_mlogit(c(0.3, -0.4), X = d$X, y = d$y),
+    regexp = "ee_glm",
+    class = "deli_mlogit_binary_outcome"
+  )
+  expect_error(
+    ee_mlogit(c(0.3, -0.4), X = d$X, y = d$y),
+    regexp = "binomial",
+    class = "deli_mlogit_binary_outcome"
+  )
+})
+
+test_that("m_estimate reports the two-column rejection rather than fitting it", {
+  skip("pending the two-column indicator rejection in ee_mlogit")
+
+  d <- mlogit_binary_data()
+  psi <- function(theta) ee_mlogit(theta, X = d$X, y = d$y)
+
+  # Without the refusal this fit returns the initial values as the estimates,
+  # with a variance of roughly 1e-19, and reports nothing at all.
+  expect_error(
+    m_estimate(stacked_equations = psi, init = c(0.3, -0.4)),
+    class = "deli_mlogit_binary_outcome"
+  )
+})
+
+# The refusal is of two categories alone. Three categories leave a system that
+# is an invertible transformation of the multinomial score, which is what the
+# equation is for, so this guards the refusal from reaching past its case.
+
+test_that("ee_mlogit fits a three-column indicator outcome", {
+  d <- mlogit_indicator_data()
+  m <- fit_mlogit(d$X, d$y)
+
+  expect_length(coef(m), 4)
+  expect_true(all(is.finite(coef(m))))
+  expect_true(all(diag(vcov(m)) > 0))
+})
+
 # ee_beta_regression tests ----------------------------------------------------
 
 test_that("ee_beta_regression returns correct shape", {
