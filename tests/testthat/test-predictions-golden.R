@@ -8,16 +8,34 @@
 # move at all.
 #
 # The values are recorded at 17 significant digits, the full precision of a
-# double, and compared at a relative tolerance of 1e-14, about fifty units in
-# the last place. Exact equality is deliberately not asserted, for two reasons.
-# R's parser does not correctly round a decimal literal to the nearest double,
-# so a literal in this file can sit a unit or two in the last place away from
-# the value it was printed from. And the matrix products, exponentials, and
+# double, and most are compared at a relative tolerance of 1e-14, about fifty
+# units in the last place. Exact equality is deliberately not asserted, for two
+# reasons. R's parser does not correctly round a decimal literal to the nearest
+# double, so a literal in this file can sit a unit or two in the last place away
+# from the value it was printed from. And the matrix products, exponentials, and
 # logarithms underneath these functions come from BLAS and the system math
 # library, either of which may differ in the last place from one platform to
 # another. A tolerance of 1e-14 is eight orders of magnitude tighter than the
 # parity tests elsewhere in the suite, and tight enough that any rearrangement
 # of the arithmetic beyond the last place or two fails here.
+#
+# That argument holds for the analytic values: the predicted column, which is a
+# transformation of the parameters and nothing more, and every column of a
+# prediction taken with deriv_method = "exact", where the derivative rides along
+# with the value instead of being differenced. It does not hold for the
+# variance, lower, and upper columns of a prediction taken with "capprox",
+# "fapprox", or "bapprox". Those rest on a difference quotient over a step of
+# 1e-9, so a last-place difference in either differenced value reaches the
+# derivative multiplied by about 5e8, and reaches the variance again through the
+# quadratic form. Perturbing the step by a tenth of a percent redraws that
+# rounding error without changing the quantity being estimated: under it every
+# predicted value is unchanged bit for bit, while the three differenced columns
+# move by 4e-9 to 5e-7 relative, averaged over the moved values the way testthat
+# averages them. The largest move in any one value is 2e-4, in a variance of
+# 2e-9 where the interval has all but collapsed. Those columns are therefore
+# compared at 1e-4, which clears the measured drift by better than two orders of
+# magnitude and still sits far below the movement a reworking of the arithmetic
+# would produce.
 #
 # The fixtures are written out rather than fitted, so nothing here depends on a
 # solver, on a random seed, or on an optional package. The parameter vectors are
@@ -27,6 +45,7 @@
 # ---- Helpers ----------------------------------------------------------------
 
 golden_tolerance <- 1e-14
+golden_approx_tolerance <- 1e-4
 
 expect_golden <- function(actual, expected, label) {
   expect_equal(
@@ -35,6 +54,33 @@ expect_golden <- function(actual, expected, label) {
     tolerance = golden_tolerance,
     label = label
   )
+}
+
+# The prediction data frames carry the analytic predicted column first, one
+# entry per row, and then the variance, lower, and upper columns, all three
+# built from the derivative of the prediction with respect to theta. Where that
+# derivative is a difference quotient the three trailing columns inherit the
+# quotient's rounding error, so they are held to the looser tolerance while the
+# predicted column stays pinned; the note at the top of the file gives the
+# measurements behind the two figures.
+expect_golden_prediction <- function(result, expected, label, deriv_method) {
+  values <- unlist(result[-1], use.names = FALSE)
+  if (identical(deriv_method, "exact")) {
+    expect_golden(values, expected, label)
+  } else {
+    analytic <- seq_len(nrow(result))
+    expect_golden(
+      values[analytic],
+      expected[analytic],
+      paste0(label, ": predicted")
+    )
+    expect_equal(
+      values[-analytic],
+      expected[-analytic],
+      tolerance = golden_approx_tolerance,
+      label = paste0(label, ": variance and interval")
+    )
+  }
 }
 
 # A design whose rows are named, so that the returned data frame's positional
@@ -551,11 +597,7 @@ test_that("survival_predictions reproduces its recorded values", {
           deriv_method = deriv_method
         )
         expect_identical(result$time, times, label = paste0(key, ": time"))
-        expect_golden(
-          unlist(result[-1], use.names = FALSE),
-          golden[[key]],
-          key
-        )
+        expect_golden_prediction(result, golden[[key]], key, deriv_method)
       }
     }
   }
@@ -619,7 +661,7 @@ test_that("survival_predictions reproduces its recorded values off the defaults"
       "survival",
       deriv_method = deriv_method
     )
-    expect_golden(unlist(result[-1], use.names = FALSE), golden[[key]], key)
+    expect_golden_prediction(result, golden[[key]], key, deriv_method)
   }
 
   for (alpha in c(0.01, 0.5)) {
@@ -1325,11 +1367,7 @@ test_that("aft_predictions_function reproduces its recorded values", {
           deriv_method = deriv_method
         )
         expect_identical(result$time, times, label = paste0(key, ": time"))
-        expect_golden(
-          unlist(result[-1], use.names = FALSE),
-          golden[[key]],
-          key
-        )
+        expect_golden_prediction(result, golden[[key]], key, deriv_method)
       }
     }
   }
@@ -1395,7 +1433,7 @@ test_that("aft_predictions_function reproduces its values off the defaults", {
       "survival",
       deriv_method = deriv_method
     )
-    expect_golden(unlist(result[-1], use.names = FALSE), golden[[key]], key)
+    expect_golden_prediction(result, golden[[key]], key, deriv_method)
   }
 
   for (alpha in c(0.01, 0.5)) {
