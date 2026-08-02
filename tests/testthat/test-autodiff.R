@@ -4392,15 +4392,17 @@ test_that("the log10 tangent reads its derivative past the product's overflow", 
 
 # `log(x, base)` takes no rule from the table the members above share. The base
 # arrives through the Math group's `...`, so `pt_math_apply` forms the rule
-# itself, in the closed arrangement t / (p log(base)) that log10 was moved off.
-# Every base whose constant is above one therefore has a window of the same
-# shape as log10's, opening at the largest double divided by log(base), and
-# inside it the two spellings of one derivative disagree. The four readings
-# below are the explicit-base counterpart of the log2 and log10 guards: the
-# window is read at base ten, where log10 is the reference the answer must
-# match, and at a base with no member of its own; the bases whose product
-# cannot overflow are pinned as having no window; and the ordinary regime is
-# pinned so that rearranging the rule cannot drift it.
+# itself, and it once formed it in the closed arrangement t / (p log(base))
+# that log10 was moved off. Under that arrangement every base whose constant is
+# above one carried a window of the same shape as log10's, opening at the
+# largest double divided by log(base), and inside it the two spellings of one
+# derivative disagreed. The rule now divides the tangent through by the primal
+# before the constant, the way log10 does, so the window is closed at every
+# base. The four readings below are the explicit-base counterpart of the log2
+# and log10 guards: the window is read at base ten, where log10 is the
+# reference the answer must match, and at a base with no member of its own; the
+# bases whose product cannot overflow are pinned as having no window; and the
+# ordinary regime is pinned so that rearranging the rule cannot drift it.
 
 test_that("the explicit-base log tangent agrees with log10 past the product's overflow", {
   # `log(x, 10)` and `log10(x)` are two spellings of one derivative, and inside
@@ -4453,13 +4455,14 @@ test_that("a log base with no member of its own reads its derivative past the ov
 
 test_that("explicit-base log tangents agree with the closed form at ordinary primals", {
   # The ordinary regime, where no arrangement of the rule can overflow and the
-  # closed form t / (p log(base)) is both what the rule computes today and the
-  # mathematical value. Primals on either side of one are read against two
-  # bases, so the rearrangement the window readings above call for cannot drift
-  # the regime whose reading is already right. The comparison is the tolerant
-  # one the log2 and log10 readings use rather than a bit-level one, because
-  # the two arrangements part in the last bit at some of these points: at
-  # p = 10 with base ten they are about 2e-16 apart relative.
+  # closed form t / (p log(base)) is the mathematical value the reading is held
+  # to, though it is no longer the arrangement the rule computes. Primals on
+  # either side of one are read against two bases, so the rearrangement the
+  # window readings above call for could not drift the regime whose reading was
+  # already right. The comparison is the tolerant one the log2 and log10
+  # readings use rather than a bit-level one, because the two arrangements part
+  # in the last bit at some of these points: at p = 10 with base ten they are
+  # about 2e-16 apart relative.
   incoming <- 1.5
 
   for (base in c(2, 10)) {
