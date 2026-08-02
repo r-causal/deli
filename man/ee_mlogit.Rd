@@ -11,7 +11,8 @@ ee_mlogit(theta, X, y, weights = NULL, offset = NULL)
 
 \item{X}{Numeric n-by-b design matrix.}
 
-\item{y}{Numeric n-by-k indicator matrix (first column = reference).}
+\item{y}{Numeric n-by-k indicator matrix (first column = reference), with k
+at least three.}
 
 \item{weights}{Optional numeric vector of n weights. Default \code{NULL}.}
 
@@ -22,8 +23,9 @@ A \code{(b * (k-1))}-by-n matrix.
 }
 \description{
 Supports unranked categorical outcomes. \code{y} must be an n-by-k indicator
-matrix where the first column is the reference category. Returns a
-\code{(b * (k-1))}-by-n matrix.
+matrix where the first column is the reference category, and k must be at
+least three: a two-level outcome is logistic regression, which \code{\link[=ee_glm]{ee_glm()}}
+fits with \code{distribution = "binomial"}. Returns a \code{(b * (k-1))}-by-n matrix.
 }
 \examples{
 set.seed(123)

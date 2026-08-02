@@ -547,12 +547,14 @@ dlasso_penalty <- function(theta, n, penalty, s, center) {
 #' Estimating equation for multinomial logistic regression
 #'
 #' Supports unranked categorical outcomes. `y` must be an n-by-k indicator
-#' matrix where the first column is the reference category. Returns a
-#' `(b * (k-1))`-by-n matrix.
+#' matrix where the first column is the reference category, and k must be at
+#' least three: a two-level outcome is logistic regression, which [ee_glm()]
+#' fits with `distribution = "binomial"`. Returns a `(b * (k-1))`-by-n matrix.
 #'
 #' @param theta Numeric vector of length `b * (k-1)`.
 #' @param X Numeric n-by-b design matrix.
-#' @param y Numeric n-by-k indicator matrix (first column = reference).
+#' @param y Numeric n-by-k indicator matrix (first column = reference), with k
+#'   at least three.
 #' @param weights Optional numeric vector of n weights. Default `NULL`.
 #' @param offset Optional numeric vector of n offsets. Default `NULL`.
 #'
@@ -593,6 +595,22 @@ ee_mlogit <- function(theta, X, y, weights = NULL, offset = NULL) {
     cli::cli_abort(
       "{.arg y} must have the same number of rows as {.arg X} ({n}), not
        {nrow(y)}."
+    )
+  }
+  # Two categories leave one non-reference residual, and the reference residual
+  # it is built from is its exact negative, so the two cancel and the stacked
+  # equation is zero at every value of the parameters. A fit of it carries no
+  # information: it returns the values it started from with a variance of zero.
+  if (k == 2) {
+    cli::cli_abort(
+      c(
+        "{.arg y} must hold at least three categories.",
+        "x" = "It holds {k} columns, which leave an estimating function that is
+               zero whatever {.arg theta} is, so nothing is estimated from it.",
+        "i" = "Fit a two-level outcome with {.fn ee_glm} and
+               {.code distribution = \"binomial\"}."
+      ),
+      class = "deli_mlogit_binary_outcome"
     )
   }
   if (!is.null(offset)) {

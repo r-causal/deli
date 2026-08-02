@@ -25,6 +25,14 @@
 #'   shape, and no fit can solve it, so [estimate()] refuses it rather than
 #'   failing on the summed equations. Leads `deli_psi_return_error`.
 #'
+#' @section The estimating equations deli supplies:
+#' - `deli_mlogit_binary_outcome`: the indicator matrix handed to [ee_mlogit()]
+#'   holds two columns. Two categories leave a single non-reference residual
+#'   whose reference residual is its exact negative, so the equations cancel to
+#'   zero at every value of the parameters and a fit of them reports the values
+#'   it started from with no variance. A two-level outcome is logistic
+#'   regression, which [ee_glm()] fits with `distribution = "binomial"`.
+#'
 #' @section The formula interface:
 #' - `deli_formula_ee_lookup_error`: `.ee` is neither a function nor the name of
 #'   one. Either it arrived as some other type entirely, or it arrived as a

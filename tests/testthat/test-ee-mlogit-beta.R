@@ -280,8 +280,6 @@ mlogit_binary_data <- function() {
 }
 
 test_that("ee_mlogit rejects a two-column indicator outcome", {
-  skip("pending the two-column indicator rejection in ee_mlogit")
-
   d <- mlogit_binary_data()
 
   # Two columns of X and one non-reference category would be two parameters, so
@@ -293,8 +291,6 @@ test_that("ee_mlogit rejects a two-column indicator outcome", {
 })
 
 test_that("ee_mlogit sends a two-column outcome to ee_glm", {
-  skip("pending the two-column indicator rejection in ee_mlogit")
-
   d <- mlogit_binary_data()
 
   # The equation that fits a two-level outcome, and the family it is fit under.
@@ -313,8 +309,6 @@ test_that("ee_mlogit sends a two-column outcome to ee_glm", {
 })
 
 test_that("m_estimate reports the two-column rejection rather than fitting it", {
-  skip("pending the two-column indicator rejection in ee_mlogit")
-
   d <- mlogit_binary_data()
   psi <- function(theta) ee_mlogit(theta, X = d$X, y = d$y)
 

@@ -34,6 +34,18 @@ failing on the summed equations. Leads \code{deli_psi_return_error}.
 }
 }
 
+\section{The estimating equations deli supplies}{
+
+\itemize{
+\item \code{deli_mlogit_binary_outcome}: the indicator matrix handed to \code{\link[=ee_mlogit]{ee_mlogit()}}
+holds two columns. Two categories leave a single non-reference residual
+whose reference residual is its exact negative, so the equations cancel to
+zero at every value of the parameters and a fit of them reports the values
+it started from with no variance. A two-level outcome is logistic
+regression, which \code{\link[=ee_glm]{ee_glm()}} fits with \code{distribution = "binomial"}.
+}
+}
+
 \section{The formula interface}{
 
 \itemize{
