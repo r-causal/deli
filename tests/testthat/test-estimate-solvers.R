@@ -1860,9 +1860,17 @@ test_that("a fit that travels a long way to a root stays quiet", {
 #
 # A design whose columns are linearly dependent leaves the estimating equations
 # with no unique root: the returned point solves them, and so does every point
-# along the direction the design cannot see. The solver reports a failed
-# convergence test, which is true of the search and beside the point about the
-# problem, so the report has to name the design rather than the search.
+# along the direction the design cannot see. What a solver makes of such a system
+# is not fixed. Faced with a singular Jacobian it may walk to a root and report
+# nothing of its own, or stop where it started and report a convergence test that
+# failed, and which of the two happens depends on the LAPACK the platform's R was
+# built against. A report about the search is true of the search and beside the
+# point about the problem on either branch, so what the tests below hold to is
+# the wording rather than the branch: however the solve went, the fit names the
+# design as rank deficient and the parameters as not identified. The tests that
+# read anything more than the wording pin one branch deliberately, from starting
+# values that already solve the equations or through a solver that reports a
+# convergence test it met.
 
 # A linear regression whose design repeats its second column, so the last two
 # coefficients are identified only by their sum.
@@ -1920,19 +1928,17 @@ test_that("not_identified() leaves a bread that lost its rank to a flat row", {
 
 test_that("a rank-deficient design is reported as such", {
   psi <- duplicated_column_psi()
-  seen <- collect_warnings({
-    m <- estimate(MEstimator(stacked_equations = psi, init = c(0, 0, 0)))
-  })
+  # Nothing here reads the point the fit returned. Which point that is, and
+  # whether the solver was satisfied with it, is the platform's business: from
+  # these starting values the search either reaches a root of the singular
+  # system or gives up at its Jacobian and hands the starting values back. One
+  # warning comes out of the fit on either branch, and it is the one that names
+  # the design.
+  seen <- collect_warnings(
+    estimate(MEstimator(stacked_equations = psi, init = c(0, 0, 0)))
+  )
   expect_length(seen, 1L)
   expect_s3_class(seen[[1]], "deli_solver_not_converged")
-  theta <- unname(coef(m))
-  # The point the fit returns is a root by the reading that judges one, it is
-  # not where the fit started, and the two duplicated coefficients sum to the
-  # slope an identified fit reports. Nothing about it is a search that stopped
-  # short.
-  expect_true(is_root(psi(theta), theta))
-  expect_false(isTRUE(all(theta == 0)))
-  expect_equal(theta[[2]] + theta[[3]], 1.9358, tolerance = 1e-4)
   reported <- conditionMessage(seen[[1]])
   expect_match(reported, "rank deficient", fixed = TRUE)
   expect_match(reported, "not identified", fixed = TRUE)
@@ -1940,8 +1946,13 @@ test_that("a rank-deficient design is reported as such", {
 
 test_that("the rank-deficient report does not read as a search that stopped short", {
   psi <- duplicated_column_psi()
+  # Starting values that already solve the equations, so the solver accepts them
+  # where it finds them and states nothing about a search on any platform. What
+  # is left to word is the reading of the returned point, and a search that
+  # stopped short is not what that reading found.
+  init <- c(1.044995, 0, 1.935798)
   seen <- collect_warnings(
-    estimate(MEstimator(stacked_equations = psi, init = c(0, 0, 0)))
+    estimate(MEstimator(stacked_equations = psi, init = init))
   )
   expect_length(seen, 1L)
   expect_no_match(
