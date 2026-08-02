@@ -170,6 +170,58 @@ test_that("ee_mlogit reaches the same fit under exact differentiation", {
   )
 })
 
+# The softmax exponentiates every linear predictor, and exp() overflows to Inf
+# a little past 709. These pin the probabilities the equation reads on both
+# sides of that point, and the values it reads well below it.
+
+test_that("ee_mlogit stays finite where exp() of the linear predictor overflows", {
+  X <- cbind(1, c(0, 1))
+  # The first observation is in the reference category and the second is in the
+  # last category.
+  y <- cbind(c(1, 0), c(0, 0), c(0, 1))
+
+  # The first observation holds every linear predictor at zero, so its three
+  # categories are equally probable. The second gives the first non-reference
+  # category all of the probability, leaving the reference and last categories
+  # at zero.
+  expected <- rbind(
+    c(1 / 3, -1),
+    c(0, -1),
+    c(1 / 3, 1),
+    c(0, 1)
+  )
+
+  eta_max <- c(709, 710, 1000)
+  scores <- lapply(
+    eta_max,
+    function(e) ee_mlogit(c(0, e, 0, 0), X = X, y = y)
+  )
+
+  expect_true(all(is.finite(unlist(scores))))
+  expect_equal(scores, rep(list(expected), length(eta_max)))
+})
+
+test_that("ee_mlogit reads the same scores where nothing overflows", {
+  d <- mlogit_indicator_data()
+  score <- ee_mlogit(c(0.8, -0.5, 0.3, 0.2), X = d$X, y = d$y)
+
+  expect_equal(
+    rowSums(score),
+    c(
+      4.75135497492361,
+      3.72049382506904,
+      -2.68470787602859,
+      -1.22280201723337
+    ),
+    tolerance = 1e-12
+  )
+  expect_equal(
+    score[, 1],
+    c(0.295025327936899, 0, -0.513585466435153, 0),
+    tolerance = 1e-12
+  )
+})
+
 # ee_beta_regression tests ----------------------------------------------------
 
 test_that("ee_beta_regression returns correct shape", {
