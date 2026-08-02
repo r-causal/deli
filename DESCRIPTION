@@ -5,9 +5,7 @@ Authors@R: c(
     person("Malcolm", "Barrett", , "malcolmbarrett@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0003-0299-5825")),
     person("Paul", "Zivich", role = "ctb",
-           comment = c(ORCID = "0000-0002-9932-1095", "Author of the Python 'delicatessen' library, whose design deli ports")),
-    person("Mark", "Klose", role = "ctb",
-           comment = c(ORCID = "0000-0001-5882-1088", "Author of the Python 'delicatessen' library, whose design deli ports"))
+           comment = c(ORCID = "0000-0002-9932-1095", "Author of the Python 'delicatessen' library, whose design deli ports"))
   )
 Description: Provides a general API for M-estimation via solving
     estimating equations with empirical sandwich variance estimation.
