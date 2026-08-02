@@ -3923,8 +3923,6 @@ test_that("division tangents agree with the quotient rule away from the overflow
 # apart.
 
 test_that("asinh tangents survive a primal whose square overflows", {
-  skip("pending the asinh and acosh rules that divide through by the primal")
-
   # d asinh(p) / dp is 1 / sqrt(1 + p^2), which at p = 1e200 is 1e-200 while
   # the primal asinh(1e200) is an ordinary 461.21.
   r <- asinh(primal_tangent(1e200, 1))
@@ -3952,8 +3950,6 @@ test_that("asinh tangents survive a primal whose square overflows", {
 })
 
 test_that("acosh tangents survive a primal whose square overflows", {
-  skip("pending the asinh and acosh rules that divide through by the primal")
-
   # d acosh(p) / dp is 1 / sqrt(p^2 - 1), which at p = 1e200 is 1e-200: the
   # subtracted one is far below the last bit of the square, so the derivative
   # is the same 1e-200 asinh reads there.
@@ -3974,8 +3970,6 @@ test_that("acosh tangents survive a primal whose square overflows", {
 })
 
 test_that("auto_differentiation reads asinh and acosh gradients at a huge primal", {
-  skip("pending the asinh and acosh rules that divide through by the primal")
-
   asinh_gradient <- auto_differentiation(1e200, function(x) asinh(x[1]))
   expect_equal(asinh_gradient[1, ] * 1e200, 1)
 
@@ -4041,11 +4035,13 @@ test_that("asinh reads its derivative at and around a primal of zero", {
 test_that("acosh reads its derivative just above a primal of one", {
   # At the edge of the domain the derivative is large but finite, and p^2 - 1
   # is nowhere near overflowing, so this pins the ordinary regime rather than
-  # the overflow. The forms of the rule differ in their last few digits here
-  # because p^2 - 1 cancels; the comparison is against the mathematical value
-  # at the default tolerance, which every form of the rule meets.
+  # the overflow. Arrangements of the rule differ in their last few digits here
+  # because p^2 - 1 cancels most of its significant digits away, so the
+  # reference below is computed from the factored difference, where p - 1 is
+  # exact and every digit survives. The comparison is against that mathematical
+  # value at the default tolerance, which any arrangement of the rule meets.
   p <- 1 + 1e-8
   r <- acosh(primal_tangent(p, 1))
   expect_equal(r$primal, acosh(p))
-  expect_equal(r$tangent, 1 / sqrt(p^2 - 1))
+  expect_equal(r$tangent, 1 / sqrt((p - 1) * (p + 1)))
 })

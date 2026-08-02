@@ -698,8 +698,36 @@ pt_math_rule <- function(generic, p, t) {
     "sinh" = list(primal = sinh(p), tangent = cosh(p) * t),
     "cosh" = list(primal = cosh(p), tangent = sinh(p) * t),
     "tanh" = list(primal = tanh(p), tangent = t / cosh(p)^2),
-    "asinh" = list(primal = asinh(p), tangent = t / sqrt(p^2 + 1)),
-    "acosh" = list(primal = acosh(p), tangent = t / sqrt(p^2 - 1)),
+    # The asinh derivative 1 / sqrt(p^2 + 1) is written with the square root
+    # divided through by a scale rather than as the textbook square. That square
+    # overflows to Inf past a primal of about 1.3e154 even where the primal and
+    # the derivative are both ordinary values; sqrt() of Inf is Inf and the
+    # tangent then reads a silent zero. Scaling by the larger of abs(p) and one
+    # reaches the same derivative without ever forming the square: past that
+    # magnitude the root reads sqrt(1 + (1 / p)^2), and under it the scale is one
+    # and the arithmetic is the closed form to the last bit. The floor at one is
+    # what holds both ends. It keeps the derivative at exactly one for a primal
+    # of zero, where dividing through unconditionally would read 0 * Inf, and it
+    # keeps 1 / p^2 from being formed at a primal small enough for the reciprocal
+    # of its square to be Inf.
+    "asinh" = {
+      scale <- pmax(abs(p), 1)
+      list(
+        primal = asinh(p),
+        tangent = t / (scale * sqrt((p / scale)^2 + (1 / scale)^2))
+      )
+    },
+    # The acosh derivative 1 / sqrt(p^2 - 1) squares the primal for the same
+    # reason and overflows at the same magnitude, so the difference is factored
+    # as (p - 1)(p + 1) and each factor takes its own square root. Neither one
+    # ever holds the square. The split factors are also the more accurate reading
+    # at the edge of the domain: as p approaches one, p^2 - 1 cancels away most
+    # of its significant digits, while p - 1 is exact there and keeps all of
+    # them.
+    "acosh" = list(
+      primal = acosh(p),
+      tangent = t / (sqrt(p - 1) * sqrt(p + 1))
+    ),
     "atanh" = list(primal = atanh(p), tangent = t / (1 - p^2)),
     "log1p" = list(primal = log1p(p), tangent = t / (1 + p)),
     "expm1" = list(primal = expm1(p), tangent = exp(p) * t),
