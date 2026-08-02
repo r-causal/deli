@@ -58,18 +58,21 @@ X <- cbind(1, A, W1, W2)      # Observed design matrix
 X1 <- cbind(1, 1, W1, W2)     # Counterfactual: all treated
 X0 <- cbind(1, 0, W1, W2)     # Counterfactual: all untreated
 
-psi <- function(theta) {
+psi_gformula <- function(theta) {
   ee_gformula(theta, y = Y, X = X, X1 = X1, X0 = X0)
 }
 
 # theta: ACE, E[Y(1)], E[Y(0)], beta0, beta1, beta2, beta3
-m <- m_estimate(stacked_equations = psi, init = c(0, 0, 0, 0, 0, 0, 0))
+m_gformula <- m_estimate(
+  stacked_equations = psi_gformula,
+  init = c(0, 0, 0, 0, 0, 0, 0)
+)
 
 # ACE estimate (true = 1.5)
-m@theta[1]
+m_gformula@theta[1]
 
 # With confidence interval
-summary(m)
+summary(m_gformula)
 ```
 
 The first parameter is the average causal effect (ACE).
@@ -82,16 +85,16 @@ probability (propensity score):
 ```{r ipw}
 W_ps <- cbind(1, W1, W2)  # Propensity score design matrix
 
-psi <- function(theta) {
+psi_ipw <- function(theta) {
   ee_ipw(theta, y = Y, A = A, W = W_ps)
 }
 
 # theta: ACE, E[Y(1)], E[Y(0)], alpha0, alpha1, alpha2
-m <- m_estimate(stacked_equations = psi, init = c(0, 0, 0, 0, 0, 0))
+m_ipw <- m_estimate(stacked_equations = psi_ipw, init = c(0, 0, 0, 0, 0, 0))
 
 # ACE
-m@theta[1]
-summary(m)
+m_ipw@theta[1]
+summary(m_ipw)
 ```
 
 ### Truncating propensity scores
@@ -100,65 +103,49 @@ Extreme propensity scores can inflate variance. Use `truncate` to clip
 them:
 
 ```{r ipw-truncate}
-psi <- function(theta) {
+psi_ipw_trunc <- function(theta) {
   ee_ipw(theta, y = Y, A = A, W = W_ps,
          truncate = c(0.1, 0.9))
 }
 
-m <- m_estimate(stacked_equations = psi, init = c(0, 0, 0, 0, 0, 0))
-summary(m)
+m_ipw_trunc <- m_estimate(
+  stacked_equations = psi_ipw_trunc,
+  init = c(0, 0, 0, 0, 0, 0)
+)
+summary(m_ipw_trunc)
 ```
 
 ## Augmented IPW (doubly robust)
 
 AIPW combines outcome modeling and IPW. It is "doubly robust": the
 estimate is consistent if either the outcome model or the propensity
-score model is correctly specified:
+score model is correctly specified. It reuses both sets of design
+matrices built above:
 
 ```{r aipw}
-X <- cbind(1, A, W1, W2)
-X1 <- cbind(1, 1, W1, W2)
-X0 <- cbind(1, 0, W1, W2)
-W_ps <- cbind(1, W1, W2)
-
-psi <- function(theta) {
+psi_aipw <- function(theta) {
   ee_aipw(theta, y = Y, A = A,
           W = W_ps,             # Propensity score model
           X = X, X1 = X1, X0 = X0)  # Outcome model
 }
 
 # theta: ACE, E[Y(1)], E[Y(0)], alpha (3), beta (4)
-m <- m_estimate(
-  stacked_equations = psi,
+m_aipw <- m_estimate(
+  stacked_equations = psi_aipw,
   init = c(0, 0, 0, rep(0, 3), rep(0, 4))
 )
 
-summary(m)
+summary(m_aipw)
 ```
 
 ## Comparing methods
 
+The three fits above all target the same average causal effect. Both the
+outcome model and the propensity score model are correctly specified in
+this simulation, so the estimates agree closely with one another and with
+the true value:
+
 ```{r compare-methods}
-psi_gformula <- function(theta) {
-  ee_gformula(theta, y = Y, X = cbind(1, A, W1, W2),
-              X1 = cbind(1, 1, W1, W2),
-              X0 = cbind(1, 0, W1, W2))
-}
-m_gformula <- m_estimate(stacked_equations = psi_gformula, init = rep(0, 7))
-
-psi_ipw <- function(theta) {
-  ee_ipw(theta, y = Y, A = A, W = cbind(1, W1, W2))
-}
-m_ipw <- m_estimate(stacked_equations = psi_ipw, init = rep(0, 6))
-
-psi_aipw <- function(theta) {
-  ee_aipw(theta, y = Y, A = A, W = cbind(1, W1, W2),
-          X = cbind(1, A, W1, W2),
-          X1 = cbind(1, 1, W1, W2),
-          X0 = cbind(1, 0, W1, W2))
-}
-m_aipw <- m_estimate(stacked_equations = psi_aipw, init = rep(0, 10))
-
 data.frame(
   method = c("G-formula", "IPW", "AIPW"),
   estimate = round(
