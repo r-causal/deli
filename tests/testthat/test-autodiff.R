@@ -4126,10 +4126,11 @@ test_that("asinh reads non-finite and ordinary primals elementwise", {
 # and atanh) all take their rules from the elementwise table in `pt_math_rule`,
 # so each is read here both as a scalar pair and on the array surface the same
 # table serves. Beyond the closed forms, each rule is also read at the extremes
-# its arrangement can reach: where the domain is bounded, as it is for asin,
-# acos, and atanh, no arrangement of the rule can overflow at all, and where it
-# is not, the regime just short of the overflow is pinned so that any later
-# reformulation has to preserve it.
+# of its domain: where the domain is bounded, as it is for asin, acos, and
+# atanh, no arrangement of the rule can overflow at all, and where it is not,
+# the reading is pinned across the whole range where a derivative is
+# representable, subnormal windows included, up to the primal where zero is the
+# correctly rounded answer.
 #
 # Some of those regimes put the true derivative near the bottom of the double
 # range, where the default tolerance compares absolutely and every value below
@@ -4389,8 +4390,6 @@ test_that("the atan tangent reads a primal of 1e200 as a correctly rounded zero"
 })
 
 test_that("the atan tangent reads its derivative past the sum's overflow", {
-  skip("pending the tanh and atan rules that avoid the squared overflow")
-
   # The zero the guard above reads is correctly rounded because no derivative
   # is representable at p = 1e200. Short of that primal is a window where one
   # is and the rule still reads zero: t / (1 + p^2) forms a sum that overflows
@@ -4477,16 +4476,16 @@ test_that("sinh and cosh tangents stay finite wherever their primals do", {
   expect_equal(just_above$tangent, Inf)
 })
 
-test_that("the tanh tangent reads its derivative below the squared cosine's overflow", {
-  # The tanh rule t / cosh(p)^2 forms the square of cosh, which itself grows
-  # like e^p / 2, so the square overflows past a primal of about 355.58 while
-  # the value tanh(p) has settled at +-1 far earlier. At p = 350 the square is
-  # still finite and the derivative is an ordinary 3.94e-304. The assertion is
-  # rescaled to the size of that derivative because the default tolerance
+test_that("the tanh tangent keeps reading a derivative the value has left behind", {
+  # tanh saturates long before its derivative does: the value is exactly +-1
+  # from a primal of about 19.07 onward, while sech(p)^2 is still an ordinary
+  # 3.94e-304 at p = 350. What the rule owes at such a primal is that
+  # derivative and not the zero the flat value might suggest. The assertion is
+  # rescaled to the size of the derivative because the default tolerance
   # compares absolutely down here, where a tangent of zero and the true tangent
   # are a rounding error apart. The reference reciprocates before squaring,
-  # an arrangement that reaches the same derivative without forming the large
-  # square, and the two agree to the last few bits.
+  # an arrangement that reaches the same derivative without forming a large
+  # intermediate, and the two agree to the last few bits.
   p <- 350
   r <- tanh(primal_tangent(p, 1))
   expect_equal(r$primal, 1)
@@ -4501,11 +4500,14 @@ test_that("the tanh tangent reads its derivative below the squared cosine's over
   expect_equal(negative$primal, -1)
   expect_equal(negative$tangent * 1e304, (1 / cosh(p))^2 * 1e304)
 
-  # Past a primal of about 373.26 the derivative 4 e^(-2p) falls below the
-  # smallest subnormal double, so zero is what the derivative rounds to there
+  # The derivative 4 e^(-2p) drops below the smallest subnormal double at a
+  # primal of about 372.91, but rounding to zero begins lower still: while the
+  # derivative sits between half that subnormal and a whole one it rounds up to
+  # it, and only past a primal of about 373.26 does it fall below the half and
+  # round to zero. At p = 400 zero is therefore what the derivative rounds to
   # under any arrangement of the rule, not a value the rule missed. The second
-  # assertion is the arrangement that never forms the large square, reading the
-  # same zero.
+  # assertion is an arrangement that never forms a large intermediate, reading
+  # the same zero.
   beyond <- tanh(primal_tangent(400, 1))
   expect_equal(beyond$primal, 1)
   expect_equal(beyond$tangent, 0)
@@ -4513,8 +4515,6 @@ test_that("the tanh tangent reads its derivative below the squared cosine's over
 })
 
 test_that("the tanh tangent reads its derivative past the squared cosine's overflow", {
-  skip("pending the tanh and atan rules that avoid the squared overflow")
-
   # The guard above reads one primal just short of the overflow and one at
   # p = 400, past the last representable derivative. Between those two lies a
   # window it does not reach: cosh(p)^2 is Inf from a primal of about 355.59
@@ -4527,8 +4527,10 @@ test_that("the tanh tangent reads its derivative past the squared cosine's overf
   # the bit with dividing by cosh twice. The exponential arrangement
   # 4 e^(-2p) / (1 + e^(-2p))^2 is not used as the reference: it agrees to
   # about 4e-15 relative here, but it loses digits further into the window as
-  # its own factors fall subnormal and reads zero past about p = 372.2, where
-  # e^(-2p) underflows ahead of the derivative.
+  # its own factors fall subnormal. Past about p = 372.2 it carries none of
+  # them, reading a value off by a factor rather than by a rounding, and past
+  # about p = 372.6 it reads zero outright, where e^(-2p) underflows ahead of
+  # the derivative.
   #
   # The comparisons are rescaled to the size of the derivative because the
   # default tolerance compares absolutely down here, where the zero the rule
@@ -4607,7 +4609,7 @@ test_that("the newly covered Math tangents read an infinite primal where the dom
   expect_equal(cosh_at_negative_inf$tangent, -Inf)
 
   # tanh flattens at +-1, and the rule reaches the zero derivative of that
-  # limit: cosh(Inf)^2 is Inf and the quotient is zero.
+  # limit: cosh is Inf at either infinity and dividing by it twice is zero.
   tanh_at_inf <- tanh(primal_tangent(Inf, 1))
   expect_equal(tanh_at_inf$primal, 1)
   expect_equal(tanh_at_inf$tangent, 0)
@@ -4663,8 +4665,6 @@ test_that("auto_differentiation reads log2, atan, and tanh gradients", {
 })
 
 test_that("auto_differentiation reads tanh and atan gradients inside the subnormal window", {
-  skip("pending the tanh and atan rules that avoid the squared overflow")
-
   # The machinery-level reading of the same two windows: a gradient taken at a
   # primal in either one has to carry the derivative that exists there rather
   # than the zero the squared arrangement leaves behind. Both comparisons are

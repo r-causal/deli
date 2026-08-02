@@ -694,10 +694,49 @@ pt_math_rule <- function(generic, p, t) {
     "tan" = list(primal = tan(p), tangent = t / cos(p)^2),
     "asin" = list(primal = asin(p), tangent = t / sqrt(1 - p^2)),
     "acos" = list(primal = acos(p), tangent = -t / sqrt(1 - p^2)),
-    "atan" = list(primal = atan(p), tangent = t / (1 + p^2)),
+    # The atan derivative 1 / (1 + p^2) is written with the sum divided through
+    # by a scale rather than as the textbook square. That square overflows the
+    # sum to Inf past a primal of about 1.34e154, while the derivative itself
+    # stays a representable subnormal out to about 6.36e161, so across that
+    # whole window an ordinary tangent silently reads zero beside an ordinary
+    # primal. Scaling by the larger of abs(p) and one reaches the same
+    # derivative without ever forming the square: dividing numerator and
+    # denominator through by the scale leaves (t / scale) over
+    # (1 / scale + p^2 / scale), which is what the arrangement below computes,
+    # so the scale is divided out once on each side and never multiplied by
+    # itself. Inside the unit interval the scale is one and the arithmetic is
+    # the closed form to the bit; above it the divisions round separately and
+    # the reading can sit a unit or two in the last place from the sum's. The
+    # floor at one is what holds both ends. It keeps the derivative at exactly
+    # one for a primal of zero, where a scale of zero would divide the primal by
+    # itself and read NaN, and it keeps 1 / p from being formed at a primal
+    # small enough for the reciprocal's own square to be Inf. An infinite primal
+    # is the one magnitude the scale cannot divide, since it would read
+    # Inf / Inf as NaN, so that ratio is held at one and the infinite scale
+    # carries the tangent to the zero the derivative reaches in the limit. A
+    # primal that is NaN or NA passes through the scale itself and stays unread.
+    "atan" = {
+      scale <- pmax(abs(p), 1)
+      scaled <- ifelse(is.finite(p), p / scale, 1)
+      list(
+        primal = atan(p),
+        tangent = (t / scale) / (scale * ((1 / scale)^2 + scaled^2))
+      )
+    },
     "sinh" = list(primal = sinh(p), tangent = cosh(p) * t),
     "cosh" = list(primal = cosh(p), tangent = sinh(p) * t),
-    "tanh" = list(primal = tanh(p), tangent = t / cosh(p)^2),
+    # The tanh derivative sech(p)^2 is written as two divisions by cosh rather
+    # than as one division by its square. cosh grows like e^p / 2, so the square
+    # overflows to Inf past a primal of about 355.58, while the derivative
+    # itself stays a representable subnormal out to about 373.26, so across that
+    # whole window an ordinary tangent silently reads zero beside a value that
+    # has long since settled at +-1. Dividing by cosh twice reaches the same
+    # derivative without ever forming the square, and at an ordinary primal the
+    # two divisions sit within a unit in the last place of the squared form,
+    # neither one nearer the correctly rounded derivative than the other. An
+    # infinite primal reads t / Inf / Inf, which is the zero the derivative
+    # reaches in the limit.
+    "tanh" = list(primal = tanh(p), tangent = (t / cosh(p)) / cosh(p)),
     # The asinh derivative 1 / sqrt(p^2 + 1) is written with the square root
     # divided through by a scale rather than as the textbook square. That square
     # overflows to Inf past a primal of about 1.3e154 even where the primal and
