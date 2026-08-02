@@ -72,11 +72,11 @@ fit <- m_estimate(vs ~ mpg, data = mtcars, .ee = ee_regression,
 # Variance of the odds ratio for mpg, exponentiating the log-odds coefficient
 delta_method(fit, transform = function(theta) exp(theta[2]))
 #>            [,1]
-#> [1,] 0.06420381
+#> [1,] 0.06420343
 
 # The same variance from the estimates and covariance alone
 delta_method(coef(fit), transform = function(theta) exp(theta[2]),
              covariance = vcov(fit))
 #>            [,1]
-#> [1,] 0.06420381
+#> [1,] 0.06420343
 ```

@@ -59,7 +59,7 @@ fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
 compute_confidence_bands(coef(fit), covariance = vcov(fit),
                          method = "supt", seed = 1)
 #>                   lower       upper
-#> (Intercept) 32.71991895 41.73462128
-#> wt          -5.31895734 -2.43670414
+#> (Intercept) 32.71991838 41.73462185
+#> wt          -5.31895808 -2.43670340
 #> hp          -0.04722284 -0.01632305
 ```

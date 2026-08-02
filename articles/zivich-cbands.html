@@ -164,7 +164,7 @@
 <div class="sourceCode cell-code" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">ci</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">2</span>, <span class="op">]</span></span>
 <span><span class="co">#&gt;             lower    upper</span></span>
-<span><span class="co">#&gt; theta_1  43.28997 65.81965</span></span>
+<span><span class="co">#&gt; theta_1  43.28997 65.81966</span></span>
 <span><span class="co">#&gt; theta_2 -29.79386 30.18211</span></span></code></pre></div>
 </div>
 <p>and the 95% confidence bands are</p>
@@ -172,7 +172,7 @@
 <div class="sourceCode cell-code" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">cb</span></span>
 <span><span class="co">#&gt;             lower    upper</span></span>
-<span><span class="co">#&gt; theta_1  41.85506 67.25457</span></span>
+<span><span class="co">#&gt; theta_1  41.85505 67.25457</span></span>
 <span><span class="co">#&gt; theta_2 -33.61372 34.00197</span></span></code></pre></div>
 </div>
 <p>As shown here, the confidence bands encapsulate the confidence intervals. These wider intervals are the price we pay to have simultaneous coverage of our parameters. However, this drop in precision is important since our interest (and thus our interpretations) are for more than one parameter. This distinction between confidence regions is slightly easier to understand visually.</p>
@@ -307,10 +307,10 @@
 <span>  <span class="op">}</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="co">#&gt;               Names Estimate      Interval         Bands</span></span>
-<span><span class="co">#&gt; theta_1 (Intercept)    355.8 [327.5 384.2] [323.1 388.5]</span></span>
-<span><span class="co">#&gt; theta_2       treat     43.4    [8.1 78.7]    [2.6 84.1]</span></span>
-<span><span class="co">#&gt; theta_3        male    -27.1   [-58.9 4.7]   [-63.7 9.6]</span></span>
-<span><span class="co">#&gt; theta_4  treat:male     13.5  [-26.5 53.6]  [-32.6 59.7]</span></span></code></pre></div>
+<span><span class="co">#&gt; theta_1 (Intercept)    355.8 [327.5 384.2] [323.1 388.6]</span></span>
+<span><span class="co">#&gt; theta_2       treat     43.4    [8.1 78.7]    [2.6 84.2]</span></span>
+<span><span class="co">#&gt; theta_3        male    -27.1   [-58.9 4.7]   [-63.8 9.6]</span></span>
+<span><span class="co">#&gt; theta_4  treat:male     13.5  [-26.5 53.6]  [-32.7 59.7]</span></span></code></pre></div>
 </div>
 <p>Again, the bands compensate for the fact that we are interested in simultaneous inference. Additionally, we restrict the computation of the confidence bands only to the parameters of interest (the first 4 parameters of <code>theta</code>).</p>
 </section><section class="level2"><h2 id="case-study-3-effect-measure-modification-by-a-continuous-covariate">Case Study 3: Effect Measure Modification by a Continuous Covariate<a class="anchor" aria-label="anchor" href="#case-study-3-effect-measure-modification-by-a-continuous-covariate"></a>

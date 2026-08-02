@@ -250,14 +250,14 @@ coef(fit)
 
 vcov(fit)
 #>              (Intercept)           wt            hp
-#> (Intercept)  3.759412749 -0.991167246 -1.918909e-03
-#> wt          -0.991167246  0.384309827 -1.649185e-03
-#> hp          -0.001918909 -0.001649185  4.417008e-05
+#> (Intercept)  3.759414267 -0.991168177 -1.918899e-03
+#> wt          -0.991168177  0.384310278 -1.649189e-03
+#> hp          -0.001918899 -0.001649189  4.417009e-05
 
 confint(fit)
 #>                   lower       upper
-#> (Intercept) 33.42705575 41.02748449
-#> wt          -5.09286587 -2.66279561
+#> (Intercept) 33.42705498 41.02748525
+#> wt          -5.09286659 -2.66279490
 #> hp          -0.04479898 -0.01874691
 
 nobs(fit)
@@ -280,7 +280,7 @@ head(residuals(fit))
 
 formula(fit)
 #> mpg ~ wt + hp
-#> <environment: 0x55ece2654250>
+#> <environment: 0x55841c1a0bc8>
 
 # Weights reach a fit through the formula interface, and `weights()` reports
 # the vector the fit was solved with.

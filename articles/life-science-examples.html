@@ -126,7 +126,7 @@
 <span>  UCL <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/confint.html" class="external-link">confint</a></span><span class="op">(</span><span class="va">estr_bench</span><span class="op">)</span><span class="op">[</span>, <span class="fl">2</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="co">#&gt;             Param    Coef     LCL     UCL</span></span>
-<span><span class="co">#&gt; theta_1 Intercept -53.740 -80.813 -26.667</span></span>
+<span><span class="co">#&gt; theta_1 Intercept -53.740 -80.816 -26.665</span></span>
 <span><span class="co">#&gt; theta_2    Height   0.721   0.559   0.883</span></span></code></pre></div>
 </div>
 </section><section class="level3"><h3 id="b-linear-regression-with-outlier">(b) Linear Regression with Outlier<a class="anchor" aria-label="anchor" href="#b-linear-regression-with-outlier"></a>
@@ -147,7 +147,7 @@
 <span>  UCL <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/confint.html" class="external-link">confint</a></span><span class="op">(</span><span class="va">estr_outlier</span><span class="op">)</span><span class="op">[</span>, <span class="fl">2</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="co">#&gt;             Param    Coef     LCL    UCL</span></span>
-<span><span class="co">#&gt; theta_1 Intercept -19.407 -80.524 41.710</span></span>
+<span><span class="co">#&gt; theta_1 Intercept -19.407 -80.527 41.714</span></span>
 <span><span class="co">#&gt; theta_2    Height   0.515   0.147  0.882</span></span></code></pre></div>
 </div>
 </section><section class="level3"><h3 id="c-robust-regression-with-outlier-huber-k1-345">(c) Robust Regression with Outlier (Huber, k=1.345)<a class="anchor" aria-label="anchor" href="#c-robust-regression-with-outlier-huber-k1-345"></a>
@@ -171,7 +171,7 @@
 <span>  UCL <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/confint.html" class="external-link">confint</a></span><span class="op">(</span><span class="va">estr_robust</span><span class="op">)</span><span class="op">[</span>, <span class="fl">2</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="co">#&gt;             Param    Coef      LCL    UCL</span></span>
-<span><span class="co">#&gt; theta_1 Intercept -36.791 -146.295 72.712</span></span>
+<span><span class="co">#&gt; theta_1 Intercept -36.791 -146.312 72.729</span></span>
 <span><span class="co">#&gt; theta_2    Height   0.619   -0.037  1.276</span></span></code></pre></div>
 </div>
 <p>The robust regression estimates are closer to the benchmark (without outlier) than the simple linear regression with the outlier, demonstrating how Huber loss down-weights the influence of extreme observations.</p>

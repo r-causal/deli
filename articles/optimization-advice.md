@@ -155,7 +155,7 @@ m_lm <- MEstimator(psi_robust, init = c(mean(y), 0)) |>
 
 coef(m_newton)
 #>     theta_1     theta_2 
-#> 64.82739742 -0.05702882
+#> 64.82739739 -0.05702882
 coef(m_lm)
 #>   theta_1   theta_2 
 #> 65.543970  0.619315

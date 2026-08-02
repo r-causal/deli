@@ -122,11 +122,11 @@
 <span><span class="co">#&gt; -38.606821   6.194831</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/vcov.html" class="external-link">vcov</a></span><span class="op">(</span><span class="va">estr</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;     emax     ed50 </span></span>
-<span><span class="co">#&gt; 4.127048 2.395068</span></span>
+<span><span class="co">#&gt; 4.127057 2.395072</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/stats/confint.html" class="external-link">confint</a></span><span class="op">(</span><span class="va">estr</span><span class="op">)</span></span>
 <span><span class="co">#&gt;           lower     upper</span></span>
-<span><span class="co">#&gt; emax -46.695685 -30.51796</span></span>
-<span><span class="co">#&gt; ed50   1.500584  10.88908</span></span></code></pre></div>
+<span><span class="co">#&gt; emax -46.695703 -30.51794</span></span>
+<span><span class="co">#&gt; ed50   1.500576  10.88909</span></span></code></pre></div>
 </div>
 <p>These results are close to what is reported in the book (note that a different variance estimator is used).</p>
 </section><section class="level3"><h3 id="outlier-robust-e-max-model">Outlier-robust E-max model<a class="anchor" aria-label="anchor" href="#outlier-robust-e-max-model"></a>
@@ -155,11 +155,11 @@
 <span><span class="co">#&gt; -35.544112   6.325701</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/vcov.html" class="external-link">vcov</a></span><span class="op">(</span><span class="va">estr</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;     emax     ed50 </span></span>
-<span><span class="co">#&gt; 4.170391 2.051520</span></span>
+<span><span class="co">#&gt; 4.170387 2.051518</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/stats/confint.html" class="external-link">confint</a></span><span class="op">(</span><span class="va">estr</span><span class="op">)</span></span>
-<span><span class="co">#&gt;           lower     upper</span></span>
-<span><span class="co">#&gt; emax -43.717927 -27.37030</span></span>
-<span><span class="co">#&gt; ed50   2.304796  10.34661</span></span></code></pre></div>
+<span><span class="co">#&gt;           lower    upper</span></span>
+<span><span class="co">#&gt; emax -43.717920 -27.3703</span></span>
+<span><span class="co">#&gt; ed50   2.304799  10.3466</span></span></code></pre></div>
 </div>
 <p>Here, we observe a minor change in the estimated coefficients. The dose-response curve estimated using the outlier-robust approach did not drop as low as the non-robust method. This is expected given the apparent outliers around doses of 15, 25, and 52.</p>
 </section></section><section class="level2"><h2 id="chapter-9-nonlinear-mixed-effects-models-case-studies">Chapter 9: Nonlinear Mixed Effects Models: Case Studies<a class="anchor" aria-label="anchor" href="#chapter-9-nonlinear-mixed-effects-models-case-studies"></a>
@@ -196,12 +196,12 @@
 <span><span class="co">#&gt; -2.2738986 84.4601225  0.5835241</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/vcov.html" class="external-link">vcov</a></span><span class="op">(</span><span class="va">estr</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;         e0       emax       ed50 </span></span>
-<span><span class="co">#&gt; 1.33595175 6.64581445 0.08522233</span></span>
+<span><span class="co">#&gt; 1.33595177 6.64581650 0.08522223</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/stats/confint.html" class="external-link">confint</a></span><span class="op">(</span><span class="va">estr</span><span class="op">)</span></span>
 <span><span class="co">#&gt;           lower      upper</span></span>
-<span><span class="co">#&gt; e0   -4.8923159  0.3445187</span></span>
-<span><span class="co">#&gt; emax 71.4345656 97.4856795</span></span>
-<span><span class="co">#&gt; ed50  0.4164914  0.7505568</span></span></code></pre></div>
+<span><span class="co">#&gt; e0   -4.8923159  0.3445188</span></span>
+<span><span class="co">#&gt; emax 71.4345616 97.4856835</span></span>
+<span><span class="co">#&gt; ed50  0.4164916  0.7505566</span></span></code></pre></div>
 </div>
 </section><section class="level4"><h4 id="accounting-for-clustering">Accounting for clustering<a class="anchor" aria-label="anchor" href="#accounting-for-clustering"></a>
 </h4>
@@ -227,12 +227,12 @@
 <span><span class="co">#&gt; -2.2738986 84.4601225  0.5835241</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/vcov.html" class="external-link">vcov</a></span><span class="op">(</span><span class="va">estr</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;         e0       emax       ed50 </span></span>
-<span><span class="co">#&gt; 1.55419104 7.40055760 0.07778967</span></span>
+<span><span class="co">#&gt; 1.55418423 7.40058034 0.07779039</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/stats/confint.html" class="external-link">confint</a></span><span class="op">(</span><span class="va">estr</span><span class="op">)</span></span>
 <span><span class="co">#&gt;           lower      upper</span></span>
-<span><span class="co">#&gt; e0   -5.3200571  0.7722599</span></span>
-<span><span class="co">#&gt; emax 69.9552962 98.9649489</span></span>
-<span><span class="co">#&gt; ed50  0.4310592  0.7359891</span></span></code></pre></div>
+<span><span class="co">#&gt; e0   -5.3200437  0.7722465</span></span>
+<span><span class="co">#&gt; emax 69.9552516 98.9649935</span></span>
+<span><span class="co">#&gt; ed50  0.4310578  0.7359905</span></span></code></pre></div>
 </div>
 <p>As seen here, the point estimates are similar but the variance changes.</p>
 </section><section class="level4"><h4 id="finite-sample-correction">Finite-sample correction<a class="anchor" aria-label="anchor" href="#finite-sample-correction"></a>
@@ -254,12 +254,12 @@
 <span><span class="co">#&gt; -2.2738986 84.4601225  0.5835241</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/vcov.html" class="external-link">vcov</a></span><span class="op">(</span><span class="va">estr</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;         e0       emax       ed50 </span></span>
-<span><span class="co">#&gt; 1.79462523 8.54542784 0.08982377</span></span>
+<span><span class="co">#&gt; 1.79461737 8.54545410 0.08982461</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/stats/confint.html" class="external-link">confint</a></span><span class="op">(</span><span class="va">estr</span><span class="op">)</span></span>
 <span><span class="co">#&gt;           lower       upper</span></span>
-<span><span class="co">#&gt; e0   -6.3336229   1.7858257</span></span>
-<span><span class="co">#&gt; emax 65.1290217 103.7912233</span></span>
-<span><span class="co">#&gt; ed50  0.3803286   0.7867196</span></span></code></pre></div>
+<span><span class="co">#&gt; e0   -6.3336051   1.7858080</span></span>
+<span><span class="co">#&gt; emax 65.1289623 103.7912827</span></span>
+<span><span class="co">#&gt; ed50  0.3803267   0.7867215</span></span></code></pre></div>
 </div>
 <p>Here, we see the variance increase a bit further (due to the additional correction). This concludes the case study showing how to account for non-independent observations and small sample sizes.</p>
 </section></section></section><section class="level2"><h2 id="chapter-11-generalized-linear-models-and-its-extensions">Chapter 11: Generalized Linear Models and Its Extensions<a class="anchor" aria-label="anchor" href="#chapter-11-generalized-linear-models-and-its-extensions"></a>

@@ -387,7 +387,7 @@ m@theta
 #> 0.5250143 2.2482418
 sqrt(diag(m@variance))
 #>    theta_1    theta_2 
-#> 0.05305374 0.02666169
+#> 0.05305373 0.02666168
 confidence_intervals(m)
 #>             lower     upper
 #> theta_1 0.4210308 0.6289977
@@ -510,9 +510,9 @@ which prints rather than returns:
 ``` r
 
 generics::tidy(m, conf.int = TRUE)
-#>      term  estimate  std.error statistic      p.value  s.value  conf.low
-#> 1 theta_1 0.5250143 0.05305374  9.895895 4.337112e-23 74.28761 0.4210308
-#> 2 theta_2 2.2482418 0.02666169 84.324811 0.000000e+00      Inf 2.1959858
+#>      term  estimate  std.error statistic     p.value  s.value  conf.low
+#> 1 theta_1 0.5250143 0.05305373  9.895896 4.33707e-23 74.28763 0.4210308
+#> 2 theta_2 2.2482418 0.02666168 84.324832 0.00000e+00      Inf 2.1959858
 #>   conf.high
 #> 1 0.6289977
 #> 2 2.3004977

@@ -122,7 +122,7 @@ The 95% confidence intervals for the two causal effects are
 
 ci[1:2, ]
 #>             lower    upper
-#> theta_1  43.28997 65.81965
+#> theta_1  43.28997 65.81966
 #> theta_2 -29.79386 30.18211
 ```
 
@@ -132,7 +132,7 @@ and the 95% confidence bands are
 
 cb
 #>             lower    upper
-#> theta_1  41.85506 67.25457
+#> theta_1  41.85505 67.25457
 #> theta_2 -33.61372 34.00197
 ```
 
@@ -291,10 +291,10 @@ data.frame(
   })
 )
 #>               Names Estimate      Interval         Bands
-#> theta_1 (Intercept)    355.8 [327.5 384.2] [323.1 388.5]
-#> theta_2       treat     43.4    [8.1 78.7]    [2.6 84.1]
-#> theta_3        male    -27.1   [-58.9 4.7]   [-63.7 9.6]
-#> theta_4  treat:male     13.5  [-26.5 53.6]  [-32.6 59.7]
+#> theta_1 (Intercept)    355.8 [327.5 384.2] [323.1 388.6]
+#> theta_2       treat     43.4    [8.1 78.7]    [2.6 84.2]
+#> theta_3        male    -27.1   [-58.9 4.7]   [-63.8 9.6]
+#> theta_4  treat:male     13.5  [-26.5 53.6]  [-32.7 59.7]
 ```
 
 Again, the bands compensate for the fact that we are interested in
