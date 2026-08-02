@@ -40,16 +40,11 @@ differs by convention.
 ## Installation
 
 Install the development version of deli from
-[GitHub](https://github.com/r-causal/deli) with either
-[pak](https://pak.r-lib.org) or [remotes](https://remotes.r-lib.org):
+[GitHub](https://github.com/r-causal/deli) with:
 
 ```{r eval = FALSE}
 # install.packages("pak")
 pak::pak("r-causal/deli")
-
-# or with remotes
-# install.packages("remotes")
-remotes::install_github("r-causal/deli")
 ```
 
 ## Example
@@ -68,7 +63,7 @@ fit <- m_estimate(
   model = "linear"
 )
 
-coef(fit)
+fit
 ```
 
 Standard errors come from the sandwich variance estimator, so the usual

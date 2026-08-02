@@ -34,16 +34,11 @@ surface differs by convention.
 ## Installation
 
 Install the development version of deli from
-[GitHub](https://github.com/r-causal/deli) with either
-[pak](https://pak.r-lib.org) or [remotes](https://remotes.r-lib.org):
+[GitHub](https://github.com/r-causal/deli) with:
 
 ``` r
 # install.packages("pak")
 pak::pak("r-causal/deli")
-
-# or with remotes
-# install.packages("remotes")
-remotes::install_github("r-causal/deli")
 ```
 
 ## Example
@@ -63,9 +58,14 @@ fit <- m_estimate(
   model = "linear"
 )
 
-coef(fit)
-#> (Intercept)          wt          hp 
-#> 37.22727012 -3.87783074 -0.03177295
+fit
+#> <MEstimator>
+#>   Parameters: 3
+#>   Observations: 32
+#> Coefficients:
+#> (Intercept): 37.2273
+#> wt: -3.8778
+#> hp: -0.0318
 ```
 
 Standard errors come from the sandwich variance estimator, so the usual

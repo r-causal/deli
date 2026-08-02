@@ -178,7 +178,8 @@ m <- m_estimate(
   model = "linear",
   penalty = 0.5
 )
-m@theta
+
+summary(m)
 ```
 
 ### LASSO regression

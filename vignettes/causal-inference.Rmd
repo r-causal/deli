@@ -43,9 +43,8 @@ n <- 1000
 W1 <- rnorm(n)
 W2 <- rbinom(n, 1, 0.4)
 A <- rbinom(n, 1, plogis(-0.5 + 0.5 * W1 + 0.3 * W2))
-Y <- 2 + 1.5 * A + W1 - 0.5 * W2 + rnorm(n)
-
 # True ATE = 1.5
+Y <- 2 + 1.5 * A + W1 - 0.5 * W2 + rnorm(n)
 ```
 
 ## G-formula (g-computation)
@@ -107,7 +106,7 @@ psi <- function(theta) {
 }
 
 m <- m_estimate(stacked_equations = psi, init = c(0, 0, 0, 0, 0, 0))
-m@theta[1]
+summary(m)
 ```
 
 ## Augmented IPW (doubly robust)
@@ -134,8 +133,6 @@ m <- m_estimate(
   init = c(0, 0, 0, rep(0, 3), rep(0, 4))
 )
 
-# ACE
-m@theta[1]
 summary(m)
 ```
 

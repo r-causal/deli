@@ -9,7 +9,10 @@ knitr:
 ```{r}
 #| label: setup
 library(deli)
+```
 
+```{r}
+#| include: false
 # The Python blocks below run against a project-local virtual environment
 # containing delicatessen and NumPy.
 reticulate::use_virtualenv("../../.venv", required = TRUE)
@@ -152,7 +155,7 @@ each recipe reproduces Python to machine precision.
 Python's `MEstimator.estimate()` defaults to `solver='lm'`, the
 Levenberg-Marquardt routine from MINPACK exposed through
 `scipy.optimize.root(method='lm')`. deli defaults to `solver = "rootSolve"`
-([rootSolve::multiroot()]), which requires no additional package and converges
+(`rootSolve::multiroot()`), which requires no additional package and converges
 reliably on the great majority of problems.
 
 deli also provides the identical Levenberg-Marquardt solver under
@@ -383,8 +386,7 @@ coef(m2)
 deli gives you two surfaces for most of what delicatessen does. One is a direct
 transliteration of the Python API, so a Python analysis maps across call by
 call. The other is the shape an R user expects, and it is what the rest of
-deli's documentation uses. Both compute the same numbers, so the choice is about
-which code reads naturally to whoever maintains it next.
+deli's documentation uses.
 
 This article shows the transliterated form throughout, because demonstrating the
 correspondence with Python is its job. In your own R code, reach for the
@@ -471,7 +473,7 @@ argument straight to compiled code that requires a plain number.
 
 Outside those two positions, including data simulation and post-fit display,
 prefer the base R counterpart. It computes exactly the same values and is the
-function your R readers already know:
+function R users already know:
 
 ```{r}
 #| label: idiomatic-transforms
