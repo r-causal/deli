@@ -3907,3 +3907,145 @@ test_that("division tangents agree with the quotient rule away from the overflow
     )
   }
 })
+
+# ---- asinh and acosh tangents where the primal's square overflows ------------
+#
+# The asinh rule t / sqrt(p^2 + 1) and the acosh rule t / sqrt(p^2 - 1) both
+# form the square of the primal, which overflows to Inf past a primal of about
+# 1.3e154 even where the primal and its derivative are ordinary values: sqrt()
+# of Inf is Inf and the tangent reads a silent zero. Both derivatives fall off
+# like 1 / abs(p) out there, so dividing through by the primal reads them
+# without ever forming the square.
+#
+# The assertions below are made on the scale of the primal rather than on the
+# tangent itself: the default tolerance compares absolutely at magnitudes this
+# small, where a tangent of zero and the true tangent are a rounding error
+# apart.
+
+test_that("asinh tangents survive a primal whose square overflows", {
+  skip("pending the asinh and acosh rules that divide through by the primal")
+
+  # d asinh(p) / dp is 1 / sqrt(1 + p^2), which at p = 1e200 is 1e-200 while
+  # the primal asinh(1e200) is an ordinary 461.21.
+  r <- asinh(primal_tangent(1e200, 1))
+  expect_s3_class(r, "PrimalTangent")
+  expect_equal(r$primal, asinh(1e200))
+  expect_equal(r$tangent * 1e200, 1)
+
+  # The derivative is even in p, so a negative primal of the same size reads
+  # the same tangent.
+  negative <- asinh(primal_tangent(-1e200, 1))
+  expect_equal(negative$primal, asinh(-1e200))
+  expect_equal(negative$tangent * 1e200, 1)
+
+  # An incoming tangent other than one scales through untouched.
+  carried <- asinh(primal_tangent(1e200, -2.5))
+  expect_equal(carried$tangent * 1e200, -2.5)
+
+  # A tangent array whose first element overflows the square and whose second
+  # does not: each is read on its own scale, 1 / sqrt(1 + 1e400) and
+  # 3 / sqrt(1 + 4).
+  arr <- asinh(primal_tangent_array(c(1e200, 2), c(1, 3)))
+  expect_s3_class(arr, "PrimalTangentArray")
+  expect_equal(arr$primal, asinh(c(1e200, 2)))
+  expect_equal(arr$tangent * c(1e200, 1), c(1, 3 / sqrt(5)))
+})
+
+test_that("acosh tangents survive a primal whose square overflows", {
+  skip("pending the asinh and acosh rules that divide through by the primal")
+
+  # d acosh(p) / dp is 1 / sqrt(p^2 - 1), which at p = 1e200 is 1e-200: the
+  # subtracted one is far below the last bit of the square, so the derivative
+  # is the same 1e-200 asinh reads there.
+  r <- acosh(primal_tangent(1e200, 1))
+  expect_s3_class(r, "PrimalTangent")
+  expect_equal(r$primal, acosh(1e200))
+  expect_equal(r$tangent * 1e200, 1)
+
+  carried <- acosh(primal_tangent(1e200, -2.5))
+  expect_equal(carried$tangent * 1e200, -2.5)
+
+  # As with asinh, one element past the overflow and one inside it, read as
+  # 1 / sqrt(1e400 - 1) and 3 / sqrt(4 - 1).
+  arr <- acosh(primal_tangent_array(c(1e200, 2), c(1, 3)))
+  expect_s3_class(arr, "PrimalTangentArray")
+  expect_equal(arr$primal, acosh(c(1e200, 2)))
+  expect_equal(arr$tangent * c(1e200, 1), c(1, 3 / sqrt(3)))
+})
+
+test_that("auto_differentiation reads asinh and acosh gradients at a huge primal", {
+  skip("pending the asinh and acosh rules that divide through by the primal")
+
+  asinh_gradient <- auto_differentiation(1e200, function(x) asinh(x[1]))
+  expect_equal(asinh_gradient[1, ] * 1e200, 1)
+
+  acosh_gradient <- auto_differentiation(1e200, function(x) acosh(x[1]))
+  expect_equal(acosh_gradient[1, ] * 1e200, 1)
+})
+
+test_that("asinh tangents agree with the closed form away from the overflow", {
+  # Dividing through must not move ordinary results, so at moderate primals the
+  # reformulated rule has to reach what the closed form reaches. These hold as
+  # the rule stands and pin what the reformulation has to preserve.
+  cases <- list(
+    c(p = 0.5, t = 2),
+    c(p = 2, t = -1),
+    c(p = -3, t = 1.25)
+  )
+
+  for (case in cases) {
+    r <- asinh(primal_tangent(case[["p"]], case[["t"]]))
+    expect_equal(r$primal, asinh(case[["p"]]))
+    expect_equal(r$tangent, case[["t"]] / sqrt(case[["p"]]^2 + 1))
+  }
+})
+
+test_that("acosh tangents agree with the closed form away from the overflow", {
+  cases <- list(
+    c(p = 1.5, t = 2),
+    c(p = 2, t = -1),
+    c(p = 10, t = 1.25)
+  )
+
+  for (case in cases) {
+    r <- acosh(primal_tangent(case[["p"]], case[["t"]]))
+    expect_equal(r$primal, acosh(case[["p"]]))
+    expect_equal(r$tangent, case[["t"]] / sqrt(case[["p"]]^2 - 1))
+  }
+})
+
+test_that("asinh reads its derivative at and around a primal of zero", {
+  # asinh is differentiable at zero with derivative exactly 1. A rule that
+  # divides through by the primal unconditionally reads NaN there: 1 / p^2 is
+  # Inf, and abs(p) * sqrt(1 + Inf) is 0 * Inf. Whichever form the rule takes
+  # has to hold this.
+  at_zero <- asinh(primal_tangent(0, 1))
+  expect_equal(at_zero$primal, 0)
+  expect_equal(at_zero$tangent, 1)
+
+  # A zero primal alongside one that is not, so the branch is exercised
+  # elementwise rather than only on a scalar pair.
+  arr <- asinh(primal_tangent_array(c(0, 2), c(1, 1)))
+  expect_equal(arr$tangent, c(1, 1 / sqrt(5)))
+
+  # Just off zero the derivative is still 1 to every digit a double carries.
+  near_zero <- asinh(primal_tangent(1e-10, 1))
+  expect_equal(near_zero$tangent, 1 / sqrt(1 + 1e-10^2))
+
+  # A primal small enough that its square underflows to zero reads the same,
+  # which the reciprocal of that square would not: 1 / 1e-600 is Inf.
+  underflowing <- asinh(primal_tangent(1e-300, 1))
+  expect_equal(underflowing$tangent, 1)
+})
+
+test_that("acosh reads its derivative just above a primal of one", {
+  # At the edge of the domain the derivative is large but finite, and p^2 - 1
+  # is nowhere near overflowing, so this pins the ordinary regime rather than
+  # the overflow. The forms of the rule differ in their last few digits here
+  # because p^2 - 1 cancels; the comparison is against the mathematical value
+  # at the default tolerance, which every form of the rule meets.
+  p <- 1 + 1e-8
+  r <- acosh(primal_tangent(p, 1))
+  expect_equal(r$primal, acosh(p))
+  expect_equal(r$tangent, 1 / sqrt(p^2 - 1))
+})
