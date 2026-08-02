@@ -188,10 +188,10 @@ test_that("ee_mlogit differentiated exactly returns the closed-form variance", {
   # The same saturated fit, and the same closed form for the variance of its
   # first parameter. Exact differentiation takes no step, so nothing amplifies
   # the last bits of the score and the only error left is in the root the solver
-  # returned: this reaches 1/7 + 1/18 to about 1e-13 relative, against the 1e-6
-  # the default derivative method reaches it to. The tolerance holds where the
-  # solver stops a little short of that root, which moves this value by up to
-  # 6e-11 from other starting values.
+  # returned: from this starting value it reaches 1/7 + 1/18 to about 1e-13
+  # relative, against the 1e-6 the default derivative method reaches it to. The
+  # tolerance is sized for the solver stopping a little short of that root, which
+  # other starting values move by up to about 7e-10 relative.
   expect_equal(unname(vcov(m)[1, 1]), 1 / 7 + 1 / 18, tolerance = 1e-9)
 })
 
@@ -244,10 +244,13 @@ test_that("ee_mlogit weights an offset that overflows on its own", {
   # as probable as its reference, at 2/5, 2/5 and 1/5, and its residual for
   # either category is (1 - 1/5) + (0 - 2/5) = 2/5, weighted by 2. The second
   # observation's two non-reference categories carry the same predictor and
-  # split the probability between them, with exp(-shift) underflowing its
-  # reference to zero, so its residuals are (0 - 0) + (0 - 1/2) = -1/2 and
-  # (0 - 0) + (1 - 1/2) = 1/2, weighted by 3. Weights multiply the residual
-  # after the probabilities are read, so the shift never reaches them.
+  # split the probability between them, and what is left for its reference sits
+  # far under the last place of that half: exp(-shift) is a subnormal at 709 and
+  # 710, which puts the reference near 6e-309, and reaches zero itself only past
+  # 745. The sums absorb it either way, so the residuals (0 - p_ref) + (0 - 1/2)
+  # and (0 - p_ref) + (1 - 1/2) read exactly -1/2 and 1/2, weighted by 3.
+  # Weights multiply the residual after the probabilities are read, so the shift
+  # never reaches them.
   expected <- rbind(
     c(0.8, -1.5),
     c(0, -1.5),
@@ -255,9 +258,10 @@ test_that("ee_mlogit weights an offset that overflows on its own", {
     c(0, 1.5)
   )
 
-  # 700 is under the threshold the shift applies at and reads the softmax from
-  # the exponentials as they stand; the rest are over it. All four read the same
-  # weighted score.
+  # 700 is under the threshold the shift applies at, so that one exponentiates
+  # the predictors as they stand and reads the same half off a denominator
+  # around 2e304, with its reference at 5e-305; the rest are over it. All four
+  # read the same weighted score.
   offsets <- c(700, 709, 710, 1000)
   scores <- lapply(
     offsets,

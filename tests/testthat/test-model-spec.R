@@ -603,13 +603,13 @@ test_that("recording the model spec leaves the M-estimator results alone", {
   )
   # The variances come out of the bread, which the default derivative method
   # builds by differencing the estimating function across a step of 1e-9. That
-  # carries a last-bit change anywhere in the score into the seventh digit of
-  # what comes back: moving the step by a tenth of a percent moves these values
-  # by up to 1e-6 relative, and the third and fourth entries of the row below
-  # are analytically the same number that the differencing separates in the
-  # ninth digit. The tolerance sits two decades above that drift and several
-  # below anything a change in how the model spec is recorded would do to the
-  # fit.
+  # carries a last-bit change anywhere in the score into the sixth or seventh
+  # digit of what comes back: moving the step by a tenth of a percent moves the
+  # diagonal by up to 1e-6 relative and the covariance row below it by a few
+  # times that, and the third and fourth entries of that row are analytically
+  # the same number that the differencing separates in the ninth digit. The
+  # tolerance sits well above that drift and several decades below anything a
+  # change in how the model spec is recorded would do to the fit.
   expect_equal(
     unname(diag(vcov(m))),
     c(
@@ -658,9 +658,10 @@ test_that("recording the model spec leaves the GMM results alone", {
   )
   # The GMM variance is built from the same difference quotient across a step of
   # 1e-9, so the digits past the seventh are step noise rather than the
-  # variance: these move by up to 1e-6 relative when the step moves by a tenth
-  # of a percent. The coefficients above are a root of the estimating equations
-  # and carry no such step, which is why they stay pinned tightly.
+  # variance: these move by about 1e-6 relative when the step moves by a tenth
+  # of a percent, and further when it moves more. The coefficients above are a
+  # root of the estimating equations and carry no such step, which is why they
+  # stay pinned tightly.
   expect_equal(
     unname(diag(vcov(g))),
     c(
