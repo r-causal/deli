@@ -601,6 +601,15 @@ test_that("recording the model spec leaves the M-estimator results alone", {
     ),
     tolerance = 1e-8
   )
+  # The variances come out of the bread, which the default derivative method
+  # builds by differencing the estimating function across a step of 1e-9. That
+  # carries a last-bit change anywhere in the score into the seventh digit of
+  # what comes back: moving the step by a tenth of a percent moves these values
+  # by up to 1e-6 relative, and the third and fourth entries of the row below
+  # are analytically the same number that the differencing separates in the
+  # ninth digit. The tolerance sits two decades above that drift and several
+  # below anything a change in how the model spec is recorded would do to the
+  # fit.
   expect_equal(
     unname(diag(vcov(m))),
     c(
@@ -611,7 +620,7 @@ test_that("recording the model spec leaves the M-estimator results alone", {
       0.0421783596,
       0.0495552941
     ),
-    tolerance = 1e-8
+    tolerance = 1e-4
   )
   expect_equal(
     unname(vcov(m)[1, ]),
@@ -623,7 +632,7 @@ test_that("recording the model spec leaves the M-estimator results alone", {
       0.0027070672,
       0.0027070675
     ),
-    tolerance = 1e-8
+    tolerance = 1e-4
   )
 })
 
@@ -647,6 +656,11 @@ test_that("recording the model spec leaves the GMM results alone", {
     ),
     tolerance = 1e-8
   )
+  # The GMM variance is built from the same difference quotient across a step of
+  # 1e-9, so the digits past the seventh are step noise rather than the
+  # variance: these move by up to 1e-6 relative when the step moves by a tenth
+  # of a percent. The coefficients above are a root of the estimating equations
+  # and carry no such step, which is why they stay pinned tightly.
   expect_equal(
     unname(diag(vcov(g))),
     c(
@@ -657,6 +671,6 @@ test_that("recording the model spec leaves the GMM results alone", {
       0.2814206426,
       0.3963427768
     ),
-    tolerance = 1e-8
+    tolerance = 1e-4
   )
 })

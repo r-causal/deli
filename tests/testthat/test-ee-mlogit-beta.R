@@ -101,7 +101,18 @@ test_that("ee_mlogit fits an indicator matrix of counted outcomes", {
     c(0.944461608841, -0.839101093183, 0.251314428281, -0.502628856562),
     tolerance = 1e-8
   )
-  expect_equal(unname(vcov(m)[1, 1]), 0.198412487438, tolerance = 1e-8)
+  # The fit is saturated: three categories across the two groups of w, with 7,
+  # 18 and 9 observations in the categories of the w = 0 group. The first
+  # parameter is that group's log odds of the second category against the
+  # reference, log(18 / 7), and the sandwich variance of that log odds is the
+  # closed form 1/7 + 1/18. That closed form is what is pinned, rather than the
+  # digits the default derivative method returns for it: the default differences
+  # the score across a step of 1e-9, which carries a last-bit change in any
+  # score contribution into the seventh digit of the variance. Moving the step
+  # or the starting values around moves what comes back by up to 3e-6 relative,
+  # so the tolerance clears that drift while staying far below any change in the
+  # variance itself.
+  expect_equal(unname(vcov(m)[1, 1]), 1 / 7 + 1 / 18, tolerance = 1e-4)
   expect_equal(names(coef(m)), c("theta_1", "theta_2", "theta_3", "theta_4"))
 })
 
@@ -170,6 +181,20 @@ test_that("ee_mlogit reaches the same fit under exact differentiation", {
   )
 })
 
+test_that("ee_mlogit differentiated exactly returns the closed-form variance", {
+  d <- mlogit_indicator_data()
+  m <- fit_mlogit(d$X, d$y, deriv_method = "exact")
+
+  # The same saturated fit, and the same closed form for the variance of its
+  # first parameter. Exact differentiation takes no step, so nothing amplifies
+  # the last bits of the score and the only error left is in the root the solver
+  # returned: this reaches 1/7 + 1/18 to about 1e-13 relative, against the 1e-6
+  # the default derivative method reaches it to. The tolerance holds where the
+  # solver stops a little short of that root, which moves this value by up to
+  # 6e-11 from other starting values.
+  expect_equal(unname(vcov(m)[1, 1]), 1 / 7 + 1 / 18, tolerance = 1e-9)
+})
+
 # The softmax exponentiates every linear predictor, and exp() overflows to Inf
 # a little past 709. These pin the probabilities the equation reads on both
 # sides of that point, and the values it reads well below it.
@@ -199,6 +224,56 @@ test_that("ee_mlogit stays finite where exp() of the linear predictor overflows"
 
   expect_true(all(is.finite(unlist(scores))))
   expect_equal(scores, rep(list(expected), length(eta_max)))
+})
+
+test_that("ee_mlogit weights an offset that overflows on its own", {
+  X <- cbind(1, c(0, 1))
+  # The first observation is in the reference category and the second is in the
+  # last category.
+  y <- cbind(c(1, 0), c(0, 0), c(0, 1))
+  weights <- c(2, 3)
+
+  # The offset enters each non-reference linear predictor and leaves the
+  # reference category's structural zero where it is, so an offset alone can
+  # carry an observation past the threshold the softmax shift applies at while
+  # every parameter stays at zero. The shift is taken per observation: the first
+  # one carries log(2), well under the threshold, and exponentiates the
+  # predictor it holds.
+  #
+  # That leaves the first observation's two non-reference categories each twice
+  # as probable as its reference, at 2/5, 2/5 and 1/5, and its residual for
+  # either category is (1 - 1/5) + (0 - 2/5) = 2/5, weighted by 2. The second
+  # observation's two non-reference categories carry the same predictor and
+  # split the probability between them, with exp(-shift) underflowing its
+  # reference to zero, so its residuals are (0 - 0) + (0 - 1/2) = -1/2 and
+  # (0 - 0) + (1 - 1/2) = 1/2, weighted by 3. Weights multiply the residual
+  # after the probabilities are read, so the shift never reaches them.
+  expected <- rbind(
+    c(0.8, -1.5),
+    c(0, -1.5),
+    c(0.8, 1.5),
+    c(0, 1.5)
+  )
+
+  # 700 is under the threshold the shift applies at and reads the softmax from
+  # the exponentials as they stand; the rest are over it. All four read the same
+  # weighted score.
+  offsets <- c(700, 709, 710, 1000)
+  scores <- lapply(
+    offsets,
+    function(o) {
+      ee_mlogit(
+        rep(0, 4),
+        X = X,
+        y = y,
+        weights = weights,
+        offset = c(log(2), o)
+      )
+    }
+  )
+
+  expect_true(all(is.finite(unlist(scores))))
+  expect_equal(scores, rep(list(expected), length(offsets)))
 })
 
 test_that("ee_mlogit reads the same scores where nothing overflows", {
