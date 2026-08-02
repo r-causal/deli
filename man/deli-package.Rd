@@ -25,5 +25,11 @@ Authors:
   \item Malcolm Barrett \email{malcolmbarrett@gmail.com} (\href{https://orcid.org/0000-0003-0299-5825}{ORCID})
 }
 
+Other contributors:
+\itemize{
+  \item Paul Zivich (\href{https://orcid.org/0000-0002-9932-1095}{ORCID}) (Author of the Python 'delicatessen' library, whose design deli ports) [contributor]
+  \item Mark Klose (\href{https://orcid.org/0000-0001-5882-1088}{ORCID}) (Author of the Python 'delicatessen' library, whose design deli ports) [contributor]
+}
+
 }
 \keyword{internal}
