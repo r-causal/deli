@@ -280,7 +280,7 @@ head(residuals(fit))
 
 formula(fit)
 #> mpg ~ wt + hp
-#> <environment: 0x560b47ae1a58>
+#> <environment: 0x558c9ccb4748>
 
 # Weights reach a fit through the formula interface, and `weights()` reports
 # the vector the fit was solved with.

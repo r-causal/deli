@@ -12,7 +12,7 @@ Useful links:
 
 - <https://github.com/r-causal/deli>
 
-- <https://r-causal.github.io/deli>
+- <https://r-causal.github.io/deli/>
 
 - Report bugs at <https://github.com/r-causal/deli/issues>
 
