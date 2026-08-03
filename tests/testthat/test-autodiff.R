@@ -1586,7 +1586,8 @@ test_that("mixed-class matrix products dispatch cleanly with exact tangents", {
   expect_equal(
     as.numeric(r$tangent),
     as.numeric(
-      matrix(c(1, 0, 0, 1), nrow = 2) %*% c(0.5, -1) +
+      matrix(c(1, 0, 0, 1), nrow = 2) %*%
+        c(0.5, -1) +
         matrix(c(2, 0, 1, 3), nrow = 2) %*% c(1, 0)
     )
   )
