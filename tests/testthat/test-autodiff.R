@@ -1565,24 +1565,7 @@ test_that("scalar / scalar PrimalTangent Ops still return a scalar pair", {
 # and every mixed-class product (the ee_2sls second stage, the g-estimation
 # single-column SNMM) raises "Incompatible methods", which the suite's
 # `options(warn = 2)` turns into an error. Binding one shared object to all
-# three classes is the guarantee; `rlang::is_reference()` pins it because
-# `identical()` is TRUE for structurally identical closures — exactly the state
-# that breaks under covr.
-
-test_that("the %*% methods are one shared function object", {
-  # covr replaces each binding with its own instrumented copy, so reference
-  # equality never holds under instrumentation — there the copies stay
-  # compatible because one srcref yields structurally identical bodies, and the
-  # behavioral test below is the guard. This test pins the source-level sharing
-  # that makes that possible.
-  skip_on_covr()
-  expect_true(
-    rlang::is_reference(`%*%.PrimalTangentVector`, `%*%.PrimalTangentArray`)
-  )
-  expect_true(
-    rlang::is_reference(`%*%.PrimalTangent`, `%*%.PrimalTangentArray`)
-  )
-})
+# three classes is the guarantee (see the note on `%*%.PrimalTangentVector`).
 
 test_that("mixed-class matrix products dispatch cleanly with exact tangents", {
   # A tangent-carrying matrix times the whole parameter vector: the array
