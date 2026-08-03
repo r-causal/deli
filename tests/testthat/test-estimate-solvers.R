@@ -1801,18 +1801,28 @@ test_that("a separated logistic that runs away is not reported as solved", {
     1L
   )
   theta <- unname(coef(m))
-  expect_gt(theta[[2]], 1e4)
+  # Where a runaway stops is a floating-point accident, so the slope is bounded
+  # rather than pinned. It reads 11007 on macOS and in both Linux containers,
+  # which agree to six digits, and the bound sits an order of magnitude under
+  # that while staying far above any slope this data could support.
+  expect_gt(theta[[2]], 1e3)
   # No reading of the contributions sees it: the score is under the floor, so
   # they say nothing at all, and the solver reported success rather than a
-  # convergence test that failed. What is left is the Newton step, which is 0.102
-  # here against 3.3e-09 at the worst of the fits that must stay quiet.
+  # convergence test that failed. What is left is the Newton step, and it is
+  # bounded rather than pinned because the bread is near singular where the
+  # parameters run away, so its inverse magnifies the last digits of the
+  # estimates. The step reads 0.102 here and in both Linux containers and 0.091
+  # on the R 4.4 Linux CI runner, and perturbing the estimates in their eighth
+  # digit moves it over that same range. The bound is an order of magnitude under
+  # the smallest of those readings, an order above the ceiling the step is judged
+  # against, and six orders above the fit that travels a long way to a root
+  # below, which is the contrast this reading exists to draw.
   ef <- psi(theta)
   expect_lt(max(abs(rowSums(ef))), score_floor)
   expect_true(is_root(ef, theta))
-  expect_equal(
+  expect_gt(
     relative_newton_step(unname(m@bread), rowSums(ef) / n, theta),
-    0.102,
-    tolerance = 1e-2
+    0.01
   )
 })
 
@@ -1839,7 +1849,9 @@ test_that("a fit that travels a long way to a root stays quiet", {
   # The estimate moves a million units from the starting value and lands on the
   # sample mean, so a bound on how far a fit may travel from where it started
   # would report this one. Where it stopped is what separates it from the
-  # separated logistic above: the Newton step there is 0.1 and here it is 2.4e-9.
+  # separated logistic above: the Newton step there is a tenth, and here it is
+  # 2.4e-09 on macOS and 6.2e-12 in the Linux containers, so the bound below
+  # clears the larger of them by better than two orders of magnitude.
   set.seed(12)
   n <- 200
   y <- 1e6 + stats::rnorm(n)
