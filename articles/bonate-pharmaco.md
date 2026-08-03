@@ -72,11 +72,11 @@ coef(estr)
 #> -38.606821   6.194831
 sqrt(diag(vcov(estr)))
 #>     emax     ed50 
-#> 4.127057 2.395072
+#> 4.127048 2.395068
 confint(estr)
 #>           lower     upper
-#> emax -46.695703 -30.51794
-#> ed50   1.500576  10.88909
+#> emax -46.695685 -30.51796
+#> ed50   1.500584  10.88908
 ```
 
 These results are close to what is reported in the book (note that a
@@ -116,11 +116,11 @@ coef(estr)
 #> -35.544112   6.325701
 sqrt(diag(vcov(estr)))
 #>     emax     ed50 
-#> 4.170387 2.051518
+#> 4.170391 2.051520
 confint(estr)
-#>           lower    upper
-#> emax -43.717920 -27.3703
-#> ed50   2.304799  10.3466
+#>           lower     upper
+#> emax -43.717927 -27.37030
+#> ed50   2.304796  10.34661
 ```
 
 Here, we observe a minor change in the estimated coefficients. The
@@ -176,12 +176,12 @@ coef(estr)
 #> -2.2738986 84.4601225  0.5835241
 sqrt(diag(vcov(estr)))
 #>         e0       emax       ed50 
-#> 1.33595177 6.64581650 0.08522223
+#> 1.33595175 6.64581445 0.08522233
 confint(estr)
 #>           lower      upper
-#> e0   -4.8923159  0.3445188
-#> emax 71.4345616 97.4856835
-#> ed50  0.4164916  0.7505566
+#> e0   -4.8923159  0.3445187
+#> emax 71.4345656 97.4856795
+#> ed50  0.4164914  0.7505568
 ```
 
 #### Accounting for clustering
@@ -213,12 +213,12 @@ coef(estr)
 #> -2.2738986 84.4601225  0.5835241
 sqrt(diag(vcov(estr)))
 #>         e0       emax       ed50 
-#> 1.55418423 7.40058034 0.07779039
+#> 1.55419104 7.40055760 0.07778967
 confint(estr)
 #>           lower      upper
-#> e0   -5.3200437  0.7722465
-#> emax 69.9552516 98.9649935
-#> ed50  0.4310578  0.7359905
+#> e0   -5.3200571  0.7722599
+#> emax 69.9552962 98.9649489
+#> ed50  0.4310592  0.7359891
 ```
 
 As seen here, the point estimates are similar but the variance changes.
@@ -244,12 +244,12 @@ coef(estr)
 #> -2.2738986 84.4601225  0.5835241
 sqrt(diag(vcov(estr)))
 #>         e0       emax       ed50 
-#> 1.79461737 8.54545410 0.08982461
+#> 1.79462523 8.54542784 0.08982377
 confint(estr)
 #>           lower       upper
-#> e0   -6.3336051   1.7858080
-#> emax 65.1289623 103.7912827
-#> ed50  0.3803267   0.7867215
+#> e0   -6.3336229   1.7858257
+#> emax 65.1290217 103.7912233
+#> ed50  0.3803286   0.7867196
 ```
 
 Here, we see the variance increase a bit further (due to the additional

@@ -62,7 +62,7 @@ data.frame(
   UCL = round(confint(estr_bench)[, 2], 3)
 )
 #>             Param    Coef     LCL     UCL
-#> theta_1 Intercept -53.740 -80.816 -26.665
+#> theta_1 Intercept -53.740 -80.813 -26.667
 #> theta_2    Height   0.721   0.559   0.883
 ```
 
@@ -84,7 +84,7 @@ data.frame(
   UCL = round(confint(estr_outlier)[, 2], 3)
 )
 #>             Param    Coef     LCL    UCL
-#> theta_1 Intercept -19.407 -80.527 41.714
+#> theta_1 Intercept -19.407 -80.524 41.710
 #> theta_2    Height   0.515   0.147  0.882
 ```
 
@@ -111,7 +111,7 @@ data.frame(
   UCL = round(confint(estr_robust)[, 2], 3)
 )
 #>             Param    Coef      LCL    UCL
-#> theta_1 Intercept -36.791 -146.312 72.729
+#> theta_1 Intercept -36.791 -146.295 72.712
 #> theta_2    Height   0.619   -0.037  1.276
 ```
 

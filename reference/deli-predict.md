@@ -8,6 +8,16 @@ scale, and evaluates a survival measure at a set of `times` for a fit of
 [`ee_aft()`](https://r-causal.github.io/deli/reference/ee_aft.md) or
 [`ee_plogit()`](https://r-causal.github.io/deli/reference/ee_plogit.md).
 
+## Usage
+
+``` r
+# S3 method for class '`deli::deli_estimator`'
+predict(object, newdata = NULL,
+  type = c("link", "response"), se.fit = FALSE,
+  interval = c("none", "confidence"), level = 0.95, times = NULL,
+  measure = "survival", deriv_method = "capprox", dx = 1e-9, ...)
+```
+
 ## Arguments
 
 - object:
@@ -231,7 +241,7 @@ predict(fit, newdata = at, se.fit = TRUE)
 #> 
 #> $se.fit
 #>         1         2         3 
-#> 0.8477263 0.5431698 0.8000297 
+#> 0.8477261 0.5431699 0.8000295 
 #> 
 
 predict(fit, newdata = at, interval = "confidence")
@@ -263,10 +273,10 @@ plogit_fit <- m_estimate(
 
 head(predict(plogit_fit, times = c(12, 24), interval = "confidence"))
 #>   .row time       fit       lwr       upr
-#> 1    1   12 0.6310973 0.4870472 0.7751474
+#> 1    1   12 0.6310973 0.4870471 0.7751474
 #> 2    1   24 0.5302241 0.3640916 0.6963566
 #> 3    2   12 0.5882252 0.4497605 0.7266899
 #> 4    2   24 0.4810942 0.3313945 0.6307940
-#> 5    3   12 0.5534843 0.4042986 0.7026700
+#> 5    3   12 0.5534843 0.4042987 0.7026700
 #> 6    3   24 0.4422455 0.2794547 0.6050364
 ```

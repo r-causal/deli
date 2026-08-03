@@ -19,7 +19,7 @@ broader R modeling ecosystem."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">deli</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -42,7 +42,6 @@ broader R modeling ecosystem."></head><body>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/index.html">More articles...</a></li>
   </ul></li>
-<li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
 <li class="nav-item"><a class="external-link nav-link" href="https://github.com/r-causal/deli/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
@@ -69,6 +68,54 @@ broader R modeling ecosystem."></head><body>
 broader R modeling ecosystem.</p>
     </div>
 
+    <div class="section level2">
+    <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="co"># S3 method for class '`deli::deli_estimator`'</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">object</span>, <span class="va">...</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># S3 method for class '`deli::deli_estimator`'</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/stats/vcov.html" class="external-link">vcov</a></span><span class="op">(</span><span class="va">object</span>, <span class="va">...</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># S3 method for class '`deli::deli_estimator`'</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/stats/confint.html" class="external-link">confint</a></span><span class="op">(</span><span class="va">object</span>, <span class="va">parm</span>, level <span class="op">=</span> <span class="fl">0.95</span>, <span class="va">...</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># S3 method for class '`deli::deli_estimator`'</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/stats/nobs.html" class="external-link">nobs</a></span><span class="op">(</span><span class="va">object</span>, <span class="va">...</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># S3 method for class '`deli::deli_estimator`'</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/stats/df.residual.html" class="external-link">df.residual</a></span><span class="op">(</span><span class="va">object</span>, <span class="va">...</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># S3 method for class '`deli::deli_estimator`'</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/stats/fitted.values.html" class="external-link">fitted</a></span><span class="op">(</span><span class="va">object</span>, <span class="va">...</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># S3 method for class '`deli::deli_estimator`'</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/stats/residuals.html" class="external-link">residuals</a></span><span class="op">(</span><span class="va">object</span>, type <span class="op">=</span> <span class="st">"response"</span>, <span class="va">...</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># S3 method for class '`deli::deli_estimator`'</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/stats/weights.html" class="external-link">weights</a></span><span class="op">(</span><span class="va">object</span>, <span class="va">...</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># S3 method for class '`deli::deli_estimator`'</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/stats/model.frame.html" class="external-link">model.frame</a></span><span class="op">(</span><span class="va">formula</span>, data <span class="op">=</span> <span class="cn">NULL</span>, subset <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  <span class="va">na.action</span>, drop.unused.levels <span class="op">=</span> <span class="cn">FALSE</span>, xlev <span class="op">=</span> <span class="cn">NULL</span>, <span class="va">...</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># S3 method for class '`deli::deli_estimator`'</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/stats/model.matrix.html" class="external-link">model.matrix</a></span><span class="op">(</span><span class="va">object</span>, data <span class="op">=</span> <span class="cn">NULL</span>, <span class="va">...</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># S3 method for class '`deli::deli_estimator`'</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/stats/formula.html" class="external-link">formula</a></span><span class="op">(</span><span class="va">x</span>, <span class="va">...</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># S3 method for class '`deli::deli_estimator`'</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/stats/terms.html" class="external-link">terms</a></span><span class="op">(</span><span class="va">x</span>, <span class="va">...</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># S3 method for class '`deli::deli_estimator`'</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/stats/sigma.html" class="external-link">sigma</a></span><span class="op">(</span><span class="va">object</span>, <span class="va">...</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># S3 method for class '`deli::deli_estimator`'</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/stats/logLik.html" class="external-link">logLik</a></span><span class="op">(</span><span class="va">object</span>, <span class="va">...</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># S3 method for class '`deli::deli_estimator`'</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/stats/deviance.html" class="external-link">deviance</a></span><span class="op">(</span><span class="va">object</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
+    </div>
 
     <div class="section level2">
     <h2 id="arguments">Arguments<a class="anchor" aria-label="anchor" href="#arguments"></a></h2>
@@ -230,14 +277,14 @@ beside the data.</p></div>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/stats/vcov.html" class="external-link">vcov</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>              (Intercept)           wt            hp</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> (Intercept)  3.759414267 -0.991168177 -1.918899e-03</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> wt          -0.991168177  0.384310278 -1.649189e-03</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> hp          -0.001918899 -0.001649189  4.417009e-05</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> (Intercept)  3.759412749 -0.991167246 -1.918909e-03</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> wt          -0.991167246  0.384309827 -1.649185e-03</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> hp          -0.001918909 -0.001649185  4.417008e-05</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/stats/confint.html" class="external-link">confint</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>                   lower       upper</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> (Intercept) 33.42705498 41.02748525</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> wt          -5.09286659 -2.66279490</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> (Intercept) 33.42705575 41.02748449</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> wt          -5.09286587 -2.66279561</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> hp          -0.04479898 -0.01874691</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/stats/nobs.html" class="external-link">nobs</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></span>
@@ -260,7 +307,7 @@ beside the data.</p></div>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/stats/formula.html" class="external-link">formula</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> mpg ~ wt + hp</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55ccea68afc0&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x5579e1aee7b8&gt;</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Weights reach a fit through the formula interface, and `weights()` reports</span></span></span>
 <span class="r-in"><span><span class="co"># the vector the fit was solved with.</span></span></span>

@@ -5,6 +5,16 @@ Methods for [`base::print()`](https://rdrr.io/r/base/print.html) and
 fitted estimator shows its coefficients at the console and reports its
 parameter-level inference as a table.
 
+## Usage
+
+``` r
+# S3 method for class '`deli::deli_estimator`'
+print(x, ..., subset = NULL)
+
+# S3 method for class '`deli::deli_estimator`'
+summary(object, alpha = 0.05, subset = NULL, ...)
+```
+
 ## Arguments
 
 - x, object:
@@ -126,7 +136,7 @@ summary(fit)
 #> Parameters: 3
 #> 
 #>               Estimate    Std.Err    Z-score    95% LCL    95% UCL    P-value    S-value
-#> (Intercept)    37.2273     1.9389    19.2000    33.4271    41.0275     <2e-16   270.5101
+#> (Intercept)    37.2273     1.9389    19.2000    33.4271    41.0275     <2e-16   270.5102
 #> wt             -3.8778     0.6199    -6.2553    -5.0929    -2.6628   3.97e-10    31.2310
 #> hp             -0.0318     0.0066    -4.7807    -0.0448    -0.0187   1.75e-06    19.1270
 

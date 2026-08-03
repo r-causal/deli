@@ -146,6 +146,6 @@ delta_method(
   transform = function(theta) deli_polygamma(1, exp(theta[3])),
   deriv_method = "exact"
 )
-#>             [,1]
-#> [1,] 1.61749e-05
+#>              [,1]
+#> [1,] 1.617489e-05
 ```

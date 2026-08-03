@@ -9,7 +9,7 @@ These allow deli results to flow into tidyverse pipelines."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">deli</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -32,7 +32,6 @@ These allow deli results to flow into tidyverse pipelines."></head><body>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/index.html">More articles...</a></li>
   </ul></li>
-<li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
 <li class="nav-item"><a class="external-link nav-link" href="https://github.com/r-causal/deli/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
@@ -54,6 +53,14 @@ These allow deli results to flow into tidyverse pipelines."></head><body>
 These allow deli results to flow into tidyverse pipelines.</p>
     </div>
 
+    <div class="section level2">
+    <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="co"># S3 method for class '`deli::deli_estimator`'</span></span>
+<span><span class="fu"><a href="https://generics.r-lib.org/reference/tidy.html" class="external-link">tidy</a></span><span class="op">(</span><span class="va">x</span>, conf.int <span class="op">=</span> <span class="cn">FALSE</span>, conf.level <span class="op">=</span> <span class="fl">0.95</span>, <span class="va">...</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># S3 method for class '`deli::deli_estimator`'</span></span>
+<span><span class="fu"><a href="https://generics.r-lib.org/reference/glance.html" class="external-link">glance</a></span><span class="op">(</span><span class="va">x</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
+    </div>
 
     <div class="section level2">
     <h2 id="arguments">Arguments<a class="anchor" aria-label="anchor" href="#arguments"></a></h2>
@@ -108,12 +115,12 @@ for the generics themselves, which deli re-exports so that <code><a href="https:
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://generics.r-lib.org/reference/tidy.html" class="external-link">tidy</a></span><span class="op">(</span><span class="va">fit</span>, conf.int <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>          term    estimate   std.error statistic      p.value   s.value</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1 (Intercept) 37.22727012 1.938920903 19.199994 3.701332e-82 270.51006</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2          wt -3.87783074 0.619927640 -6.255296 3.967632e-10  31.23100</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3          hp -0.03177295 0.006646058 -4.780721 1.746680e-06  19.12695</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1 (Intercept) 37.22727012 1.938920511 19.199998 3.701056e-82 270.51017</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2          wt -3.87783074 0.619927275 -6.255299 3.967539e-10  31.23104</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3          hp -0.03177295 0.006646057 -4.780721 1.746674e-06  19.12696</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>      conf.low   conf.high</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1 33.42705498 41.02748525</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2 -5.09286659 -2.66279490</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1 33.42705575 41.02748449</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2 -5.09286587 -2.66279561</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 3 -0.04479898 -0.01874691</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://generics.r-lib.org/reference/glance.html" class="external-link">glance</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></span>

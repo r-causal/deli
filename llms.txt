@@ -123,11 +123,27 @@ Primary estimator classes and estimation interface.
 
 Tools for statistical inference from fitted estimators.
 
-- [`deli-generics`](https://r-causal.github.io/deli/reference/deli-generics.md)
+- [`coef(`*`<deli::deli_estimator>`*`)`](https://r-causal.github.io/deli/reference/deli-generics.md)
+  [`vcov(`*`<deli::deli_estimator>`*`)`](https://r-causal.github.io/deli/reference/deli-generics.md)
+  [`confint(`*`<deli::deli_estimator>`*`)`](https://r-causal.github.io/deli/reference/deli-generics.md)
+  [`nobs(`*`<deli::deli_estimator>`*`)`](https://r-causal.github.io/deli/reference/deli-generics.md)
+  [`df.residual(`*`<deli::deli_estimator>`*`)`](https://r-causal.github.io/deli/reference/deli-generics.md)
+  [`fitted(`*`<deli::deli_estimator>`*`)`](https://r-causal.github.io/deli/reference/deli-generics.md)
+  [`residuals(`*`<deli::deli_estimator>`*`)`](https://r-causal.github.io/deli/reference/deli-generics.md)
+  [`weights(`*`<deli::deli_estimator>`*`)`](https://r-causal.github.io/deli/reference/deli-generics.md)
+  [`model.frame(`*`<deli::deli_estimator>`*`)`](https://r-causal.github.io/deli/reference/deli-generics.md)
+  [`model.matrix(`*`<deli::deli_estimator>`*`)`](https://r-causal.github.io/deli/reference/deli-generics.md)
+  [`formula(`*`<deli::deli_estimator>`*`)`](https://r-causal.github.io/deli/reference/deli-generics.md)
+  [`terms(`*`<deli::deli_estimator>`*`)`](https://r-causal.github.io/deli/reference/deli-generics.md)
+  [`sigma(`*`<deli::deli_estimator>`*`)`](https://r-causal.github.io/deli/reference/deli-generics.md)
+  [`logLik(`*`<deli::deli_estimator>`*`)`](https://r-causal.github.io/deli/reference/deli-generics.md)
+  [`deviance(`*`<deli::deli_estimator>`*`)`](https://r-causal.github.io/deli/reference/deli-generics.md)
   : Standard S3 generics for deli estimators
-- [`deli-display`](https://r-causal.github.io/deli/reference/deli-display.md)
+- [`print(`*`<deli::deli_estimator>`*`)`](https://r-causal.github.io/deli/reference/deli-display.md)
+  [`summary(`*`<deli::deli_estimator>`*`)`](https://r-causal.github.io/deli/reference/deli-display.md)
   : Display methods for deli estimators
-- [`deli-tidiers`](https://r-causal.github.io/deli/reference/deli-tidiers.md)
+- [`tidy(`*`<deli::deli_estimator>`*`)`](https://r-causal.github.io/deli/reference/deli-tidiers.md)
+  [`glance(`*`<deli::deli_estimator>`*`)`](https://r-causal.github.io/deli/reference/deli-tidiers.md)
   : Broom tidiers for deli estimators
 - [`reexports`](https://r-causal.github.io/deli/reference/reexports.md)
   [`tidy`](https://r-causal.github.io/deli/reference/reexports.md)
@@ -262,9 +278,9 @@ Estimating equations for dose-response models.
 
 Prediction helpers for fitted models.
 
-- [`deli-predict`](https://r-causal.github.io/deli/reference/deli-predict.md)
+- [`predict(`*`<deli::deli_estimator>`*`)`](https://r-causal.github.io/deli/reference/deli-predict.md)
   : Predictions from a fitted deli estimator
-- [`deli-augment`](https://r-causal.github.io/deli/reference/deli-augment.md)
+- [`augment(`*`<deli::deli_estimator>`*`)`](https://r-causal.github.io/deli/reference/deli-augment.md)
   : Augment data with predictions from a fitted deli estimator
 - [`regression_predictions()`](https://r-causal.github.io/deli/reference/regression_predictions.md)
   : Generate predicted values from a regression model

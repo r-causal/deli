@@ -5,6 +5,16 @@
 for `MEstimator` and `GMMEstimator` objects. These allow deli results to
 flow into tidyverse pipelines.
 
+## Usage
+
+``` r
+# S3 method for class '`deli::deli_estimator`'
+tidy(x, conf.int = FALSE, conf.level = 0.95, ...)
+
+# S3 method for class '`deli::deli_estimator`'
+glance(x, ...)
+```
+
 ## Arguments
 
 - x:
@@ -66,12 +76,12 @@ fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
 
 tidy(fit, conf.int = TRUE)
 #>          term    estimate   std.error statistic      p.value   s.value
-#> 1 (Intercept) 37.22727012 1.938920903 19.199994 3.701332e-82 270.51006
-#> 2          wt -3.87783074 0.619927640 -6.255296 3.967632e-10  31.23100
-#> 3          hp -0.03177295 0.006646058 -4.780721 1.746680e-06  19.12695
+#> 1 (Intercept) 37.22727012 1.938920511 19.199998 3.701056e-82 270.51017
+#> 2          wt -3.87783074 0.619927275 -6.255299 3.967539e-10  31.23104
+#> 3          hp -0.03177295 0.006646057 -4.780721 1.746674e-06  19.12696
 #>      conf.low   conf.high
-#> 1 33.42705498 41.02748525
-#> 2 -5.09286659 -2.66279490
+#> 1 33.42705575 41.02748449
+#> 2 -5.09286587 -2.66279561
 #> 3 -0.04479898 -0.01874691
 
 glance(fit)

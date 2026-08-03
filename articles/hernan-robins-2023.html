@@ -23,7 +23,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">deli</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -49,7 +49,6 @@
     <li><a class="dropdown-item" href="../articles/index.html">More articles...</a></li>
   </ul>
 </li>
-<li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul>
 <ul class="navbar-nav">
 <li class="nav-item"><form class="form-inline" role="search">
@@ -402,7 +401,7 @@
 <span><span class="va">pred_y</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"predicted"</span>, <span class="st">"lower"</span>, <span class="st">"upper"</span><span class="op">)</span><span class="op">]</span></span>
 <span><span class="co">#&gt;                       predicted     lower    upper</span></span>
 <span><span class="co">#&gt; no change in smoking  2.0045247  1.440581 2.568469</span></span>
-<span><span class="co">#&gt; +20 smoking intensity 0.9027234 -1.499666 3.305112</span></span></code></pre></div>
+<span><span class="co">#&gt; +20 smoking intensity 0.9027234 -1.499667 3.305114</span></span></code></pre></div>
 </div>
 <p>Again, we get similar results to those reported in the book: 2.0 (95% CI: 1.4, 2.6) and 0.9 (95% CI: -1.7, 3.5). However, our confidence intervals are slightly more narrow since we are using a variance estimator that is not overly conservative.</p>
 <section class="level4"><h4 id="binary-outcome">Binary outcome<a class="anchor" aria-label="anchor" href="#binary-outcome"></a>
@@ -1260,9 +1259,9 @@
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">by_cutoff</span>, <span class="fl">3</span><span class="op">)</span></span>
 <span><span class="co">#&gt;   cutoff      iv    lower   upper</span></span>
-<span><span class="co">#&gt; 1    1.6  41.281 -275.039 357.602</span></span>
-<span><span class="co">#&gt; 2    1.7 -40.912 -431.558 349.735</span></span>
-<span><span class="co">#&gt; 3    1.8 -21.103  -77.167  34.960</span></span>
+<span><span class="co">#&gt; 1    1.6  41.281 -275.123 357.685</span></span>
+<span><span class="co">#&gt; 2    1.7 -40.912 -431.307 349.483</span></span>
+<span><span class="co">#&gt; 3    1.8 -21.103  -77.166  34.959</span></span>
 <span><span class="co">#&gt; 4    1.9 -12.811  -54.946  29.323</span></span></code></pre></div>
 </div>
 <p>These results are the same as those reported in the book (41.3, -40.9, -21.1, -12.8).</p>

@@ -402,7 +402,7 @@ rownames(pred_y) <- c("no change in smoking", "+20 smoking intensity")
 pred_y[, c("predicted", "lower", "upper")]
 #>                       predicted     lower    upper
 #> no change in smoking  2.0045247  1.440581 2.568469
-#> +20 smoking intensity 0.9027234 -1.499666 3.305112
+#> +20 smoking intensity 0.9027234 -1.499667 3.305114
 ```
 
 Again, we get similar results to those reported in the book: 2.0 (95%
@@ -1418,9 +1418,9 @@ for (i in seq_along(cutoffs)) {
 
 round(by_cutoff, 3)
 #>   cutoff      iv    lower   upper
-#> 1    1.6  41.281 -275.039 357.602
-#> 2    1.7 -40.912 -431.558 349.735
-#> 3    1.8 -21.103  -77.167  34.960
+#> 1    1.6  41.281 -275.123 357.685
+#> 2    1.7 -40.912 -431.307 349.483
+#> 3    1.8 -21.103  -77.166  34.959
 #> 4    1.9 -12.811  -54.946  29.323
 ```
 

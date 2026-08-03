@@ -6,6 +6,14 @@ formula interface. It returns the model frame the fit was built from, or
 `newdata` when supplied, with the fitted values, their standard errors,
 a Wald confidence interval, and the residuals as columns beside it.
 
+## Usage
+
+``` r
+# S3 method for class '`deli::deli_estimator`'
+augment(x, newdata = NULL,
+  type.predict = c("link", "response"), conf.level = 0.95, ...)
+```
+
 ## Arguments
 
 - x:
@@ -104,7 +112,7 @@ head(augment(fit))
 #> Datsun 710        22.8 2.320  93 25.27582 0.7364506 23.83240 26.71924
 #> Hornet 4 Drive    21.4 3.215 110 21.26502 0.5516788 20.18375 22.34629
 #> Hornet Sportabout 18.7 3.440 175 18.32727 0.4282785 17.48786 19.16668
-#> Valiant           18.1 3.460 105 20.47382 0.6221297 19.25446 21.69317
+#> Valiant           18.1 3.460 105 20.47382 0.6221296 19.25446 21.69317
 #>                       .resid
 #> Mazda RX4         -2.5723294
 #> Mazda RX4 Wag     -1.5834826
@@ -117,7 +125,7 @@ head(augment(fit))
 # no response to residualize against.
 augment(fit, newdata = data.frame(wt = c(2, 3, 4), hp = 110))
 #>   wt  hp  .fitted   .se.fit   .lower   .upper
-#> 1  2 110 25.97658 0.8477263 24.31507 27.63810
-#> 2  3 110 22.09875 0.5431698 21.03416 23.16335
-#> 3  4 110 18.22092 0.8000297 16.65289 19.78895
+#> 1  2 110 25.97658 0.8477261 24.31507 27.63810
+#> 2  3 110 22.09875 0.5431699 21.03416 23.16335
+#> 3  4 110 18.22092 0.8000295 16.65289 19.78895
 ```

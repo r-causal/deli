@@ -19,6 +19,56 @@ Methods for base R generics
 deli estimator objects interoperate with the broader R modeling
 ecosystem.
 
+## Usage
+
+``` r
+# S3 method for class '`deli::deli_estimator`'
+coef(object, ...)
+
+# S3 method for class '`deli::deli_estimator`'
+vcov(object, ...)
+
+# S3 method for class '`deli::deli_estimator`'
+confint(object, parm, level = 0.95, ...)
+
+# S3 method for class '`deli::deli_estimator`'
+nobs(object, ...)
+
+# S3 method for class '`deli::deli_estimator`'
+df.residual(object, ...)
+
+# S3 method for class '`deli::deli_estimator`'
+fitted(object, ...)
+
+# S3 method for class '`deli::deli_estimator`'
+residuals(object, type = "response", ...)
+
+# S3 method for class '`deli::deli_estimator`'
+weights(object, ...)
+
+# S3 method for class '`deli::deli_estimator`'
+model.frame(formula, data = NULL, subset = NULL,
+  na.action, drop.unused.levels = FALSE, xlev = NULL, ...)
+
+# S3 method for class '`deli::deli_estimator`'
+model.matrix(object, data = NULL, ...)
+
+# S3 method for class '`deli::deli_estimator`'
+formula(x, ...)
+
+# S3 method for class '`deli::deli_estimator`'
+terms(x, ...)
+
+# S3 method for class '`deli::deli_estimator`'
+sigma(object, ...)
+
+# S3 method for class '`deli::deli_estimator`'
+logLik(object, ...)
+
+# S3 method for class '`deli::deli_estimator`'
+deviance(object, ...)
+```
+
 ## Arguments
 
 - object:
@@ -250,14 +300,14 @@ coef(fit)
 
 vcov(fit)
 #>              (Intercept)           wt            hp
-#> (Intercept)  3.759414267 -0.991168177 -1.918899e-03
-#> wt          -0.991168177  0.384310278 -1.649189e-03
-#> hp          -0.001918899 -0.001649189  4.417009e-05
+#> (Intercept)  3.759412749 -0.991167246 -1.918909e-03
+#> wt          -0.991167246  0.384309827 -1.649185e-03
+#> hp          -0.001918909 -0.001649185  4.417008e-05
 
 confint(fit)
 #>                   lower       upper
-#> (Intercept) 33.42705498 41.02748525
-#> wt          -5.09286659 -2.66279490
+#> (Intercept) 33.42705575 41.02748449
+#> wt          -5.09286587 -2.66279561
 #> hp          -0.04479898 -0.01874691
 
 nobs(fit)
@@ -280,7 +330,7 @@ head(residuals(fit))
 
 formula(fit)
 #> mpg ~ wt + hp
-#> <environment: 0x55ccea68afc0>
+#> <environment: 0x5579e1aee7b8>
 
 # Weights reach a fit through the formula interface, and `weights()` reports
 # the vector the fit was solved with.

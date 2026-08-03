@@ -15,13 +15,13 @@ Source:
 [`DESCRIPTION`](https://github.com/r-causal/deli/blob/main/DESCRIPTION)
 
 Barrett M (2026). *deli: M-Estimation and Empirical Sandwich Variance
-Estimation*. R package version 0.0.0.9000,
+Estimation*. R package version 0.1.0,
 <https://github.com/r-causal/deli>.
 
     @Manual{,
       title = {deli: M-Estimation and Empirical Sandwich Variance Estimation},
       author = {Malcolm Barrett},
       year = {2026},
-      note = {R package version 0.0.0.9000},
+      note = {R package version 0.1.0},
       url = {https://github.com/r-causal/deli},
     }
