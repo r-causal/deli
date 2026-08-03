@@ -16,3 +16,4 @@
 ^\.beads$
 ^\.claude$
 ^pkgdown$
+^codecov\.yml$
