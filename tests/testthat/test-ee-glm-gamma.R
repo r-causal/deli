@@ -15,8 +15,8 @@
 # passing tolerances measured on macOS and on two Linux images (R 4.4.3 and
 # R 4.6): theta at or under 2.5e-11, bread at or under 1.3e-7, interval bounds
 # at or under 1.1e-7, and the variance blocks between 1.2e-7 and 8.7e-7. CI has
-# seen the variance blocks pass 1e-6 on Windows and on Ubuntu oldrel-2, with
-# element-wise relative differences reaching 4e-5 on the small off-diagonal
+# seen the Windows and Ubuntu oldrel-2 jobs push the variance blocks past 1e-6,
+# with element-wise relative differences reaching 4e-5 on the small off-diagonal
 # entries, which 1e-4 covers with room left.
 
 test_that("ee_glm gamma appends the shape nuisance equation", {

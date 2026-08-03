@@ -1967,6 +1967,7 @@ test_that("the rank-deficient report does not read as a search that stopped shor
     estimate(MEstimator(stacked_equations = psi, init = init))
   )
   expect_length(seen, 1L)
+  expect_s3_class(seen[[1]], "deli_solver_not_converged")
   expect_no_match(
     conditionMessage(seen[[1]]),
     "did not converge to a root of the estimating equations",
@@ -1976,10 +1977,11 @@ test_that("the rank-deficient report does not read as a search that stopped shor
 
 test_that("a rank-deficient design is reported from starting values that solve it", {
   psi <- duplicated_column_psi()
-  # The values the fit above returns, handed back to it as starting values. The
-  # solver accepts them where it finds them and reports nothing at all, so
-  # nothing about the search is left to word: the report has to come from the
-  # reading of the returned point.
+  # The root of the identified intercept-plus-slope fit, truncated to six
+  # decimals and split so that the second copy of the duplicated column carries
+  # the whole of the slope. The solver accepts these values where it finds them
+  # and reports nothing at all, so nothing about the search is left to word: the
+  # report has to come from the reading of the returned point.
   init <- c(1.044995, 0, 1.935798)
   seen <- collect_warnings({
     m <- estimate(MEstimator(stacked_equations = psi, init = init))

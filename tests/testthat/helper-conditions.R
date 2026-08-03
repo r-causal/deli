@@ -1,6 +1,7 @@
 # Helpers for the tests that read the conditions an operation raised rather than
-# assert on one of them. Several test files were carrying the same two, so they
-# live here instead.
+# assert on one of them. Each was written out again in every test file that
+# needed it before moving here: three files for the warning collector, five for
+# the call reader, and no file for both.
 
 #' Every warning signaled while an expression runs
 #'
@@ -42,7 +43,9 @@ collect_warnings <- function(expr) {
 #' `<promise>` whether or not it has been forced, so no argument value ever
 #' reaches the string: match on argument names here and read the values off the
 #' call itself, where indexing forces them. And a long call comes back as
-#' several lines, hence the collapse.
+#' several lines, hence the collapse; rlang indents what it wraps, so the joined
+#' string carries a run of spaces wherever a line broke, and a `fixed = TRUE`
+#' match has to stay inside one argument rather than span the comma between two.
 #'
 #' @param cnd The condition to read.
 #' @returns The reported call as a single string.

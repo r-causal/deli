@@ -1103,7 +1103,7 @@ warn_unsolved <- function(solved, unsolved = NULL, bread = NULL) {
 #' Keeping the account is not the same as saying nothing about the parameters. A
 #' returned point the readings reject alongside a bread that reads as not
 #' identified is the ordinary way a collinear design comes back from a solver
-#' that stopped at a singular Jacobian, and the search is then a true account of
+#' that stopped at a singular Jacobian, and the report is then a true account of
 #' a search that a user cannot act on. So the bread goes to `warn_unsolved()`
 #' too, which adds the reading as a detail under the search account wherever it
 #' says the parameters are not identified.
