@@ -28,7 +28,7 @@ articles:
   articles/translating-from-python: translating-from-python.html
   articles/zivich-cbands: zivich-cbands.html
   articles/zivich-plogit: zivich-plogit.html
-last_built: 2026-08-03T13:05Z
+last_built: 2026-08-03T13:12Z
 urls:
   reference: https://r-causal.github.io/deli/reference
   article: https://r-causal.github.io/deli/articles
