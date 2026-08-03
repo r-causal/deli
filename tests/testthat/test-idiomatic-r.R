@@ -1055,3 +1055,68 @@ test_that("the J columns bind across estimators without changing type", {
   expect_true(is.na(bound$j_statistic[[1L]]))
   expect_false(is.na(bound$j_statistic[[2L]]))
 })
+
+# ---- The tidier generics are re-exported -------------------------------------
+#
+# The methods are registered on the generics package's generics, so
+# generics::tidy(fit) dispatches on a deli fit whatever deli's own exports hold.
+# What the re-export settles is the shorter call: after library(deli) alone,
+# tidy(fit) has to find a generic, and it has to find the one every other
+# broom-aware package dispatches on. A generic of deli's own carrying the same
+# name would answer the bare call while splitting dispatch across two objects,
+# so what is pinned below is identity against the generics package's objects
+# rather than the mere existence of an export.
+
+# A user writing tidy(fit) reaches deli's exports; a test written here does not.
+# testthat evaluates a test in an environment whose parent is deli's namespace,
+# where a generic deli imports resolves whether or not deli exports it. The bare
+# calls below are therefore evaluated against the exported names alone, which is
+# the surface library(deli) puts in front of a user.
+call_with_deli_attached <- function(expr, ...) {
+  env <- new.env(parent = baseenv())
+  for (name in getNamespaceExports("deli")) {
+    assign(name, getExportedValue("deli", name), envir = env)
+  }
+  list2env(list(...), envir = env)
+  eval(expr, env)
+}
+
+tidier_fit <- function() {
+  m_estimate(
+    mpg ~ wt + hp,
+    data = mtcars,
+    .ee = ee_regression,
+    model = "linear"
+  )
+}
+
+test_that("deli exports the tidier generics themselves", {
+  expect_identical(deli::tidy, generics::tidy)
+  expect_identical(deli::glance, generics::glance)
+  expect_identical(deli::augment, generics::augment)
+})
+
+test_that("tidy() dispatches on a deli fit without a namespace qualifier", {
+  fit <- tidier_fit()
+  expect_identical(
+    call_with_deli_attached(quote(tidy(fit)), fit = fit),
+    generics::tidy(fit)
+  )
+})
+
+test_that("glance() dispatches on a deli fit without a namespace qualifier", {
+  fit <- tidier_fit()
+  gl <- call_with_deli_attached(quote(glance(fit)), fit = fit)
+
+  expect_s3_class(gl, "data.frame")
+  expect_identical(nrow(gl), 1L)
+  expect_identical(gl, generics::glance(fit))
+})
+
+test_that("augment() dispatches on a deli fit without a namespace qualifier", {
+  fit <- tidier_fit()
+  augmented <- call_with_deli_attached(quote(augment(fit)), fit = fit)
+
+  expect_true(all(c(".fitted", ".resid") %in% names(augmented)))
+  expect_identical(augmented, generics::augment(fit))
+})
