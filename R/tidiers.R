@@ -40,7 +40,6 @@
 #' generics::glance(fit)
 #'
 #' @name deli-tidiers
-#' @importFrom generics tidy glance
 NULL
 
 # ---- External generic declarations ------------------------------------------

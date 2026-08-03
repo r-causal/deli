@@ -76,6 +76,7 @@ reference:
       - deli-generics
       - deli-display
       - deli-tidiers
+      - reexports
       - confidence_intervals
       - z_scores
       - p_values

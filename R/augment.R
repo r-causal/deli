@@ -101,7 +101,6 @@
 #' generics::augment(fit, newdata = data.frame(wt = c(2, 3, 4), hp = 110))
 #'
 #' @name deli-augment
-#' @importFrom generics augment
 NULL
 
 # ---- External generic declarations ------------------------------------------
