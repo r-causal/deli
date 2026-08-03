@@ -18,7 +18,7 @@ R.
 M-estimators express a wide range of statistical procedures as the
 solution to a set of estimating equations, and the empirical sandwich
 estimator supplies their variance without further derivation. deli
-offers a general interface for both custom and pre-built estimating
+offers a general interface for both custom and built-in estimating
 equations, covering basic statistics, regression, causal inference,
 survival analysis, measurement error, and pharmacokinetics.
 
@@ -31,6 +31,12 @@ surface differs by convention.
 
 ## Installation
 
+Install deli from CRAN with:
+
+``` r
+install.packages("deli")
+```
+
 Install the development version of deli from
 [GitHub](https://github.com/r-causal/deli) with:
 
@@ -42,7 +48,7 @@ pak::pak("r-causal/deli")
 ## Example
 
 The quickest way to fit a model is `m_estimate()`, which takes a
-formula, a data frame, and a pre-built estimating equation, then
+formula, a data frame, and a built-in estimating equation, then
 constructs and solves the estimator in a single call. Here is a linear
 regression on the `mtcars` data:
 
