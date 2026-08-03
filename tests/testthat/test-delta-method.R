@@ -226,10 +226,6 @@ test_that("numeric delta_method() aborts with a clear message when covariance is
 # caller can act on. Each abort names the method the caller reached instead,
 # following the same threading the estimate() methods use.
 
-reported_call <- function(err) {
-  paste(deparse(conditionCall(err)), collapse = " ")
-}
-
 test_that("the missing-covariance abort names the method the caller reached", {
   theta <- c(0.5, -1.2)
   err <- expect_error(delta_method(theta, transform = function(th) th))

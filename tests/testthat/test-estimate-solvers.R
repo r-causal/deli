@@ -108,7 +108,7 @@ test_that("invalid solver type reports a frame the user can name", {
 
   m <- MEstimator(stacked_equations = psi, init = c(0))
   err <- tryCatch(estimate(m, solver = 42), error = function(e) e)
-  reported <- paste(deparse(conditionCall(err)), collapse = " ")
+  reported <- reported_call(err)
 
   expect_match(reported, "method(estimate, deli::MEstimator)", fixed = TRUE)
   expect_false(grepl("estimate_m_estimator", reported, fixed = TRUE))
@@ -127,7 +127,7 @@ test_that("an invalid GMM solver type reports a frame the user can name", {
 
   g <- GMMEstimator(stacked_equations = psi, init = c(0))
   err <- tryCatch(estimate(g, solver = 42), error = function(e) e)
-  reported <- paste(deparse(conditionCall(err)), collapse = " ")
+  reported <- reported_call(err)
 
   expect_match(conditionMessage(err), "must be a string or function")
   expect_match(reported, "method(estimate, deli::GMMEstimator)", fixed = TRUE)

@@ -605,10 +605,6 @@ test_that("an incomplete psi row-name vector cannot reach the fill", {
 # is not the one that set the names, so those report no call at all and nothing
 # below is pinned about them.
 
-reported_call <- function(err) {
-  paste(deparse(conditionCall(err)), collapse = " ")
-}
-
 test_that("a refused fit reports the MEstimator method the caller reached", {
   y <- mean_variance_y()
   err <- expect_error(

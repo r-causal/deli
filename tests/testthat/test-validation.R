@@ -470,10 +470,6 @@ test_that("eval_psi_at_init reframes only at the recorded automatic init", {
 # names the frame that was reached instead, the way the delta method worker and
 # the solver dispatcher already do.
 
-reported_call <- function(err) {
-  paste(deparse(conditionCall(err)), collapse = " ")
-}
-
 test_that("a NULL return reports the MEstimator method the caller reached", {
   m <- MEstimator(stacked_equations = function(theta) NULL, init = c(0))
   err <- expect_error(estimate(m))

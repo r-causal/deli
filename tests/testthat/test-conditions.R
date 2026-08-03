@@ -168,7 +168,7 @@ test_that("without_repeated_warnings keys on the message and not the call", {
   }))
 
   expect_length(caught, 1)
-  expect_equal(deparse(conditionCall(caught[[1L]])), "f1()")
+  expect_equal(reported_call(caught[[1L]]), "f1()")
 })
 
 # The other half of that decision is about this package's own warnings: the call

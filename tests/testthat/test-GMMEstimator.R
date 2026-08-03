@@ -962,11 +962,15 @@ test_that("the singular-meat abort reports the method the caller reached", {
     class = "deli_meat_not_invertible"
   )
 
-  reported <- paste(deparse(conditionCall(err)), collapse = " ")
+  reported <- reported_call(err)
   # The generic the caller typed, and the setting the refusal is about, both
-  # stand in the reported call.
+  # stand in the reported call. The setting's value is read off the call rather
+  # than its rendering: S7 inlined the argument as a promise, and rlang renders
+  # a promise as a placeholder regardless of its state, so the string carries
+  # the name and never the value.
   expect_match(reported, "estimate", fixed = TRUE)
-  expect_match(reported, "allow_pinv = FALSE", fixed = TRUE)
+  expect_match(reported, "allow_pinv", fixed = TRUE)
+  expect_identical(conditionCall(err)[["allow_pinv"]], FALSE)
   # The frames a handler-side read would have named instead.
   expect_false(grepl("tryCatch", reported, fixed = TRUE))
   expect_false(grepl("doTryCatch", reported, fixed = TRUE))

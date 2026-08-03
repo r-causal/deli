@@ -963,10 +963,6 @@ test_that("compute_sandwich() refuses a per-equation list of unequal lengths", {
 # entry point the caller can act on is compute_sandwich(), and it is the one the
 # report names.
 
-reported_call <- function(err) {
-  paste(deparse(conditionCall(err)), collapse = " ")
-}
-
 test_that("the NULL-return abort names compute_sandwich()", {
   psi <- function(theta) NULL
   # These aborts share a call and a class, so the wording is what tells them

@@ -1,6 +1,6 @@
-# Helper for the tests that read the warnings an operation raised rather than
-# assert on one of them. Three test files were carrying the same collector, so it
-# lives here instead.
+# Helpers for the tests that read the conditions an operation raised rather than
+# assert on one of them. Several test files were carrying the same two, so they
+# live here instead.
 
 #' Every warning signaled while an expression runs
 #'
@@ -26,4 +26,26 @@ collect_warnings <- function(expr) {
     }
   )
   caught
+}
+
+#' The call a condition reports, rendered as one string
+#'
+#' Used by the tests that pin which frame an abort names. The rendering goes
+#' through rlang rather than `deparse()`: this package's aborts are raised
+#' against S7 method frames whose calls inline the estimator itself, and base
+#' `deparse()` fails outright on an inlined S4 object under R 4.3, the oldest R
+#' this package supports. rlang writes any value it cannot render as code as a
+#' placeholder instead.
+#'
+#' Two consequences for what callers can match on. S7 inlines a method's
+#' arguments into the call as promises, and rlang renders a promise as
+#' `<promise>` whether or not it has been forced, so no argument value ever
+#' reaches the string: match on argument names here and read the values off the
+#' call itself, where indexing forces them. And a long call comes back as
+#' several lines, hence the collapse.
+#'
+#' @param cnd The condition to read.
+#' @returns The reported call as a single string.
+reported_call <- function(cnd) {
+  paste(rlang::expr_deparse(conditionCall(cnd)), collapse = " ")
 }

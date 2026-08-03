@@ -1788,7 +1788,7 @@ test_that("the automatic-init diagnostic names m_estimate()", {
   expect_identical(reported_entry_point(err), quote(m_estimate))
   # Neither the method the generic dispatched to nor the helper that evaluates
   # the estimating function is a call the caller can act on.
-  reported <- paste(deparse(conditionCall(err)), collapse = " ")
+  reported <- reported_call(err)
   expect_false(grepl("m_estimate.formula", reported, fixed = TRUE))
   expect_false(grepl("eval_psi_at_init", reported, fixed = TRUE))
 })
@@ -1803,6 +1803,6 @@ test_that("the automatic-init diagnostic names gmm_estimate()", {
     class = "deli_formula_auto_init_error"
   )
   expect_identical(reported_entry_point(err), quote(gmm_estimate))
-  reported <- paste(deparse(conditionCall(err)), collapse = " ")
+  reported <- reported_call(err)
   expect_false(grepl("gmm_estimate.formula", reported, fixed = TRUE))
 })

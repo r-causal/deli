@@ -226,7 +226,7 @@ test_that("estimate() reports the budget it refuses against the caller", {
 
   err <- expect_error(estimate(m, maxiter = c(10, 20)))
   expect_match(
-    paste(deparse(conditionCall(err)), collapse = " "),
+    reported_call(err),
     "estimate",
     fixed = TRUE
   )

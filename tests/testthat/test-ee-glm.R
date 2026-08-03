@@ -180,10 +180,6 @@ test_that("ee_glm rejects an offset whose length differs from the rows of X", {
 # it first, so base R reported `argument is of length zero` or `the condition has
 # length > 1` against an `if` the caller never wrote.
 
-reported_call <- function(err) {
-  paste(deparse(conditionCall(err)), collapse = " ")
-}
-
 glm_case <- function() {
   set.seed(3)
   list(X = cbind(1, stats::rnorm(20)), y = stats::rbinom(20, 1, 0.5))
