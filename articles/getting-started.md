@@ -89,12 +89,15 @@ summary(fit)
 ```
 
 deli also provides [broom](https://broom.tidymodels.org/) tidiers, so
-results flow into tidyverse pipelines. `tidy()` returns one row per
-parameter, and `glance()` returns a one-row model summary:
+results flow into tidyverse pipelines.
+[`tidy()`](https://generics.r-lib.org/reference/tidy.html) returns one
+row per parameter, and
+[`glance()`](https://generics.r-lib.org/reference/glance.html) returns a
+one-row model summary:
 
 ``` r
 
-generics::tidy(fit, conf.int = TRUE)
+tidy(fit, conf.int = TRUE)
 #>          term    estimate   std.error statistic      p.value   s.value
 #> 1 (Intercept) 37.22727012 1.938920903 19.199994 3.701332e-82 270.51006
 #> 2          wt -3.87783074 0.619927640 -6.255296 3.967632e-10  31.23100
@@ -104,7 +107,7 @@ generics::tidy(fit, conf.int = TRUE)
 #> 2 -5.09286659 -2.66279490
 #> 3 -0.04479898 -0.01874691
 
-generics::glance(fit)
+glance(fit)
 #>   nobs npar  estimator finite_correction j_statistic j_df j_p_value
 #> 1   32    3 MEstimator              <NA>          NA   NA        NA
 ```
@@ -286,10 +289,10 @@ m
 ## Predictions
 
 After fitting a model, use
-[`generics::augment()`](https://generics.r-lib.org/reference/augment.html)
-for predicted values with confidence intervals. Give it a data frame of
-new covariate values as `newdata`, with one column for each covariate
-the formula names, and it returns that frame with `.fitted`, `.se.fit`,
+[`augment()`](https://generics.r-lib.org/reference/augment.html) for
+predicted values with confidence intervals. Give it a data frame of new
+covariate values as `newdata`, with one column for each covariate the
+formula names, and it returns that frame with `.fitted`, `.se.fit`,
 `.lower`, and `.upper` beside it:
 
 ``` r
@@ -303,7 +306,7 @@ d <- data.frame(x, y)
 m <- m_estimate(y ~ x, data = d, .ee = ee_regression, model = "linear")
 
 # Predict at new values
-generics::augment(m, newdata = data.frame(x = seq(-2, 2, by = 1)))
+augment(m, newdata = data.frame(x = seq(-2, 2, by = 1)))
 #>    x   .fitted    .se.fit     .lower     .upper
 #> 1 -2 -2.834668 0.14108320 -3.1111856 -2.5581497
 #> 2 -1 -0.912765 0.08435576 -1.0780992 -0.7474307
@@ -312,8 +315,9 @@ generics::augment(m, newdata = data.frame(x = seq(-2, 2, by = 1)))
 #> 5  2  4.852943 0.17254381  4.5147634  5.1911227
 ```
 
-Called without `newdata`, `augment()` reports the rows the model was
-fitted to and adds a `.resid` column as well.
+Called without `newdata`,
+[`augment()`](https://generics.r-lib.org/reference/augment.html) reports
+the rows the model was fitted to and adds a `.resid` column as well.
 
 ## Clustered data
 

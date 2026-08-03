@@ -77,8 +77,10 @@ summary(fit)
 variance-covariance matrix and
 [`confint()`](https://rdrr.io/r/stats/confint.html) returns Wald
 confidence intervals. deli also supplies
-[broom](https://broom.tidymodels.org) tidiers, `tidy()`, `augment()`,
-and `glance()`.
+[broom](https://broom.tidymodels.org) tidiers,
+[`tidy()`](https://generics.r-lib.org/reference/tidy.html),
+[`augment()`](https://generics.r-lib.org/reference/augment.html), and
+[`glance()`](https://generics.r-lib.org/reference/glance.html).
 
 ## Learn more
 

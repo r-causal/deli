@@ -153,11 +153,11 @@ statistics, and confidence intervals into a single table:</p>
 <span><span class="co">#&gt; wt             -3.8778     0.6199    -6.2553    -5.0929    -2.6628   3.97e-10    31.2310</span></span>
 <span><span class="co">#&gt; hp             -0.0318     0.0066    -4.7807    -0.0448    -0.0187   1.75e-06    19.1270</span></span></code></pre></div>
 <p>deli also provides <a href="https://broom.tidymodels.org/" class="external-link">broom</a>
-tidiers, so results flow into tidyverse pipelines. <code>tidy()</code>
-returns one row per parameter, and <code>glance()</code> returns a
+tidiers, so results flow into tidyverse pipelines. <code><a href="https://generics.r-lib.org/reference/tidy.html" class="external-link">tidy()</a></code>
+returns one row per parameter, and <code><a href="https://generics.r-lib.org/reference/glance.html" class="external-link">glance()</a></code> returns a
 one-row model summary:</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu">generics</span><span class="fu">::</span><span class="fu"><a href="https://generics.r-lib.org/reference/tidy.html" class="external-link">tidy</a></span><span class="op">(</span><span class="va">fit</span>, conf.int <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="https://generics.r-lib.org/reference/tidy.html" class="external-link">tidy</a></span><span class="op">(</span><span class="va">fit</span>, conf.int <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="co">#&gt;          term    estimate   std.error statistic      p.value   s.value</span></span>
 <span><span class="co">#&gt; 1 (Intercept) 37.22727012 1.938920903 19.199994 3.701332e-82 270.51006</span></span>
 <span><span class="co">#&gt; 2          wt -3.87783074 0.619927640 -6.255296 3.967632e-10  31.23100</span></span>
@@ -167,7 +167,7 @@ one-row model summary:</p>
 <span><span class="co">#&gt; 2 -5.09286659 -2.66279490</span></span>
 <span><span class="co">#&gt; 3 -0.04479898 -0.01874691</span></span>
 <span></span>
-<span><span class="fu">generics</span><span class="fu">::</span><span class="fu"><a href="https://generics.r-lib.org/reference/glance.html" class="external-link">glance</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://generics.r-lib.org/reference/glance.html" class="external-link">glance</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span>
 <span><span class="co">#&gt;   nobs npar  estimator finite_correction j_statistic j_df j_p_value</span></span>
 <span><span class="co">#&gt; 1   32    3 MEstimator              &lt;NA&gt;          NA   NA        NA</span></span></code></pre></div>
 <p>If you prefer deli’s own inference helpers,
@@ -319,12 +319,12 @@ interface. Here is an example that uses inverse probability weighting
 <div class="section level2">
 <h2 id="predictions">Predictions<a class="anchor" aria-label="anchor" href="#predictions"></a>
 </h2>
-<p>After fitting a model, use <code><a href="https://generics.r-lib.org/reference/augment.html" class="external-link">generics::augment()</a></code> for
-predicted values with confidence intervals. Give it a data frame of new
-covariate values as <code>newdata</code>, with one column for each
-covariate the formula names, and it returns that frame with
-<code>.fitted</code>, <code>.se.fit</code>, <code>.lower</code>, and
-<code>.upper</code> beside it:</p>
+<p>After fitting a model, use <code><a href="https://generics.r-lib.org/reference/augment.html" class="external-link">augment()</a></code> for predicted
+values with confidence intervals. Give it a data frame of new covariate
+values as <code>newdata</code>, with one column for each covariate the
+formula names, and it returns that frame with <code>.fitted</code>,
+<code>.se.fit</code>, <code>.lower</code>, and <code>.upper</code>
+beside it:</p>
 <div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">42</span><span class="op">)</span></span>
 <span><span class="va">n</span> <span class="op">&lt;-</span> <span class="fl">200</span></span>
@@ -335,14 +335,14 @@ covariate the formula names, and it returns that frame with
 <span><span class="va">m</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/m_estimate.html">m_estimate</a></span><span class="op">(</span><span class="va">y</span> <span class="op">~</span> <span class="va">x</span>, data <span class="op">=</span> <span class="va">d</span>, .ee <span class="op">=</span> <span class="va">ee_regression</span>, model <span class="op">=</span> <span class="st">"linear"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Predict at new values</span></span>
-<span><span class="fu">generics</span><span class="fu">::</span><span class="fu"><a href="https://generics.r-lib.org/reference/augment.html" class="external-link">augment</a></span><span class="op">(</span><span class="va">m</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>x <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="op">-</span><span class="fl">2</span>, <span class="fl">2</span>, by <span class="op">=</span> <span class="fl">1</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://generics.r-lib.org/reference/augment.html" class="external-link">augment</a></span><span class="op">(</span><span class="va">m</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>x <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="op">-</span><span class="fl">2</span>, <span class="fl">2</span>, by <span class="op">=</span> <span class="fl">1</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;    x   .fitted    .se.fit     .lower     .upper</span></span>
 <span><span class="co">#&gt; 1 -2 -2.834668 0.14108320 -3.1111856 -2.5581497</span></span>
 <span><span class="co">#&gt; 2 -1 -0.912765 0.08435576 -1.0780992 -0.7474307</span></span>
 <span><span class="co">#&gt; 3  0  1.009138 0.06706354  0.8776956  1.1405798</span></span>
 <span><span class="co">#&gt; 4  1  2.931040 0.10976950  2.7158961  3.1461846</span></span>
 <span><span class="co">#&gt; 5  2  4.852943 0.17254381  4.5147634  5.1911227</span></span></code></pre></div>
-<p>Called without <code>newdata</code>, <code>augment()</code> reports
+<p>Called without <code>newdata</code>, <code><a href="https://generics.r-lib.org/reference/augment.html" class="external-link">augment()</a></code> reports
 the rows the model was fitted to and adds a <code>.resid</code> column
 as well.</p>
 </div>

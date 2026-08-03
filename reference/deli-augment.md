@@ -1,7 +1,6 @@
 # Augment data with predictions from a fitted deli estimator
 
-A
-[`generics::augment()`](https://generics.r-lib.org/reference/augment.html)
+An [`augment()`](https://generics.r-lib.org/reference/augment.html)
 method for `MEstimator` and `GMMEstimator` objects fitted through the
 formula interface. It returns the model frame the fit was built from, or
 `newdata` when supplied, with the fitted values, their standard errors,
@@ -73,7 +72,8 @@ and its row names are those of the retained rows. A `newdata` row with a
 missing value is kept, with `NA` in the added columns, so that the
 result lines up with the rows handed in.
 
-`augment()` covers the estimating equations whose linear predictor
+[`augment()`](https://generics.r-lib.org/reference/augment.html) covers
+the estimating equations whose linear predictor
 [`predict()`](https://r-causal.github.io/deli/reference/deli-predict.md)
 forms, and refuses the same fits with the same reasons; see
 [deli-predict](https://r-causal.github.io/deli/reference/deli-predict.md).
@@ -85,9 +85,11 @@ row, so the predictions do not go beside the data as columns.
 
 [deli-predict](https://r-causal.github.io/deli/reference/deli-predict.md)
 for the predictions themselves and the equations they are available for,
-and
 [deli-tidiers](https://r-causal.github.io/deli/reference/deli-tidiers.md)
-for the parameter-level and model-level summaries.
+for the parameter-level and model-level summaries, and reexports for the
+generic itself, which deli re-exports so that
+[`augment()`](https://generics.r-lib.org/reference/augment.html)
+resolves with deli alone attached.
 
 ## Examples
 
@@ -95,9 +97,7 @@ for the parameter-level and model-level summaries.
 fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
                   model = "linear")
 
-# Attaching generics or broom makes the shorter augment(fit) call work
-# as well
-head(generics::augment(fit))
+head(augment(fit))
 #>                    mpg    wt  hp  .fitted   .se.fit   .lower   .upper
 #> Mazda RX4         21.0 2.620 110 23.57233 0.6045332 22.38747 24.75719
 #> Mazda RX4 Wag     21.0 2.875 110 22.58348 0.5531278 21.49937 23.66759
@@ -115,7 +115,7 @@ head(generics::augment(fit))
 
 # New covariate patterns come back with no residual column, since they carry
 # no response to residualize against.
-generics::augment(fit, newdata = data.frame(wt = c(2, 3, 4), hp = 110))
+augment(fit, newdata = data.frame(wt = c(2, 3, 4), hp = 110))
 #>   wt  hp  .fitted   .se.fit   .lower   .upper
 #> 1  2 110 25.97658 0.8477263 24.31507 27.63810
 #> 2  3 110 22.09875 0.5431698 21.03416 23.16335

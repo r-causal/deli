@@ -25,6 +25,11 @@ Tools for statistical inference from fitted estimators.
   : Display methods for deli estimators
 - [`deli-tidiers`](https://r-causal.github.io/deli/reference/deli-tidiers.md)
   : Broom tidiers for deli estimators
+- [`reexports`](https://r-causal.github.io/deli/reference/reexports.md)
+  [`tidy`](https://r-causal.github.io/deli/reference/reexports.md)
+  [`glance`](https://r-causal.github.io/deli/reference/reexports.md)
+  [`augment`](https://r-causal.github.io/deli/reference/reexports.md) :
+  Objects exported from other packages
 - [`confidence_intervals()`](https://r-causal.github.io/deli/reference/confidence_intervals.md)
   : Confidence intervals for M-Estimator parameters
 - [`z_scores()`](https://r-causal.github.io/deli/reference/z_scores.md)

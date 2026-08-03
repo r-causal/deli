@@ -46,7 +46,7 @@ does not support.
 
 [`summary()`](https://r-causal.github.io/deli/reference/deli-display.md)
 and
-[`generics::tidy()`](https://generics.r-lib.org/reference/tidy.html),
+[`tidy()`](https://r-causal.github.io/deli/reference/deli-tidiers.md),
 which report the same S-values in table form alongside the other
 parameter-level results.
 

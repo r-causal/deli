@@ -392,13 +392,12 @@ name is enough:</p>
 <div class="section level2">
 <h2 id="predictions-after-regression">Predictions after regression<a class="anchor" aria-label="anchor" href="#predictions-after-regression"></a>
 </h2>
-<p>After fitting any regression model, use
-<code><a href="https://generics.r-lib.org/reference/augment.html" class="external-link">generics::augment()</a></code> for predicted values with confidence
-intervals. Give it a data frame of new covariate values as
-<code>newdata</code>, with one column for each covariate the formula
-names, and it returns that frame with <code>.fitted</code>,
-<code>.se.fit</code>, <code>.lower</code>, and <code>.upper</code>
-beside it:</p>
+<p>After fitting any regression model, use <code><a href="https://generics.r-lib.org/reference/augment.html" class="external-link">augment()</a></code> for
+predicted values with confidence intervals. Give it a data frame of new
+covariate values as <code>newdata</code>, with one column for each
+covariate the formula names, and it returns that frame with
+<code>.fitted</code>, <code>.se.fit</code>, <code>.lower</code>, and
+<code>.upper</code> beside it:</p>
 <div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">42</span><span class="op">)</span></span>
 <span><span class="va">n</span> <span class="op">&lt;-</span> <span class="fl">300</span></span>
@@ -409,14 +408,14 @@ beside it:</p>
 <span><span class="va">m</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/m_estimate.html">m_estimate</a></span><span class="op">(</span><span class="va">y</span> <span class="op">~</span> <span class="va">x</span>, data <span class="op">=</span> <span class="va">d</span>, .ee <span class="op">=</span> <span class="va">ee_regression</span>, model <span class="op">=</span> <span class="st">"linear"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Predict at new covariate values</span></span>
-<span><span class="fu">generics</span><span class="fu">::</span><span class="fu"><a href="https://generics.r-lib.org/reference/augment.html" class="external-link">augment</a></span><span class="op">(</span><span class="va">m</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>x <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="op">-</span><span class="fl">2</span>, <span class="fl">2</span>, length.out <span class="op">=</span> <span class="fl">5</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://generics.r-lib.org/reference/augment.html" class="external-link">augment</a></span><span class="op">(</span><span class="va">m</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>x <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="op">-</span><span class="fl">2</span>, <span class="fl">2</span>, length.out <span class="op">=</span> <span class="fl">5</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;    x   .fitted    .se.fit     .lower     .upper</span></span>
 <span><span class="co">#&gt; 1 -2 -3.077760 0.11004179 -3.2934376 -2.8620817</span></span>
 <span><span class="co">#&gt; 2 -1 -1.052358 0.07100359 -1.1915228 -0.9131938</span></span>
 <span><span class="co">#&gt; 3  0  0.973043 0.05711591  0.8610979  1.0849882</span></span>
 <span><span class="co">#&gt; 4  1  2.998444 0.08228820  2.8371625  3.1597263</span></span>
 <span><span class="co">#&gt; 5  2  5.023846 0.12477529  4.7792907  5.2684008</span></span></code></pre></div>
-<p>Called without <code>newdata</code>, <code>augment()</code> reports
+<p>Called without <code>newdata</code>, <code><a href="https://generics.r-lib.org/reference/augment.html" class="external-link">augment()</a></code> reports
 the rows the model was fitted to and adds a <code>.resid</code> column
 as well. For a model with a non-identity link,
 <code>type.predict = "response"</code> moves <code>.fitted</code> and

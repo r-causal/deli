@@ -185,7 +185,7 @@ Use
 [`vcov()`](https://r-causal.github.io/deli/reference/deli-generics.md),
 [`confint()`](https://r-causal.github.io/deli/reference/deli-generics.md),
 [`summary()`](https://r-causal.github.io/deli/reference/deli-display.md),
-or [`generics::tidy()`](https://generics.r-lib.org/reference/tidy.html)
+or [`tidy()`](https://r-causal.github.io/deli/reference/deli-tidiers.md)
 to extract results.
 
 ## Details

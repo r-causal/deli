@@ -111,7 +111,7 @@ other output carries the line.</p>
 <p>The <code>S</code> column reads <code>Inf</code> when a P-value underflows to exactly zero, for the
 reason <code><a href="s_values.html">s_values()</a></code> gives. The <code>P</code> column reports that same underflow as
 <code>&lt;2e-16</code>: <code><a href="https://rdrr.io/r/base/format.pval.html" class="external-link">base::format.pval()</a></code> stops printing digits below the <code>eps</code> it is
-given, and the table gives it <code>2.2e-16</code>. <code><a href="https://generics.r-lib.org/reference/tidy.html" class="external-link">generics::tidy()</a></code> returns the
+given, and the table gives it <code>2.2e-16</code>. <code><a href="deli-tidiers.html">tidy()</a></code> returns the
 literal <code>0</code> instead.</p>
 <p><code>subset</code> restricts which parameters are displayed and nothing else. The
 reported parameter count and every reported value are computed from the whole

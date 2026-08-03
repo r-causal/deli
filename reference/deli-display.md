@@ -77,7 +77,7 @@ gives. The `P` column reports that same underflow as `<2e-16`:
 [`base::format.pval()`](https://rdrr.io/r/base/format.pval.html) stops
 printing digits below the `eps` it is given, and the table gives it
 `2.2e-16`.
-[`generics::tidy()`](https://generics.r-lib.org/reference/tidy.html)
+[`tidy()`](https://r-causal.github.io/deli/reference/deli-tidiers.md)
 returns the literal `0` instead.
 
 `subset` restricts which parameters are displayed and nothing else. The

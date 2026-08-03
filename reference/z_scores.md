@@ -36,7 +36,7 @@ A numeric vector of Z-scores.
 
 [`summary()`](https://r-causal.github.io/deli/reference/deli-display.md)
 and
-[`generics::tidy()`](https://generics.r-lib.org/reference/tidy.html),
+[`tidy()`](https://r-causal.github.io/deli/reference/deli-tidiers.md),
 which report the same Z-scores in table form alongside the other
 parameter-level results.
 

@@ -346,10 +346,10 @@ m@theta
 ## Predictions after regression
 
 After fitting any regression model, use
-[`generics::augment()`](https://generics.r-lib.org/reference/augment.html)
-for predicted values with confidence intervals. Give it a data frame of
-new covariate values as `newdata`, with one column for each covariate
-the formula names, and it returns that frame with `.fitted`, `.se.fit`,
+[`augment()`](https://generics.r-lib.org/reference/augment.html) for
+predicted values with confidence intervals. Give it a data frame of new
+covariate values as `newdata`, with one column for each covariate the
+formula names, and it returns that frame with `.fitted`, `.se.fit`,
 `.lower`, and `.upper` beside it:
 
 ``` r
@@ -363,7 +363,7 @@ d <- data.frame(x, y)
 m <- m_estimate(y ~ x, data = d, .ee = ee_regression, model = "linear")
 
 # Predict at new covariate values
-generics::augment(m, newdata = data.frame(x = seq(-2, 2, length.out = 5)))
+augment(m, newdata = data.frame(x = seq(-2, 2, length.out = 5)))
 #>    x   .fitted    .se.fit     .lower     .upper
 #> 1 -2 -3.077760 0.11004179 -3.2934376 -2.8620817
 #> 2 -1 -1.052358 0.07100359 -1.1915228 -0.9131938
@@ -372,7 +372,9 @@ generics::augment(m, newdata = data.frame(x = seq(-2, 2, length.out = 5)))
 #> 5  2  5.023846 0.12477529  4.7792907  5.2684008
 ```
 
-Called without `newdata`, `augment()` reports the rows the model was
-fitted to and adds a `.resid` column as well. For a model with a
-non-identity link, `type.predict = "response"` moves `.fitted` and its
-interval from the linear predictor to the scale of the response.
+Called without `newdata`,
+[`augment()`](https://generics.r-lib.org/reference/augment.html) reports
+the rows the model was fitted to and adds a `.resid` column as well. For
+a model with a non-identity link, `type.predict = "response"` moves
+`.fitted` and its interval from the linear predictor to the scale of the
+response.

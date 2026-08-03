@@ -76,7 +76,7 @@ R](#direct-port-or-idiomatic-r) below covers which one to reach for.
 | `standard_normal_cdf`, `standard_normal_pdf` | `standard_normal_cdf`, `standard_normal_pdf` | Required in place of [`stats::pnorm()`](https://rdrr.io/r/stats/Normal.html) and [`stats::dnorm()`](https://rdrr.io/r/stats/Normal.html) under `deriv_method = "exact"` (see below). |
 | `robust_loss_functions(residual, loss, k, a, b)` | `robust_loss_functions(residuals, loss, k)` | Hampel thresholds passed as `k = c(a, b, c)` (see below). |
 | `aggregate_efuncs(est_funcs, group)` | `aggregate_efuncs(est_funcs, group)` | Takes a p-by-n matrix, one column per observation, and returns a p-by-g matrix, one column per group; `group` may be any vector R can split on. |
-| `regression_predictions(...)` | `regression_predictions(...)` | Returns a data frame rather than a NumPy array. For a fit made through deli’s formula interface, [`generics::augment()`](https://generics.r-lib.org/reference/augment.html) is the idiomatic route to the same predictions. |
+| `regression_predictions(...)` | `regression_predictions(...)` | Returns a data frame rather than a NumPy array. For a fit made through deli’s formula interface, [`augment()`](https://generics.r-lib.org/reference/augment.html) is the idiomatic route to the same predictions. |
 | `aft_predictions_individual(...)` | `aft_predictions_individual(...)` | Returns a data frame rather than a NumPy array. |
 | `aft_predictions_function(...)` | `aft_predictions_function(...)` | Returns a data frame rather than a NumPy array. R adds `deriv_method` and `dx`. |
 | `spline(...)` | `deli_spline(...)` | Renamed to avoid masking [`stats::spline()`](https://rdrr.io/r/stats/splinefun.html). First argument renamed `variable` to `x`. |
@@ -474,8 +474,9 @@ and
 [`s_values()`](https://r-causal.github.io/deli/reference/s_values.md)
 mirror the Python estimator methods one for one.
 [`confint()`](https://rdrr.io/r/stats/confint.html),
-[`summary()`](https://rdrr.io/r/base/summary.html), and `tidy()` return
-the same quantities through the accessors R users already reach for on a
+[`summary()`](https://rdrr.io/r/base/summary.html), and
+[`tidy()`](https://generics.r-lib.org/reference/tidy.html) return the
+same quantities through the accessors R users already reach for on a
 fitted model:
 
 ``` r
@@ -497,19 +498,20 @@ Note the parameterization. Python states the interval as an error rate,
 and [`summary()`](https://rdrr.io/r/base/summary.html) keep that
 argument. The R accessors take its complement:
 [`confint()`](https://rdrr.io/r/stats/confint.html) uses `level` and
-[`generics::tidy()`](https://generics.r-lib.org/reference/tidy.html)
-uses `conf.level`, each equal to `1 - alpha`. A Python `alpha=0.01`
-becomes `level = 0.99`.
+[`tidy()`](https://generics.r-lib.org/reference/tidy.html) uses
+`conf.level`, each equal to `1 - alpha`. A Python `alpha=0.01` becomes
+`level = 0.99`.
 
 [`summary()`](https://rdrr.io/r/base/summary.html) collects the
 estimates, standard errors, test statistics, and intervals into one
-table, and `tidy()` returns the same content as a data frame for use in
-a pipeline. Python’s nearest equivalent to either is `print_results()`,
-which prints rather than returns:
+table, and [`tidy()`](https://generics.r-lib.org/reference/tidy.html)
+returns the same content as a data frame for use in a pipeline. Python’s
+nearest equivalent to either is `print_results()`, which prints rather
+than returns:
 
 ``` r
 
-generics::tidy(m, conf.int = TRUE)
+tidy(m, conf.int = TRUE)
 #>      term  estimate  std.error statistic     p.value  s.value  conf.low
 #> 1 theta_1 0.5250143 0.05305373  9.895896 4.33707e-23 74.28763 0.4210308
 #> 2 theta_2 2.2482418 0.02666168 84.324832 0.00000e+00      Inf 2.1959858
