@@ -30,6 +30,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="articles/index.html">More articles...</a></li>
   </ul></li>
+<li class="nav-item"><a class="nav-link" href="news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="search.json"></form></li>
 <li class="nav-item"><a class="external-link nav-link" href="https://github.com/r-causal/deli/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
@@ -61,7 +62,7 @@
 <div class="section level2">
 <h2 id="running-r-cmd-check-locally">Running R CMD check locally<a class="anchor" aria-label="anchor" href="#running-r-cmd-check-locally"></a></h2>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu">rcmdcheck</span><span class="fu">::</span><span class="fu">rcmdcheck</span><span class="op">(</span>args <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"--no-manual"</span>, <span class="st">"--as-cran"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu">rcmdcheck</span><span class="fu">::</span><span class="fu"><a href="http://r-lib.github.io/rcmdcheck/reference/rcmdcheck.html" class="external-link">rcmdcheck</a></span><span class="op">(</span>args <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"--no-manual"</span>, <span class="st">"--as-cran"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <p><code>rcmdcheck()</code> defaults <code>libpath</code> to <code><a href="https://rdrr.io/r/base/libPaths.html" class="external-link">.libPaths()</a></code>, so the packages listed in <code>Suggests</code> are already visible to the check process and the tests guarded by <code>skip_if_not_installed()</code> run. Passing <code>libpath = .libPaths()</code> explicitly is the same thing and changes nothing. If those guards do start skipping, the cause is a missing installation rather than the check’s library path, so install the <code>Suggests</code> and run again.</p>
 <p>The check still reports fewer tests than <code>devtools::test()</code>, and the difference is <code>skip_on_cran()</code>. <code>devtools::test()</code> sets <code>NOT_CRAN=true</code>, while <code>R CMD check</code> leaves it unset, so anything gated on CRAN skips. That covers the snapshot tests, which testthat skips on CRAN by default, along with the two documentation tests that call <code>skip_on_cran()</code> directly. The gap is expected, not a coverage hole. To exercise those tests, run the suite with <code>NOT_CRAN</code> set, which is what <code>devtools::test()</code> does.</p>
 <p>The documentation tests carry a second guard. They read <code>_pkgdown.yml</code>, which is listed in <code>.Rbuildignore</code> and so is absent from a built tarball. They skip when the file is missing, by design, and run against the source tree.</p>

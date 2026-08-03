@@ -1,4 +1,4 @@
 # License
 
     YEAR: 2026
-    COPYRIGHT HOLDER: deli authors
+    COPYRIGHT HOLDER: Malcolm Barrett
