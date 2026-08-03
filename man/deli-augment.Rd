@@ -31,11 +31,10 @@ A data frame: the model frame, or \code{newdata}, followed by the columns
 when \code{newdata} is supplied.
 }
 \description{
-A \code{\link[generics:augment]{generics::augment()}} method for \code{MEstimator} and \code{GMMEstimator} objects
-fitted through the formula interface. It returns the model frame the fit was
-built from, or \code{newdata} when supplied, with the fitted values, their
-standard errors, a Wald confidence interval, and the residuals as columns
-beside it.
+An \code{augment()} method for \code{MEstimator} and \code{GMMEstimator} objects fitted
+through the formula interface. It returns the model frame the fit was built
+from, or \code{newdata} when supplied, with the fitted values, their standard
+errors, a Wald confidence interval, and the residuals as columns beside it.
 }
 \details{
 The columns added are \code{.fitted}, \code{.se.fit}, \code{.lower}, \code{.upper}, and, when
@@ -66,17 +65,16 @@ than one per row, so the predictions do not go beside the data as columns.
 fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
                   model = "linear")
 
-# Attaching generics or broom makes the shorter augment(fit) call work
-# as well
-head(generics::augment(fit))
+head(augment(fit))
 
 # New covariate patterns come back with no residual column, since they carry
 # no response to residualize against.
-generics::augment(fit, newdata = data.frame(wt = c(2, 3, 4), hp = 110))
+augment(fit, newdata = data.frame(wt = c(2, 3, 4), hp = 110))
 
 }
 \seealso{
 \link{deli-predict} for the predictions themselves and the equations they
-are available for, and \link{deli-tidiers} for the parameter-level and
-model-level summaries.
+are available for, \link{deli-tidiers} for the parameter-level and model-level
+summaries, and \link{reexports} for the generic itself, which deli re-exports so
+that \code{augment()} resolves with deli alone attached.
 }

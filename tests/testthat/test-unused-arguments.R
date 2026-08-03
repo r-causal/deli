@@ -8,12 +8,12 @@
 #
 # The base-generic methods also carry a `...` they never forward, and they
 # divide on whether a wrong name in it could displace anything. `summary()`,
-# `confint()`, `generics::tidy()`, `print()`, `residuals()`, and
-# `model.matrix()` each carry a setting a typo could quietly redirect, so each
-# of them is guarded the same way and the section after the inference generics
-# covers them. `coef()`, `vcov()`, `nobs()`, and `generics::glance()` have no
-# optional argument at all, so a stray name cannot change what they return and
-# they stay tolerant, which is the convention for those generics.
+# `confint()`, `tidy()`, `print()`, `residuals()`, and `model.matrix()` each
+# carry a setting a typo could quietly redirect, so each of them is guarded the
+# same way and the section after the inference generics covers them. `coef()`,
+# `vcov()`, `nobs()`, and `glance()` have no optional argument at all, so a
+# stray name cannot change what they return and they stay tolerant, which is
+# the convention for those generics.
 #
 # Each guarded entry point gets two tests. The first passes a name a user might
 # plausibly reach for by mistake, either a misspelling or a name borrowed from a
@@ -375,18 +375,18 @@ test_that("the inference generics accept every documented argument", {
 
 # ---- Base-generic methods that carry a displaceable setting ------------------
 #
-# `summary()`, `confint()`, `generics::tidy()`, `print()`, and `model.matrix()`
-# each have an optional argument a wrong name can displace: the significance
-# level and the displayed subset, the interval level and the parameters chosen,
-# whether an interval is returned and at what level, the displayed subset again,
-# and the data a design is built from. Each wrong name changes a reported number
-# or a reported row set while leaving the call looking like the one that was
-# meant, which is the failure the first section of this file describes, so each
-# of the five carries the same guard.
+# `summary()`, `confint()`, `tidy()`, `print()`, and `model.matrix()` each have
+# an optional argument a wrong name can displace: the significance level and
+# the displayed subset, the interval level and the parameters chosen, whether
+# an interval is returned and at what level, the displayed subset again, and
+# the data a design is built from. Each wrong name changes a reported number or
+# a reported row set while leaving the call looking like the one that was meant,
+# which is the failure the first section of this file describes, so each of the
+# five carries the same guard.
 #
-# `coef()`, `vcov()`, `nobs()`, and `generics::glance()` have no optional
-# argument for a name to displace, so a stray name cannot change what they
-# return. They stay tolerant, and the last test here pins that.
+# `coef()`, `vcov()`, `nobs()`, and `glance()` have no optional argument for a
+# name to displace, so a stray name cannot change what they return. They stay
+# tolerant, and the last test here pins that.
 #
 # Which wrong name reaches `...` depends on where the argument it was meant for
 # sits in the signature. `alpha` and `subset` precede `summary()`'s dots, so
@@ -491,12 +491,12 @@ test_that("confint() accepts both of its own arguments", {
 test_that("tidy() rejects a misspelled argument", {
   fit <- dots_fit()
   expect_error(
-    generics::tidy(fit, conf.intt = TRUE),
+    tidy(fit, conf.intt = TRUE),
     "conf.intt",
     class = "rlib_error_dots_nonempty"
   )
   expect_error(
-    generics::tidy(fit, conf.int = TRUE, conf.levell = 0.5),
+    tidy(fit, conf.int = TRUE, conf.levell = 0.5),
     "conf.levell",
     class = "rlib_error_dots_nonempty"
   )
@@ -504,8 +504,8 @@ test_that("tidy() rejects a misspelled argument", {
 
 test_that("tidy() accepts both of its own arguments", {
   fit <- dots_fit()
-  plain <- generics::tidy(fit)
-  narrow <- generics::tidy(fit, conf.int = TRUE, conf.level = 0.5)
+  plain <- tidy(fit)
+  narrow <- tidy(fit, conf.int = TRUE, conf.level = 0.5)
   expect_false("conf.low" %in% names(plain))
   expect_true(all(c("conf.low", "conf.high") %in% names(narrow)))
   expect_equal(
@@ -594,7 +594,7 @@ test_that("coef(), vcov(), nobs(), and glance() stay tolerant of a stray name", 
   expect_equal(unname(coef(fit, junk = 1)[1]), 4.5, tolerance = 1e-6)
   expect_equal(dim(vcov(fit, junk = 1)), c(2L, 2L))
   expect_equal(nobs(fit, junk = 1), 8L)
-  expect_equal(generics::glance(fit, junk = 1)$nobs, 8L)
+  expect_equal(glance(fit, junk = 1)$nobs, 8L)
 })
 
 test_that("the dots guard names the user's call at each guarded method", {
@@ -603,7 +603,7 @@ test_that("the dots guard names the user's call at each guarded method", {
 
   expect_reported_call(quote(summary(fit, alfa = 0.1)))
   expect_reported_call(quote(confint(fit, levl = 0.9)))
-  expect_reported_call(quote(generics::tidy(fit, conf.intt = TRUE)))
+  expect_reported_call(quote(tidy(fit, conf.intt = TRUE)))
   expect_reported_call(quote(print(fit, subst = 1)))
   expect_reported_call(quote(residuals(design_fit, typ3 = "pearson")))
   expect_reported_call(quote(stats::model.matrix(

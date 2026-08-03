@@ -28,7 +28,7 @@ flatten_message <- function(cnd) {
 test_that("augment() returns the model frame beside the fitted columns", {
   data <- augment_data()
   m <- augment_fit(data)
-  a <- generics::augment(m)
+  a <- augment(m)
 
   expect_s3_class(a, "data.frame")
   expect_identical(class(a), "data.frame")
@@ -42,12 +42,12 @@ test_that("augment() returns the model frame beside the fitted columns", {
 
 test_that("augment() returns one row per observation the fit used", {
   m <- augment_fit()
-  expect_identical(nrow(generics::augment(m)), nobs(m))
+  expect_identical(nrow(augment(m)), nobs(m))
 })
 
 test_that("augment() takes .fitted, its interval, and its error from predict()", {
   m <- augment_fit()
-  a <- generics::augment(m)
+  a <- augment(m)
   p <- predict(m, se.fit = TRUE, interval = "confidence")
 
   expect_identical(a$.fitted, unname(p$fit[, "fit"]))
@@ -59,12 +59,12 @@ test_that("augment() takes .fitted, its interval, and its error from predict()",
 
 test_that("augment() takes .resid from residuals()", {
   m <- augment_fit()
-  expect_identical(generics::augment(m)$.resid, unname(residuals(m)))
+  expect_identical(augment(m)$.resid, unname(residuals(m)))
 })
 
 test_that("augment() returns plain columns rather than a model frame", {
   m <- augment_fit()
-  a <- generics::augment(m)
+  a <- augment(m)
 
   expect_null(attr(a, "terms"))
   expect_null(attr(a, "na.action"))
@@ -76,7 +76,7 @@ test_that("augment() returns plain columns rather than a model frame", {
 test_that("augment() puts .fitted on the link scale by default", {
   data <- augment_data()
   m <- m_estimate(hit ~ x, data = data, .ee = ee_regression, model = "logistic")
-  a <- generics::augment(m)
+  a <- augment(m)
 
   expect_identical(a$.fitted, unname(predict(m, type = "link")))
   expect_true(any(a$.fitted < 0))
@@ -85,7 +85,7 @@ test_that("augment() puts .fitted on the link scale by default", {
 test_that("augment(type.predict = 'response') puts .fitted on the mean scale", {
   data <- augment_data()
   m <- m_estimate(hit ~ x, data = data, .ee = ee_regression, model = "logistic")
-  a <- generics::augment(m, type.predict = "response")
+  a <- augment(m, type.predict = "response")
 
   expect_identical(a$.fitted, unname(predict(m, type = "response")))
   expect_true(all(a$.fitted > 0 & a$.fitted < 1))
@@ -105,8 +105,8 @@ test_that("augment() leaves .resid on the response scale at either scale", {
   data <- augment_data()
   m <- m_estimate(hit ~ x, data = data, .ee = ee_regression, model = "logistic")
 
-  link <- generics::augment(m)
-  response <- generics::augment(m, type.predict = "response")
+  link <- augment(m)
+  response <- augment(m, type.predict = "response")
 
   # The residual is the response minus the conditional mean, which is what
   # residuals() answers, whichever scale .fitted is asked for on.
@@ -120,14 +120,14 @@ test_that("augment() leaves .resid on the response scale at either scale", {
 
 test_that("augment() rejects a prediction scale it does not offer", {
   m <- augment_fit()
-  expect_error(generics::augment(m, type.predict = "terms"), "arg")
+  expect_error(augment(m, type.predict = "terms"), "arg")
 })
 
 # The confidence level ---------------------------------------------------------
 
 test_that("augment() takes its interval at conf.level", {
   m <- augment_fit()
-  a <- generics::augment(m, conf.level = 0.8)
+  a <- augment(m, conf.level = 0.8)
   p <- predict(m, interval = "confidence", level = 0.8)
 
   expect_identical(a$.lower, unname(p[, "lwr"]))
@@ -136,8 +136,8 @@ test_that("augment() takes its interval at conf.level", {
 
 test_that("augment() widens its interval as conf.level rises", {
   m <- augment_fit()
-  narrow <- generics::augment(m, conf.level = 0.8)
-  wide <- generics::augment(m, conf.level = 0.99)
+  narrow <- augment(m, conf.level = 0.8)
+  wide <- augment(m, conf.level = 0.99)
 
   expect_true(all(wide$.lower < narrow$.lower))
   expect_true(all(wide$.upper > narrow$.upper))
@@ -147,8 +147,8 @@ test_that("augment() rejects a conf.level outside the unit interval", {
   m <- augment_fit()
   # The argument the message names is the one the caller wrote, rather than
   # `level`, which is what predict() calls it.
-  expect_error(generics::augment(m, conf.level = 0), "conf.level")
-  expect_error(generics::augment(m, conf.level = c(0.9, 0.95)), "conf.level")
+  expect_error(augment(m, conf.level = 0), "conf.level")
+  expect_error(augment(m, conf.level = c(0.9, 0.95)), "conf.level")
 })
 
 # newdata ----------------------------------------------------------------------
@@ -160,7 +160,7 @@ test_that("augment() on newdata returns newdata beside the fitted columns", {
     x = c(-1, 0, 1),
     g = factor("b", levels = levels(data$g))
   )
-  a <- generics::augment(m, newdata = newdata)
+  a <- augment(m, newdata = newdata)
 
   expect_identical(
     names(a),
@@ -174,7 +174,7 @@ test_that("augment() on newdata returns newdata beside the fitted columns", {
 test_that("augment() on newdata has no .resid to report", {
   data <- augment_data()
   m <- augment_fit(data)
-  a <- generics::augment(m, newdata = data[1:5, , drop = FALSE])
+  a <- augment(m, newdata = data[1:5, , drop = FALSE])
 
   # There is a response in these rows, but newdata in general carries none, so
   # the column is absent rather than present for some data and not others.
@@ -186,7 +186,7 @@ test_that("augment() on newdata keeps every column newdata carried", {
   data <- augment_data()
   m <- augment_fit(data)
   newdata <- data[1:5, , drop = FALSE]
-  a <- generics::augment(m, newdata = newdata)
+  a <- augment(m, newdata = newdata)
 
   expect_identical(a[names(newdata)], newdata)
   expect_identical(rownames(a), rownames(newdata))
@@ -199,7 +199,7 @@ test_that("augment() keeps a newdata row with a missing value", {
     x = c(-1, NA, 1),
     g = factor(c("a", "b", "c"), levels = levels(data$g))
   )
-  a <- generics::augment(m, newdata = newdata)
+  a <- augment(m, newdata = newdata)
 
   expect_identical(nrow(a), 3L)
   expect_identical(is.na(a$.fitted), c(FALSE, TRUE, FALSE))
@@ -209,7 +209,7 @@ test_that("augment() keeps a newdata row with a missing value", {
 test_that("augment() requires newdata to be a data frame", {
   m <- augment_fit()
   expect_error(
-    generics::augment(m, newdata = list(x = 1, g = "a")),
+    augment(m, newdata = list(x = 1, g = "a")),
     "data frame"
   )
 })
@@ -220,7 +220,7 @@ test_that("augment() reports the complete rows the fit was solved on", {
   data <- augment_data()
   data$x[c(3, 9)] <- NA
   m <- m_estimate(y ~ x + g, data = data, .ee = ee_regression, model = "linear")
-  a <- generics::augment(m)
+  a <- augment(m)
 
   expect_identical(nrow(a), nobs(m))
   expect_identical(nrow(a), nrow(data) - 2L)
@@ -238,7 +238,7 @@ test_that("augment() answers for a GMM formula fit", {
     .ee = ee_regression,
     model = "linear"
   )
-  a <- generics::augment(g)
+  a <- augment(g)
 
   expect_identical(
     names(a),
@@ -260,7 +260,7 @@ test_that("augment() aborts for a fit built from a stacked_equations function", 
     init = c(0, 0)
   )
 
-  err <- expect_error(generics::augment(m), "formula interface")
+  err <- expect_error(augment(m), "formula interface")
   flat <- flatten_message(err)
   expect_match(flat, "augment()", fixed = TRUE)
   expect_match(flat, "regression_predictions()", fixed = TRUE)
@@ -287,7 +287,7 @@ test_that("augment() aborts for an equation predict() does not support", {
 
   # The abort names augment() rather than predict(), which it reaches the
   # supported-equation table through.
-  err <- expect_error(generics::augment(m), "linear predictor")
+  err <- expect_error(augment(m), "linear predictor")
   expect_match(flatten_message(err), "augment()", fixed = TRUE)
 })
 
@@ -297,7 +297,7 @@ test_that("augment() aborts before an estimator has been estimated", {
     stacked_equations = function(theta) matrix(y - theta[1], nrow = 1),
     init = c(0)
   )
-  expect_error(generics::augment(m), "before calling")
+  expect_error(augment(m), "before calling")
 })
 
 # Argument handling ------------------------------------------------------------
@@ -310,7 +310,7 @@ test_that("augment() rejects an argument it does not take", {
   # would augment the fitted rows while the caller believed they had asked for
   # rows of their own.
   err <- expect_error(
-    generics::augment(m, new_data = data),
+    augment(m, new_data = data),
     class = "rlib_error_dots_nonempty"
   )
   expect_match(flatten_message(err), "new_data", fixed = TRUE)

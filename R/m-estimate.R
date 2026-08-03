@@ -100,7 +100,7 @@
 #' @returns A fitted `MEstimator` object with populated `theta`, `variance`,
 #'   etc. Use [`coef()`][deli-generics], [`vcov()`][deli-generics],
 #'   [`confint()`][deli-generics], [`summary()`][deli-display], or
-#'   [generics::tidy()] to extract results.
+#'   [`tidy()`][deli-tidiers] to extract results.
 #'
 #' @export
 #' @examples

@@ -244,8 +244,8 @@ test_that("a subset fit records no J-statistic even when over-identified", {
   )
 
   expect_null(g@j_statistic)
-  expect_identical(generics::glance(g)$j_statistic, NA_real_)
-  expect_identical(generics::glance(g)$j_df, NA_integer_)
+  expect_identical(glance(g)$j_statistic, NA_real_)
+  expect_identical(glance(g)$j_df, NA_integer_)
 })
 
 test_that("a subset fit leaves its moments unjudged", {

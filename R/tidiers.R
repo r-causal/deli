@@ -1,9 +1,7 @@
 #' Broom tidiers for deli estimators
 #'
-#' [generics::tidy()] and [generics::glance()] methods for `MEstimator` and
-#' `GMMEstimator` objects. These allow deli results to flow into tidyverse
-#' pipelines. Requires the \pkg{generics} package (or \pkg{broom}) to be
-#' loaded.
+#' `tidy()` and `glance()` methods for `MEstimator` and `GMMEstimator` objects.
+#' These allow deli results to flow into tidyverse pipelines.
 #'
 #' @param x A fitted `MEstimator` or `GMMEstimator` object.
 #' @param conf.int Logical. Include confidence intervals? Default `FALSE`.
@@ -27,17 +25,17 @@
 #'   [GMMEstimator()] for what the statistic reads and where it is left unset.
 #'
 #' @seealso [deli-augment], the third broom generic, which returns the
-#'   observation-level fitted values, intervals, and residuals.
+#'   observation-level fitted values, intervals, and residuals, and [reexports]
+#'   for the generics themselves, which deli re-exports so that `tidy()` and
+#'   `glance()` resolve with deli alone attached.
 #'
 #' @examples
 #' fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
 #'                   model = "linear")
 #'
-#' # Attaching generics or broom makes the shorter tidy(fit) and glance(fit)
-#' # calls work as well
-#' generics::tidy(fit, conf.int = TRUE)
+#' tidy(fit, conf.int = TRUE)
 #'
-#' generics::glance(fit)
+#' glance(fit)
 #'
 #' @name deli-tidiers
 NULL

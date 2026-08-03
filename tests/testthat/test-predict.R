@@ -450,7 +450,7 @@ test_that("the linear-predictor surface declines a multinomial fit", {
     "predict" = function(m) predict(m),
     "fitted" = function(m) fitted(m),
     "residuals" = function(m) residuals(m),
-    "augment" = function(m) generics::augment(m)
+    "augment" = function(m) augment(m)
   )
   for (fn in names(callers)) {
     err <- expect_error(callers[[fn]](m), "estimating equation", info = fn)

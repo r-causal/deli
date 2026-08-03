@@ -87,7 +87,7 @@ offers an idiomatic R surface for the same work alongside them. The section
 | `standard_normal_cdf`, `standard_normal_pdf` | `standard_normal_cdf`, `standard_normal_pdf` | Required in place of `stats::pnorm()` and `stats::dnorm()` under `deriv_method = "exact"` (see below). |
 | `robust_loss_functions(residual, loss, k, a, b)` | `robust_loss_functions(residuals, loss, k)` | Hampel thresholds passed as `k = c(a, b, c)` (see below). |
 | `aggregate_efuncs(est_funcs, group)` | `aggregate_efuncs(est_funcs, group)` | Takes a p-by-n matrix, one column per observation, and returns a p-by-g matrix, one column per group; `group` may be any vector R can split on. |
-| `regression_predictions(...)` | `regression_predictions(...)` | Returns a data frame rather than a NumPy array. For a fit made through deli's formula interface, `generics::augment()` is the idiomatic route to the same predictions. |
+| `regression_predictions(...)` | `regression_predictions(...)` | Returns a data frame rather than a NumPy array. For a fit made through deli's formula interface, `augment()` is the idiomatic route to the same predictions. |
 | `aft_predictions_individual(...)` | `aft_predictions_individual(...)` | Returns a data frame rather than a NumPy array. |
 | `aft_predictions_function(...)` | `aft_predictions_function(...)` | Returns a data frame rather than a NumPy array. R adds `deriv_method` and `dx`. |
 | `spline(...)` | `deli_spline(...)` | Renamed to avoid masking `stats::spline()`. First argument renamed `variable` to `x`. |
@@ -445,9 +445,8 @@ confint(m, level = 0.95)
 Note the parameterization. Python states the interval as an error rate,
 `alpha`, so a 95% interval is `alpha=0.05`, and deli's
 `confidence_intervals()` and `summary()` keep that argument. The R accessors
-take its complement: `confint()` uses `level` and `generics::tidy()` uses
-`conf.level`, each equal to `1 - alpha`. A Python `alpha=0.01` becomes
-`level = 0.99`.
+take its complement: `confint()` uses `level` and `tidy()` uses `conf.level`,
+each equal to `1 - alpha`. A Python `alpha=0.01` becomes `level = 0.99`.
 
 `summary()` collects the estimates, standard errors, test statistics, and
 intervals into one table, and `tidy()` returns the same content as a data frame
@@ -456,7 +455,7 @@ for use in a pipeline. Python's nearest equivalent to either is
 
 ```{r}
 #| label: idiomatic-tidy
-generics::tidy(m, conf.int = TRUE)
+tidy(m, conf.int = TRUE)
 ```
 
 ### Transformations and math

@@ -31,23 +31,21 @@ M-estimation fit and every just-identified or \code{subset} GMM fit; see
 }
 }
 \description{
-\code{\link[generics:tidy]{generics::tidy()}} and \code{\link[generics:glance]{generics::glance()}} methods for \code{MEstimator} and
-\code{GMMEstimator} objects. These allow deli results to flow into tidyverse
-pipelines. Requires the \pkg{generics} package (or \pkg{broom}) to be
-loaded.
+\code{tidy()} and \code{glance()} methods for \code{MEstimator} and \code{GMMEstimator} objects.
+These allow deli results to flow into tidyverse pipelines.
 }
 \examples{
 fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
                   model = "linear")
 
-# Attaching generics or broom makes the shorter tidy(fit) and glance(fit)
-# calls work as well
-generics::tidy(fit, conf.int = TRUE)
+tidy(fit, conf.int = TRUE)
 
-generics::glance(fit)
+glance(fit)
 
 }
 \seealso{
 \link{deli-augment}, the third broom generic, which returns the
-observation-level fitted values, intervals, and residuals.
+observation-level fitted values, intervals, and residuals, and \link{reexports}
+for the generics themselves, which deli re-exports so that \code{tidy()} and
+\code{glance()} resolve with deli alone attached.
 }

@@ -162,7 +162,7 @@ test_that("s_values() stays finite for a P-value that does not underflow", {
 
 test_that("tidy() reports an underflowed S-value as Inf", {
   m <- make_fitted_p_underflow()
-  td <- generics::tidy(m)
+  td <- tidy(m)
   expect_identical(td$p.value, 0)
   expect_identical(td$s.value, Inf)
 })

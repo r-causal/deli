@@ -78,9 +78,9 @@ flow into tidyverse pipelines. `tidy()` returns one row per parameter, and
 `glance()` returns a one-row model summary:
 
 ```{r tidiers}
-generics::tidy(fit, conf.int = TRUE)
+tidy(fit, conf.int = TRUE)
 
-generics::glance(fit)
+glance(fit)
 ```
 
 If you prefer deli's own inference helpers, `confidence_intervals()`,
@@ -206,10 +206,10 @@ m
 
 ## Predictions
 
-After fitting a model, use `generics::augment()` for predicted values with
-confidence intervals. Give it a data frame of new covariate values as
-`newdata`, with one column for each covariate the formula names, and it returns
-that frame with `.fitted`, `.se.fit`, `.lower`, and `.upper` beside it:
+After fitting a model, use `augment()` for predicted values with confidence
+intervals. Give it a data frame of new covariate values as `newdata`, with one
+column for each covariate the formula names, and it returns that frame with
+`.fitted`, `.se.fit`, `.lower`, and `.upper` beside it:
 
 ```{r predictions}
 set.seed(42)
@@ -221,7 +221,7 @@ d <- data.frame(x, y)
 m <- m_estimate(y ~ x, data = d, .ee = ee_regression, model = "linear")
 
 # Predict at new values
-generics::augment(m, newdata = data.frame(x = seq(-2, 2, by = 1)))
+augment(m, newdata = data.frame(x = seq(-2, 2, by = 1)))
 ```
 
 Called without `newdata`, `augment()` reports the rows the model was fitted to

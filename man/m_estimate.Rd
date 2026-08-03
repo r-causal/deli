@@ -129,7 +129,7 @@ reduce it to nothing; see \code{\link[=approx_differentiation]{approx_differenti
 A fitted \code{MEstimator} object with populated \code{theta}, \code{variance},
 etc. Use \code{\link[=deli-generics]{coef()}}, \code{\link[=deli-generics]{vcov()}},
 \code{\link[=deli-generics]{confint()}}, \code{\link[=deli-display]{summary()}}, or
-\code{\link[generics:tidy]{generics::tidy()}} to extract results.
+\code{\link[=deli-tidiers]{tidy()}} to extract results.
 }
 \description{
 Creates an \code{MEstimator} and estimates it in one call, analogous to how

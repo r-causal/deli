@@ -941,7 +941,7 @@ test_that("gmm_estimate() formula interface reaches the updating loop", {
 
 test_that("tidy() returns expected columns", {
   m <- make_fitted_regression()
-  td <- generics::tidy(m)
+  td <- tidy(m)
   expect_true(is.data.frame(td))
   expect_true(all(
     c("term", "estimate", "std.error", "statistic", "p.value", "s.value") %in%
@@ -953,14 +953,14 @@ test_that("tidy() returns expected columns", {
 
 test_that("tidy() with conf.int adds CI columns", {
   m <- make_fitted_regression()
-  td <- generics::tidy(m, conf.int = TRUE)
+  td <- tidy(m, conf.int = TRUE)
   expect_true(all(c("conf.low", "conf.high") %in% names(td)))
 })
 
 test_that("tidy() conf.level works", {
   m <- make_fitted_regression()
-  td_95 <- generics::tidy(m, conf.int = TRUE, conf.level = 0.95)
-  td_99 <- generics::tidy(m, conf.int = TRUE, conf.level = 0.99)
+  td_95 <- tidy(m, conf.int = TRUE, conf.level = 0.95)
+  td_99 <- tidy(m, conf.int = TRUE, conf.level = 0.99)
   # 99% CI should be wider
   expect_true(
     td_99$conf.high[1] - td_99$conf.low[1] >
@@ -970,7 +970,7 @@ test_that("tidy() conf.level works", {
 
 test_that("glance() returns expected columns", {
   m <- make_fitted_regression()
-  gl <- generics::glance(m)
+  gl <- glance(m)
   expect_true(is.data.frame(gl))
   expect_equal(nrow(gl), 1)
   expect_true(all(c("nobs", "npar", "estimator") %in% names(gl)))
@@ -986,9 +986,9 @@ test_that("tidy() works for GMMEstimator", {
     init = c(mean = 0)
   )
   g <- estimate(g)
-  td <- generics::tidy(g)
+  td <- tidy(g)
   expect_equal(td$term, "mean")
-  gl <- generics::glance(g)
+  gl <- glance(g)
   expect_equal(gl$estimator, "GMMEstimator")
 })
 
@@ -1015,7 +1015,7 @@ over_identified_gmm_fit <- function() {
 
 test_that("glance() reports the J-statistic of an over-identified fit", {
   g <- over_identified_gmm_fit()
-  gl <- generics::glance(g)
+  gl <- glance(g)
 
   expect_equal(nrow(gl), 1L)
   expect_true(all(c("j_statistic", "j_df", "j_p_value") %in% names(gl)))
@@ -1036,7 +1036,7 @@ test_that("glance() reports typed missing values where there is no statistic", {
   )
 
   for (fit in list(m, just_identified)) {
-    gl <- generics::glance(fit)
+    gl <- glance(fit)
     expect_identical(gl$j_statistic, NA_real_)
     expect_identical(gl$j_df, NA_integer_)
     expect_identical(gl$j_p_value, NA_real_)
@@ -1045,8 +1045,8 @@ test_that("glance() reports typed missing values where there is no statistic", {
 
 test_that("the J columns bind across estimators without changing type", {
   bound <- rbind(
-    generics::glance(make_fitted_regression()),
-    generics::glance(over_identified_gmm_fit())
+    glance(make_fitted_regression()),
+    glance(over_identified_gmm_fit())
   )
 
   expect_equal(nrow(bound), 2L)
@@ -1068,7 +1068,8 @@ test_that("the J columns bind across estimators without changing type", {
 # rather than the mere existence of an export.
 
 # A user writing tidy(fit) reaches deli's exports; a test written here does not.
-# testthat evaluates a test in an environment whose parent is deli's namespace,
+# testthat evaluates a test inside deli's namespace scope, whose search path
+# under devtools::test() runs through the imports environment imports:deli,
 # where a generic deli imports resolves whether or not deli exports it. The bare
 # calls below are therefore evaluated against the exported names alone, which is
 # the surface library(deli) puts in front of a user.

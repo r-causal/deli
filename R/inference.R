@@ -80,8 +80,9 @@ method(confidence_intervals, deli_estimator) <- function(
 #'
 #' @returns A numeric vector of Z-scores.
 #'
-#' @seealso [`summary()`][deli-display] and [generics::tidy()], which report the
-#'   same Z-scores in table form alongside the other parameter-level results.
+#' @seealso [`summary()`][deli-display] and [`tidy()`][deli-tidiers], which
+#'   report the same Z-scores in table form alongside the other parameter-level
+#'   results.
 #'
 #' @examples
 #' fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
@@ -121,8 +122,9 @@ method(z_scores, deli_estimator) <- function(object, null = 0, ...) {
 #'
 #' @returns A numeric vector of P-values.
 #'
-#' @seealso [`summary()`][deli-display] and [generics::tidy()], which report the
-#'   same P-values in table form alongside the other parameter-level results.
+#' @seealso [`summary()`][deli-display] and [`tidy()`][deli-tidiers], which
+#'   report the same P-values in table form alongside the other parameter-level
+#'   results.
 #'
 #' @examples
 #' fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
@@ -165,8 +167,9 @@ method(p_values, deli_estimator) <- function(object, null = 0, ...) {
 #'
 #' @returns A numeric vector of S-values.
 #'
-#' @seealso [`summary()`][deli-display] and [generics::tidy()], which report the
-#'   same S-values in table form alongside the other parameter-level results.
+#' @seealso [`summary()`][deli-display] and [`tidy()`][deli-tidiers], which
+#'   report the same S-values in table form alongside the other parameter-level
+#'   results.
 #'
 #' @examples
 #' fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,

@@ -89,7 +89,7 @@ print_estimator <- function(x, label, subset = NULL) {
 #' The `S` column reads `Inf` when a P-value underflows to exactly zero, for the
 #' reason [s_values()] gives. The `P` column reports that same underflow as
 #' `<2e-16`: [base::format.pval()] stops printing digits below the `eps` it is
-#' given, and the table gives it `2.2e-16`. [generics::tidy()] returns the
+#' given, and the table gives it `2.2e-16`. [`tidy()`][deli-tidiers] returns the
 #' literal `0` instead.
 #'
 #' `subset` restricts which parameters are displayed and nothing else. The

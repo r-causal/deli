@@ -100,7 +100,7 @@ test_that("the estimates and the counts survive a variance that could not be bui
   expect_equal(unname(coef(m)), 0)
   expect_identical(nobs(m), 3L)
   expect_identical(df.residual(m), 2L)
-  expect_identical(generics::glance(m)$nobs, 3L)
+  expect_identical(glance(m)$nobs, 3L)
 })
 
 # The same state on a fit made through the formula interface, which is what the

@@ -34,6 +34,7 @@ p_values(fit)
 
 }
 \seealso{
-\code{\link[=deli-display]{summary()}} and \code{\link[generics:tidy]{generics::tidy()}}, which report the
-same P-values in table form alongside the other parameter-level results.
+\code{\link[=deli-display]{summary()}} and \code{\link[=deli-tidiers]{tidy()}}, which
+report the same P-values in table form alongside the other parameter-level
+results.
 }

@@ -32,11 +32,10 @@
 
 #' Augment data with predictions from a fitted deli estimator
 #'
-#' A [generics::augment()] method for `MEstimator` and `GMMEstimator` objects
-#' fitted through the formula interface. It returns the model frame the fit was
-#' built from, or `newdata` when supplied, with the fitted values, their
-#' standard errors, a Wald confidence interval, and the residuals as columns
-#' beside it.
+#' An `augment()` method for `MEstimator` and `GMMEstimator` objects fitted
+#' through the formula interface. It returns the model frame the fit was built
+#' from, or `newdata` when supplied, with the fitted values, their standard
+#' errors, a Wald confidence interval, and the residuals as columns beside it.
 #'
 #' @details
 #' The columns added are `.fitted`, `.se.fit`, `.lower`, `.upper`, and, when
@@ -85,20 +84,19 @@
 #'   when `newdata` is supplied.
 #'
 #' @seealso [deli-predict] for the predictions themselves and the equations they
-#'   are available for, and [deli-tidiers] for the parameter-level and
-#'   model-level summaries.
+#'   are available for, [deli-tidiers] for the parameter-level and model-level
+#'   summaries, and [reexports] for the generic itself, which deli re-exports so
+#'   that `augment()` resolves with deli alone attached.
 #'
 #' @examples
 #' fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
 #'                   model = "linear")
 #'
-#' # Attaching generics or broom makes the shorter augment(fit) call work
-#' # as well
-#' head(generics::augment(fit))
+#' head(augment(fit))
 #'
 #' # New covariate patterns come back with no residual column, since they carry
 #' # no response to residualize against.
-#' generics::augment(fit, newdata = data.frame(wt = c(2, 3, 4), hp = 110))
+#' augment(fit, newdata = data.frame(wt = c(2, 3, 4), hp = 110))
 #'
 #' @name deli-augment
 NULL
