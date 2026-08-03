@@ -13,7 +13,7 @@ Description: Provides a general API for M-estimation via solving
     regression, causal inference, survival analysis, measurement error,
     and pharmacokinetics. An R port of the Python 'Delicatessen' library.
 License: MIT + file LICENSE
-URL: https://github.com/r-causal/deli, https://r-causal.github.io/deli
+URL: https://github.com/r-causal/deli, https://r-causal.github.io/deli/
 BugReports: https://github.com/r-causal/deli/issues
 Depends:
     R (>= 4.3)

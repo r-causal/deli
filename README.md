@@ -10,8 +10,6 @@ experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](h
 [![R-CMD-check](https://github.com/r-causal/deli/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/r-causal/deli/actions/workflows/R-CMD-check.yaml)
 [![Codecov test
 coverage](https://codecov.io/gh/r-causal/deli/graph/badge.svg)](https://app.codecov.io/gh/r-causal/deli)
-[![CRAN
-status](https://www.r-pkg.org/badges/version/deli)](https://CRAN.R-project.org/package=deli)
 <!-- badges: end -->
 
 deli provides M-estimation and empirical sandwich variance estimation in

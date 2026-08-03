@@ -12,7 +12,7 @@ Provides a general API for M-estimation via solving estimating equations with em
 Useful links:
 \itemize{
   \item \url{https://github.com/r-causal/deli}
-  \item \url{https://r-causal.github.io/deli}
+  \item \url{https://r-causal.github.io/deli/}
   \item Report bugs at \url{https://github.com/r-causal/deli/issues}
 }
 
