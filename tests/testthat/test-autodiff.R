@@ -1554,6 +1554,75 @@ test_that("scalar / scalar PrimalTangent Ops still return a scalar pair", {
   expect_equal(r$tangent, (1 * 2 - 3 * 0) / 2^2)
 })
 
+# ---- mixed-class %*% dispatch: one shared method object ---------------------
+#
+# The `%*%` methods face the same group-dispatch constraint as the Ops methods
+# (see the note on `Ops.PrimalTangent`): when the two operands of a matrix
+# product select different `%*%` methods, R only proceeds silently if the two
+# closures agree. Structurally identical copies are not enough — covr's
+# instrumentation inserts srcref-keyed counters into each closure, so three
+# separate `function(x, y) pt_matmul(x, y)` definitions diverge under coverage
+# and every mixed-class product (the ee_2sls second stage, the g-estimation
+# single-column SNMM) raises "Incompatible methods", which the suite's
+# `options(warn = 2)` turns into an error. Binding one shared object to all
+# three classes is the guarantee; `rlang::is_reference()` pins it because
+# `identical()` is TRUE for structurally identical closures — exactly the state
+# that breaks under covr.
+
+test_that("the %*% methods are one shared function object", {
+  # covr replaces each binding with its own instrumented copy, so reference
+  # equality never holds under instrumentation — there the copies stay
+  # compatible because one srcref yields structurally identical bodies, and the
+  # behavioral test below is the guard. This test pins the source-level sharing
+  # that makes that possible.
+  skip_on_covr()
+  expect_true(
+    rlang::is_reference(`%*%.PrimalTangentVector`, `%*%.PrimalTangentArray`)
+  )
+  expect_true(
+    rlang::is_reference(`%*%.PrimalTangent`, `%*%.PrimalTangentArray`)
+  )
+})
+
+test_that("mixed-class matrix products dispatch cleanly with exact tangents", {
+  # A tangent-carrying matrix times the whole parameter vector: the array
+  # operand selects the PrimalTangentArray method and the vector operand the
+  # PrimalTangentVector method, the mix behind the ee_2sls with-W failure.
+  A <- primal_tangent_array(
+    matrix(c(2, 0, 1, 3), nrow = 2),
+    matrix(c(1, 0, 0, 1), nrow = 2)
+  )
+  v <- primal_tangent_vector(list(
+    primal_tangent(0.5, 1),
+    primal_tangent(-1, 0)
+  ))
+  r <- expect_no_warning(A %*% v)
+  expect_s3_class(r, "PrimalTangentArray")
+  # Product rule d(AB) = (dA)B + A(dB) with the primals and tangents above.
+  expect_equal(as.numeric(r$primal), c(2 * 0.5 + 1 * -1, 3 * -1))
+  expect_equal(
+    as.numeric(r$tangent),
+    as.numeric(
+      matrix(c(1, 0, 0, 1), nrow = 2) %*% c(0.5, -1) +
+        matrix(c(2, 0, 1, 3), nrow = 2) %*% c(1, 0)
+    )
+  )
+
+  # A single-column tangent-carrying matrix times a lone scalar pair: the mix
+  # behind the no-exogenous-covariate ee_2sls second stage, where indexing a
+  # length-1 parameter subset yields a scalar PrimalTangent.
+  M <- primal_tangent_array(
+    matrix(c(2, 4), ncol = 1),
+    matrix(c(1, 0), ncol = 1)
+  )
+  s <- primal_tangent(3, 0.5)
+  r <- expect_no_warning(M %*% s)
+  expect_s3_class(r, "PrimalTangentArray")
+  expect_equal(as.numeric(r$primal), c(6, 12))
+  # (dM) s + M (ds) = c(1, 0) * 3 + c(2, 4) * 0.5
+  expect_equal(as.numeric(r$tangent), c(4, 2))
+})
+
 # ---- pt_flatten normalization -----------------------------------------------
 #
 # A masked matrix()/rbind()/cbind() applied to a single scalar pair whose primal

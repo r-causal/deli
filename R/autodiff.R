@@ -1596,19 +1596,28 @@ pt_matmul <- function(x, y) {
 #' @export
 `%*%.PrimalTangentArray` <- function(x, y) pt_matmul(x, y)
 
+# The same function object as `%*%.PrimalTangentArray`, for the same reason the
+# Ops methods share one object (see the note on `Ops.PrimalTangent`): a mixed
+# product such as the ee_2sls second stage dispatches on both operands, and R
+# refuses ("Incompatible methods") when the two select methods that disagree.
+# Sharing the binding rather than repeating `function(x, y) pt_matmul(x, y)`
+# matters even though the copies would be structurally identical: covr's
+# instrumentation inserts srcref-keyed counters into each closure, so separate
+# definitions diverge under coverage and every mixed-class product warns.
 #' @export
-`%*%.PrimalTangentVector` <- function(x, y) pt_matmul(x, y)
+`%*%.PrimalTangentVector` <- `%*%.PrimalTangentArray`
 
-# A length-1 parameter subset (a single-column structural mean model in
-# `ee_gestimation_snmm`, or the no-exogenous-covariate second stage in
-# `ee_2sls`) indexes a PrimalTangentVector down to a lone scalar pair rather than
-# a length-1 vector, so a matrix product `M %*% phi` reaches this method with a
-# scalar PrimalTangent operand. Delegating to `pt_matmul` treats the scalar as a
+# The same function object again (see above). A length-1 parameter subset (a
+# single-column structural mean model in `ee_gestimation_snmm`, or the
+# no-exogenous-covariate second stage in `ee_2sls`) indexes a
+# PrimalTangentVector down to a lone scalar pair rather than a length-1 vector,
+# so a matrix product `M %*% phi` reaches this method with a scalar
+# PrimalTangent operand. Delegating to `pt_matmul` treats the scalar as a
 # 1-by-1 factor: base `%*%` conforms it against `M`, and the tangent follows the
 # same product rule, so the result matches the multi-parameter path's shape and
 # tangents exactly.
 #' @export
-`%*%.PrimalTangent` <- function(x, y) pt_matmul(x, y)
+`%*%.PrimalTangent` <- `%*%.PrimalTangentArray`
 
 # ---- transpose --------------------------------------------------------------
 
