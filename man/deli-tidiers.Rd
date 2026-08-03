@@ -2,7 +2,14 @@
 % Please edit documentation in R/tidiers.R
 \name{deli-tidiers}
 \alias{deli-tidiers}
+\alias{tidy.deli::deli_estimator}
+\alias{glance.deli::deli_estimator}
 \title{Broom tidiers for deli estimators}
+\usage{
+\method{tidy}{`deli::deli_estimator`}(x, conf.int = FALSE, conf.level = 0.95, ...)
+
+\method{glance}{`deli::deli_estimator`}(x, ...)
+}
 \arguments{
 \item{x}{A fitted \code{MEstimator} or \code{GMMEstimator} object.}
 

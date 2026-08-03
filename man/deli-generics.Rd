@@ -2,7 +2,54 @@
 % Please edit documentation in R/generics-s3.R
 \name{deli-generics}
 \alias{deli-generics}
+\alias{coef.deli::deli_estimator}
+\alias{vcov.deli::deli_estimator}
+\alias{confint.deli::deli_estimator}
+\alias{nobs.deli::deli_estimator}
+\alias{df.residual.deli::deli_estimator}
+\alias{fitted.deli::deli_estimator}
+\alias{residuals.deli::deli_estimator}
+\alias{weights.deli::deli_estimator}
+\alias{model.frame.deli::deli_estimator}
+\alias{model.matrix.deli::deli_estimator}
+\alias{formula.deli::deli_estimator}
+\alias{terms.deli::deli_estimator}
+\alias{sigma.deli::deli_estimator}
+\alias{logLik.deli::deli_estimator}
+\alias{deviance.deli::deli_estimator}
 \title{Standard S3 generics for deli estimators}
+\usage{
+\method{coef}{`deli::deli_estimator`}(object, ...)
+
+\method{vcov}{`deli::deli_estimator`}(object, ...)
+
+\method{confint}{`deli::deli_estimator`}(object, parm, level = 0.95, ...)
+
+\method{nobs}{`deli::deli_estimator`}(object, ...)
+
+\method{df.residual}{`deli::deli_estimator`}(object, ...)
+
+\method{fitted}{`deli::deli_estimator`}(object, ...)
+
+\method{residuals}{`deli::deli_estimator`}(object, type = "response", ...)
+
+\method{weights}{`deli::deli_estimator`}(object, ...)
+
+\method{model.frame}{`deli::deli_estimator`}(formula, data = NULL, subset = NULL,
+  na.action, drop.unused.levels = FALSE, xlev = NULL, ...)
+
+\method{model.matrix}{`deli::deli_estimator`}(object, data = NULL, ...)
+
+\method{formula}{`deli::deli_estimator`}(x, ...)
+
+\method{terms}{`deli::deli_estimator`}(x, ...)
+
+\method{sigma}{`deli::deli_estimator`}(object, ...)
+
+\method{logLik}{`deli::deli_estimator`}(object, ...)
+
+\method{deviance}{`deli::deli_estimator`}(object, ...)
+}
 \arguments{
 \item{object}{A fitted \code{MEstimator} or \code{GMMEstimator} object (after calling
 \code{\link[=estimate]{estimate()}}).}

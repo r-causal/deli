@@ -98,8 +98,16 @@
 #' # no response to residualize against.
 #' augment(fit, newdata = data.frame(wt = c(2, 3, 4), hp = 110))
 #'
+#' @usage
+#' \method{augment}{`deli::deli_estimator`}(x, newdata = NULL,
+#'   type.predict = c("link", "response"), conf.level = 0.95, ...)
+#' @aliases augment.deli::deli_estimator
 #' @name deli-augment
 NULL
+
+# The \usage above is written by hand and the backticks around the class in
+# \method{} are required rather than decorative; see the comment under the
+# deli-generics block in R/generics-s3.R for what enforces both.
 
 # ---- External generic declarations ------------------------------------------
 

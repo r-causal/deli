@@ -135,8 +135,17 @@ print_estimator <- function(x, label, subset = NULL) {
 #' # reported limits.
 #' summary(fit, subset = 2:3, alpha = 0.1)
 #'
+#' @usage
+#' \method{print}{`deli::deli_estimator`}(x, ..., subset = NULL)
+#'
+#' \method{summary}{`deli::deli_estimator`}(object, alpha = 0.05, subset = NULL, ...)
+#' @aliases print.deli::deli_estimator summary.deli::deli_estimator
 #' @name deli-display
 NULL
+
+# The \usage above is written by hand and the backticks around the class in
+# \method{} are required rather than decorative; see the comment under the
+# deli-generics block in R/generics-s3.R for what enforces both.
 
 #' @noRd
 method(print, deli_estimator) <- function(x, ..., subset = NULL) {

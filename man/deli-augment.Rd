@@ -2,7 +2,12 @@
 % Please edit documentation in R/augment.R
 \name{deli-augment}
 \alias{deli-augment}
+\alias{augment.deli::deli_estimator}
 \title{Augment data with predictions from a fitted deli estimator}
+\usage{
+\method{augment}{`deli::deli_estimator`}(x, newdata = NULL,
+  type.predict = c("link", "response"), conf.level = 0.95, ...)
+}
 \arguments{
 \item{x}{A fitted \code{MEstimator} or \code{GMMEstimator} object made with the formula
 interface (after calling \code{\link[=estimate]{estimate()}}).}

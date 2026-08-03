@@ -279,10 +279,83 @@
 #'
 #' head(weights(weighted))
 #'
+#' @usage
+#' \method{coef}{`deli::deli_estimator`}(object, ...)
+#'
+#' \method{vcov}{`deli::deli_estimator`}(object, ...)
+#'
+#' \method{confint}{`deli::deli_estimator`}(object, parm, level = 0.95, ...)
+#'
+#' \method{nobs}{`deli::deli_estimator`}(object, ...)
+#'
+#' \method{df.residual}{`deli::deli_estimator`}(object, ...)
+#'
+#' \method{fitted}{`deli::deli_estimator`}(object, ...)
+#'
+#' \method{residuals}{`deli::deli_estimator`}(object, type = "response", ...)
+#'
+#' \method{weights}{`deli::deli_estimator`}(object, ...)
+#'
+#' \method{model.frame}{`deli::deli_estimator`}(formula, data = NULL, subset = NULL,
+#'   na.action, drop.unused.levels = FALSE, xlev = NULL, ...)
+#'
+#' \method{model.matrix}{`deli::deli_estimator`}(object, data = NULL, ...)
+#'
+#' \method{formula}{`deli::deli_estimator`}(x, ...)
+#'
+#' \method{terms}{`deli::deli_estimator`}(x, ...)
+#'
+#' \method{sigma}{`deli::deli_estimator`}(object, ...)
+#'
+#' \method{logLik}{`deli::deli_estimator`}(object, ...)
+#'
+#' \method{deviance}{`deli::deli_estimator`}(object, ...)
+#' @aliases coef.deli::deli_estimator vcov.deli::deli_estimator
+#' @aliases confint.deli::deli_estimator nobs.deli::deli_estimator
+#' @aliases df.residual.deli::deli_estimator fitted.deli::deli_estimator
+#' @aliases residuals.deli::deli_estimator weights.deli::deli_estimator
+#' @aliases model.frame.deli::deli_estimator model.matrix.deli::deli_estimator
+#' @aliases formula.deli::deli_estimator terms.deli::deli_estimator
+#' @aliases sigma.deli::deli_estimator logLik.deli::deli_estimator
+#' @aliases deviance.deli::deli_estimator
 #' @name deli-generics
 #' @importFrom stats coef vcov confint nobs df.residual fitted residuals weights
 #' @importFrom stats model.frame model.matrix formula terms sigma logLik deviance
 NULL
+
+# ---- Hand-written usage for the S7 method registrations ---------------------
+# The methods below are S7 registrations on generics this package does not own.
+# S7 records them in the S3 method tables of stats, base, and generics under the
+# class string `deli::deli_estimator`, and the topic block above documents them
+# as a set. Its \usage is written out by hand with S3 \method markup, one line
+# per registered method and an explicit \alias for each, because roxygen2 emits
+# no usage for a method registered this way and R's Rd checkers do not accept
+# the usage it writes when such a method is given a page of its own. A page
+# carrying \arguments and no \usage is refused at CRAN, which is what the
+# hand-written block avoids.
+#
+# The backticks in \method{coef}{`deli::deli_estimator`} are load-bearing, and
+# not because of anything about how R parses a name. They are what lets the
+# usage parser recognize the method markup at all: the class-name group of its
+# markup regexp is ([._[:alnum:]]+|`[^`]+`), and a class containing :: falls
+# outside the bare character class, so the backticked alternative is the only
+# branch it can match. Written without them the markup is not recognized, the
+# line is left standing as literal text, and its backslash is reported as an
+# unescaped backslash under Bad \usage lines. Dropping them reads like removing
+# a stray character and breaks nothing that devtools::document(), the formatter,
+# the linter, or the tests can see. The Rd \usage step of R CMD check is the
+# only thing that reports it.
+#
+# Each usage line has to mirror its method's formals exactly, in name, order,
+# and default, and nothing enforces that. codoc cannot resolve these method
+# names as objects, since S7 registers them only into the S3 method tables of
+# other packages, so it skips every line above rather than comparing it to
+# anything. A usage line that has drifted from its method stays green through
+# document(), the formatter, the linter, the tests, and R CMD check alike, and
+# reaches readers as documentation that is simply wrong. Changing a method's
+# formals means editing its usage line by hand and checking it by eye. Every
+# argument a usage line names needs a @param on the block above, and every
+# @param needs to appear in at least one usage line.
 
 # ---- External generic declarations ------------------------------------------
 

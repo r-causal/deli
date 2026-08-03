@@ -2,7 +2,14 @@
 % Please edit documentation in R/print-summary.R
 \name{deli-display}
 \alias{deli-display}
+\alias{print.deli::deli_estimator}
+\alias{summary.deli::deli_estimator}
 \title{Display methods for deli estimators}
+\usage{
+\method{print}{`deli::deli_estimator`}(x, ..., subset = NULL)
+
+\method{summary}{`deli::deli_estimator`}(object, alpha = 0.05, subset = NULL, ...)
+}
 \arguments{
 \item{x, object}{A fitted \code{MEstimator} or \code{GMMEstimator} object. Named \code{x} for
 \code{print()} and \code{object} for \code{summary()}, because \code{\link[base:print]{base::print()}} and

@@ -37,8 +37,17 @@
 #'
 #' glance(fit)
 #'
+#' @usage
+#' \method{tidy}{`deli::deli_estimator`}(x, conf.int = FALSE, conf.level = 0.95, ...)
+#'
+#' \method{glance}{`deli::deli_estimator`}(x, ...)
+#' @aliases tidy.deli::deli_estimator glance.deli::deli_estimator
 #' @name deli-tidiers
 NULL
+
+# The \usage above is written by hand and the backticks around the class in
+# \method{} are required rather than decorative; see the comment under the
+# deli-generics block in R/generics-s3.R for what enforces both.
 
 # ---- External generic declarations ------------------------------------------
 
