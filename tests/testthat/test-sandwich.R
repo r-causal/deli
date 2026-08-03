@@ -1067,19 +1067,29 @@ test_that("estimate() still reports an NA bread as a fit with no variance", {
 # inverse, and base R hands it over, and a caller applying a more discriminating
 # gate of their own never reached it.
 
-# A design whose fourth column is the sum of two others is rank deficient
-# analytically, and the bread of a logistic fit on it is read as rank deficient
-# too. The finite differences do not reproduce the dependence exactly, though:
-# the round-off in the difference quotient perturbs the dependent row enough
-# that `solve()` inverts the matrix without complaint.
+# Both cases below need a bread that is read as rank deficient at that
+# tolerance and that `solve()` inverts, and both are built to sit far from
+# either reading rather than wherever the arithmetic leaves them. A design whose
+# fourth column is the sum of two others, displaced by a small multiple of an
+# independent one, is near collinear by construction, and the bread of a
+# logistic fit on it carries a singular value the design chose the size of. The
+# derivatives are taken exactly so that it stays the one the design chose: under
+# the default central differences, whose step of 1e-9 leaves a floor of about
+# 1e-7 relative in the bread, the smallest singular value of a near collinear
+# system is the round-off of the difference quotient rather than anything the
+# design set, and 1e-7 is the tolerance `qr()` reads rank at. Which side of it
+# that round-off falls on is the platform's to decide, and R 4.4 and R 4.6 on
+# one machine decide it differently.
 collinear_sandwich_case <- function() {
   set.seed(1)
   n <- 200
   x1 <- stats::rnorm(n)
   x2 <- stats::rnorm(n)
+  x3 <- stats::rnorm(n)
   y <- stats::rbinom(n, 1, 1 / (1 + exp(-(0.5 + 0.8 * x1))))
-  X <- cbind(1, x1, x2, x1 + x2)
+  X <- cbind(1, x1, x2, x1 + x2 + 1e-5 * x3)
   list(
+    n = n,
     psi = function(theta) {
       ee_regression(theta, X = X, y = y, model = "logistic")
     },
@@ -1089,15 +1099,23 @@ collinear_sandwich_case <- function() {
 
 test_that("a bread solve() inverts is not refused for its rank reading", {
   case <- collinear_sandwich_case()
-  bread <- compute_bread(case$psi, case$theta) / 200
+  bread <- compute_bread(case$psi, case$theta, deriv_method = "exact") / case$n
 
   # The premise: `qr()` reads this bread as rank deficient at its own tolerance,
-  # and base R inverts it without complaint.
+  # and base R inverts it without complaint. Measured margins, identical on
+  # R 4.4.1 and R 4.6.0: the rank reading turns over at a tolerance of 3.0e-11,
+  # 3300 times below the 1e-7 `qr()` applies, and the reciprocal condition
+  # number is 1.1e-11, 5e4 times above the resolution `solve()` refuses at.
   expect_lt(qr(bread)$rank, ncol(bread))
   expect_no_error(solve(bread))
 
   expect_no_error(
-    compute_sandwich(case$psi, theta = case$theta, allow_pinv = FALSE)
+    compute_sandwich(
+      case$psi,
+      theta = case$theta,
+      allow_pinv = FALSE,
+      deriv_method = "exact"
+    )
   )
 })
 
@@ -1108,26 +1126,32 @@ test_that("the same bread reaches no pseudo-inverse when one is allowed", {
   # it does not fail here, so the setting makes no difference to what comes
   # back.
   expect_identical(
-    compute_sandwich(case$psi, theta = case$theta, allow_pinv = FALSE),
-    compute_sandwich(case$psi, theta = case$theta)
+    compute_sandwich(
+      case$psi,
+      theta = case$theta,
+      allow_pinv = FALSE,
+      deriv_method = "exact"
+    ),
+    compute_sandwich(case$psi, theta = case$theta, deriv_method = "exact")
   )
 })
 
 # A stacked system whose reported block is well conditioned and whose nuisance
-# block carries the dependent column above. The two blocks share no parameters,
-# so the bread is block diagonal and the reported block of the sandwich is the
-# sandwich of the reported equations on their own. That is the shape the rank
-# pre-check was measured costing: the whole matrix reads as rank deficient, the
-# effects the caller reports are identified to every digit they had, and the
-# refusal named a direction nobody was asking about.
+# block carries the near-dependent column above. The two blocks share no
+# parameters, so the bread is block diagonal and the reported block of the
+# sandwich is the sandwich of the reported equations on their own. That is the
+# shape the rank pre-check was measured costing: the whole matrix reads as rank
+# deficient, the effects the caller reports are identified to every digit they
+# had, and the refusal named a direction nobody was asking about.
 nuisance_collinear_case <- function() {
   set.seed(4)
   n <- 300
   w <- stats::rnorm(n, 3, 2)
   x1 <- stats::rnorm(n)
   x2 <- stats::rnorm(n)
+  x3 <- stats::rnorm(n)
   y <- stats::rbinom(n, 1, 1 / (1 + exp(-(0.5 + 0.8 * x1))))
-  X <- cbind(1, x1, x2, x1 + x2)
+  X <- cbind(1, x1, x2, x1 + x2 + 1e-5 * x3)
   list(
     n = n,
     psi = function(theta) {
@@ -1144,22 +1168,34 @@ nuisance_collinear_case <- function() {
 test_that("a bread whose dependence sits in a nuisance block is inverted", {
   skip_if_not_installed("MASS")
   case <- nuisance_collinear_case()
-  bread <- compute_bread(case$psi, case$theta) / case$n
+  bread <- compute_bread(case$psi, case$theta, deriv_method = "exact") / case$n
 
+  # Measured margins, identical on R 4.4.1 and R 4.6.0: the rank reading turns
+  # over at a tolerance of 2.4e-11, 4000 times below the 1e-7 `qr()` applies,
+  # and the reciprocal condition number is 7.4e-12, 3e4 times above the
+  # resolution `solve()` refuses at.
   expect_lt(qr(bread)$rank, ncol(bread))
   expect_no_error(solve(bread))
 
   sandwich <- compute_sandwich(
     case$psi,
     theta = case$theta,
-    allow_pinv = FALSE
+    allow_pinv = FALSE,
+    deriv_method = "exact"
   )
   reported <- sandwich[1:2, 1:2]
 
   # Against the pseudo-inverse the same call would have taken with
-  # `allow_pinv = TRUE`, had the solve failed.
+  # `allow_pinv = TRUE`, had the solve failed. `MASS::ginv()` cuts singular
+  # values at `sqrt(.Machine$double.eps)` relative to the largest, 2000 times
+  # above the smallest this bread carries, so it drops the near-dependent
+  # direction and the pseudo-inverse is a different matrix from the inverse
+  # rather than the same one by another route. The two disagree in the nuisance
+  # block by eleven orders of magnitude and agree on the reported block to 2e-15
+  # relative.
   meat <- compute_meat(case$psi(case$theta)) / case$n
   pinv <- MASS::ginv(bread)
+  expect_lt(qr(pinv)$rank, ncol(bread))
   expect_equal(
     reported,
     (pinv %*% meat %*% t(pinv))[1:2, 1:2],
@@ -1170,7 +1206,11 @@ test_that("a bread whose dependence sits in a nuisance block is inverted", {
   # system the nuisance block was stacked onto.
   expect_equal(
     reported,
-    compute_sandwich(case$reported, theta = case$theta[1:2]),
+    compute_sandwich(
+      case$reported,
+      theta = case$theta[1:2],
+      deriv_method = "exact"
+    ),
     tolerance = 1e-10
   )
 })
