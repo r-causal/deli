@@ -17,3 +17,4 @@
 ^\.claude$
 ^pkgdown$
 ^codecov\.yml$
+^cran-comments\.md$
