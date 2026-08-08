@@ -8,8 +8,8 @@
 # of deli's own carrying the same name. That matters: a separate generic would
 # answer the bare call while splitting dispatch across two objects, so a fit
 # handed to a broom-aware package would find no method. Because the binding is
-# the generics package's own, the method registrations in R/tidiers.R and
-# R/augment.R dispatch through it unchanged.
+# the generics package's own, the method registrations in R/tidiers.R dispatch
+# through it unchanged.
 
 #' @importFrom generics tidy
 #' @export

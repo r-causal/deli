@@ -43,6 +43,69 @@ deli_rd_db <- function() {
   )
 }
 
+# Every node of a parsed Rd file carries its tag in the `Rd_tag` attribute,
+# except the plain text leaves, which carry none. The text a node stands for is
+# its leaves pasted back together.
+rd_tag <- function(node) {
+  tag <- attr(node, "Rd_tag")
+  if (is.null(tag)) "" else tag
+}
+
+rd_text <- function(node) paste(unlist(node), collapse = "")
+
+# The names a NAMESPACE makes available to a user: everything it exports, plus
+# `generic.class` for every `S3method(generic, class)` registration. Either
+# part of a registration arrives quoted when the name is not syntactic, which
+# is the case for `%*%` and for the package-qualified class string of an S7
+# object, so both are unquoted before use. A class string is a single name and
+# so never contains a comma, which makes splitting on commas safe.
+namespace_provides <- function() {
+  namespace <- readLines(file.path(find.package("deli"), "NAMESPACE"))
+  unquote <- function(x) gsub("\"", "", x)
+
+  exports <- grep("^export\\(", namespace, value = TRUE)
+  exports <- unquote(sub("^export\\((.*)\\)$", "\\1", exports))
+
+  registrations <- grep("^S3method\\(", namespace, value = TRUE)
+  registrations <- sub("^S3method\\((.*)\\)$", "\\1", registrations)
+  methods <- vapply(
+    strsplit(registrations, ","),
+    function(parts) paste(unquote(parts[[1]]), unquote(parts[[2]]), sep = "."),
+    character(1)
+  )
+
+  c(exports, methods)
+}
+
+# The names one Rd page claims to document: its aliases other than the topic
+# name, the `generic.class` function behind each `\method{generic}{class}`
+# usage entry, and the function named at the start of every other usage line.
+# Rd backticks a class string that is not syntactic and the registration does
+# not, so the backticks come off. The open parenthesis is part of the usage
+# pattern because a data set page gives its data set as a bare name, which
+# documents no function.
+documented_names <- function(rd) {
+  tags <- vapply(rd, rd_tag, character(1))
+  topic <- rd_text(rd[tags == "\\name"][[1]])
+  aliases <- vapply(rd[tags == "\\alias"], rd_text, character(1))
+
+  usage <- if (any(tags == "\\usage")) rd[tags == "\\usage"][[1]] else list()
+  is_method <- vapply(usage, function(x) rd_tag(x) == "\\method", logical(1))
+  methods <- vapply(
+    usage[is_method],
+    function(x) paste0(rd_text(x[[1]]), ".", gsub("`", "", rd_text(x[[2]]))),
+    character(1)
+  )
+
+  plain <- rd_text(usage[!is_method])
+  calls <- regmatches(
+    plain,
+    gregexpr("(?m)^[[:alnum:]._]+(?=\\()", plain, perl = TRUE)
+  )[[1]]
+
+  unique(c(setdiff(aliases, topic), methods, calls))
+}
+
 declared_dependencies <- function() {
   fields <- packageDescription("deli")[c("Depends", "Imports", "Suggests")]
   declared <- unlist(strsplit(unlist(fields, use.names = FALSE), ","))
@@ -127,4 +190,50 @@ test_that("no vignette is listed twice in the pkgdown article index", {
   expect_gt(length(vignettes), 0)
 
   expect_equal(unique(vignettes[duplicated(vignettes)]), character())
+})
+
+# Documented names against the NAMESPACE ------------------------------------
+#
+# CRAN's incoming review reads a page that carries examples as a promise that
+# a user can call what the page documents, and it looks in the NAMESPACE for
+# the proof. A method registered only when the package loads leaves no trace
+# there, so a page documenting one is reported as examples for an unexported
+# function however correct its content is.
+#
+# The assertion is on the whole package rather than on any one page: for every
+# page with an examples section, every name the page documents must be either
+# an `export()` or an `S3method()` registration.
+
+test_that("every page with examples documents names the NAMESPACE provides", {
+  db <- deli_rd_db()
+  expect_gt(length(db), 0)
+
+  provided <- namespace_provides()
+  # Fails if the NAMESPACE stops parsing at all, which would report every
+  # documented name as missing rather than none.
+  expect_gt(length(provided), 0)
+
+  with_examples <- Filter(
+    function(rd) any(vapply(rd, rd_tag, character(1)) == "\\examples"),
+    db
+  )
+  # Fails if the walk stops finding pages with examples at all, which would
+  # leave the assertion below trivially true.
+  expect_gt(length(with_examples), 0)
+
+  # `sprintf()` rather than `paste0()` because a page with nothing missing has
+  # to contribute nothing: `paste0()` would recycle the empty second argument
+  # to "" and report every page as an offender.
+  undocumented <- unlist(
+    Map(
+      function(page, rd) {
+        sprintf("%s: %s", page, setdiff(documented_names(rd), provided))
+      },
+      names(with_examples),
+      with_examples
+    ),
+    use.names = FALSE
+  )
+
+  expect_equal(undocumented, character())
 })

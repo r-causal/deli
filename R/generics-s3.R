@@ -279,119 +279,43 @@
 #'
 #' head(weights(weighted))
 #'
-#' @usage
-#' \method{coef}{`deli::deli_estimator`}(object, ...)
-#'
-#' \method{vcov}{`deli::deli_estimator`}(object, ...)
-#'
-#' \method{confint}{`deli::deli_estimator`}(object, parm, level = 0.95, ...)
-#'
-#' \method{nobs}{`deli::deli_estimator`}(object, ...)
-#'
-#' \method{df.residual}{`deli::deli_estimator`}(object, ...)
-#'
-#' \method{fitted}{`deli::deli_estimator`}(object, ...)
-#'
-#' \method{residuals}{`deli::deli_estimator`}(object, type = "response", ...)
-#'
-#' \method{weights}{`deli::deli_estimator`}(object, ...)
-#'
-#' \method{model.frame}{`deli::deli_estimator`}(formula, data = NULL, subset = NULL,
-#'   na.action, drop.unused.levels = FALSE, xlev = NULL, ...)
-#'
-#' \method{model.matrix}{`deli::deli_estimator`}(object, data = NULL, ...)
-#'
-#' \method{formula}{`deli::deli_estimator`}(x, ...)
-#'
-#' \method{terms}{`deli::deli_estimator`}(x, ...)
-#'
-#' \method{sigma}{`deli::deli_estimator`}(object, ...)
-#'
-#' \method{logLik}{`deli::deli_estimator`}(object, ...)
-#'
-#' \method{deviance}{`deli::deli_estimator`}(object, ...)
-#' @aliases coef.deli::deli_estimator vcov.deli::deli_estimator
-#' @aliases confint.deli::deli_estimator nobs.deli::deli_estimator
-#' @aliases df.residual.deli::deli_estimator fitted.deli::deli_estimator
-#' @aliases residuals.deli::deli_estimator weights.deli::deli_estimator
-#' @aliases model.frame.deli::deli_estimator model.matrix.deli::deli_estimator
-#' @aliases formula.deli::deli_estimator terms.deli::deli_estimator
-#' @aliases sigma.deli::deli_estimator logLik.deli::deli_estimator
-#' @aliases deviance.deli::deli_estimator
 #' @name deli-generics
 #' @importFrom stats coef vcov confint nobs df.residual fitted residuals weights
 #' @importFrom stats model.frame model.matrix formula terms sigma logLik deviance
 NULL
 
-# ---- Hand-written usage for the S7 method registrations ---------------------
-# The methods below are S7 registrations on generics this package does not own.
-# S7 records them in the S3 method tables of stats, base, and generics under the
-# class string `deli::deli_estimator`, and the topic block above documents them
-# as a set. Its \usage is written out by hand with S3 \method markup, one line
-# per registered method and an explicit \alias for each, because roxygen2 emits
-# no usage for a method registered this way and R's Rd checkers do not accept
-# the usage it writes when such a method is given a page of its own. A page
-# carrying \arguments and no \usage is refused at CRAN, which is what the
-# hand-written block avoids.
-#
-# The backticks in \method{coef}{`deli::deli_estimator`} are load-bearing, and
-# not because of anything about how R parses a name. They are what lets the
-# usage parser recognize the method markup at all: the class-name group of its
-# markup regexp is ([._[:alnum:]]+|`[^`]+`), and a class containing :: falls
-# outside the bare character class, so the backticked alternative is the only
-# branch it can match. Written without them the markup is not recognized, the
-# line is left standing as literal text, and its backslash is reported as an
-# unescaped backslash under Bad \usage lines. Dropping them reads like removing
-# a stray character and breaks nothing that devtools::document(), the formatter,
-# the linter, or the tests can see. The Rd \usage step of R CMD check is the
-# only thing that reports it.
-#
-# Each usage line has to mirror its method's formals exactly, in name, order,
-# and default, and nothing enforces that. codoc cannot resolve these method
-# names as objects, since S7 registers them only into the S3 method tables of
-# other packages, so it skips every line above rather than comparing it to
-# anything. A usage line that has drifted from its method stays green through
-# document(), the formatter, the linter, the tests, and R CMD check alike, and
-# reaches readers as documentation that is simply wrong. Changing a method's
-# formals means editing its usage line by hand and checking it by eye. Every
-# argument a usage line names needs a @param on the block above, and every
-# @param needs to appear in at least one usage line.
-
-# ---- External generic declarations ------------------------------------------
-
-stats_coef <- new_external_generic("stats", "coef", "object")
-stats_vcov <- new_external_generic("stats", "vcov", "object")
-stats_confint <- new_external_generic("stats", "confint", "object")
-stats_nobs <- new_external_generic("stats", "nobs", "object")
-stats_df_residual <- new_external_generic("stats", "df.residual", "object")
-stats_fitted <- new_external_generic("stats", "fitted", "object")
-stats_residuals <- new_external_generic("stats", "residuals", "object")
-stats_weights <- new_external_generic("stats", "weights", "object")
-stats_model_frame <- new_external_generic("stats", "model.frame", "formula")
-stats_model_matrix <- new_external_generic("stats", "model.matrix", "object")
-stats_formula <- new_external_generic("stats", "formula", "x")
-stats_terms <- new_external_generic("stats", "terms", "x")
-stats_sigma <- new_external_generic("stats", "sigma", "object")
-stats_log_lik <- new_external_generic("stats", "logLik", "object")
-stats_deviance <- new_external_generic("stats", "deviance", "object")
+# ---- How these methods reach the S3 method tables ---------------------------
+# The S3 class of an S7 object is package-qualified, so every method below is a
+# plain function bound to the backticked name `generic.deli::deli_estimator`
+# and exported as an S3 method. roxygen2 writes a quoted
+# S3method(generic, "deli::deli_estimator") directive for each of them, which is
+# what makes the methods visible to R CMD check, to codoc, and to CRAN's
+# incoming review, and what lets roxygen2 generate the \usage and \alias entries
+# of the topic above from the formals themselves.
 
 # ---- coef --------------------------------------------------------------------
 
-method(stats_coef, deli_estimator) <- function(object, ...) {
+#' @rdname deli-generics
+#' @export
+`coef.deli::deli_estimator` <- function(object, ...) {
   check_has_estimates(object)
   object@theta
 }
 
 # ---- vcov --------------------------------------------------------------------
 
-method(stats_vcov, deli_estimator) <- function(object, ...) {
+#' @rdname deli-generics
+#' @export
+`vcov.deli::deli_estimator` <- function(object, ...) {
   check_estimated(object)
   object@variance
 }
 
 # ---- confint -----------------------------------------------------------------
 
-method(stats_confint, deli_estimator) <- function(
+#' @rdname deli-generics
+#' @export
+`confint.deli::deli_estimator` <- function(
   object,
   parm,
   level = 0.95,
@@ -411,21 +335,27 @@ method(stats_confint, deli_estimator) <- function(
 
 # ---- nobs --------------------------------------------------------------------
 
-method(stats_nobs, deli_estimator) <- function(object, ...) {
+#' @rdname deli-generics
+#' @export
+`nobs.deli::deli_estimator` <- function(object, ...) {
   check_has_estimates(object)
   object@n_obs
 }
 
 # ---- df.residual -------------------------------------------------------------
 
-method(stats_df_residual, deli_estimator) <- function(object, ...) {
+#' @rdname deli-generics
+#' @export
+`df.residual.deli::deli_estimator` <- function(object, ...) {
   check_has_estimates(object)
   object@n_obs - object@n_params
 }
 
 # ---- fitted ------------------------------------------------------------------
 
-method(stats_fitted, deli_estimator) <- function(object, ...) {
+#' @rdname deli-generics
+#' @export
+`fitted.deli::deli_estimator` <- function(object, ...) {
   check_has_estimates(object)
   # Resolved before predicting so that a fit no prediction can be made from is
   # reported against the function the user called.
@@ -435,7 +365,9 @@ method(stats_fitted, deli_estimator) <- function(object, ...) {
 
 # ---- residuals ---------------------------------------------------------------
 
-method(stats_residuals, deli_estimator) <- function(
+#' @rdname deli-generics
+#' @export
+`residuals.deli::deli_estimator` <- function(
   object,
   type = "response",
   ...
@@ -470,7 +402,9 @@ method(stats_residuals, deli_estimator) <- function(
 
 # ---- weights -----------------------------------------------------------------
 
-method(stats_weights, deli_estimator) <- function(object, ...) {
+#' @rdname deli-generics
+#' @export
+`weights.deli::deli_estimator` <- function(object, ...) {
   # `[[` rather than `$` so that a name the fit did not forward answers `NULL`
   # instead of partially matching another recorded argument; see the comment at
   # the head of R/model-spec.R.
@@ -479,7 +413,9 @@ method(stats_weights, deli_estimator) <- function(object, ...) {
 
 # ---- model.frame -------------------------------------------------------------
 
-method(stats_model_frame, deli_estimator) <- function(
+#' @rdname deli-generics
+#' @export
+`model.frame.deli::deli_estimator` <- function(
   formula,
   data = NULL,
   subset = NULL,
@@ -534,7 +470,9 @@ method(stats_model_frame, deli_estimator) <- function(
 
 # ---- model.matrix ------------------------------------------------------------
 
-method(stats_model_matrix, deli_estimator) <- function(
+#' @rdname deli-generics
+#' @export
+`model.matrix.deli::deli_estimator` <- function(
   object,
   data = NULL,
   ...
@@ -551,7 +489,9 @@ method(stats_model_matrix, deli_estimator) <- function(
 
 # ---- formula -----------------------------------------------------------------
 
-method(stats_formula, deli_estimator) <- function(x, ...) {
+#' @rdname deli-generics
+#' @export
+`formula.deli::deli_estimator` <- function(x, ...) {
   # Read off the terms rather than recorded a second time, which is how
   # `formula.lm()` answers as well, so the two records cannot disagree.
   stats::formula(model_spec_or_abort(x, "formula")$terms)
@@ -559,25 +499,33 @@ method(stats_formula, deli_estimator) <- function(x, ...) {
 
 # ---- terms -------------------------------------------------------------------
 
-method(stats_terms, deli_estimator) <- function(x, ...) {
+#' @rdname deli-generics
+#' @export
+`terms.deli::deli_estimator` <- function(x, ...) {
   model_spec_or_abort(x, "terms")$terms
 }
 
 # ---- sigma -------------------------------------------------------------------
 
-method(stats_sigma, deli_estimator) <- function(object, ...) {
+#' @rdname deli-generics
+#' @export
+`sigma.deli::deli_estimator` <- function(object, ...) {
   abort_accessor_no_residual_scale()
 }
 
 # ---- logLik ------------------------------------------------------------------
 
-method(stats_log_lik, deli_estimator) <- function(object, ...) {
+#' @rdname deli-generics
+#' @export
+`logLik.deli::deli_estimator` <- function(object, ...) {
   abort_accessor_no_likelihood("logLik")
 }
 
 # ---- deviance ----------------------------------------------------------------
 
-method(stats_deviance, deli_estimator) <- function(object, ...) {
+#' @rdname deli-generics
+#' @export
+`deviance.deli::deli_estimator` <- function(object, ...) {
   abort_accessor_no_likelihood("deviance")
 }
 

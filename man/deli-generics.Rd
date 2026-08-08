@@ -35,8 +35,15 @@
 
 \method{weights}{`deli::deli_estimator`}(object, ...)
 
-\method{model.frame}{`deli::deli_estimator`}(formula, data = NULL, subset = NULL,
-  na.action, drop.unused.levels = FALSE, xlev = NULL, ...)
+\method{model.frame}{`deli::deli_estimator`}(
+  formula,
+  data = NULL,
+  subset = NULL,
+  na.action,
+  drop.unused.levels = FALSE,
+  xlev = NULL,
+  ...
+)
 
 \method{model.matrix}{`deli::deli_estimator`}(object, data = NULL, ...)
 
@@ -54,6 +61,15 @@
 \item{object}{A fitted \code{MEstimator} or \code{GMMEstimator} object (after calling
 \code{\link[=estimate]{estimate()}}).}
 
+\item{...}{Not used. \code{confint()}, \code{residuals()}, \code{model.frame()}, and
+\code{model.matrix()} require them to be empty, so that a name none of them
+recognizes is an error rather than silently ignored: a misspelled \code{level}
+would report the default limits, a misspelled \code{type} would report response
+residuals as though they had been asked for, and a misspelled \code{data} would
+report on the fitted rows while the caller believed they had asked for rows
+of their own. The rest ignore them, which is the convention for a base
+generic with no optional argument for a wrong name to displace.}
+
 \item{parm}{A specification of which parameters are to be given confidence
 intervals, either a vector of numbers or a vector of names. If missing,
 all parameters are considered.}
@@ -64,9 +80,6 @@ all parameters are considered.}
 \code{"response"} is available, since it is the one residual defined for every
 estimating equation \code{predict()} supports. Any other value is an error
 rather than a response residual under another name.}
-
-\item{x}{A fitted \code{MEstimator} or \code{GMMEstimator} object. Named \code{x} because
-\code{\link[stats:formula]{stats::formula()}} and \code{\link[stats:terms]{stats::terms()}} name their first argument that.}
 
 \item{formula}{A fitted \code{MEstimator} or \code{GMMEstimator} object. Named
 \code{formula} because \code{\link[stats:model.frame]{stats::model.frame()}} names its first argument that;
@@ -83,14 +96,8 @@ model frame. \code{xlev} defaults to the factor levels the fit recorded. All
 four describe how to build a frame from \code{data}, so supplying one without
 \code{data} is an error rather than a silent no-op.}
 
-\item{...}{Not used. \code{confint()}, \code{residuals()}, \code{model.frame()}, and
-\code{model.matrix()} require them to be empty, so that a name none of them
-recognizes is an error rather than silently ignored: a misspelled \code{level}
-would report the default limits, a misspelled \code{type} would report response
-residuals as though they had been asked for, and a misspelled \code{data} would
-report on the fitted rows while the caller believed they had asked for rows
-of their own. The rest ignore them, which is the convention for a base
-generic with no optional argument for a wrong name to displace.}
+\item{x}{A fitted \code{MEstimator} or \code{GMMEstimator} object. Named \code{x} because
+\code{\link[stats:formula]{stats::formula()}} and \code{\link[stats:terms]{stats::terms()}} name their first argument that.}
 }
 \value{
 \itemize{

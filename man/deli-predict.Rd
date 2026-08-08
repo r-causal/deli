@@ -5,10 +5,19 @@
 \alias{predict.deli::deli_estimator}
 \title{Predictions from a fitted deli estimator}
 \usage{
-\method{predict}{`deli::deli_estimator`}(object, newdata = NULL,
-  type = c("link", "response"), se.fit = FALSE,
-  interval = c("none", "confidence"), level = 0.95, times = NULL,
-  measure = "survival", deriv_method = "capprox", dx = 1e-9, ...)
+\method{predict}{`deli::deli_estimator`}(
+  object,
+  newdata = NULL,
+  type = c("link", "response"),
+  se.fit = FALSE,
+  interval = c("none", "confidence"),
+  level = 0.95,
+  times = NULL,
+  measure = "survival",
+  deriv_method = "capprox",
+  dx = 1e-09,
+  ...
+)
 }
 \arguments{
 \item{object}{A fitted \code{MEstimator} or \code{GMMEstimator} object made with the
