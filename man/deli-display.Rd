@@ -15,16 +15,16 @@
 \code{print()} and \code{object} for \code{summary()}, because \code{\link[base:print]{base::print()}} and
 \code{\link[base:summary]{base::summary()}} name their first argument that.}
 
-\item{alpha}{Numeric significance level for the confidence limits reported by
-\code{summary()}, between 0 and 1. Default \code{0.05} for 95\% limits.}
-
-\item{subset}{Integer vector of parameter indices to display, or \code{NULL}
-(default) to display all of them.}
-
 \item{...}{Not used. Must be empty, so that a name neither method recognizes
 is an error rather than silently ignored: a misspelled \code{alpha} would report
 limits at the default width and a misspelled \code{subset} would display every
 parameter, each while the call still read as the one that was meant.}
+
+\item{subset}{Integer vector of parameter indices to display, or \code{NULL}
+(default) to display all of them.}
+
+\item{alpha}{Numeric significance level for the confidence limits reported by
+\code{summary()}, between 0 and 1. Default \code{0.05} for 95\% limits.}
 }
 \value{
 \itemize{

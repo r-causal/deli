@@ -135,20 +135,16 @@ print_estimator <- function(x, label, subset = NULL) {
 #' # reported limits.
 #' summary(fit, subset = 2:3, alpha = 0.1)
 #'
-#' @usage
-#' \method{print}{`deli::deli_estimator`}(x, ..., subset = NULL)
-#'
-#' \method{summary}{`deli::deli_estimator`}(object, alpha = 0.05, subset = NULL, ...)
-#' @aliases print.deli::deli_estimator summary.deli::deli_estimator
 #' @name deli-display
 NULL
 
-# The \usage above is written by hand and the backticks around the class in
-# \method{} are required rather than decorative; see the comment under the
-# deli-generics block in R/generics-s3.R for what enforces both.
+# The S3 class of an S7 object is package-qualified, so the methods below are
+# bound to backticked names and registered through NAMESPACE S3method
+# directives; see the comment above the accessors in R/generics-s3.R.
 
-#' @noRd
-method(print, deli_estimator) <- function(x, ..., subset = NULL) {
+#' @rdname deli-display
+#' @export
+`print.deli::deli_estimator` <- function(x, ..., subset = NULL) {
   # `sys.call(-1)` names the `print()` call the caller wrote; see the comment on
   # the same call in `predict()` for why the default would name the wrong frame.
   # `subset` follows the dots, so it matches only exactly and every misspelling
@@ -247,8 +243,9 @@ summarize_estimator <- function(
   )
 }
 
-#' @noRd
-method(summary, deli_estimator) <- function(
+#' @rdname deli-display
+#' @export
+`summary.deli::deli_estimator` <- function(
   object,
   alpha = 0.05,
   subset = NULL,
@@ -263,8 +260,8 @@ method(summary, deli_estimator) <- function(
   )
 }
 
-#' @noRd
-method(print, EstimatorSummary) <- function(x, ...) {
+#' @export
+`print.deli::EstimatorSummary` <- function(x, ...) {
   cli::cli_rule("{x@estimator} Results")
 
   cli::cli_text("Observations: {x@n_obs}")

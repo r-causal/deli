@@ -229,27 +229,19 @@
 #'
 #' head(predict(plogit_fit, times = c(12, 24), interval = "confidence"))
 #'
-#' @usage
-#' \method{predict}{`deli::deli_estimator`}(object, newdata = NULL,
-#'   type = c("link", "response"), se.fit = FALSE,
-#'   interval = c("none", "confidence"), level = 0.95, times = NULL,
-#'   measure = "survival", deriv_method = "capprox", dx = 1e-9, ...)
-#' @aliases predict.deli::deli_estimator
 #' @name deli-predict
 #' @importFrom stats predict
 NULL
 
-# The \usage above is written by hand and the backticks around the class in
-# \method{} are required rather than decorative; see the comment under the
-# deli-generics block in R/generics-s3.R for what enforces both.
-
-# ---- External generic declarations ------------------------------------------
-
-stats_predict <- new_external_generic("stats", "predict", "object")
+# The S3 class of an S7 object is package-qualified, so the method below is
+# bound to a backticked name and registered through a NAMESPACE S3method
+# directive; see the comment above the accessors in R/generics-s3.R.
 
 # ---- predict -----------------------------------------------------------------
 
-method(stats_predict, deli_estimator) <- function(
+#' @rdname deli-predict
+#' @export
+`predict.deli::deli_estimator` <- function(
   object,
   newdata = NULL,
   type = c("link", "response"),

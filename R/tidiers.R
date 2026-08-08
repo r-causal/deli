@@ -37,26 +37,18 @@
 #'
 #' glance(fit)
 #'
-#' @usage
-#' \method{tidy}{`deli::deli_estimator`}(x, conf.int = FALSE, conf.level = 0.95, ...)
-#'
-#' \method{glance}{`deli::deli_estimator`}(x, ...)
-#' @aliases tidy.deli::deli_estimator glance.deli::deli_estimator
 #' @name deli-tidiers
 NULL
 
-# The \usage above is written by hand and the backticks around the class in
-# \method{} are required rather than decorative; see the comment under the
-# deli-generics block in R/generics-s3.R for what enforces both.
-
-# ---- External generic declarations ------------------------------------------
-
-generics_tidy <- new_external_generic("generics", "tidy", "x")
-generics_glance <- new_external_generic("generics", "glance", "x")
+# The S3 class of an S7 object is package-qualified, so the methods below are
+# bound to backticked names and registered through NAMESPACE S3method
+# directives; see the comment above the accessors in R/generics-s3.R.
 
 # ---- tidy --------------------------------------------------------------------
 
-method(generics_tidy, deli_estimator) <- function(
+#' @rdname deli-tidiers
+#' @export
+`tidy.deli::deli_estimator` <- function(
   x,
   conf.int = FALSE,
   conf.level = 0.95,
@@ -99,7 +91,9 @@ tidy_estimator <- function(x, conf.int = FALSE, conf.level = 0.95) {
 
 # ---- glance ------------------------------------------------------------------
 
-method(generics_glance, deli_estimator) <- function(x, ...) {
+#' @rdname deli-tidiers
+#' @export
+`glance.deli::deli_estimator` <- function(x, ...) {
   # Every column here is recorded by the solve, so a fit whose variance could
   # not be built has all of them. `tidy()` above reports standard errors and
   # asks for the variance.
