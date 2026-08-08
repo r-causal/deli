@@ -326,7 +326,7 @@ rather than root-finding, and
 [`optim()`](https://rdrr.io/r/stats/optim.html) reports convergence on
 the flat tail of that objective, well before the moments reach zero.
 
-The judgement has two parts. The first asks whether any single equation
+The judgment has two parts. The first asks whether any single equation
 is in a state no root can be in. Where the per-observation contributions
 of an equation carry both signs, that means they barely cancel. Where
 they all carry one sign they cannot cancel at all, which is how a

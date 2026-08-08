@@ -75,9 +75,11 @@ inference as a table.</p>
 <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">base::summary()</a></code> name their first argument that.</p></dd>
 
 
-<dt id="arg-alpha">alpha<a class="anchor" aria-label="anchor" href="#arg-alpha"></a></dt>
-<dd><p>Numeric significance level for the confidence limits reported by
-<code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>, between 0 and 1. Default <code>0.05</code> for 95% limits.</p></dd>
+<dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
+<dd><p>Not used. Must be empty, so that a name neither method recognizes
+is an error rather than silently ignored: a misspelled <code>alpha</code> would report
+limits at the default width and a misspelled <code>subset</code> would display every
+parameter, each while the call still read as the one that was meant.</p></dd>
 
 
 <dt id="arg-subset">subset<a class="anchor" aria-label="anchor" href="#arg-subset"></a></dt>
@@ -85,11 +87,9 @@ inference as a table.</p>
 (default) to display all of them.</p></dd>
 
 
-<dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
-<dd><p>Not used. Must be empty, so that a name neither method recognizes
-is an error rather than silently ignored: a misspelled <code>alpha</code> would report
-limits at the default width and a misspelled <code>subset</code> would display every
-parameter, each while the call still read as the one that was meant.</p></dd>
+<dt id="arg-alpha">alpha<a class="anchor" aria-label="anchor" href="#arg-alpha"></a></dt>
+<dd><p>Numeric significance level for the confidence limits reported by
+<code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>, between 0 and 1. Default <code>0.05</code> for 95% limits.</p></dd>
 
 </dl></div>
     <div class="section level2">

@@ -10,8 +10,13 @@ a Wald confidence interval, and the residuals as columns beside it.
 
 ``` r
 # S3 method for class '`deli::deli_estimator`'
-augment(x, newdata = NULL,
-  type.predict = c("link", "response"), conf.level = 0.95, ...)
+augment(
+  x,
+  newdata = NULL,
+  type.predict = c("link", "response"),
+  conf.level = 0.95,
+  ...
+)
 ```
 
 ## Arguments

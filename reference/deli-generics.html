@@ -95,8 +95,15 @@ broader R modeling ecosystem.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/stats/weights.html" class="external-link">weights</a></span><span class="op">(</span><span class="va">object</span>, <span class="va">...</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># S3 method for class '`deli::deli_estimator`'</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/stats/model.frame.html" class="external-link">model.frame</a></span><span class="op">(</span><span class="va">formula</span>, data <span class="op">=</span> <span class="cn">NULL</span>, subset <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  <span class="va">na.action</span>, drop.unused.levels <span class="op">=</span> <span class="cn">FALSE</span>, xlev <span class="op">=</span> <span class="cn">NULL</span>, <span class="va">...</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/stats/model.frame.html" class="external-link">model.frame</a></span><span class="op">(</span></span>
+<span>  <span class="va">formula</span>,</span>
+<span>  data <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  subset <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  <span class="va">na.action</span>,</span>
+<span>  drop.unused.levels <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  xlev <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  <span class="va">...</span></span>
+<span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># S3 method for class '`deli::deli_estimator`'</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/stats/model.matrix.html" class="external-link">model.matrix</a></span><span class="op">(</span><span class="va">object</span>, data <span class="op">=</span> <span class="cn">NULL</span>, <span class="va">...</span><span class="op">)</span></span>
@@ -126,6 +133,17 @@ broader R modeling ecosystem.</p>
 <code><a href="estimate.html">estimate()</a></code>).</p></dd>
 
 
+<dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
+<dd><p>Not used. <code><a href="https://rdrr.io/r/stats/confint.html" class="external-link">confint()</a></code>, <code><a href="https://rdrr.io/r/stats/residuals.html" class="external-link">residuals()</a></code>, <code><a href="https://rdrr.io/r/stats/model.frame.html" class="external-link">model.frame()</a></code>, and
+<code><a href="https://rdrr.io/r/stats/model.matrix.html" class="external-link">model.matrix()</a></code> require them to be empty, so that a name none of them
+recognizes is an error rather than silently ignored: a misspelled <code>level</code>
+would report the default limits, a misspelled <code>type</code> would report response
+residuals as though they had been asked for, and a misspelled <code>data</code> would
+report on the fitted rows while the caller believed they had asked for rows
+of their own. The rest ignore them, which is the convention for a base
+generic with no optional argument for a wrong name to displace.</p></dd>
+
+
 <dt id="arg-parm">parm<a class="anchor" aria-label="anchor" href="#arg-parm"></a></dt>
 <dd><p>A specification of which parameters are to be given confidence
 intervals, either a vector of numbers or a vector of names. If missing,
@@ -141,11 +159,6 @@ all parameters are considered.</p></dd>
 <code>"response"</code> is available, since it is the one residual defined for every
 estimating equation <code><a href="https://rdrr.io/r/stats/predict.html" class="external-link">predict()</a></code> supports. Any other value is an error
 rather than a response residual under another name.</p></dd>
-
-
-<dt id="arg-x">x<a class="anchor" aria-label="anchor" href="#arg-x"></a></dt>
-<dd><p>A fitted <code>MEstimator</code> or <code>GMMEstimator</code> object. Named <code>x</code> because
-<code><a href="https://rdrr.io/r/stats/formula.html" class="external-link">stats::formula()</a></code> and <code><a href="https://rdrr.io/r/stats/terms.html" class="external-link">stats::terms()</a></code> name their first argument that.</p></dd>
 
 
 <dt id="arg-formula">formula<a class="anchor" aria-label="anchor" href="#arg-formula"></a></dt>
@@ -169,15 +182,9 @@ four describe how to build a frame from <code>data</code>, so supplying one with
 <code>data</code> is an error rather than a silent no-op.</p></dd>
 
 
-<dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
-<dd><p>Not used. <code><a href="https://rdrr.io/r/stats/confint.html" class="external-link">confint()</a></code>, <code><a href="https://rdrr.io/r/stats/residuals.html" class="external-link">residuals()</a></code>, <code><a href="https://rdrr.io/r/stats/model.frame.html" class="external-link">model.frame()</a></code>, and
-<code><a href="https://rdrr.io/r/stats/model.matrix.html" class="external-link">model.matrix()</a></code> require them to be empty, so that a name none of them
-recognizes is an error rather than silently ignored: a misspelled <code>level</code>
-would report the default limits, a misspelled <code>type</code> would report response
-residuals as though they had been asked for, and a misspelled <code>data</code> would
-report on the fitted rows while the caller believed they had asked for rows
-of their own. The rest ignore them, which is the convention for a base
-generic with no optional argument for a wrong name to displace.</p></dd>
+<dt id="arg-x">x<a class="anchor" aria-label="anchor" href="#arg-x"></a></dt>
+<dd><p>A fitted <code>MEstimator</code> or <code>GMMEstimator</code> object. Named <code>x</code> because
+<code><a href="https://rdrr.io/r/stats/formula.html" class="external-link">stats::formula()</a></code> and <code><a href="https://rdrr.io/r/stats/terms.html" class="external-link">stats::terms()</a></code> name their first argument that.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -307,7 +314,7 @@ beside the data.</p></div>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/stats/formula.html" class="external-link">formula</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> mpg ~ wt + hp</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x5579e1aee7b8&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x563b97831a18&gt;</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Weights reach a fit through the formula interface, and `weights()` reports</span></span></span>
 <span class="r-in"><span><span class="co"># the vector the fit was solved with.</span></span></span>

@@ -26,17 +26,6 @@ summary(object, alpha = 0.05, subset = NULL, ...)
   [`base::summary()`](https://rdrr.io/r/base/summary.html) name their
   first argument that.
 
-- alpha:
-
-  Numeric significance level for the confidence limits reported by
-  [`summary()`](https://rdrr.io/r/base/summary.html), between 0 and 1.
-  Default `0.05` for 95% limits.
-
-- subset:
-
-  Integer vector of parameter indices to display, or `NULL` (default) to
-  display all of them.
-
 - ...:
 
   Not used. Must be empty, so that a name neither method recognizes is
@@ -44,6 +33,17 @@ summary(object, alpha = 0.05, subset = NULL, ...)
   report limits at the default width and a misspelled `subset` would
   display every parameter, each while the call still read as the one
   that was meant.
+
+- subset:
+
+  Integer vector of parameter indices to display, or `NULL` (default) to
+  display all of them.
+
+- alpha:
+
+  Numeric significance level for the confidence limits reported by
+  [`summary()`](https://rdrr.io/r/base/summary.html), between 0 and 1.
+  Default `0.05` for 95% limits.
 
 ## Value
 

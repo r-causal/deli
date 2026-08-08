@@ -12,10 +12,19 @@ scale, and evaluates a survival measure at a set of `times` for a fit of
 
 ``` r
 # S3 method for class '`deli::deli_estimator`'
-predict(object, newdata = NULL,
-  type = c("link", "response"), se.fit = FALSE,
-  interval = c("none", "confidence"), level = 0.95, times = NULL,
-  measure = "survival", deriv_method = "capprox", dx = 1e-9, ...)
+predict(
+  object,
+  newdata = NULL,
+  type = c("link", "response"),
+  se.fit = FALSE,
+  interval = c("none", "confidence"),
+  level = 0.95,
+  times = NULL,
+  measure = "survival",
+  deriv_method = "capprox",
+  dx = 1e-09,
+  ...
+)
 ```
 
 ## Arguments

@@ -47,8 +47,15 @@ residuals(object, type = "response", ...)
 weights(object, ...)
 
 # S3 method for class '`deli::deli_estimator`'
-model.frame(formula, data = NULL, subset = NULL,
-  na.action, drop.unused.levels = FALSE, xlev = NULL, ...)
+model.frame(
+  formula,
+  data = NULL,
+  subset = NULL,
+  na.action,
+  drop.unused.levels = FALSE,
+  xlev = NULL,
+  ...
+)
 
 # S3 method for class '`deli::deli_estimator`'
 model.matrix(object, data = NULL, ...)
@@ -76,6 +83,20 @@ deviance(object, ...)
   A fitted `MEstimator` or `GMMEstimator` object (after calling
   [`estimate()`](https://r-causal.github.io/deli/reference/estimate.md)).
 
+- ...:
+
+  Not used. [`confint()`](https://rdrr.io/r/stats/confint.html),
+  [`residuals()`](https://rdrr.io/r/stats/residuals.html),
+  [`model.frame()`](https://rdrr.io/r/stats/model.frame.html), and
+  [`model.matrix()`](https://rdrr.io/r/stats/model.matrix.html) require
+  them to be empty, so that a name none of them recognizes is an error
+  rather than silently ignored: a misspelled `level` would report the
+  default limits, a misspelled `type` would report response residuals as
+  though they had been asked for, and a misspelled `data` would report
+  on the fitted rows while the caller believed they had asked for rows
+  of their own. The rest ignore them, which is the convention for a base
+  generic with no optional argument for a wrong name to displace.
+
 - parm:
 
   A specification of which parameters are to be given confidence
@@ -95,13 +116,6 @@ deviance(object, ...)
   [`predict()`](https://rdrr.io/r/stats/predict.html) supports. Any
   other value is an error rather than a response residual under another
   name.
-
-- x:
-
-  A fitted `MEstimator` or `GMMEstimator` object. Named `x` because
-  [`stats::formula()`](https://rdrr.io/r/stats/formula.html) and
-  [`stats::terms()`](https://rdrr.io/r/stats/terms.html) name their
-  first argument that.
 
 - formula:
 
@@ -128,19 +142,12 @@ deviance(object, ...)
   to build a frame from `data`, so supplying one without `data` is an
   error rather than a silent no-op.
 
-- ...:
+- x:
 
-  Not used. [`confint()`](https://rdrr.io/r/stats/confint.html),
-  [`residuals()`](https://rdrr.io/r/stats/residuals.html),
-  [`model.frame()`](https://rdrr.io/r/stats/model.frame.html), and
-  [`model.matrix()`](https://rdrr.io/r/stats/model.matrix.html) require
-  them to be empty, so that a name none of them recognizes is an error
-  rather than silently ignored: a misspelled `level` would report the
-  default limits, a misspelled `type` would report response residuals as
-  though they had been asked for, and a misspelled `data` would report
-  on the fitted rows while the caller believed they had asked for rows
-  of their own. The rest ignore them, which is the convention for a base
-  generic with no optional argument for a wrong name to displace.
+  A fitted `MEstimator` or `GMMEstimator` object. Named `x` because
+  [`stats::formula()`](https://rdrr.io/r/stats/formula.html) and
+  [`stats::terms()`](https://rdrr.io/r/stats/terms.html) name their
+  first argument that.
 
 ## Value
 
@@ -330,7 +337,7 @@ head(residuals(fit))
 
 formula(fit)
 #> mpg ~ wt + hp
-#> <environment: 0x5579e1aee7b8>
+#> <environment: 0x563b97831a18>
 
 # Weights reach a fit through the formula interface, and `weights()` reports
 # the vector the fit was solved with.
