@@ -50,5 +50,5 @@ fit <- m_estimate(mpg ~ wt + hp, data = mtcars, .ee = ee_regression,
 
 p_values(fit)
 #>  (Intercept)           wt           hp 
-#> 3.701056e-82 3.967539e-10 1.746674e-06 
+#> 3.701332e-82 3.967632e-10 1.746680e-06 
 ```

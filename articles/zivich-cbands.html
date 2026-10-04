@@ -6,6 +6,11 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Zivich et al. (2025): Confidence Bands • deli</title>
+<!-- favicons --><link rel="icon" type="image/png" sizes="96x96" href="../favicon-96x96.png">
+<link rel="icon" type="”image/svg+xml”" href="../favicon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
+<link rel="icon" sizes="any" href="../favicon.ico">
+<link rel="manifest" href="../site.webmanifest">
 <!-- katex math --><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+" crossorigin="anonymous">
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" integrity="sha384-7zkQWkzuo3B5mTepMUcHkMB5jZaolc2xDwL6VFqjFALcbeS9Ggm/Yr2r3Dy4lfFg" crossorigin="anonymous"></script><script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" integrity="sha384-43gviWU0YVjaDtb/GhzOouOXtZMP/7XUzwPTstBeZFe/+rCMvRwr4yROQP43s0Xk" crossorigin="anonymous" onload="renderMathInElement(document.body);"></script><script src="../katex-auto.js"></script><script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
@@ -14,6 +19,7 @@
 <script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><script src="zivich-cbands_files/libs/quarto-html/popper.min.js"></script><script src="zivich-cbands_files/libs/quarto-html/tippy.umd.min.js"></script><link href="zivich-cbands_files/libs/quarto-html/tippy.css" rel="stylesheet">
 <link href="zivich-cbands_files/libs/quarto-html/light-border.css" rel="stylesheet">
 <!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Zivich et al. (2025): Confidence Bands">
+<meta property="og:image" content="https://r-causal.github.io/deli/logo.png">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -63,8 +69,7 @@
 </nav><div class="container template-quarto">
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
-
-      <h1>Zivich et al. (2025): Confidence Bands</h1>
+      <img src="../logo.png" class="logo" alt=""><h1>Zivich et al. (2025): Confidence Bands</h1>
 
 
 
@@ -164,7 +169,7 @@
 <div class="sourceCode cell-code" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">ci</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">2</span>, <span class="op">]</span></span>
 <span><span class="co">#&gt;             lower    upper</span></span>
-<span><span class="co">#&gt; theta_1  43.28997 65.81965</span></span>
+<span><span class="co">#&gt; theta_1  43.28997 65.81966</span></span>
 <span><span class="co">#&gt; theta_2 -29.79386 30.18211</span></span></code></pre></div>
 </div>
 <p>and the 95% confidence bands are</p>
@@ -172,7 +177,7 @@
 <div class="sourceCode cell-code" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">cb</span></span>
 <span><span class="co">#&gt;             lower    upper</span></span>
-<span><span class="co">#&gt; theta_1  41.85506 67.25457</span></span>
+<span><span class="co">#&gt; theta_1  41.85505 67.25457</span></span>
 <span><span class="co">#&gt; theta_2 -33.61372 34.00197</span></span></code></pre></div>
 </div>
 <p>As shown here, the confidence bands encapsulate the confidence intervals. These wider intervals are the price we pay to have simultaneous coverage of our parameters. However, this drop in precision is important since our interest (and thus our interpretations) are for more than one parameter. This distinction between confidence regions is slightly easier to understand visually.</p>
@@ -307,10 +312,10 @@
 <span>  <span class="op">}</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="co">#&gt;               Names Estimate      Interval         Bands</span></span>
-<span><span class="co">#&gt; theta_1 (Intercept)    355.8 [327.5 384.2] [323.1 388.5]</span></span>
-<span><span class="co">#&gt; theta_2       treat     43.4    [8.1 78.7]    [2.6 84.1]</span></span>
-<span><span class="co">#&gt; theta_3        male    -27.1   [-58.9 4.7]   [-63.7 9.6]</span></span>
-<span><span class="co">#&gt; theta_4  treat:male     13.5  [-26.5 53.6]  [-32.6 59.7]</span></span></code></pre></div>
+<span><span class="co">#&gt; theta_1 (Intercept)    355.8 [327.5 384.2] [323.1 388.6]</span></span>
+<span><span class="co">#&gt; theta_2       treat     43.4    [8.1 78.7]    [2.6 84.2]</span></span>
+<span><span class="co">#&gt; theta_3        male    -27.1   [-58.9 4.7]   [-63.8 9.6]</span></span>
+<span><span class="co">#&gt; theta_4  treat:male     13.5  [-26.5 53.6]  [-32.7 59.7]</span></span></code></pre></div>
 </div>
 <p>Again, the bands compensate for the fact that we are interested in simultaneous inference. Additionally, we restrict the computation of the confidence bands only to the parameters of interest (the first 4 parameters of <code>theta</code>).</p>
 </section><section class="level2"><h2 id="case-study-3-effect-measure-modification-by-a-continuous-covariate">Case Study 3: Effect Measure Modification by a Continuous Covariate<a class="anchor" aria-label="anchor" href="#case-study-3-effect-measure-modification-by-a-continuous-covariate"></a>

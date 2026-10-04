@@ -194,7 +194,7 @@ cde <- cbind(estimate = coef(estr), confint(estr))[1:2, ]
 rownames(cde) <- c("CDE(1)", "CDE(0)")
 cde
 #>          estimate      lower     upper
-#> CDE(1) 0.10231467 0.06129449 0.1433349
+#> CDE(1) 0.10231467 0.06129448 0.1433349
 #> CDE(0) 0.09821973 0.07878279 0.1176567
 ```
 
