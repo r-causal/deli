@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1.74in" height="2in" viewBox="0 0 1740 2000">
+<title>deli package logo</title>
+<defs><clipPath id="hex"><polygon points="870,0 1740,500 1740,1500 870,2000 0,1500 0,500"/></clipPath></defs>
+<g clip-path="url(#hex)"><rect width="1740" height="2000" fill="#fcf3df"/>
+<image x="170" y="180" width="1400" height="1866.6666666666667" xlink:href="artwork.png"/>
+<g transform="translate(170 180) scale(1.2891344383)"><g transform="translate(421 714) rotate(0)"><text x="0" y="0" text-anchor="middle" font-family="STIX Two Math" font-size="75" fill="#f9e7bc">∑<tspan baseline-shift="sub" font-size="40">i</tspan> ψ<tspan baseline-shift="sub" font-size="40">i</tspan>(θ) = 0</text></g></g>
+<text x="870" y="1760" text-anchor="middle" font-family="Gill Sans" font-size="310" font-weight="700" fill="#23374b">deli</text><polygon id="sticker-border" points="870,0 1740,500 1740,1500 870,2000 0,1500 0,500" fill="none" stroke="#23374b" stroke-width="44" stroke-linejoin="miter"/></g></svg>
